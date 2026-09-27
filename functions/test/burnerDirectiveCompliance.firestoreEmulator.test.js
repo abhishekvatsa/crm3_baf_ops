@@ -153,11 +153,59 @@ describeWithEmulator('burner directive compliance real Firestore boundaries', ()
         ...overrides,
       };
     }
-    const invoke = (data = request(), {database = db, actorUid = ids.actor} = {}) =>
+    const invoke = (data = request(), {database = db, actorUid = ids.actor, at = CLOSED_AT} = {}) =>
       mutateBurnerDirectiveComplianceWithDb({db: database, authUid: actorUid, data,
-        now: () => new Date(CLOSED_AT), timestampFromDate: Timestamp.fromDate});
+        now: () => new Date(at), timestampFromDate: Timestamp.fromDate});
     return {ids, directiveId, actorPath, assetPath, pointerPath, roundRequest, survey, request, invoke};
   }
+
+  test.each([
+    ['client acknowledgement ahead of server', () => ({
+      acknowledgedAt: timestamp('2026-09-20T10:00:15.000Z'),
+      updatedAt: timestamp('2026-09-20T10:00:15.000Z'),
+    }), 'failed-precondition', 'burner-directive-compliance-clock-before-evidence'],
+    ['native timestamp one microsecond ahead', () => ({
+      acknowledgedAt: new Timestamp(timestamp(CLOSED_AT).seconds, 1000),
+      updatedAt: new Timestamp(timestamp(CLOSED_AT).seconds, 1000),
+    }), 'failed-precondition', 'burner-directive-compliance-clock-before-evidence'],
+    ['acknowledgement before creation', () => ({
+      acknowledgedAt: timestamp('2026-09-20T07:59:59.999Z'),
+    }), 'data-loss', 'burner-directive-compliance-chronology-invalid'],
+    ['acknowledgement after retained update', () => ({
+      acknowledgedAt: new Timestamp(timestamp(SOURCE_AT).seconds, 1000),
+    }), 'data-loss', 'burner-directive-compliance-chronology-invalid'],
+    ['malformed creation', () => ({createdAt: null}),
+      'data-loss', 'burner-directive-compliance-chronology-invalid'],
+    ['malformed optional issue', () => ({issuedAt: 'not-a-date'}),
+      'data-loss', 'burner-directive-compliance-chronology-invalid'],
+  ])('%s refuses all transaction writes and preserves canonical times', async (_, change, code, reasonCode) => {
+    const f = await fixture();
+    await db.doc(`directives/${f.directiveId}`).update(change());
+    const before = await state();
+    await expect(f.invoke()).rejects.toMatchObject({code, details: {reasonCode}});
+    expect(await state()).toEqual(before);
+  });
+
+  test('server catches up without relabelling acknowledgement and earlier-clock replay is write-free', async () => {
+    const f = await fixture();
+    const acknowledgement = timestamp('2026-09-20T10:00:15.000Z');
+    await db.doc(`directives/${f.directiveId}`).update({
+      issuedAt: null, acknowledgedAt: acknowledgement, updatedAt: acknowledgement,
+    });
+    const before = await state();
+    await expect(f.invoke()).rejects.toMatchObject({code: 'failed-precondition',
+      details: {reasonCode: 'burner-directive-compliance-clock-before-evidence'}});
+    expect(await state()).toEqual(before);
+    const accepted = await f.invoke(f.request(), {at: '2026-09-20T10:00:16.000Z'});
+    expect(await read(`directives/${f.directiveId}`)).toMatchObject({
+      status: 'closed', issuedAt: null, acknowledgedAt: acknowledgement,
+      closedAt: timestamp('2026-09-20T10:00:16.000Z'),
+      updatedAt: timestamp('2026-09-20T10:00:16.000Z'),
+    });
+    const after = await state();
+    expect(await f.invoke()).toEqual({...accepted, idempotentReplay: true});
+    expect(await state()).toEqual(after);
+  });
 
   test.each([
     ['restoredInService', 'serviceable'], ['uvMelted', 'melted'],

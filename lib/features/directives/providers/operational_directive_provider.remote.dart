@@ -262,7 +262,7 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
         );
       }
 
-      final now = DateTime.now().toIso8601String();
+      final now = governedAcknowledgementNow(current).toIso8601String();
       transaction.update(reference, {
         'status': DirectiveStatus.acknowledged.name,
         'isActive': true,

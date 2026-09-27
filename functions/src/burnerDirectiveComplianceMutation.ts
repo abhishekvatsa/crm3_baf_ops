@@ -2,6 +2,7 @@ import {createHash} from "crypto";
 
 import {AssetHierarchyMutationError} from "./assetHierarchyMutation";
 import {stableJson} from "./stableJson";
+import {persistedInstantMillis} from "./persistedInstant";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
 import {conditionProvenance, roundEvidenceHash} from "./burnerConditionEvidence";
 
@@ -697,6 +698,76 @@ function verifyDirective(
   return directiveBinding(data, request.directiveId);
 }
 
+/** Refuse a new closure that would make retained directive evidence unreadable.
+ * Receipt replay bypasses this fresh-action check and keeps its original time. */
+function verifyDirectiveChronology(data: JsonMap, committed: Date): void {
+  const malformed = (field: string): never => {
+    throw new AssetHierarchyMutationError(
+      "data-loss",
+      "The burner directive timeline is inconsistent. Review its recorded " +
+      "creation and acknowledgement times before completing compliance.",
+      {reasonCode: "burner-directive-compliance-chronology-invalid", field},
+    );
+  };
+  const read = (field: string): bigint => {
+    const value = data[field];
+    let millis: number;
+    try {
+      // Retain the established plant-local interpretation of old zone-less
+      // client ISO text; new acknowledgements use explicit UTC.
+      if (typeof value === "string") {
+        if (!/^\d{4}-\d{2}-\d{2}(?:[Tt ]|$)/.test(value.trim())) {
+          return malformed(field);
+        }
+        millis = persistedInstantMillis(value);
+      } else {
+        millis = timestampMillis(value, field);
+      }
+    } catch {
+      return malformed(field);
+    }
+    if (!Number.isFinite(millis)) return malformed(field);
+    // Compare at the strict Dart reader's microsecond precision, without
+    // rounding a retained acknowledgement down to the server's millisecond.
+    let remainder = 0;
+    if (typeof value === "string") {
+      const fraction = /\.(\d+)(?=Z|[+-]\d{2}:?\d{2}|$)/i.exec(value.trim());
+      remainder = Number((fraction?.[1] ?? "").padEnd(6, "0").slice(3, 6));
+    } else if (value != null && typeof value === "object") {
+      const stamp = value as {nanoseconds?: unknown; _nanoseconds?: unknown};
+      const nanos = stamp.nanoseconds ?? stamp._nanoseconds;
+      if (nanos != null) {
+        if (!Number.isSafeInteger(nanos) || (nanos as number) < 0 ||
+            (nanos as number) >= 1_000_000_000) return malformed(field);
+        remainder = Math.floor((nanos as number) / 1000) % 1000;
+      }
+    }
+    return BigInt(Math.floor(millis)) * 1000n + BigInt(remainder);
+  };
+  const created = read("createdAt");
+  const updated = read("updatedAt");
+  const issued = data.issuedAt == null ? null : read("issuedAt");
+  const acknowledged = data.acknowledgedAt == null ? null : read("acknowledgedAt");
+  if (updated < created) malformed("updatedAt");
+  for (const [field, value] of [["issuedAt", issued],
+    ["acknowledgedAt", acknowledged]] as const) {
+    if (value != null && (value < created || value > updated)) malformed(field);
+  }
+  if ((data.status === "acknowledged") !== (acknowledged != null)) {
+    malformed("acknowledgedAt");
+  }
+  if (!Number.isFinite(committed.getTime())) malformed("committedAt");
+  if (updated > BigInt(committed.getTime()) * 1000n) {
+    throw new AssetHierarchyMutationError(
+      "failed-precondition",
+      "The burner directive's recorded timeline is ahead of server time. " +
+      "Review device clocks and the recorded acknowledgement, then retry " +
+      "after server time has reached it. No evidence has been changed.",
+      {reasonCode: "burner-directive-compliance-clock-before-evidence"},
+    );
+  }
+}
+
 function verifySourceRound(
   source: RoundState,
   binding: DirectiveBinding,
@@ -1199,6 +1270,7 @@ export async function mutateBurnerDirectiveComplianceWithDb(args: {
     const newDirectiveId = directivePositions.length === 0 ? null :
       successorDirectiveId;
     const committed = now();
+    verifyDirectiveChronology(directive, committed);
     const committedAt = timestampFromDate(committed);
     const committedAtIso = committed.toISOString();
     const recordedByName = actorName(actor.data);

@@ -193,6 +193,10 @@ function directive(overrides = {}) {
     status: 'acknowledged',
     isActive: true,
     acknowledgedByUid: 'actor-1',
+    acknowledgedAt: '2026-08-28T10:00:00.000Z',
+    createdAt: '2026-08-28T10:00:00.000Z',
+    issuedAt: '2026-08-28T10:00:00.000Z',
+    updatedAt: '2026-08-28T10:00:00.000Z',
     createdByUid: 'operations-1',
     issuedByUid: 'operations-1',
     isDeleted: false,
@@ -269,6 +273,65 @@ async function invoke(memory, data = request()) {
 }
 
 describe('burner directive compliance mutation', () => {
+  test.each([
+    ['missing creation', {createdAt: null}],
+    ['malformed creation', {createdAt: 'not-a-date'}],
+    ['numeric-looking creation', {createdAt: '0'}],
+    ['malformed update', {updatedAt: {seconds: 1, nanoseconds: 0}}],
+    ['malformed optional issue', {issuedAt: 'not-a-date'}],
+    ['missing acknowledgement', {acknowledgedAt: null}],
+    ['malformed acknowledgement', {acknowledgedAt: true}],
+    ['update before creation', {updatedAt: '2026-08-28T09:59:59.999Z'}],
+    ['issue before creation', {issuedAt: '2026-08-28T09:59:59.999Z'}],
+    ['ack before creation', {acknowledgedAt: '2026-08-28T09:59:59.999Z'}],
+    ['ack after update', {acknowledgedAt: '2026-08-28T10:00:00.000001Z'}],
+    ['issue after update', {issuedAt: '2026-08-28T10:00:00.000001Z'}],
+  ])('%s refuses new closure without changing any evidence', async (_, changes) => {
+    const memory = fakeDb(seed({[`directives/${directiveId}`]: directive(changes)}));
+    const before = clone([...memory.store]);
+    await expect(invoke(memory)).rejects.toMatchObject({code: 'data-loss',
+      details: {reasonCode: 'burner-directive-compliance-chronology-invalid'}});
+    expect([...memory.store]).toEqual(before);
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each(['2026-08-28T11:00:15.000Z', '2026-08-28T11:00:00.000001Z'])(
+    'future acknowledged evidence %s is retained until server time catches up', async (at) => {
+      const memory = fakeDb(seed({[`directives/${directiveId}`]: directive({
+        acknowledgedAt: at, updatedAt: at,
+      })}));
+      const before = clone([...memory.store]);
+      await expect(invoke(memory)).rejects.toMatchObject({code: 'failed-precondition',
+        details: {reasonCode: 'burner-directive-compliance-clock-before-evidence'}});
+      expect([...memory.store]).toEqual(before);
+      expect(memory.writes).toHaveLength(0);
+      const accepted = await mutateBurnerDirectiveComplianceWithDb({db: memory.db,
+        authUid: 'actor-1', data: request(), now: () => new Date('2026-08-28T11:00:16.000Z')});
+      expect(memory.store.get(`directives/${directiveId}`).acknowledgedAt).toBe(at);
+      const after = clone([...memory.store]);
+      // An accepted retry uses its immutable receipt, even if a later server
+      // clock is temporarily behind the already accepted closure timestamp.
+      expect(await invoke(memory)).toEqual({...accepted, idempotentReplay: true});
+      expect([...memory.store]).toEqual(after);
+    });
+
+  test.each([null, undefined])('legacy optional issuedAt %s remains admissible', async (issuedAt) => {
+    const source = directive({issuedAt});
+    if (issuedAt === undefined) delete source.issuedAt;
+    const memory = fakeDb(seed({[`directives/${directiveId}`]: source}));
+    expect((await invoke(memory)).ok).toBe(true);
+    expect(memory.store.get(`directives/${directiveId}`).issuedAt).toBe(issuedAt);
+  });
+
+  test('legacy plant-local acknowledgement retains the exact original wire value', async () => {
+    const localTime = '2026-08-28T15:30:00.000001';
+    const memory = fakeDb(seed({[`directives/${directiveId}`]: directive({
+      acknowledgedAt: localTime, updatedAt: localTime,
+    })}));
+    expect((await invoke(memory)).ok).toBe(true);
+    expect(memory.store.get(`directives/${directiveId}`).acknowledgedAt).toBe(localTime);
+  });
+
   test.each(Array.from({length: 8}, (_, index) => index + 1).flatMap((position) =>
     ['restoredInService', 'uvMelted', 'uvMissing', 'uvHungRemoved']
       .map((disposition) => [position, disposition])))(
