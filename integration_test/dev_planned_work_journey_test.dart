@@ -146,6 +146,7 @@ Future<QueryDocumentSnapshot<Map<String, dynamic>>> _findOne(
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  WidgetController.hitTestWarningShouldBeFatal = true;
   testWidgets(
     'phone planned work publication to reviewed completion',
     (tester) async {
@@ -297,10 +298,26 @@ void main() {
         reason:
             'Resume the same interrupted DEV work; never duplicate assignment.',
       );
+      // The real publication notice can outlive the server readback and follow
+      // us onto Home. Let its normal lifetime finish before touching controls
+      // that it can cover on a smaller emulator display.
+      await waitFor(
+        tester,
+        () => find.byType(SnackBar).evaluate().isEmpty,
+        'Publication confirmation must finish before assignment navigation.',
+        seconds: 20,
+      );
       await _home(tester);
       await tester.tap(find.text('Work'));
       await tester.pump(const Duration(milliseconds: 500));
-      await tapControl(tester, find.text('Assign Published'));
+      final assignPublished = find.text('Assign Published');
+      await showControl(tester, assignPublished);
+      await waitFor(
+        tester,
+        () => assignPublished.hitTestable().evaluate().isNotEmpty,
+        'Assign Published must be visible and unobstructed before tapping.',
+      );
+      await tapControl(tester, assignPublished.hitTestable());
       await waitFor(
         tester,
         () => find
