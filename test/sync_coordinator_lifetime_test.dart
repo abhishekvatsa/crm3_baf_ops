@@ -16,6 +16,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'a reconciled conflict without deferred stages is not a failed push',
+    (tester) async {
+      final owner = _Owner();
+      addTearDown(owner.dispose);
+      owner.pushConflicts = 1;
+      expect(
+        await owner.coordinator.runFullSyncWithResult(force: true),
+        SyncRequestOutcome.succeeded,
+      );
+      final health = owner.container.read(syncRunHealthProvider);
+      expect(health.conflictCount, 1);
+      expect(health.failureCount, 0);
+      expect(health.deferredStageCount, 0);
+      expect(health.lastPartiallySucceeded, isFalse);
+      owner.dispose();
+    },
+  );
+
   testWidgets('push failures still pull and remain partial until a clean run', (
     tester,
   ) async {
@@ -253,7 +272,7 @@ class _Owner {
       reads = _Reads(ref);
       final value = SyncCoordinator(
         reads,
-        _Push(phase, () => pushFailures),
+        _Push(phase, () => pushFailures, () => pushConflicts),
         _Pull(phase),
         guard,
         connectivity: connectivity,
@@ -282,6 +301,7 @@ class _Owner {
   final pending = Completer<void>();
   final calls = <String>[];
   int pushFailures = 0;
+  int pushConflicts = 0;
   int sessionEpoch = 0;
   String? failedPhase;
   Object phaseError = StateError('injected repository failure');
@@ -323,9 +343,10 @@ class _Connectivity extends Fake implements Connectivity {
 }
 
 class _Push extends Fake implements SyncService {
-  _Push(this.phase, this.failureCount);
+  _Push(this.phase, this.failureCount, this.conflictCount);
   final _Phase phase;
   final int Function() failureCount;
+  final int Function() conflictCount;
   @override
   Future<void> syncAll({
     bool recheckPermanentRejections = false,
@@ -336,7 +357,9 @@ class _Push extends Fake implements SyncService {
   @override
   int get lastFailureCount => failureCount();
   @override
-  int get lastConflictCount => 0;
+  int get lastConflictCount => conflictCount();
+  @override
+  Set<String> get lastDeferredPushStages => {};
   @override
   int get lastFailureDetailOverflowCount => 0;
   @override

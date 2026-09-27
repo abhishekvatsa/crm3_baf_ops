@@ -5,10 +5,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
     // Version lifecycle must reach Firestore before a package points at an
     // active version or a publish audit is allowed to leave the device.
     if (!await _guardedPushAwait(
-      () async => _runPushStage('template_version', () async {
-        await _syncTemplateVersions();
-        _checkRunCurrent();
-      }),
+      () async => _runPushStage(
+        'template_version',
+        () async {
+          await _syncTemplateVersions();
+          _checkRunCurrent();
+        },
+        dependentStages: const ['template_package', 'template_publish_audit'],
+      ),
     )) {
       return;
     }
@@ -16,7 +20,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
       () async => _runPushStage('template_package', () async {
         await _syncTemplatePackages();
         _checkRunCurrent();
-      }),
+      }, dependentStages: const ['template_publish_audit']),
     )) {
       return;
     }

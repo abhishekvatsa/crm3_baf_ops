@@ -14,8 +14,9 @@ extension _SyncServicePushInfrastructure on SyncService {
   /// independent domains may continue; dependent stages keep their local work.
   Future<bool> _runPushStage(
     String entityType,
-    Future<void> Function() operation,
-  ) async {
+    Future<void> Function() operation, {
+    List<String> dependentStages = const [],
+  }) async {
     _checkRunCurrent();
     final failuresBefore = lastFailureCount;
     final conflictsBefore = lastConflictCount;
@@ -42,8 +43,16 @@ extension _SyncServicePushInfrastructure on SyncService {
       debugPrintStack(stackTrace: stackTrace);
       await _flushPushDiagnostics();
     }
-    return failuresBefore == lastFailureCount &&
+    final prerequisiteSucceeded =
+        failuresBefore == lastFailureCount &&
         conflictsBefore == lastConflictCount;
+    if (!prerequisiteSucceeded) {
+      // A conflict may have been safely reconciled without a failed write.
+      // Still account for the dependent stages this pass deliberately skips;
+      // neither successful reconciliation nor a completed pull sent that work.
+      lastDeferredPushStages.addAll(dependentStages);
+    }
+    return prerequisiteSucceeded;
   }
 
   Future<void> _flushPushDiagnostics() async {

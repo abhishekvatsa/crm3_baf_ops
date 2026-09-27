@@ -1,3 +1,8 @@
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crm3_baf_ops/core/providers/sync_status_provider.dart';
+import 'package:crm3_baf_ops/core/services/global_pull_service.dart';
+import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
+import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
 import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'package:crm3_baf_ops/core/services/sync_push_snapshot.dart';
@@ -10,6 +15,11 @@ import 'package:crm3_baf_ops/features/directives/data/operational_directive_mode
 import 'package:crm3_baf_ops/features/directives/providers/operational_directive_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow_repository.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_pull_service.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_uncertain_retry_service.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_diary_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_template_model.dart';
@@ -22,8 +32,111 @@ import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_gov
 import 'package:crm3_baf_ops/features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 void main() {
+  testWidgets(
+    'reconciled execution conflict keeps dependent work visibly pending until the next run',
+    (tester) async {
+      final rig = _Rig()
+        ..localExecution = _execution(deleted: true)
+        ..remoteExecution = _execution(deleted: false)
+        ..pendingModule = (JobModuleInstance()
+          ..id = 12
+          ..firestoreId = 'pending-module'
+          ..jobExecutionFirestoreId = 'reconciled-job'
+          ..moduleTitle = 'Inspection'
+          ..draftNote = 'Unsent inspection evidence'
+          ..createdAt = DateTime.utc(2026, 9, 20)
+          ..updatedAt = DateTime.utc(2026, 9, 21))
+        ..pushType = true;
+      final pendingBefore = rig.pendingModule!.toMap();
+      final pull = _Pull();
+      final owner = Provider<SyncCoordinator>((ref) {
+        final coordinator = SyncCoordinator(
+          ref,
+          rig.service,
+          pull,
+          LocalRecoverySessionGuard(),
+          connectivity: _Connectivity(),
+          runGuardFactory: () => SyncRunGuard(() {}),
+        );
+        ref.onDispose(coordinator.dispose);
+        return coordinator;
+      });
+      final container = ProviderContainer(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+          workflowUncertainRetryServiceProvider.overrideWithValue(_Retry()),
+          workflowRepositoryProvider.overrideWithValue(_WorkflowRepository()),
+          workflowPullServiceProvider.overrideWithValue(_WorkflowPull()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final coordinator = container.read(owner);
+      final outcome = await coordinator.runFullSyncWithResult(force: true);
+
+      expect(rig.localExecution!.isDeleted, isFalse);
+      expect(rig.localExecution!.isSynced, isTrue);
+      expect(rig.audits.single.before!['isDeleted'], isTrue);
+      expect(rig.audits.single.after!['isDeleted'], isFalse);
+      expect(rig.service.lastConflictCount, 1);
+      expect(rig.service.lastFailureCount, 0);
+      expect(rig.service.lastDeferredPushStages, {
+        'job_diary',
+        'job_module',
+        'job_execution_closure',
+      });
+      expect(
+        rig.visits,
+        _allStages.where(
+          (stage) => !['diary', 'modules', 'closures'].contains(stage),
+        ),
+      );
+      expect(rig.moduleWrites, isEmpty);
+      expect(rig.pendingModule!.isSynced, isFalse);
+      expect(rig.pendingModule!.toMap(), pendingBefore);
+      expect(
+        rig.typeWriteCalls,
+        1,
+        reason: 'independent work still progresses',
+      );
+      expect(pull.calls, 1, reason: 'the canonical refresh still completes');
+      expect(outcome, SyncRequestOutcome.partial);
+      final health = container.read(syncRunHealthProvider);
+      expect(health.lastSucceeded, isFalse);
+      expect(health.lastPartiallySucceeded, isTrue);
+      expect(health.deferredStageCount, 3);
+      expect(
+        health.failureCount,
+        0,
+        reason: 'reconciliation is not a failed write',
+      );
+      expect(health.lastError, contains('deferred'));
+      await tester.pump(const Duration(seconds: 6));
+      expect(container.read(syncStatusProvider), SyncStatus.partial);
+
+      rig.visits.clear();
+      expect(
+        await coordinator.runFullSyncWithResult(force: true),
+        SyncRequestOutcome.succeeded,
+      );
+      expect(rig.visits, _allStages);
+      expect(rig.moduleWrites.single, pendingBefore);
+      expect(rig.pendingModule!.isSynced, isTrue);
+      expect(rig.service.lastConflictCount, 0);
+      expect(rig.service.lastDeferredPushStages, isEmpty);
+      expect(pull.calls, 2);
+      expect(container.read(syncRunHealthProvider).lastError, isNull);
+      expect(container.read(syncRunHealthProvider).deferredStageCount, 0);
+      expect(
+        container.read(syncRunHealthProvider).lastPartiallySucceeded,
+        isFalse,
+      );
+      coordinator.dispose();
+    },
+  );
+
   test(
     'an early batch failure preserves order and attempts independent pushes',
     () async {
@@ -302,6 +415,11 @@ class _Rig {
   Object? typeWriteError;
   int typeWriteCalls = 0;
   int typesMarked = 0;
+  JobExecution? localExecution;
+  JobExecution? remoteExecution;
+  JobModuleInstance? pendingModule;
+  final moduleWrites = <Map<String, dynamic>>[];
+  final audits = <AuditEvent>[];
   late final auth = _Auth();
   late final service = SyncService(
     maintenanceRepo: _Maintenance(this),
@@ -358,7 +476,28 @@ class _Planned extends PlannedMaintenanceRepository {
   @override
   Future<List<JobExecution>> getUnsyncedExecutions() async {
     rig.visit(rig.visits.contains('executions') ? 'closures' : 'executions');
-    return [];
+    final record = rig.localExecution;
+    return record != null && !record.isSynced ? [record] : [];
+  }
+
+  @override
+  Future<List<JobExecution>> getExecutionsByFirestoreIds(
+    List<String> ids,
+  ) async => rig.remoteExecution == null ? [] : [rig.remoteExecution!];
+
+  @override
+  Future<bool> applyExecutionServerReadbackIfUnchanged(
+    JobExecution remote, {
+    required SyncPushSnapshot expectedLocal,
+    required bool expectedLocalSynced,
+    String? reason,
+  }) async {
+    expect(expectedLocal.id, rig.localExecution!.id);
+    expect(expectedLocal.version, rig.localExecution!.version);
+    expect(expectedLocal.updatedAt, rig.localExecution!.updatedAt);
+    expect(expectedLocalSynced, rig.localExecution!.isSynced);
+    rig.localExecution = remote..isSynced = true;
+    return true;
   }
 
   @override
@@ -420,6 +559,9 @@ class _Modules extends JobModuleRepository {
   @override
   Future<List<JobModuleInstance>> getUnsyncedModules() async {
     rig.visit('modules');
+    if (rig.pendingModule != null) {
+      return rig.pendingModule!.isSynced ? [] : [rig.pendingModule!];
+    }
     return rig.badModule
         ? [
             JobModuleInstance()
@@ -433,6 +575,22 @@ class _Modules extends JobModuleRepository {
   Future<List<JobModuleInstance>> getModulesByFirestoreIds(
     List<String> ids,
   ) async => [];
+  @override
+  Future<void> batchUpsertModules(List<JobModuleInstance> records) async {
+    rig.moduleWrites.addAll(records.map((record) => record.toMap()));
+  }
+
+  @override
+  Future<void> markModulesSyncedIfUnchanged(
+    List<SyncPushSnapshot> snapshots,
+  ) async {
+    final record = rig.pendingModule!;
+    expect(snapshots.single.id, record.id);
+    expect(snapshots.single.version, record.version);
+    expect(snapshots.single.updatedAt, record.updatedAt);
+    record.isSynced = true;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -532,6 +690,7 @@ class _Audit extends AuditRepository {
     SyncRunGuard? runGuard,
   }) async {
     runGuard?.checkCurrent();
+    rig.audits.add(event);
   }
 
   @override
@@ -567,4 +726,63 @@ class _User extends Fake implements User {
   String? get displayName => 'Actor';
   @override
   String? get email => null;
+}
+
+JobExecution _execution({required bool deleted}) => JobExecution()
+  ..id = 11
+  ..firestoreId = 'reconciled-job'
+  ..templateFirestoreId = 'inspection-template'
+  ..assetType = AssetType.furnace
+  ..assetNumber = 1
+  ..createdAt = DateTime.utc(2026, 9, 19)
+  ..updatedAt = DateTime.utc(2026, 9, deleted ? 20 : 21)
+  ..version = deleted ? 2 : 3
+  ..isDeleted = deleted;
+
+class _Connectivity extends Fake implements Connectivity {
+  @override
+  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
+      const Stream.empty();
+}
+
+class _Pull extends Fake implements GlobalPullService {
+  int calls = 0;
+  @override
+  Future<void> pullAndReconcile({SyncRunGuard? runGuard}) async {
+    calls++;
+  }
+
+  @override
+  Set<String> get lastConflictKeys => {};
+  @override
+  int get lastConflicted => 0;
+  @override
+  Null get lastFailedDomain => null;
+}
+
+class _Retry extends Fake implements WorkflowUncertainRetryService {
+  @override
+  Future<WorkflowRetryRunSummary> retryDueCommands({
+    SyncRunGuard? runGuard,
+  }) async => const WorkflowRetryRunSummary();
+}
+
+class _WorkflowRepository extends Fake implements WorkflowRepository {
+  @override
+  Future<WorkflowOutcomeInventory> readOutcomeInventory() async =>
+      const WorkflowOutcomeInventory();
+}
+
+class _WorkflowPull extends Fake implements WorkflowPullService {
+  @override
+  Future<WorkflowPullSummary> pull({SyncRunGuard? runGuard}) async =>
+      const WorkflowPullSummary(
+        workflows: 0,
+        lanes: 0,
+        compliance: 0,
+        attempts: 0,
+        equipment: 0,
+        prompts: 0,
+        events: 0,
+      );
 }

@@ -207,6 +207,10 @@ class SyncService {
   int lastFailureDetailOverflowCount = 0;
   static const int _maxFailureDetails = 12;
   final Set<String> lastConflictKeys = <String>{};
+
+  /// Stages deliberately not attempted because their prerequisite changed or
+  /// failed. These are stage identities, not a count of failed/pending records.
+  final Set<String> lastDeferredPushStages = <String>{};
   final List<SyncFailureDetail> lastFailureDetails = <SyncFailureDetail>[];
   DateTime? lastSyncTime;
 
@@ -360,6 +364,7 @@ class SyncService {
     lastConflictCount = 0;
     lastFailureDetailOverflowCount = 0;
     lastConflictKeys.clear();
+    lastDeferredPushStages.clear();
     lastFailureDetails.clear();
 
     final start = _now();
@@ -370,7 +375,7 @@ class SyncService {
       });
       if (await _runPushStage('job_template', () async {
         await _syncTemplates();
-      })) {
+      }, dependentStages: const ['template_governance'])) {
         await _runPushStage('template_governance', () async {
           await _syncTemplateGovernance();
         });
@@ -381,12 +386,24 @@ class SyncService {
       // Push open/non-completion execution edits first so new assigned jobs exist.
       // Completed execution pushes are deferred until after job_modules are
       // pushed; the server closure function validates canonical remote modules.
-      if (await _runPushStage('job_execution', () async {
-            await _syncExecutions(skipCompletedClosures: true);
-          }) &&
-          await _runPushStage('job_diary', () async {
-            await _syncJobDiaryEntries();
-          }) &&
+      if (await _runPushStage(
+            'job_execution',
+            () async {
+              await _syncExecutions(skipCompletedClosures: true);
+            },
+            dependentStages: const [
+              'job_diary',
+              'job_module',
+              'job_execution_closure',
+            ],
+          ) &&
+          await _runPushStage(
+            'job_diary',
+            () async {
+              await _syncJobDiaryEntries();
+            },
+            dependentStages: const ['job_module', 'job_execution_closure'],
+          ) &&
           await _runPushStage('job_module', () async {
             // ORDER DEPENDENCY: job modules must reach Firestore before completed
             // execution closures are submitted through the Cloud Function. The
@@ -394,7 +411,7 @@ class SyncService {
             // completion, so swapping the next two calls can create false server
             // rejections and must be treated as a sync/no-loss behavior change.
             await _syncJobModules();
-          })) {
+          }, dependentStages: const ['job_execution_closure'])) {
         await _runPushStage('job_execution_closure', () async {
           await _syncCompletedExecutionClosures();
         });
@@ -406,7 +423,7 @@ class SyncService {
       // Master data first, then event records.
       if (await _runPushStage('abnormality_type', () async {
         await _syncAbnormalityTypes();
-      })) {
+      }, dependentStages: const ['charge_abnormality'])) {
         await _runPushStage('charge_abnormality', () async {
           await _syncChargeAbnormalities();
         });
@@ -487,7 +504,8 @@ class SyncService {
       final duration = _now().difference(start).inMilliseconds;
 
       debugPrint(
-        '📊 Sync complete → $lastSuccessCount success, $lastFailureCount failed (${duration}ms)',
+        '📊 Sync complete → $lastSuccessCount success, $lastFailureCount failed, '
+        '${lastDeferredPushStages.length} deferred stages (${duration}ms)',
       );
     }
   }

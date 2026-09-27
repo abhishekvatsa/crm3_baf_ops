@@ -128,6 +128,7 @@ class SyncRunHealth {
   final int successCount;
   final int failureCount;
   final int conflictCount;
+  final int deferredStageCount;
   final int runCount;
   final String? lastError;
   final List<SyncFailureDetail> failureDetails;
@@ -157,6 +158,7 @@ class SyncRunHealth {
     this.successCount = 0,
     this.failureCount = 0,
     this.conflictCount = 0,
+    this.deferredStageCount = 0,
     this.runCount = 0,
     this.lastError,
     this.failureDetails = const <SyncFailureDetail>[],
@@ -182,6 +184,7 @@ class SyncRunHealth {
     int? successCount,
     int? failureCount,
     int? conflictCount,
+    int? deferredStageCount,
     int? runCount,
     String? lastError,
     List<SyncFailureDetail>? failureDetails,
@@ -211,6 +214,7 @@ class SyncRunHealth {
       successCount: successCount ?? this.successCount,
       failureCount: failureCount ?? this.failureCount,
       conflictCount: conflictCount ?? this.conflictCount,
+      deferredStageCount: deferredStageCount ?? this.deferredStageCount,
       runCount: runCount ?? this.runCount,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       failureDetails: failureDetails ?? this.failureDetails,
@@ -412,6 +416,7 @@ class SyncCoordinator {
       successCount: 0,
       failureCount: 0,
       conflictCount: 0,
+      deferredStageCount: 0,
       failureDetails: const <SyncFailureDetail>[],
       failureDetailOverflowCount: 0,
       lastFailureLikelyPermanent: false,
@@ -474,8 +479,10 @@ class SyncCoordinator {
       }
 
       final hasFailures = _sync.lastFailureCount > 0;
+      final deferredStageCount = _sync.lastDeferredPushStages.length;
+      final hasIncompletePush = hasFailures || deferredStageCount > 0;
 
-      _ref.read(syncStatusProvider.notifier).state = hasFailures
+      _ref.read(syncStatusProvider.notifier).state = hasIncompletePush
           ? SyncStatus.partial
           : SyncStatus.success;
 
@@ -489,8 +496,8 @@ class SyncCoordinator {
         isRunning: false,
         lastCompletedAt: completedAt,
         lastReason: reason,
-        lastSucceeded: !hasFailures,
-        lastPartiallySucceeded: hasFailures,
+        lastSucceeded: !hasIncompletePush,
+        lastPartiallySucceeded: hasIncompletePush,
         // The data plane succeeding and submitted work needing attention are
         // different facts, and the operator is entitled to both. This does not
         // turn a workflow rejection into a failed sync.
@@ -499,9 +506,13 @@ class SyncCoordinator {
         successCount: _sync.lastSuccessCount,
         failureCount: _sync.lastFailureCount,
         conflictCount: conflictCount,
+        deferredStageCount: deferredStageCount,
         runCount: nextRunCount,
         lastError: hasFailures
             ? 'Pull completed; some changes still need attention.'
+            : deferredStageCount > 0
+            ? 'Pull completed; some sync steps were deferred after reconciliation. '
+                  'Sync again to check remaining local work.'
             : null,
         failureDetails: failureDetails,
         failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
@@ -510,31 +521,32 @@ class SyncCoordinator {
             failureDetails.isNotEmpty &&
             _sync.lastFailureDetailOverflowCount == 0 &&
             failureDetails.every((detail) => detail.isLikelyPermanent),
-        clearLastError: !hasFailures,
+        clearLastError: !hasIncompletePush,
       );
 
       unawaited(
         _publishSyncCompletionContext(
           reason: reason,
           force: force,
-          succeeded: !hasFailures,
-          partiallySucceeded: hasFailures,
+          succeeded: !hasIncompletePush,
+          partiallySucceeded: hasIncompletePush,
           completedAt: completedAt,
           successCount: _sync.lastSuccessCount,
           failureCount: _sync.lastFailureCount,
           conflictCount: conflictCount,
+          deferredStageCount: deferredStageCount,
           runCount: nextRunCount,
           failureDetails: failureDetails,
           failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
         ),
       );
 
-      if (hasFailures) {
+      if (hasIncompletePush) {
         final firstFailure = failureDetails.isEmpty
             ? null
             : failureDetails.first;
         AppLogger.warning(
-          'Full sync completed with push failures',
+          'Full sync completed with pending push work',
           context: {
             'app_area': 'sync',
             'sync_reason': reason,
@@ -542,6 +554,7 @@ class SyncCoordinator {
             'sync_success_count': _sync.lastSuccessCount,
             'sync_failure_count': _sync.lastFailureCount,
             'sync_conflict_count': conflictCount,
+            'sync_deferred_stage_count': deferredStageCount,
             if (firstFailure != null)
               'sync_first_failure_entity_type': firstFailure.entityType,
             if (firstFailure?.errorCode != null)
@@ -578,6 +591,9 @@ class SyncCoordinator {
           (pullStarted ? _pull.lastConflicted : 0);
       final successCount = pushStarted ? _sync.lastSuccessCount : 0;
       final failureCount = pushStarted ? _sync.lastFailureCount : 0;
+      final deferredStageCount = pushStarted
+          ? _sync.lastDeferredPushStages.length
+          : 0;
       final detailOverflow = pushStarted
           ? _sync.lastFailureDetailOverflowCount
           : 0;
@@ -593,6 +609,7 @@ class SyncCoordinator {
         successCount: successCount,
         failureCount: failureCount,
         conflictCount: conflictCount,
+        deferredStageCount: deferredStageCount,
         runCount: nextRunCount,
         lastError: '$error',
         failureDetails: failureDetails,
@@ -609,6 +626,7 @@ class SyncCoordinator {
           successCount: successCount,
           failureCount: failureCount,
           conflictCount: conflictCount,
+          deferredStageCount: deferredStageCount,
           runCount: nextRunCount,
           failureDetails: failureDetails,
           failureDetailOverflowCount: detailOverflow,
@@ -969,6 +987,7 @@ class SyncCoordinator {
       'sync_last_started_at': startedAt.toIso8601String(),
       'sync_last_succeeded': false,
       'sync_last_partially_succeeded': false,
+      'sync_deferred_stage_count': 0,
     });
     AppLogger.info(
       'Full sync started',
@@ -989,6 +1008,7 @@ class SyncCoordinator {
     required int successCount,
     required int failureCount,
     required int conflictCount,
+    required int deferredStageCount,
     required int runCount,
     required List<SyncFailureDetail> failureDetails,
     required int failureDetailOverflowCount,
@@ -1005,6 +1025,7 @@ class SyncCoordinator {
       'sync_last_success_count': successCount,
       'sync_last_failure_count': failureCount,
       'sync_last_conflict_count': conflictCount,
+      'sync_deferred_stage_count': deferredStageCount,
       'sync_run_count': runCount,
       'sync_failure_detail_overflow': failureDetailOverflowCount,
       'sync_first_failure_entity_type': firstFailure?.entityType ?? '',
