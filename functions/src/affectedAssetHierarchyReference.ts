@@ -71,8 +71,12 @@ const positiveInteger = (value: unknown): value is number =>
 const optionalPositiveInteger = (value: unknown): boolean =>
   value == null || positiveInteger(value);
 
-const instant = (value: unknown): value is string =>
-  text(value, 80) && isValidPersistedInstant(value);
+// References also come from Firestore documents and audit JSON, where nested
+// instants are native Timestamps (or their seconds/nanoseconds representation).
+// Validate the same instant without rewriting the original lineage evidence.
+const instant = (value: unknown): boolean =>
+  (typeof value !== "string" || text(value, 80)) &&
+  isValidPersistedInstant(value);
 
 const optionalInstant = (value: unknown): boolean =>
   value == null || instant(value);

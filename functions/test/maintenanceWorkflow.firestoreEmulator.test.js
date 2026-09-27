@@ -1416,7 +1416,7 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     expect(current.completedAt.toDate().toISOString()).toBe('2026-08-28T09:00:00.000Z');
     expect(current.recordedAt.toDate().toISOString()).toBe('2026-08-28T13:00:00.000Z');
     const replay = await service.execute(command, context);
-    expect(replay.result.currentEventId).toBe(accepted.result.currentEventId);
+    expect(replay).toEqual(accepted);
     expect((await db.doc(currentPath).get()).data()).toEqual(current);
     expect((await db.collection('uv_detector_lifecycle_events').get()).docs.map(doc => doc.data()))
       .toEqual(historyBefore);
@@ -1459,8 +1459,7 @@ describeWithEmulator('maintenance workflow Firestore serialization', () => {
     });
     const current = (await db.doc(currentPath).get()).data();
     const replay = await service.execute(command, {...context, serverNow: new Date('2026-08-31T09:00:00.000Z')});
-    expect(replay.aggregateVersion).toBe(accepted.aggregateVersion);
-    expect(replay.result.currentActionPerformedAt.toDate().toISOString()).toBe(accepted.result.currentActionPerformedAt);
+    expect(replay).toEqual(accepted);
     expect((await db.doc(currentPath).get()).data()).toEqual(current);
     expect(current.sourceId).toBe('later-physical-uv-installation');
     expect((await db.collection('uv_detector_lifecycle_corrections').get()).size).toBe(1);

@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import {DocumentReference, FieldValue, GeoPoint, Timestamp} from "firebase-admin/firestore";
 import {DocSnapshot, QueryFilter, WorkflowStore, WorkflowTransaction} from "./store";
 import {JsonMap} from "./types";
 
@@ -7,10 +8,10 @@ const isTimestampField = (key: string): boolean =>
   key === "timestamp" || (key !== "appliedAt" && (key.endsWith("At") || key.endsWith("Since") || key.endsWith("DueAt")));
 
 const isNativeFirestoreValue = (value: unknown): boolean =>
-  value instanceof admin.firestore.Timestamp ||
-  value instanceof admin.firestore.GeoPoint ||
-  value instanceof admin.firestore.DocumentReference ||
-  value instanceof admin.firestore.FieldValue ||
+  value instanceof Timestamp ||
+  value instanceof GeoPoint ||
+  value instanceof DocumentReference ||
+  value instanceof FieldValue ||
   value instanceof Uint8Array;
 
 const toFirestoreValue = (value: unknown, key = ""): unknown => {
@@ -18,9 +19,9 @@ const toFirestoreValue = (value: unknown, key = ""): unknown => {
   // Recursing into Timestamp/GeoPoint/DocumentReference/FieldValue instances
   // would turn them into ordinary maps and silently corrupt persisted types.
   if (isNativeFirestoreValue(value)) return value;
-  if (value instanceof Date) return admin.firestore.Timestamp.fromDate(value);
+  if (value instanceof Date) return Timestamp.fromDate(value);
   if (typeof value === "string" && isTimestampField(key) && ISO_INSTANT.test(value)) {
-    return admin.firestore.Timestamp.fromDate(new Date(value));
+    return Timestamp.fromDate(new Date(value));
   }
   if (Array.isArray(value)) return value.map((item) => toFirestoreValue(item));
   if (value != null && typeof value === "object") {

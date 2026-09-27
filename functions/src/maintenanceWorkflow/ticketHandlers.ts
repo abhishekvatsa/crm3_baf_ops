@@ -6,6 +6,7 @@ import {compliancePath, maintenancePath, workflowPath} from "./paths";
 import {
   Actor,
   JsonMap,
+  RoleKey,
   WorkflowCommand,
   WorkflowCommandReceipt,
 } from "./types";
@@ -635,7 +636,7 @@ const parseFrequentIssueSelectionShape = (value: unknown): JsonMap => {
         "An unlisted issue cannot claim a governed definition.",
       );
     }
-    boundedText(selection.unlistedReason, "unlistedReason", 1, 500);
+    boundedText(selection.unlistedReason, "unlistedReason", 1, 2000);
   }
   return selection;
 };
@@ -1735,6 +1736,9 @@ const qualityAbnormalityProjection = (args: {
   possibleRootReasonNotes: null,
   reannealingStatus: "pendingDecision",
   reannealedToChargeNo: null,
+  assessment: {schemaVersion: 1,
+    observationKind: ["process", "equipment"].includes(args.type.category) ? "processEquipment" : "legacyUnknown", candidateCauses: [],
+    raPerformedAt: null, postRaResult: "notAssessed", postRaObservation: null},
   loggedAt: args.timestamp,
   updatedAt: args.timestamp,
   loggedByUid: args.actor.uid,
@@ -1824,6 +1828,8 @@ const ticketSnapshot = (ticket: JsonMap): JsonMap => ({
   isResolved: ticket.isResolved ?? null,
   isCritical: ticket.isCritical ?? null,
   component: ticket.component ?? null,
+  ...(ticket.componentIntakeState == null ? {} : {componentIntakeState: ticket.componentIntakeState}),
+  ...(ticket.componentIdentification == null ? {} : {componentIdentification: ticket.componentIdentification}),
   subsystem: ticket.subsystem ?? null,
   tag: ticket.tag ?? null,
   continuesIssueId: ticket.continuesIssueId ?? null,
@@ -2379,6 +2385,7 @@ export const createMaintenanceTicket = async ({
     throw new WorkflowError("failed-precondition", "This issue identity was permanently removed. New work requires a new identity.", {reasonCode: "maintenance-ticket-identity-permanently-removed"});
   }
   const input = record(command.payload.ticket, "ticket");
+  const hasComponentIntakeState = Object.prototype.hasOwnProperty.call(input, "componentIntakeState");
   const burner = input.classification === BURNER_LOCKOUT_CLASSIFICATION;
   const stuckup = input.classification === FURNACE_STUCKUP_CLASSIFICATION;
   const hasFrequentIssueSelection = Object.prototype.hasOwnProperty.call(
@@ -2404,6 +2411,7 @@ export const createMaintenanceTicket = async ({
   exactKeys(
     input,
     burner ? [...CREATE_TICKET_FIELDS,
+      ...(hasComponentIntakeState ? ["componentIntakeState"] : []),
       ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
       ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
       ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
@@ -2413,6 +2421,7 @@ export const createMaintenanceTicket = async ({
         [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
       ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
       stuckup ? [...CREATE_TICKET_FIELDS,
+        ...(hasComponentIntakeState ? ["componentIntakeState"] : []),
         ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
         ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
       ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
@@ -2422,6 +2431,7 @@ export const createMaintenanceTicket = async ({
           [LEGACY_EMPTY_LANE_COMPLETION_EVIDENCE_FIELD] : []),
         ...(hasFrequentIssueSelection ? [FREQUENT_ISSUE_SELECTION_FIELD] : [])] :
         [...CREATE_TICKET_FIELDS,
+          ...(hasComponentIntakeState ? ["componentIntakeState"] : []),
           ...(hasQualityAbnormalityType ? [QUALITY_ABNORMALITY_TYPE_FIELD] : []),
           ...(hasPlantConditionEffect ? [PLANT_CONDITION_EFFECT_FIELD] : []),
       ...(hasContinuedIssue ? [CONTINUES_ISSUE_FIELD] : []),
@@ -2471,7 +2481,16 @@ export const createMaintenanceTicket = async ({
       {reasonCode: "maintenance-ticket-route-department-invalid"},
     );
   }
-  const component = boundedText(input.component, "component", 1, 120);
+  const componentIntakeState = hasComponentIntakeState ? cleanText(input.componentIntakeState, "componentIntakeState") : null;
+  if (componentIntakeState != null && !["unidentified", "unlisted", "registered", "wholeAsset"].includes(componentIntakeState)) {
+    throw new WorkflowError("invalid-argument", "Component intake state is unsupported.");
+  }
+  const noComponent = componentIntakeState === "unidentified" || componentIntakeState === "wholeAsset";
+  const component = noComponent ? optionalText(input.component, "component", 120) :
+    boundedText(input.component, "component", 1, 120);
+  if (noComponent && (component != null || input.tag != null || input.subsystem != null)) {
+    throw new WorkflowError("invalid-argument", "An unidentified component or whole-asset report cannot assert a component, tag or subsystem.");
+  }
   const subsystem = optionalText(input.subsystem, "subsystem", 200);
   const tag = optionalText(input.tag, "tag", 160)?.toUpperCase() ?? null;
   optionalStringList(input.hierarchyPath, "hierarchyPath", 20, 200);
@@ -2713,6 +2732,12 @@ export const createMaintenanceTicket = async ({
     typeId: qualityAbnormalityTypeId as string,
     assetType,
   }) : null;
+  if (hasComponentIntakeState && qualityType != null &&
+      !["process", "equipment"].includes(qualityType.category)) {
+    throw new WorkflowError("failed-precondition",
+      "Choose the observed process or equipment abnormality for this maintenance issue.",
+      {reasonCode: "maintenance-ticket-reason-type-incompatible"});
+  }
   const frequentIssueSelection = await resolveFrequentIssueSelection({
     tx,
     selection: requestedFrequentIssueSelection,
@@ -2734,6 +2759,15 @@ export const createMaintenanceTicket = async ({
     20,
     200,
   );
+  if (componentIntakeState != null && (
+    (componentIntakeState === "registered" &&
+      (canonicalAssetReference.scope === "physicalAsset" || component !== canonicalAssetReference.nodeName)) ||
+    (componentIntakeState !== "registered" && canonicalAssetReference.scope !== "physicalAsset") ||
+    ((burner || stuckup || input.classification === BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION) && componentIntakeState !== "registered")
+  )) {
+    throw new WorkflowError("invalid-argument", "Component intake state does not match the governed issue target.",
+      {reasonCode: "maintenance-ticket-component-intake-mismatch"});
+  }
   let canonicalStuckupBaseReference: string | null = null;
   let stuckupBaseReference: JsonMap | null = null;
   let stuckupInnerCoverAssociation: JsonMap | null = null;
@@ -2797,6 +2831,7 @@ export const createMaintenanceTicket = async ({
     assetType,
     assetNumber,
     component,
+    ...(componentIntakeState == null ? {} : {componentIntakeState}),
     subsystem,
     tag,
     hierarchyPath,
@@ -4267,6 +4302,7 @@ export const correctMaintenanceTicket = async ({
         savedClosureActionPayload(ticket.actionsJson).rows.length > 0 ||
         ticket.continuesIssueId != null || ticket.workflowAggregateId != null ||
         ticket.qualityWarningId != null || ticket.sourceInspectionObservationId != null ||
+        ticket.componentIdentification != null ||
         dependents.length > 0 || eventLinks.length > 0 || inspectionLinks.length > 0) {
       throw new WorkflowError("failed-precondition",
         "This issue has work or linked evidence. Preserve its target and review the dependent records before correcting physical scope.",
@@ -4525,6 +4561,76 @@ export const correctMaintenanceTicket = async ({
   };
 };
 
+const legacyBlankComponent = (ticket: JsonMap): boolean =>
+  ticket.componentIntakeState == null &&
+  (ticket.component == null || (typeof ticket.component === "string" && ticket.component.trim() === "")) &&
+  (ticket.tag == null || (typeof ticket.tag === "string" && ticket.tag.trim() === ""));
+
+/** Add knowledge to an unidentified intake target without changing the report. */
+export const identifyMaintenanceTicketComponent = async ({tx, command, context}: HandlerArgs): Promise<HandlerResult> => {
+  exactKeys(command.payload, ["targetReferenceJson", "basis"], "payload");
+  if (!["admin", "si", "contractSupervisor", "shiftSupervisor"].some((role) => context.actor.roles.has(role as RoleKey))) {
+    throw new WorkflowError("permission-denied", "Issue supervisor authority is required to identify a component.");
+  }
+  const basis = boundedText(command.payload.basis, "basis", 1, 2000);
+  const {ticket, version} = await requireTicket(tx, command, {allowDeferred: true});
+  await requireVacantAudit(tx, command.commandId);
+  if ((!legacyBlankComponent(ticket) && !["unidentified", "unlisted"].includes(String(ticket.componentIntakeState))) ||
+      ticket.componentIdentification != null ||
+      [BURNER_LOCKOUT_CLASSIFICATION, FURNACE_STUCKUP_CLASSIFICATION, BASE_INNER_COVER_UNAVAILABLE_CLASSIFICATION].includes(String(ticket.classification))) {
+    throw new WorkflowError("failed-precondition", "Only an issue with an unidentified or unlisted component can receive its first identification.",
+      {reasonCode: "maintenance-component-identification-not-pending"});
+  }
+  const requestedText = boundedText(command.payload.targetReferenceJson, "targetReferenceJson", 1, 12000);
+  let original: JsonMap;
+  let requested: JsonMap;
+  try {
+    original = record(JSON.parse(boundedText(ticket.assetHierarchyRefJson, "assetHierarchyRefJson", 1, 12000)), "originalReference");
+    requested = record(JSON.parse(requestedText), "targetReferenceJson");
+  } catch {
+    throw new WorkflowError("invalid-argument", "The component identification requires readable asset references.");
+  }
+  if (original.scope !== "physicalAsset" ||
+      requested.assetClassId !== original.assetClassId || requested.assetInstanceId !== original.assetInstanceId ||
+      (requested.assetNumber != null && requested.assetNumber !== ticket.assetNumber) ||
+      !["componentDefinitionOnAsset", "installedComponent"].includes(String(requested.scope))) {
+    throw new WorkflowError("failed-precondition", "Identify a registered component on the same physical asset as the original report.",
+      {reasonCode: "maintenance-component-identification-target-mismatch"});
+  }
+  const canonicalText = await requireFreshAssetReference({
+    tx, raw: requestedText, assetType: String(ticket.assetType),
+    assetNumber: requiredInteger(ticket.assetNumber, "assetNumber", 1, 2147483647),
+    tag: optionalText(requested.componentTag, "componentTag", 160),
+    // This evidence is an identification made now, not a rewritten event-time assertion.
+    startDate: iso(context.serverNow), actor: context.actor, serverNow: context.serverNow,
+  });
+  const identified = record(JSON.parse(canonicalText), "identifiedReference");
+  if (ticket.assetType === "innerCover") {
+    const oldAssociation = record(original.innerCoverAssociation, "originalInnerCoverAssociation");
+    const newAssociation = record(identified.innerCoverAssociation, "identifiedInnerCoverAssociation");
+    if (oldAssociation.innerCoverId !== newAssociation.innerCoverId || oldAssociation.linkageId !== newAssociation.linkageId) {
+      throw new WorkflowError("failed-precondition", "The original Inner Cover installation has changed; review its historical identity.",
+        {reasonCode: "maintenance-component-identification-installation-changed"});
+    }
+  }
+  const nextVersion = version + 1;
+  const componentIdentification: JsonMap = {
+    schemaVersion: 1, version: 1, originalTicketVersion: version,
+    targetReferenceJson: canonicalText, basis,
+    identifiedAt: iso(context.serverNow), identifiedByUid: context.actor.uid,
+    identifiedByName: context.actor.name,
+  };
+  const update: JsonMap = {componentIdentification, version: nextVersion,
+    updatedAt: iso(context.serverNow), updatedByUid: context.actor.uid, updatedByName: context.actor.name};
+  const id = writeAudit({tx, command, actor: context.actor, at: context.serverNow,
+    reason: basis, summary: "Previously unidentified issue component identified; original report retained",
+    severity: "medium", before: ticketSnapshot(ticket), after: ticketSnapshot({...ticket, ...update}),
+    resultVersion: nextVersion});
+  tx.update(maintenancePath(command.aggregateId), update);
+  return {resultKey: "maintenance-ticket-component-identified", aggregateVersion: nextVersion,
+    result: {ticketId: command.aggregateId, auditId: id, componentIdentification}};
+};
+
 const parsedAuditObject = (value: unknown): JsonMap | null => {
   if (typeof value !== "string") return null;
   try {
@@ -4555,7 +4661,8 @@ export const verifyMaintenanceTicketAudit = async (args: {
       args.command.commandType !== "resolveMaintenanceTicket" &&
       args.command.commandType !== "closeMaintenanceTicketWithoutResolution" &&
       args.command.commandType !== "reopenMaintenanceTicket" &&
-      args.command.commandType !== "correctMaintenanceTicket") return;
+      args.command.commandType !== "correctMaintenanceTicket" &&
+      args.command.commandType !== "identifyMaintenanceTicketComponent") return;
   const id = auditId(args.command.commandId);
   const audit = await args.tx.get(auditPath(args.command.commandId));
   const data = audit.data;
@@ -4671,6 +4778,24 @@ export const verifyMaintenanceTicketAudit = async (args: {
         "Maintenance ticket resolution receipt no longer matches its immutable audit.",
         {reasonCode: "maintenance-ticket-replay-resolution-invalid"},
       );
+    }
+  }
+  if (args.command.commandType === "identifyMaintenanceTicketComponent") {
+    const identification = record(after.componentIdentification, "componentIdentification");
+    const requested = record(JSON.parse(String(args.command.payload.targetReferenceJson)), "targetReferenceJson");
+    const accepted = record(JSON.parse(String(identification.targetReferenceJson)), "identifiedReference");
+    if (args.receipt.resultKey !== "maintenance-ticket-component-identified" ||
+        args.receipt.result.ticketId !== args.command.aggregateId ||
+        identification.identifiedByUid !== args.actor.uid || identification.basis !== args.command.payload.basis ||
+        identification.originalTicketVersion !== args.command.expectedVersion ||
+        identification.schemaVersion !== 1 || identification.version !== 1 ||
+        identification.identifiedAt !== args.receipt.appliedAt || before.componentIdentification != null ||
+        (!legacyBlankComponent(before) && !["unidentified", "unlisted"].includes(String(before.componentIntakeState))) ||
+        stableJson(identification) !== stableJson(args.receipt.result.componentIdentification ?? null) ||
+        ["scope", "assetClassId", "assetInstanceId", "assetInstanceVersion", "nodeId", "nodeVersion", "componentInstanceId", "componentInstanceVersion"].some((key) => (requested[key] ?? null) !== (accepted[key] ?? null)) ||
+        Object.keys(before).filter((key) => key !== "version").some((key) => stableJson(before[key] ?? null) !== stableJson(after[key] ?? null))) {
+      throw new WorkflowError("failed-precondition", "Component identification acceptance evidence differs from its original request.",
+        {reasonCode: "maintenance-ticket-replay-content-invalid"});
     }
   }
   if (args.command.commandType === "correctMaintenanceTicket") {

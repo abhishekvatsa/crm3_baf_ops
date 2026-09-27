@@ -18,6 +18,7 @@ import {
   persistedInstantMillis,
 } from "./persistedInstant";
 import {stableJson} from "./stableJson";
+import {normalizedAbnormalityAssessment, validateAssessmentClassification, validateAssessmentLinks} from "./abnormalityAssessment";
 
 import {
   canonicalApprovedUserAuthority,
@@ -88,6 +89,7 @@ type AffectedAssetHierarchyReference = {
 };
 
 type ParsedChargeAbnormalityUpdate = {
+  readonly assessment?: UserAuthorityJsonMap | null;
   readonly abnormalityTypeId: string;
   readonly severity: string;
   readonly affectedAssets: ReadonlyArray<AffectedAsset>;
@@ -180,6 +182,7 @@ const RECONCILE_REQUEST_FIELDS = new Set([
   "expectedWarningVersion",
 ]);
 const UPDATE_REQUEST_FIELDS = new Set([
+  "assessment",
   ...COMMON_REQUEST_FIELDS,
   "abnormalityTypeId",
   "severity",
@@ -194,6 +197,7 @@ const UPDATE_REQUEST_FIELDS = new Set([
   "reannealedToChargeNo",
 ]);
 const ABNORMALITY_FIELDS = new Set([
+  "assessment",
   "firestoreId",
   "sourceChargeNo",
   "abnormalityTypeId",
@@ -228,7 +232,7 @@ const ABNORMALITY_FIELDS = new Set([
 ]);
 const REQUIRED_ABNORMALITY_FIELDS = [...ABNORMALITY_FIELDS].filter(
   (field) => field !== "_globalPullServerUpdatedAt" &&
-    field !== "affectedAssetHierarchyRefs",
+    field !== "affectedAssetHierarchyRefs" && field !== "assessment",
 );
 // Governed records now carry every optional key with an explicit null. Records
 // written before that omitted them, where absence means "no value". It never
@@ -756,7 +760,14 @@ function parseUpdate(
   }
 
   const parsedAffectedAssets = parseAffectedAssets(raw.affectedAssets);
+  let assessment: UserAuthorityJsonMap | null = null;
+  try {
+    assessment = normalizedAbnormalityAssessment(raw.assessment, reannealingStatus);
+  } catch (error) {
+    return invalidField("assessment", String(error));
+  }
   return {
+    ...(assessment == null ? {} : {assessment}),
     abnormalityTypeId: cleanDocumentId(
       raw.abnormalityTypeId,
       "abnormalityTypeId",
@@ -1270,6 +1281,11 @@ function validateExistingOptionalFields(data: UserAuthorityJsonMap): void {
     );
   }
   const completed = data.reannealingStatus === "completed";
+  try {
+    normalizedAbnormalityAssessment(data.assessment, data.reannealingStatus);
+  } catch (error) {
+    return malformedExisting(String(error), "assessment");
+  }
   const hasTarget = data.reannealedToChargeNo != null;
   if (
     completed !== hasTarget ||
@@ -1802,6 +1818,7 @@ function expectedAcceptedAbnormality(args: {
       possibleRootReasonCategory: update.possibleRootReasonCategory,
       possibleRootReasonNotes: update.possibleRootReasonNotes,
       reannealingStatus: update.reannealingStatus,
+      ...(update.assessment == null ? {} : {assessment: update.assessment}),
       reannealedToChargeNo: update.reannealedToChargeNo,
     });
   } else {
@@ -2203,6 +2220,8 @@ export async function mutateChargeAbnormalityWithDb(args: {
         category: type.category, updatedAt: committedAtIso,
         updatedByUid: actorUid, updatedByName: actor.name,
       }, request.abnormalityId);
+      checkAssessmentClassification(after);
+      await checkAssessmentLinks(transaction, db, after, request.abnormalityId, committedDate.valueOf());
       const createdWarning = validateQualityWarningRecord({
         schemaVersion: 1, warningId, sourceType: "abnormality",
         sourceId: request.abnormalityId, sourceVersion: 1,
@@ -2473,6 +2492,7 @@ export async function mutateChargeAbnormalityWithDb(args: {
           request.update.possibleRootReasonCategory,
         possibleRootReasonNotes: request.update.possibleRootReasonNotes,
         reannealingStatus: request.update.reannealingStatus,
+        ...(request.update.assessment == null ? {} : {assessment: request.update.assessment}),
         reannealedToChargeNo: request.update.reannealedToChargeNo,
       });
     } else {
@@ -2491,6 +2511,15 @@ export async function mutateChargeAbnormalityWithDb(args: {
       version: resultVersion,
     });
     validateExistingAbnormality(after, request.abnormalityId);
+    if (request.operation === "UPDATE" &&
+        (after.category !== existing.category ||
+          (after.assessment as UserAuthorityJsonMap | undefined)?.observationKind !==
+          (existing.assessment as UserAuthorityJsonMap | undefined)?.observationKind)) {
+      checkAssessmentClassification(after);
+    }
+    if (request.operation === "UPDATE" && request.update?.assessment != null) {
+      await checkAssessmentLinks(transaction, db, after, request.abnormalityId, committedAtDate.valueOf());
+    }
 
     if (request.operation === "SOFT_DELETE") {
       if (linkedTicketId != null) {
@@ -2605,4 +2634,31 @@ export async function mutateChargeAbnormalityWithDb(args: {
       abnormality: abnormalityForReceipt(after),
     };
   });
+}
+
+function checkAssessmentClassification(record: UserAuthorityJsonMap): void {
+  try {
+    validateAssessmentClassification(record.assessment, record.category);
+  } catch (error) {
+    throw new ChargeAbnormalityMutationError("failed-precondition", String(error),
+      {reasonCode: "abnormality-assessment-classification-mismatch"});
+  }
+}
+
+async function checkAssessmentLinks(
+  transaction: ChargeAbnormalityMutationTransactionLike,
+  db: ChargeAbnormalityMutationFirestoreLike,
+  record: UserAuthorityJsonMap, abnormalityId: string, nowMillis: number,
+): Promise<void> {
+  try {
+    await validateAssessmentLinks({assessment: record.assessment,
+      sourceChargeNo: record.sourceChargeNo, abnormalityId, nowMillis,
+      read: async (collection, id) => {
+        const snapshot = await transaction.get(db.collection(collection).doc(id));
+        return snapshot.exists ? snapshot.data() ?? null : null;
+      }});
+  } catch (error) {
+    throw new ChargeAbnormalityMutationError("failed-precondition", String(error),
+      {reasonCode: "abnormality-assessment-invalid"});
+  }
 }

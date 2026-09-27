@@ -8,6 +8,7 @@ import {
 } from "./persistedInstant";
 
 import {stableJson} from "./stableJson";
+import {normalizedAbnormalityAssessment} from "./abnormalityAssessment";
 import {
   canonicalApprovedUserAuthority,
   UserAuthorityJsonMap,
@@ -102,6 +103,7 @@ type WarningOperation = Exclude<
 >;
 
 type ParsedWarningRequest = {
+  raPerformedAt?: string;
   requestId: string;
   operation: WarningOperation;
   warningId: string;
@@ -248,6 +250,7 @@ const REANNEALING_STATUSES = new Set([
   "completed",
 ]);
 const LINKED_ABNORMALITY_FIELDS = new Set([
+  "assessment",
   "firestoreId",
   "sourceChargeNo",
   "abnormalityTypeId",
@@ -605,13 +608,16 @@ export function parseQualityMutationRequest(
     "warningId",
     "expectedVersion",
     "reason",
-    ...(close ? ["disposition", "linkedReannealingChargeNos"] : []),
-    ...(recordRaCompletion ? ["linkedReannealingChargeNos"] : []),
+    ...(close ? ["disposition", "linkedReannealingChargeNos", "raPerformedAt"] : []),
+    ...(recordRaCompletion ? ["linkedReannealingChargeNos", "raPerformedAt"] : []),
   ]);
   for (const key of Object.keys(raw)) if (!allowed.has(key)) invalid(key, "is unsupported");
   const disposition = close ? requiredString(raw.disposition, "disposition", 64) : null;
   if (disposition != null && !DISPOSITIONS.has(disposition)) {
     invalid("disposition", "is unsupported");
+  }
+  if (raw.raPerformedAt != null && !recordRaCompletion && disposition !== "reannealingCompleted") {
+    invalid("raPerformedAt", "is allowed only when recording completed RA");
   }
   const linkedReannealingChargeNos = close || recordRaCompletion ?
     positiveIntegerList(
@@ -648,6 +654,12 @@ export function parseQualityMutationRequest(
     reason,
     disposition,
     linkedReannealingChargeNos,
+    ...(raw.raPerformedAt == null ? {} : {
+      raPerformedAt: (() => {
+        if (!validDate(raw.raPerformedAt)) return invalid("raPerformedAt", "must be an actual completion timestamp");
+        return new Date(dateMillis(raw.raPerformedAt, "raPerformedAt", "request")).toISOString();
+      })(),
+    }),
   };
   return {...canonical, fingerprint: requestFingerprint(canonical)};
 }
@@ -1030,7 +1042,7 @@ function validateLinkedAbnormality(
   }
   for (const field of [...LINKED_ABNORMALITY_FIELDS].filter((value) =>
     value !== "_globalPullServerUpdatedAt" &&
-      value !== "affectedAssetHierarchyRefs" &&
+      value !== "affectedAssetHierarchyRefs" && value !== "assessment" &&
       !LEGACY_NULLABLE_CASE_FIELDS.has(value))) {
     if (!Object.prototype.hasOwnProperty.call(data, field)) {
       malformed("charge-quality-abnormality", field);
@@ -1156,6 +1168,11 @@ function validateLinkedAbnormality(
     malformed("charge-quality-abnormality", "_globalPullServerUpdatedAt");
   }
   const completed = data.reannealingStatus === "completed";
+  try {
+    normalizedAbnormalityAssessment(data.assessment, data.reannealingStatus);
+  } catch (_) {
+    malformed("charge-quality-abnormality", "assessment");
+  }
   const target = data.reannealedToChargeNo;
   if (completed !== (target != null) ||
       (target != null && (!isFiveDigitChargeNumber(target) ||
@@ -2361,7 +2378,9 @@ function commandedLinkedCase(args: {
       linked.reannealedToChargeNo == null;
   case "RECORD_QUALITY_CASE_RA_COMPLETED":
     return linked.reannealingStatus === "completed" &&
-      linked.reannealedToChargeNo === charge;
+      linked.reannealedToChargeNo === charge &&
+      (request.raPerformedAt == null ||
+        (linked.assessment != null && sameInstant((linked.assessment as UserAuthorityJsonMap).raPerformedAt, request.raPerformedAt)));
   case "REOPEN_QUALITY_WARNING":
     return linked.reannealingStatus === "completed" ?
       linked.reannealedToChargeNo != null :
@@ -2370,7 +2389,9 @@ function commandedLinkedCase(args: {
   default:
     return request.disposition === "reannealingCompleted" ?
       linked.reannealingStatus === "completed" &&
-        linked.reannealedToChargeNo === charge :
+        linked.reannealedToChargeNo === charge &&
+        (request.raPerformedAt == null || (linked.assessment != null &&
+          sameInstant((linked.assessment as UserAuthorityJsonMap).raPerformedAt, request.raPerformedAt))) :
       linked.reannealingStatus === "notRequired" &&
         linked.reannealedToChargeNo == null;
   }
@@ -2650,6 +2671,9 @@ export async function mutateQualityWithDb(args: {
           decisionReason: null,
         });
       } else if (request.operation === "CLOSE_QUALITY_WARNING") {
+        if (request.raPerformedAt != null && linkedAbnormality == null) {
+          invalid("raPerformedAt", "requires a linked abnormality to retain actual completion evidence");
+        }
         if (before.status === "closed") {
           throw new QualityMutationError(
             "failed-precondition",
@@ -2804,6 +2828,22 @@ export async function mutateQualityWithDb(args: {
           updatedByName: actor.name,
           version: nextLinkedVersion,
         };
+        if (request.raPerformedAt != null) {
+          if (dateMillis(request.raPerformedAt, "raPerformedAt", "request") > committedDate.valueOf()) {
+            invalid("raPerformedAt", "cannot be in the future");
+          }
+          const priorAssessment = linkedAbnormality.before.assessment as UserAuthorityJsonMap | undefined;
+          if (linkedAbnormality.before.reannealingStatus === "completed" &&
+              !sameInstant(priorAssessment?.raPerformedAt, request.raPerformedAt)) {
+            invalid("raPerformedAt", "correct an existing completion date in the abnormality record");
+          }
+          linkedAbnormalityAfter.assessment = normalizedAbnormalityAssessment({
+            schemaVersion: 1, observationKind: "legacyUnknown", candidateCauses: [],
+            postRaResult: "notAssessed", postRaObservation: null,
+            ...(linkedAbnormality.before.assessment as UserAuthorityJsonMap ?? {}),
+            raPerformedAt: request.raPerformedAt,
+          }, "completed");
+        }
         if (before.sourceType === "abnormality") {
           after.sourceVersion = nextLinkedVersion;
         }

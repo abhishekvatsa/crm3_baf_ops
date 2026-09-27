@@ -38,6 +38,7 @@ import {
   closeMaintenanceTicketWithoutResolution,
   reopenMaintenanceTicket,
   correctMaintenanceTicket,
+  identifyMaintenanceTicketComponent,
   verifyMaintenanceTicketAudit,
 } from "./ticketHandlers";
 import {
@@ -154,6 +155,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   closeMaintenanceTicketWithoutResolution,
   reopenMaintenanceTicket,
   correctMaintenanceTicket,
+  identifyMaintenanceTicketComponent,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
   correctBurnerBlockInstallation,

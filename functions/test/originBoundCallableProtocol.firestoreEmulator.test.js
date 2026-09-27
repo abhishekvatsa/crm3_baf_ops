@@ -41,6 +41,63 @@ describeWithEmulator('actual V2 callable handler boundary', () => {
   });
   afterAll(async () => { await admin.app().delete(); });
 
+  test.each(['mutateAssetHierarchy', 'mutateAssetHierarchyV2'])(
+    '%s admits SI retirement only and preserves unresolved condition evidence', async (endpoint) => {
+      const invoke = (data, uid = 'admin-1') => endpoints[endpoint].run(request(
+        endpoint.endsWith('V2') ? {protocolVersion: 2, originActorUid: uid, request: data} : data, uid,
+      ));
+      const assetClassId = classRequest().assetClassId;
+      const assetInstanceId = '77777777-7777-4777-8777-777777777777';
+      await db.doc('users/si-1').set({name: 'SI One', isApproved: true, roles: ['si']});
+      await db.doc('users/ops-1').set({name: 'Operations One', isApproved: true, roles: ['operations']});
+      await db.doc('users/pending-si').set({name: 'Pending SI', isApproved: false, roles: ['si']});
+      await invoke(classRequest());
+      await invoke({
+        requestId: '88888888-8888-4888-8888-888888888888', operation: 'CREATE_ASSET_INSTANCE',
+        assetClassId, assetInstanceId, expectedAssetClassVersion: 1,
+        reason: 'Create asset for callable retirement verification.',
+        assetDraft: {assetNumber: 1, name: 'Furnace 1', plantTag: null, location: 'BAF shop',
+          manufacturer: null, model: null, serialNumber: null, commissionedOn: null,
+          serviceState: 'inService', ownershipStatus: 'confirmed', ownerDiscipline: 'Operations',
+          accountableRoleKeys: ['operations']},
+      });
+      await invoke({
+        requestId: '13131313-1313-4131-8131-131313131313', operation: 'DECLARE_ASSET_CONDITION',
+        assetClassId, assetInstanceId, expectedVersion: 0, condition: 'down', causeKeys: ['breakdown'],
+        reason: 'Permanent drive damage remains unresolved.', linkedIssueIds: [],
+      }, 'ops-1');
+      const retirement = {
+        requestId: 'ffffffff-ffff-4fff-8fff-ffffffffffff', operation: 'SET_ASSET_INSTANCE_STATUS',
+        assetClassId, assetInstanceId, expectedVersion: 1, status: 'retired',
+        reason: 'Withdraw damaged furnace without claiming repair.',
+      };
+      for (const uid of ['pending-si', 'ops-1']) {
+        const before = await evidence();
+        await expect(invoke(retirement, uid)).rejects.toMatchObject({code: 'permission-denied'});
+        expect(await evidence()).toEqual(before);
+      }
+      const conditionBefore = await db.doc(`asset_operational_conditions/${assetInstanceId}`).get();
+      const accepted = await invoke(retirement, 'si-1');
+      expect(accepted).toMatchObject({version: 2, idempotentReplay: false});
+      expect((await db.doc(`asset_instances/${assetInstanceId}`).get()).data().status).toBe('retired');
+      const conditionAfter = await db.doc(`asset_operational_conditions/${assetInstanceId}`).get();
+      expect(conditionAfter.data()).toEqual(conditionBefore.data());
+      expect(conditionAfter.updateTime).toEqual(conditionBefore.updateTime);
+      const audit = (await db.doc(`asset_hierarchy_audits/asset_registry_${retirement.requestId}`).get()).data();
+      expect(audit.conditionDisposition).toBe('preserved-unresolved-at-retirement');
+      expect(JSON.parse(audit.retainedOperationalConditionJson)).toMatchObject({active: true, condition: 'down'});
+      const acceptedEvidence = await evidence(false);
+      expect(await invoke(retirement, 'si-1')).toEqual({...accepted, idempotentReplay: true});
+      expect(await evidence(false)).toEqual(acceptedEvidence);
+      for (const denied of [classRequest(), {...retirement,
+        requestId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', status: 'active', expectedVersion: 2}]) {
+        const before = await evidence();
+        await expect(invoke(denied, 'si-1')).rejects.toMatchObject({code: 'permission-denied'});
+        expect(await evidence()).toEqual(before);
+      }
+    },
+  );
+
   test.each(Object.keys(revisions))(
     '%s capability probe verifies actual approved identity with zero quota/business writes', async (name) => {
       expect(typeof endpoints[name].run).toBe('function');

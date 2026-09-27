@@ -950,7 +950,7 @@ export async function completePlannedJobWithDb(params: {
   /**
    * Produces the value written to audit_logs.timestamp.
    *
-   * Production must pass `admin.firestore.Timestamp.fromDate` so the value
+   * Production must pass `Timestamp.fromDate` from `firebase-admin/firestore` so the value
    * satisfies the `audit_logs` rule (`timestamp is timestamp`) and the
    * composite index on `audit_logs(entityType, entityId, timestamp DESC)`.
    * Tests can omit it; the default returns the ISO string and keeps the

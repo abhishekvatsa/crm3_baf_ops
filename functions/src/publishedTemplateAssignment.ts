@@ -2247,8 +2247,25 @@ export function compilePublishedTemplateRequirements(
   };
 }
 
+/** Match DateTime.toIso8601String without dropping its microsecond residue.
+ * The frozen snapshot text is also hashed verbatim; this only reconstructs the
+ * additional derived review field in the Dart tg2 canonical payload.
+ */
+function canonicalReviewTimestamp(rawDate: string): string | null {
+  const iso = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$/i.exec(rawDate);
+  const localWallClock = iso != null && iso[3] == null;
+  // A timezone-free Dart DateTime retains its wall-clock form in the hash.
+  // Pin parsing to UTC here so the server process timezone cannot alter it.
+  const date = new Date(localWallClock ? `${rawDate}Z` : rawDate);
+  if (Number.isNaN(date.getTime())) return null;
+  const residue = (iso?.[2] ?? "").padEnd(6, "0").slice(3, 6);
+  return date.toISOString().replace(/Z$/, () =>
+    (residue === "000" ? "" : residue) + (localWallClock ? "" : "Z"));
+}
+
 function deriveClosureState(
   bundle: ParsedSnapshotBundle,
+  legacyMillisecondTimestamp: boolean,
 ): {
   confirmed: boolean;
   criticalModuleCount: number;
@@ -2274,8 +2291,12 @@ function deriveClosureState(
   const rawDate = cleanOptionalText(composer.closureReviewConfirmedAt);
   let confirmedAt: string | null = null;
   if (rawDate != null) {
-    const date = new Date(rawDate);
-    if (!Number.isNaN(date.getTime())) confirmedAt = date.toISOString();
+    if (legacyMillisecondTimestamp) {
+      const date = new Date(rawDate);
+      if (!Number.isNaN(date.getTime())) confirmedAt = date.toISOString();
+    } else {
+      confirmedAt = canonicalReviewTimestamp(rawDate);
+    }
   }
   return {
     confirmed: boolValue(composer.closureReviewConfirmed) ?? false,
@@ -2293,8 +2314,15 @@ function deriveClosureState(
 export function computeTemplateVersionContentHash(
   version: AssignmentJsonMap,
 ): string {
+  return templateVersionContentHash(version, false);
+}
+
+function templateVersionContentHash(
+  version: AssignmentJsonMap,
+  legacyMillisecondTimestamp: boolean,
+): string {
   const bundle = parseSnapshotBundle(version);
-  const closure = deriveClosureState(bundle);
+  const closure = deriveClosureState(bundle, legacyMillisecondTimestamp);
   const maintenanceClassification = maintenanceClassificationFromVersion(version);
   const canonical = JSON.stringify({
     jobTemplateSnapshotJson: assertNonEmptyString(
@@ -3115,7 +3143,12 @@ export function validatePublishedTemplatePublication(args: {
   }
 
   const computedHash = computeTemplateVersionContentHash(versionData);
-  if (computedHash !== storedHash) {
+  // Earlier server producers truncated only the derived review timestamp to
+  // milliseconds. Retain those exact full-payload digests without rewriting
+  // published evidence. The raw snapshot (including every timestamp digit) is
+  // part of both hashes, so this cannot excuse modified review/work content.
+  if (computedHash !== storedHash &&
+      templateVersionContentHash(versionData, true) !== storedHash) {
     throw new AssignmentValidationError(
       "failed-precondition",
       "The active TemplateVersion payload does not match its governed content hash.",

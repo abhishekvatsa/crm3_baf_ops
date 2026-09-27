@@ -3991,3 +3991,196 @@ test('a permanently removed ticket identity cannot be recreated by a fresh comma
   await expect(harness.service.execute(createCommand(), harness.context)).rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-identity-permanently-removed'}});
   expect(harness.store.read('maintenance_records/ticket-2')).toBeNull();
 });
+
+describe('component intake and additive identification', () => {
+  const shift = actor('shift-identification', ['shiftSupervisor']);
+  const identify = (overrides = {}) => ({
+    commandId: 'identify-component', commandType: 'identifyMaintenanceTicketComponent',
+    aggregateId: 'ticket-2', expectedVersion: 1,
+    payload: {targetReferenceJson: JSON.stringify(furnaceShellReference()), basis: 'Inspection located the noise at the shell.'},
+    ...overrides,
+  });
+  async function pending(currentActor = contractSupervisor, ticket = {}) {
+    const fixture = createServiceFor(currentActor);
+    fixture.store.seed(`users/${currentActor.uid}`, {isApproved: true, name: currentActor.name, roles: [...currentActor.roles]});
+    seedFurnaceHierarchy(fixture.store);
+    await fixture.service.execute(createCommand({ticket: {
+      componentIntakeState: 'unidentified', component: null, ...ticket,
+    }}), fixture.context);
+    return fixture;
+  }
+
+  test.each(['unidentified', 'wholeAsset'])('%s intake requires no invented component or diagnosis', async (state) => {
+    const fixture = await pending(operations, {componentIntakeState: state});
+    const saved = fixture.store.read('maintenance_records/ticket-2');
+    expect(saved).toMatchObject({componentIntakeState: state, component: null, tag: null, subsystem: null});
+    expect(JSON.parse(saved.assetHierarchyRefJson).scope).toBe('physicalAsset');
+  });
+
+  test.each([
+    {componentIntakeState: 'unidentified', component: 'guessed shell'},
+    {componentIntakeState: 'wholeAsset', component: null, tag: 'FSH-REF'},
+    {componentIntakeState: 'unlisted', component: null},
+    {componentIntakeState: 'registered', component: 'Furnace shell'},
+    {componentIntakeState: 'guessed', component: null},
+  ])('contradictory intake is rejected %#', async (ticket) => {
+    const fixture = createServiceFor(); seedFurnaceHierarchy(fixture.store);
+    await expect(fixture.service.execute(createCommand({ticket}), fixture.context)).rejects.toBeDefined();
+    expect(fixture.store.read('maintenance_records/ticket-2')).toBeNull();
+  });
+
+  test.each([admin, si, contractSupervisor, shift])('$uid can identify without rewriting original evidence', async (currentActor) => {
+    const fixture = await pending(currentActor);
+    const before = fixture.store.read('maintenance_records/ticket-2');
+    const registry = fixture.store.entries().filter(([key]) => key.startsWith('asset_'));
+    const receipt = await fixture.service.execute(identify(), fixture.context);
+    const after = fixture.store.read('maintenance_records/ticket-2');
+    expect(after).toEqual({...before, version: 2, updatedAt: at.toISOString(),
+      updatedByUid: currentActor.uid, updatedByName: currentActor.name,
+      componentIdentification: expect.objectContaining({schemaVersion: 1, version: 1,
+        originalTicketVersion: 1, identifiedByUid: currentActor.uid, identifiedAt: at.toISOString(),
+        basis: identify().payload.basis})});
+    expect(JSON.parse(after.componentIdentification.targetReferenceJson)).toMatchObject({nodeId: 'node-furnace-shell', nodeName: 'Furnace shell', assetInstanceId: 'asset-furnace-7'});
+    expect(fixture.store.entries().filter(([key]) => key.startsWith('asset_'))).toEqual(registry);
+    const all = fixture.store.entries();
+    await expect(fixture.service.execute(identify(), fixture.context)).resolves.toEqual(receipt);
+    expect(fixture.store.entries()).toEqual(all);
+  });
+
+  test.each([operations, mechanical, electrical])('$uid has no component identification authority', async (currentActor) => {
+    const fixture = await pending(currentActor);
+    await expect(fixture.service.execute(identify(), fixture.context)).rejects.toMatchObject({code: 'permission-denied'});
+    expect(fixture.store.read('maintenance_records/ticket-2').version).toBe(1);
+  });
+
+  test('revoked approval is checked in the transaction', async () => {
+    const fixture = await pending();
+    fixture.store.seed(`users/${contractSupervisor.uid}`, {name: contractSupervisor.name, roles: ['contractSupervisor'], isApproved: false});
+    await expect(fixture.service.execute(identify(), fixture.context)).rejects.toMatchObject({code: 'permission-denied'});
+  });
+
+  test.each(['acknowledged', 'inProgress', 'resolved', 'closedWithoutResolution'])('identification retains %s work, closure and linked Quality evidence', async (status) => {
+    const fixture = await pending(contractSupervisor, {qualityIntentSchemaVersion: 2, qualityImpactAssessment: 'suspected', qualityWarningReason: 'Charge effect needs assessment', qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION', chargeNoAtEvent: 12345});
+    const before = {...fixture.store.read('maintenance_records/ticket-2'), status,
+      isResolved: ['resolved', 'closedWithoutResolution'].includes(status), actionsJson: '[{"historicalWork":"retained"}]',
+      acknowledgedByUid: 'prior-actor', acknowledgedAt: at.toISOString(),
+      endDate: status === 'resolved' || status === 'closedWithoutResolution' ? at.toISOString() : null};
+    fixture.store.seed('maintenance_records/ticket-2', before);
+    const linked = fixture.store.entries().filter(([key]) => !key.startsWith('maintenance_records/') && !key.startsWith('audit_logs/') && !key.startsWith('maintenance_workflow_command_receipts/'));
+    await fixture.service.execute(identify(), fixture.context);
+    const after = fixture.store.read('maintenance_records/ticket-2');
+    for (const key of Object.keys(before).filter(key => !['version', 'updatedAt', 'updatedByUid', 'updatedByName'].includes(key))) expect(after[key]).toEqual(before[key]);
+    expect(fixture.store.entries().filter(([key]) => !key.startsWith('maintenance_records/') && !key.startsWith('audit_logs/') && !key.startsWith('maintenance_workflow_command_receipts/'))).toEqual(linked);
+  });
+
+  test.each([
+    {assetInstanceId: 'another-furnace'}, {assetClassId: 'another-class'},
+    {assetNumber: 8}, {nodeVersion: 99}, {assetInstanceVersion: 99}, {scope: 'physicalAsset'},
+  ])('identity or stale registry mismatch is rejected %#', async (changes) => {
+    const fixture = await pending();
+    const request = identify({payload: {...identify().payload, targetReferenceJson: JSON.stringify({...furnaceShellReference(), ...changes})}});
+    await expect(fixture.service.execute(request, fixture.context)).rejects.toBeDefined();
+    expect(fixture.store.read('maintenance_records/ticket-2').componentIdentification).toBeUndefined();
+  });
+
+  test('unlisted can be identified but an already identified or whole-asset target cannot', async () => {
+    const fixture = await pending(contractSupervisor, {componentIntakeState: 'unlisted', component: 'Unregistered seal'});
+    await fixture.service.execute(identify(), fixture.context);
+    expect(fixture.store.read('maintenance_records/ticket-2').component).toBe('Unregistered seal');
+    await expect(fixture.service.execute(identify({commandId: 'second-identification', expectedVersion: 2}), fixture.context)).rejects.toMatchObject({code: 'failed-precondition'});
+    const whole = await pending(contractSupervisor, {componentIntakeState: 'wholeAsset'});
+    await expect(whole.service.execute(identify(), whole.context)).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('malformed JSON and stale ticket versions fail without writes', async () => {
+    const fixture = await pending();
+    const before = fixture.store.entries();
+    await expect(fixture.service.execute(identify({payload: {...identify().payload, targetReferenceJson: '{broken'}}), fixture.context)).rejects.toMatchObject({code: 'invalid-argument'});
+    await expect(fixture.service.execute(identify({expectedVersion: 2}), fixture.context)).rejects.toBeDefined();
+    expect(fixture.store.entries()).toEqual(before);
+  });
+
+  test.each([2000, 2001])('unlisted issue reason uses the description limit: %i', async (length) => {
+    const fixture = createServiceFor(operations);
+    const command = createCommand({ticket: {componentIntakeState: 'unidentified', component: null,
+      frequentIssueSelection: {schemaVersion: 1, selectionType: 'unlisted', definitionId: null,
+        definitionVersion: null, unlistedReason: 'x'.repeat(length)}}});
+    if (length === 2000) {
+      await expect(fixture.service.execute(command, fixture.context)).resolves.toMatchObject({aggregateVersion: 1});
+    } else {
+      await expect(fixture.service.execute(command, fixture.context)).rejects.toMatchObject({code: 'invalid-argument'});
+    }
+  });
+
+  test.each(['resultQuality', 'reannealing', 'other'])('new maintenance reason rejects %s without breaking legacy classification replay', async (category) => {
+    const fixture = createServiceFor(operations);
+    const type = fixture.store.read('abnormality_types/ATMOSPHERE_DEVIATION');
+    fixture.store.seed('abnormality_types/ATMOSPHERE_DEVIATION', {...type, category});
+    const legacy = createCommand({ticket: {qualityIntentSchemaVersion: 2, qualityImpactAssessment: 'suspected',
+      qualityWarningReason: 'Charge requires review', qualityAbnormalityTypeId: 'ATMOSPHERE_DEVIATION', chargeNoAtEvent: 12345}});
+    const fresh = {...legacy, payload: {ticket: {...legacy.payload.ticket, componentIntakeState: 'unidentified', component: null}}};
+    await expect(fixture.service.execute(fresh, fixture.context)).rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-reason-type-incompatible'}});
+    const accepted = await fixture.service.execute(legacy, fixture.context);
+    expect(fixture.store.read('charge_abnormalities/issue_quality_ticket-2').assessment.observationKind).toBe('legacyUnknown');
+    await expect(fixture.service.execute(legacy, fixture.context)).resolves.toEqual(accepted);
+  });
+
+  test.each([null, '', '  '])('truly blank legacy component %p can be identified without inventing intake intent', async (component) => {
+    const fixture = await pending();
+    const legacy = fixture.store.read('maintenance_records/ticket-2');
+    delete legacy.componentIntakeState;
+    legacy.component = component;
+    fixture.store.seed('maintenance_records/ticket-2', legacy);
+    const receipt = await fixture.service.execute(identify(), fixture.context);
+    const stored = fixture.store.read('maintenance_records/ticket-2');
+    expect(stored.componentIntakeState).toBeUndefined();
+    expect(stored.component).toEqual(component);
+    expect(stored.componentIdentification.identifiedByUid).toBe(contractSupervisor.uid);
+    await expect(fixture.service.execute(identify(), fixture.context)).resolves.toEqual(receipt);
+  });
+
+  test.each([{component: 'Known historical seal'}, {component: null, tag: 'KNOWN-TAG'}])('legacy identity evidence is never treated as an unchosen component %#', async (evidence) => {
+    const fixture = await pending();
+    const legacy = {...fixture.store.read('maintenance_records/ticket-2'), ...evidence};
+    delete legacy.componentIntakeState;
+    fixture.store.seed('maintenance_records/ticket-2', legacy);
+    await expect(fixture.service.execute(identify(), fixture.context)).rejects.toMatchObject({code: 'failed-precondition'});
+  });
+
+  test('competing first identifications accept once and never unlock identity correction', async () => {
+    const fixture = await pending(admin);
+    const outcomes = await Promise.allSettled([
+      fixture.service.execute(identify(), fixture.context),
+      fixture.service.execute(identify({commandId: 'concurrent-identification'}), fixture.context),
+    ]);
+    expect(outcomes.filter(value => value.status === 'fulfilled')).toHaveLength(1);
+    expect(fixture.store.read('maintenance_records/ticket-2').version).toBe(2);
+    await expect(fixture.service.execute({commandId: 'retarget-after-identification',
+      commandType: 'correctMaintenanceTicket', aggregateId: 'ticket-2', expectedVersion: 2,
+      payload: {reason: 'Try to replace original target', corrections: {}, targetReferenceJson: JSON.stringify(furnaceShellReference())},
+    }, fixture.context)).rejects.toMatchObject({details: {reasonCode: 'maintenance-ticket-target-dependent-evidence'}});
+    expect(fixture.store.read('maintenance_records/ticket-2').component).toBeNull();
+  });
+
+  test('an identity correction wins its version race; stale identification cannot overwrite it', async () => {
+    const fixture = await pending(admin);
+    await fixture.service.execute({commandId: 'correct-before-identification',
+      commandType: 'correctMaintenanceTicket', aggregateId: 'ticket-2', expectedVersion: 1,
+      payload: {reason: 'Original scope was entered in error', corrections: {}, targetReferenceJson: JSON.stringify(furnaceShellReference())},
+    }, fixture.context);
+    await expect(fixture.service.execute(identify(), fixture.context)).rejects.toMatchObject({code: 'workflow-version-conflict'});
+    await expect(fixture.service.execute(identify({expectedVersion: 2}), fixture.context)).rejects.toMatchObject({details: {reasonCode: 'maintenance-component-identification-target-mismatch'}});
+    expect(fixture.store.read('maintenance_records/ticket-2').componentIdentification).toBeUndefined();
+  });
+
+  test('audit tampering prevents replay and original evidence edits', async () => {
+    const fixture = await pending();
+    await fixture.service.execute(identify(), fixture.context);
+    const auditPath = 'audit_logs/server_maintenance_ticket_identify-component';
+    const audit = fixture.store.read(auditPath);
+    const after = JSON.parse(audit.afterJson);
+    after.component = 'Rewritten original';
+    fixture.store.seed(auditPath, {...audit, afterJson: JSON.stringify(after)});
+    await expect(fixture.service.execute(identify(), fixture.context)).rejects.toBeDefined();
+  });
+});

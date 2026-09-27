@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import {FieldPath, Timestamp} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {onSchedule} from "firebase-functions/v2/scheduler";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
@@ -45,10 +46,10 @@ const laneKeyOrNull = (value: unknown): LaneKey | null => {
 const sourceIsStillEligible = (
   kind: SourceKind,
   data: admin.firestore.DocumentData,
-  now: admin.firestore.Timestamp,
+  now: Timestamp,
 ): boolean => {
   const nextAt = data.nextEscalationAt;
-  if (!(nextAt instanceof admin.firestore.Timestamp) || nextAt.toMillis() > now.toMillis()) {
+  if (!(nextAt instanceof Timestamp) || nextAt.toMillis() > now.toMillis()) {
     return false;
   }
   if (kind === "laneAcknowledgement") return data.status === "pending";
@@ -90,7 +91,7 @@ const fetchEligible = async (
   while (candidates.length < MAX_PER_QUERY_PER_SWEEP) {
     let pageQuery = query
       .orderBy("nextEscalationAt")
-      .orderBy(admin.firestore.FieldPath.documentId())
+      .orderBy(FieldPath.documentId())
       .limit(Math.min(PAGE_SIZE, MAX_PER_QUERY_PER_SWEEP - candidates.length));
     if (cursor != null) pageQuery = pageQuery.startAfter(cursor);
     const page = await pageQuery.get();
@@ -104,7 +105,7 @@ const fetchEligible = async (
 const processCandidate = async (
   db: admin.firestore.Firestore,
   candidate: EscalationCandidate,
-  now: admin.firestore.Timestamp,
+  now: Timestamp,
 ): Promise<boolean> => db.runTransaction(async (tx) => {
   // Re-read inside the transaction so a lane/compliance row that was closed,
   // acknowledged or otherwise changed after the query cannot be escalated from
@@ -118,7 +119,7 @@ const processCandidate = async (
   const nextTier = nextEscalationTier({
     currentTier: Number(data.escalationTier ?? 0),
     lastEscalatedAtMillis:
-      last instanceof admin.firestore.Timestamp ? last.toMillis() : null,
+      last instanceof Timestamp ? last.toMillis() : null,
     nowMillis: now.toMillis(),
   });
   if (nextTier == null) {
@@ -167,7 +168,7 @@ const processCandidate = async (
     nextEscalationAt:
       nextAtMillis == null
         ? null
-        : admin.firestore.Timestamp.fromMillis(nextAtMillis),
+        : Timestamp.fromMillis(nextAtMillis),
     updatedAt: now,
     version: Number(data.version ?? 0) + 1,
   });
@@ -207,7 +208,7 @@ export const maintenanceWorkflowEscalationSweep = onSchedule(
   },
   async () => {
     const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
     const [lanes, complianceAck, complianceDue] = await Promise.all([
       fetchEligible(
         db.collection("job_lanes")

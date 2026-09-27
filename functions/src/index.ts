@@ -7,6 +7,8 @@ import {
 } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
 import * as admin from "firebase-admin";
+// The Functions emulator can bind admin.firestore without its static classes.
+import {FieldValue, Timestamp} from "firebase-admin/firestore";
 import {
   ClosureValidationError,
   completePlannedJobWithDb,
@@ -99,6 +101,7 @@ import type {
 import {
   isAssetRegistryOperation,
   mutateAssetRegistryWithDb,
+  userCanMutateAssetRegistry,
 } from "./assetRegistryMutation";
 import type {AssetRegistryMutationResult} from "./assetRegistryMutation";
 import {
@@ -280,7 +283,7 @@ export const completePlannedJobExecution = onCall(
           authUid: request.auth?.uid ?? null,
           data: (request.data ?? {}) as JsonMap,
           timestampFromDate: (date) =>
-            admin.firestore.Timestamp.fromDate(date),
+            Timestamp.fromDate(date),
         }),
       });
     } catch (error) {
@@ -369,7 +372,7 @@ export const beginGlobalPullRun = onCall(
       return await beginGlobalPullRunWithDb({
         db: admin.firestore() as unknown as GlobalPullAuthorityFirestoreLike,
         authUid: request.auth?.uid ?? null,
-        serverNow: () => admin.firestore.Timestamp.now().toDate(),
+        serverNow: () => Timestamp.now().toDate(),
       });
     } catch (error) {
       if (error instanceof GlobalPullServerClockError) {
@@ -399,7 +402,7 @@ export const stampGlobalPullServerClock = onDocumentWritten(
     const action = await applyGlobalPullServerClock({
       collectionId: event.params.collectionId,
       change: event.data as unknown as GlobalPullWriteChangeLike,
-      serverTimestamp: admin.firestore.FieldValue.serverTimestamp,
+      serverTimestamp: FieldValue.serverTimestamp,
       authorizePermanentDelete: (collectionId, before) =>
         isAuthorizedPilotRecordPurge({
           db: admin.firestore(),
@@ -456,7 +459,7 @@ export const mutateRuntimeJobModulePopulation = onCall(
           db: db as unknown as RuntimePopulationFirestoreLike,
           authUid: request.auth?.uid ?? null,
           data: (request.data ?? {}) as RuntimePopulationJsonMap,
-          timestampFromDate: admin.firestore.Timestamp.fromDate,
+          timestampFromDate: Timestamp.fromDate,
         }),
       });
     } catch (error) {
@@ -543,7 +546,7 @@ export const mutateUserAuthority = onCall(
           authUid: request.auth?.uid ?? null,
           data: envelope.data,
           confirmationOnly: envelope.confirmationOnly,
-          timestampFromDate: admin.firestore.Timestamp.fromDate,
+          timestampFromDate: Timestamp.fromDate,
         }),
       });
     } catch (error) {
@@ -600,13 +603,13 @@ export const mutateChargeAbnormality = onCall(
             db: db as unknown as QualityMutationFirestoreLike,
             authUid: request.auth?.uid ?? null,
             data: request.data ?? {},
-            timestampFromDate: admin.firestore.Timestamp.fromDate,
+            timestampFromDate: Timestamp.fromDate,
           }) :
           mutateChargeAbnormalityWithDb({
             db: db as unknown as ChargeAbnormalityMutationFirestoreLike,
             authUid: request.auth?.uid ?? null,
             data: request.data ?? {},
-            timestampFromDate: admin.firestore.Timestamp.fromDate,
+            timestampFromDate: Timestamp.fromDate,
           }),
       });
     } catch (error) {
@@ -781,6 +784,12 @@ export const mutateAssetHierarchy = onCall(
               userData,
               request.data.operation,
             ) :
+          isAssetRegistryOperation(request.data?.operation) ?
+            userCanMutateAssetRegistry(
+              userData,
+              request.data.operation,
+              request.data.status,
+            ) :
             userCanMutateAssetHierarchy(userData),
         execute: () => {
           if (isOrdinaryDirectiveOperation(request.data?.operation)) {
@@ -792,7 +801,7 @@ export const mutateAssetHierarchy = onCall(
               db: db as unknown as MorningReviewFirestoreLike,
               authUid: request.auth?.uid ?? null,
               data: request.data ?? {},
-              timestampFromDate: admin.firestore.Timestamp.fromDate,
+              timestampFromDate: Timestamp.fromDate,
             });
           }
           if (isDeviceRecoveryOperation(request.data?.operation)) {
@@ -800,21 +809,21 @@ export const mutateAssetHierarchy = onCall(
               db,
               authUid: request.auth?.uid ?? null,
               data: request.data ?? {},
-              timestampFromDate: admin.firestore.Timestamp.fromDate,
+              timestampFromDate: Timestamp.fromDate,
             });
           }
           const args = {
             db: db as unknown as AssetHierarchyMutationFirestoreLike,
             authUid: request.auth?.uid ?? null,
             data: request.data ?? {},
-            timestampFromDate: admin.firestore.Timestamp.fromDate,
+            timestampFromDate: Timestamp.fromDate,
           };
           if (isBurnerDirectiveComplianceOperation(request.data?.operation)) {
             return mutateBurnerDirectiveComplianceWithDb({
               db: db as unknown as BurnerDirectiveComplianceFirestoreLike,
               authUid: request.auth?.uid ?? null,
               data: request.data ?? {},
-              timestampFromDate: admin.firestore.Timestamp.fromDate,
+              timestampFromDate: Timestamp.fromDate,
             });
           }
           if (isBurnerConditionRoundOperation(request.data?.operation)) {
@@ -871,7 +880,7 @@ function notificationReceiptRuntime(
 ): NotificationReceiptRuntime {
   return {
     db: db as unknown as NotificationReceiptFirestoreLike,
-    serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+    serverTimestamp: () => FieldValue.serverTimestamp(),
     reportDeliveryUncertain: (signal) => {
       logger.error("Notification delivery requires governed adjudication", signal);
     },
