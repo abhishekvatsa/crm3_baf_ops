@@ -53,9 +53,11 @@ function Get-ProductionAppCheckBuildEvidence {
     # the three supplementary ranges. Never rewrite hash-bound original text.
     $invisibleIdentityPattern = '[\u00AD\u034F\u061C\u115F-\u1160\u17B4-\u17B5\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]'
     $normalizedIdentity = [regex]::Replace($identity.Normalize([Text.NormalizationForm]::FormKC), $invisibleIdentityPattern, '').Trim()
-    # TODO must be a token, not the start of a genuine name such as Todor.
+    # Admit genuine Todo-prefixed names while refusing the TODO token, numeric
+    # suffixes and explicit APPROVER/REFERENCE template markers. Fixture is a
+    # placeholder token even when followed by descriptive text.
     if ([string]::IsNullOrWhiteSpace($normalizedIdentity) -or
-        $normalizedIdentity -match '^(REPLACE_|TODO($|[^\p{L}\p{N}])|fixture$)') {
+        $normalizedIdentity -match '^(REPLACE_|TODO($|[^\p{L}\p{N}]|\d|(?:APPROVER|REFERENCE)($|[^\p{L}\p{N}]|\d))|fixture($|[^\p{L}\p{N}]))') {
       throw 'App Check approval identity must be accountable non-placeholder text.'
     }
   }

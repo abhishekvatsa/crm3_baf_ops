@@ -218,12 +218,12 @@ function verifyDelegatedSourceGeneration(repoRoot, sourceCommit, contract, appro
 }
 
 function canonicalOwnerInstruction(value) {
-  // Comparison only: compatibility spelling, invisible formatting, whitespace
-  // and letter case do not turn historical wording into new authorization.
+  // Comparison only: compatibility spelling, invisible formatting, punctuation,
+  // symbols, whitespace and case do not turn historical wording into new authorization.
   // Preserve original bytes and the exact instruction/excerpt custody check;
   // this is not semantic paraphrase matching.
   return value.normalize("NFKC").replace(/\p{Default_Ignorable_Code_Point}/gu, "")
-    .replace(/\s+/gu, " ").trim().toLowerCase();
+    .replace(/[\p{P}\p{S}\s]+/gu, " ").trim().toLowerCase();
 }
 
 function verifyFreshOwnerAuthorization(repoRoot, contract, approval, custody, source) {

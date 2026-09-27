@@ -142,3 +142,21 @@ identity controls. Original-defect and invisible-formatting failures were
 reproduced before repair. Independent review found no remaining concrete
 finding; syntax and diff checks passed. No approval, ledger, production
 configuration, deployment or artifact was changed by this follow-up.
+
+The next review reproduced a punctuation-only reuse of historical owner wording
+and separator-free App Check placeholders. The comparison now treats punctuation
+and symbol separators consistently, without changing retained evidence bytes or
+exact excerpt/hash validation. App Check rejects `TODOAPPROVER`, `TODO123` and
+`fixture approval`, with genuine Todo-prefixed names retained. Focused validation
+passed **26 source-authority tests**, **23 App Check tests** (78 coherent-hash
+negative identity cases and seven genuine pairs), and **18 CodeQL evidence-verifier
+tests**. Independent scoped review found no actionable defect.
+
+At `67b78327`, all five release-gate jobs passed; the separate Java/Kotlin CodeQL
+job failed before extraction because the runner lacked the CMake 3.22.1 Ninja
+executable used by JNI cleanup. Its repair explicitly provisions and executes
+CMake/Ninja before the unchanged traced clean/build. Local syntax and extraction
+contract checks passed; fresh Linux CI is still required. Main protection's
+obsolete Android shell job name was corrected to the current shell-plus-business
+job, retaining all five required GitHub Actions checks, strict mode, app IDs and
+all other protection settings, with exact readback. No check was removed.

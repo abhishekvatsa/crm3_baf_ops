@@ -92,6 +92,8 @@ for (const field of ['approverName', 'approvalReference']) {
   test(`repository preflight refuses placeholder or malformed approval identities: ${field}`, (t) => {
     const input = {...fixture(), field, invalid: [
       'TODO', 'TODO: record the decision', 'TODO_APPROVER', 'TODO - record decision', 'REPLACE_APPROVER', 'REPLACE_REFERENCE', 'fixture',
+      'TODOAPPROVER', 'TODO123', 'fixture approval', 'todoReference', 'TODOAPPROVER123', 'fixture: pending',
+      '  TODO\u200BAPPROVER  ', 'ＴＯＤＯ１２３',
       '  TODO  ', '\tRePlAcE_APPROVER\n', ' Fixture ', 'ＴＯＤＯ', 'ｆｉｘｔｕｒｅ',
       '\u200BTODO', 'TO\u200BDO', 'REPLACE_\u2060APPROVER', 'fi\uFEFFxture',
       'T\uFE0FODO', 'TO\u{E0100}DO', 'TO\u034FDO', '\u{1BCA0}TODO', '\u{1D173}TODO',
@@ -131,6 +133,7 @@ test('genuine approval identities pass without rewriting the retained identity',
     {approverName: '李明', approvalReference: '授权-20260927-01'},
     {approverName: '  Alice Smith  ', approvalReference: ' Owner decision 30 '},
     {approverName: 'Todor Ivanov', approvalReference: 'Todoist release decision 30'},
+    {approverName: 'Todorov Alexei', approvalReference: 'Todoist ticket 123'},
     {approverName: 'علی\u200Cرضا', approvalReference: 'Owner decision 30 / 李\u{E0100}明'},
   ]};
   const result = run(t, input, `

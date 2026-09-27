@@ -464,17 +464,50 @@ test('Build30 refuses formatting-equivalent historical owner instructions in com
   }
 });
 
+test('Build30 refuses punctuation-equivalent historical owner instructions in committed custody', async (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const historical = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward';
+  for (const [label, instruction] of [
+    ['em dash separators', historical.replaceAll(' - ', ' \u2014 ')],
+    ['other Unicode dash separators', historical.replace(' - ', '\u2013').replace(' - ', '\u2011')],
+    ['quoted instruction and words', `\u201c${historical.replace('audit yourself', '\u2018audit yourself\u2019').replace('phone is connected', '"phone is connected"')}\u201d`],
+    ['Markdown heading emphasis and code', `# **${historical.replace('phone is connected', '`phone is connected`')}**`],
+    ['symbol separators', historical.replaceAll(' - ', ' + \u2192 \u2022 ')],
+    ['combined punctuation case and invisible formatting', `> [${historical.toUpperCase().replaceAll(' - ', '\u200b\u2014\u2060')}]`],
+    ['no substantive instruction', '# **\u2014\u201c\u201d** + \u2192 \u200b'],
+  ]) {
+    await t.test(label, () => {
+      f.owner.ownerInstruction = instruction;
+      f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+      f.commitCustody();
+      const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+      const originalBytes = fs.readFileSync(ownerFile);
+      const committedDigest = f.currentApproval.approvalEvidence.ownerAuthorization.sha256;
+      assert.equal(sha(originalBytes), committedDigest, 'The refusal fixture must have coherent raw evidence custody');
+      assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+        approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+        expectedBuildNumber: 30}), /fresh owner instruction/);
+      assert.equal(f.verify().ok, false);
+      assert.deepEqual(fs.readFileSync(ownerFile), originalBytes, 'Refusal must preserve the exact committed owner evidence');
+      assert.equal(f.currentApproval.approvalEvidence.ownerAuthorization.sha256, committedDigest);
+    });
+  }
+});
+
 test('Build30 preserves distinct fresh instruction content and exact excerpt custody', (t) => {
   const f = successorDelegatedFixture(t, {delegationBuild: 30});
-  const instruction = '  New owner decision: authorise only this exact Build30 backend.\nRe\u0301view its separately stated scope.  ';
+  const instruction = '  **New owner decision:** authorise only this exact Build30 backend\u2014\u201capproved scope\u201d.\nRe\u0301view its separately stated scope.  ';
   f.owner.ownerInstruction = instruction;
   f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
   f.commitCustody();
   const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
   const originalBytes = fs.readFileSync(ownerFile);
+  const committedDigest = f.currentApproval.approvalEvidence.ownerAuthorization.sha256;
+  assert.equal(sha(originalBytes), committedDigest);
   const verified = f.verify();
   assert.equal(verified.ok, true, verified.reasons?.join('; '));
   assert.deepEqual(fs.readFileSync(ownerFile), originalBytes);
+  assert.equal(f.currentApproval.approvalEvidence.ownerAuthorization.sha256, committedDigest);
   assert.equal(JSON.parse(originalBytes).ownerInstruction, instruction);
   // Normalization detects reused wording only. It must not loosen the exact
   // original instruction/excerpt match or rewrite either immutable record.

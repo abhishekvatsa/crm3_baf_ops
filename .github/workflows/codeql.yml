@@ -71,8 +71,15 @@ jobs:
         run: |
           set -euo pipefail
           echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
-          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358"
+          android_sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          "$android_sdk/cmdline-tools/latest/bin/sdkmanager" \
+            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
+          # Cached JNI native metadata may invoke Ninja during clean, before
+          # Gradle has a chance to provision CMake for the new build.
+          test -x "$android_sdk/cmake/3.22.1/bin/cmake"
+          test -x "$android_sdk/cmake/3.22.1/bin/ninja"
+          "$android_sdk/cmake/3.22.1/bin/cmake" --version
+          "$android_sdk/cmake/3.22.1/bin/ninja" --version
           flutter precache --android
           flutter pub get
           python3 tools/security/codeql/prepare_android.py
