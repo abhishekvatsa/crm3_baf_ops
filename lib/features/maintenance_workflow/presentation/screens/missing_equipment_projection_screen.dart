@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/incremental_list_footer.dart';
 import '../../../assets/providers/plant_asset_overview_provider.dart';
 import '../../../auth/providers/auth_provider.dart';
@@ -85,7 +86,14 @@ class _MissingEquipmentProjectionScreenState
     final busy = ref.watch(workflowCommandControllerProvider).isLoading;
     final visible = candidates?.take(_limit).toList() ?? [];
     return Scaffold(
-      appBar: AppBar(title: const Text('Missing equipment states')),
+      appBar: AppBar(
+        title: const BafAppBarTitle(
+          title: 'Missing equipment states',
+          subtitle: 'Review registered equipment',
+          icon: Icons.fact_check_outlined,
+          accent: BafColors.assets,
+        ),
+      ),
       body: BafContentFrame(
         maxWidth: 960,
         child: candidates == null
