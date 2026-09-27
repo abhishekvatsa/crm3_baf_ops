@@ -208,6 +208,9 @@ class AppUser {
   /// command preserves identity, lifecycle, closure, work, and history fields.
   bool get canCorrectMaintenanceTicket => isApproved && (isAdmin || isSI);
 
+  bool get canIdentifyMaintenanceComponent => isApproved && roles.any((role) =>
+    const {AppRole.admin, AppRole.si, AppRole.contractSupervisor, AppRole.shiftSupervisor}.contains(role));
+
   bool get canCloseMaintenanceIssueWithoutResolution => isApproved && isAdmin;
 
   bool get canSoftDeleteMaintenanceTicket => isApproved && isAdmin;
@@ -756,7 +759,13 @@ class AppUser {
           disposition as String? ??
           (data['isApproved'] == true ? 'approved' : 'unknown'),
       lastAuthorityReason: data['lastAuthorityDecision'] is Map
-          ? data['lastAuthorityDecision']['reason'] as String?
+          ? readOptionalPersistedString(
+              data['lastAuthorityDecision']['reason'],
+              field: 'lastAuthorityDecision.reason',
+              source: source,
+              emptyAsNull: false,
+              trim: false,
+            )
           : null,
       authorityFromCache: fromCache,
       authorityHasPendingWrites: hasPendingWrites,

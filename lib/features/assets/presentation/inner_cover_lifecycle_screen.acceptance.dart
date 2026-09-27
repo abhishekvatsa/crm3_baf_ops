@@ -110,7 +110,7 @@ class _AcceptanceDialogState extends ConsumerState<_AcceptanceDialog> {
 
   Future<void> _chooseInspectionTime() async {
     final now = DateTime.now();
-    final date = await showDatePicker(
+    final date = await showInnerCoverDatePicker(
       context: context,
       initialDate: _inspectedOn ?? now,
       firstDate: DateTime(1900),
@@ -249,7 +249,9 @@ class _AcceptanceDialogState extends ConsumerState<_AcceptanceDialog> {
                 label: Text(
                   _inspectedOn == null
                       ? 'Choose inspection date and time'
-                      : DateFormat('dd MMM yyyy, HH:mm').format(_inspectedOn!),
+                      : DateFormat(
+                          innerCoverDateTimePattern,
+                        ).format(_inspectedOn!),
                 ),
               ),
               if (_dateError != null)

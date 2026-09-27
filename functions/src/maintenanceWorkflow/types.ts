@@ -54,7 +54,7 @@ export type WorkflowAuthorityCapability =
   | "lane.acknowledge" | "lane.work" | "lane.close"
   | "compliance.raise"
   | "ticket.create" | "ticket.acknowledge" | "ticket.complete"
-  | "ticket.lanes.manage" | "ticket.reopen" | "ticket.correct"
+  | "ticket.lanes.manage" | "ticket.reopen" | "ticket.correct" | "ticket.identifyComponent"
   | "ticket.closeWithoutResolution"
   | "laneSet.finalize" | "lanePopulation.manage" | "workflow.cancel"
   | "condition.markDue" | "redLane.prepare" | "workflowModule.reopen"
@@ -72,7 +72,8 @@ export type WorkflowAuthorityCapability =
   | "criticalAlarm.support" | "criticalAlarm.resolve"
   | "criticalAlarm.withdraw" | "criticalAlarm.contacts.manage"
   | "criticalAlarm.definitions.manage"
-  | "pilotRecord.purge";
+  | "pilotRecord.purge"
+  | "abnormalityType.manage" | "legacyJobTemplate.manage" | "jobExecution.work";
 
 export interface WorkflowAuthorityScope extends JsonMap {
   readonly schemaVersion: 1;
@@ -107,6 +108,7 @@ export type WorkflowCommandType =
   | "closeMaintenanceTicketWithoutResolution"
   | "reopenMaintenanceTicket"
   | "correctMaintenanceTicket"
+  | "identifyMaintenanceTicketComponent"
   | "releaseFurnaceStuckup" | "adjudicateFurnaceStuckup"
   | "correctBurnerBlockInstallation"
   | "correctUvDetectorInstallation"
@@ -115,7 +117,8 @@ export type WorkflowCommandType =
   | "withdrawCriticalAlarmInError"
   | "upsertCriticalAlarmContact" | "setCriticalAlarmContactStatus"
   | "upsertCriticalAlarmDefinition" | "setCriticalAlarmDefinitionStatus"
-  | "purgePilotBusinessRecord";
+  | "purgePilotBusinessRecord"
+  | "upsertAbnormalityType" | "upsertLegacyJobTemplate" | "updateJobExecutionWork";
 
 export interface WorkflowCommandReceipt {
   readonly commandId: string;
@@ -205,4 +208,7 @@ export interface CommandContext {
 export interface CommandInvocationContext {
   readonly actor: CommandActorIdentity;
   readonly serverNow: Date;
+  /** Supplied by the server's V2 route, never by command payload. */
+  readonly originBoundProtocolVersion?: 2;
+  readonly projectId?: string;
 }

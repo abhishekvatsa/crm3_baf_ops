@@ -326,9 +326,10 @@ void main() {
       );
       expect(
         provider,
-        contains('_modules.doc(id).set(stepData, SetOptions(merge: true));'),
+        contains('_modules.doc(id).set(outgoing, SetOptions(merge: true));'),
         reason: 'remote primitive must remain a field-scoped merge write',
       );
+      expect(provider, contains('Map<String, dynamic>.of(stepData)'));
     });
 
     test('does not weaken rules, closure, pull, or coordinator contracts', () {

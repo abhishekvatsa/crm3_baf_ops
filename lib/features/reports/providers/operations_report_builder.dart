@@ -161,7 +161,7 @@ OperationsReport buildOperationsReport({
   final filteredTickets = tickets
       .where(
         (ticket) =>
-            overlaps(ticket.startDate, ticket.endDate) &&
+            maintenanceTicketMatchesPeriod(ticket, filter) &&
             identityMatcher.matchesTicket(
               ticket,
               ticketClassId(ticket),
@@ -172,10 +172,17 @@ OperationsReport buildOperationsReport({
   final filteredExecutions = executions
       .where(
         (execution) =>
-            overlaps(
-              execution.createdAt,
-              execution.completedAt ?? execution.cancelledAt,
-            ) &&
+            (switch (filter.maintenancePeriodBasis) {
+              MaintenanceReportPeriodBasis.activeDuring => overlaps(
+                execution.createdAt,
+                execution.completedAt ?? execution.cancelledAt,
+              ),
+              MaintenanceReportPeriodBasis.openedDuring =>
+                reportInstantInPeriod(execution.createdAt, filter),
+              MaintenanceReportPeriodBasis.completedDuring =>
+                execution.completedAt != null &&
+                    reportInstantInPeriod(execution.completedAt!, filter),
+            }) &&
             matchesExecution(
               execution,
               executionClassId(execution),
@@ -291,16 +298,6 @@ OperationsReport buildOperationsReport({
     });
   }
 
-  final filteredQualityWarnings =
-      qualityWarnings
-          .where(
-            (warning) =>
-                (warning.closedAt == null ||
-                    overlaps(warning.createdAt, warning.closedAt)) &&
-                affectedAssetsMatch(warning),
-          )
-          .toList()
-        ..sort((left, right) => right.updatedAt.compareTo(left.updatedAt));
   bool monitoringMatchesIdentity(QualityMonitoringRequest request) {
     final classId = request.baseAssetClassId;
     final assetId = request.baseAssetInstanceId;
@@ -341,8 +338,10 @@ OperationsReport buildOperationsReport({
       qualityMonitoringRequests
           .where(
             (request) =>
-                (request.closedAt == null ||
-                    overlaps(request.createdAt, request.closedAt)) &&
+                (filter.qualityPeriodBasis ==
+                        QualityReportPeriodBasis.outstanding
+                    ? request.closedAt == null
+                    : reportInstantInPeriod(request.createdAt, filter)) &&
                 monitoringMatchesIdentity(request),
           )
           .toList()
@@ -359,17 +358,129 @@ OperationsReport buildOperationsReport({
     );
   }
 
+  final reportAbnormalityPopulation = abnormalities
+      .map(
+        (record) => identityAbnormalities.containsKey(record.firestoreId)
+            ? identityAbnormalities[record.firestoreId]
+            : record,
+      )
+      .whereType<ChargeAbnormality>()
+      .toList();
   final filteredAbnormalities =
-      abnormalities
+      reportAbnormalityPopulation
           .where(
             (record) =>
                 !record.isDeleted &&
-                !record.loggedAt.isBefore(filter.startInclusive) &&
-                record.loggedAt.isBefore(filter.endExclusive) &&
+                qualityCaseMatchesAttributes(record, filter) &&
+                qualityCaseMatchesPeriod(record, filter, qualityWarnings) &&
                 abnormalityMatchesIdentity(record),
           )
           .toList()
         ..sort((left, right) => right.loggedAt.compareTo(left.loggedAt));
+
+  final undatedRaCases =
+      filter.qualityPeriodBasis == QualityReportPeriodBasis.raPerformed
+      ? reportAbnormalityPopulation
+            .where(
+              (record) =>
+                  !record.isDeleted &&
+                  record.hasCompletedReannealing &&
+                  record.raPerformedAt == null &&
+                  qualityCaseMatchesAttributes(record, filter) &&
+                  abnormalityMatchesIdentity(record),
+            )
+            .toList()
+      : <ChargeAbnormality>[];
+  // A warning belongs to the selected case population by identity, never merely
+  // by charge number. Multiple independent cases on one charge remain separate.
+  bool selectedCaseWarningMatches(QualityWarning warning) {
+    final cases = filteredAbnormalities
+        .where((record) => qualityWarningBelongsToCase(warning, record))
+        .toList();
+    if (cases.isEmpty) return false;
+    if (cases.length != 1) {
+      throw StateError(
+        'Quality warning ${warning.warningId} has conflicting case identities.',
+      );
+    }
+    final record = cases.single;
+    var matchesScope = false;
+    for (final asset in warning.affectedAssets) {
+      final native = record.affectedAssets
+          .where(
+            (source) =>
+                source.assetType.name == asset.assetType &&
+                source.assetNumber == asset.assetNumber,
+          )
+          .toList();
+      if (native.isEmpty) {
+        throw StateError(
+          'Quality warning ${warning.warningId} asset evidence conflicts with its selected case.',
+        );
+      }
+      for (final source in native) {
+        final warningReference = asset.assetHierarchyReference;
+        final sourceReference = source.assetHierarchyReference;
+        if (warningReference != null &&
+            sourceReference != null &&
+            (warningReference.assetClassId != sourceReference.assetClassId ||
+                warningReference.assetInstanceId !=
+                    sourceReference.assetInstanceId)) {
+          throw StateError(
+            'Quality warning ${warning.warningId} physical identity conflicts with its selected case.',
+          );
+        }
+        // Exact source kind, ID and charge were joined above. The matching
+        // event-time asset tuple may borrow only that case's physical identity,
+        // never another case on the same charge or today's catalogue mapping.
+        if (effectiveClassId == null && filter.assetInstanceId == null ||
+            affectedAssetMatches(
+              asset.assetType,
+              asset.assetNumber,
+              sourceReference ?? warningReference,
+            )) {
+          matchesScope = true;
+        }
+      }
+    }
+    if (!matchesScope) {
+      throw StateError(
+        'Quality warning ${warning.warningId} asset evidence conflicts with its selected case scope.',
+      );
+    }
+    return true;
+  }
+
+  final filteredQualityWarnings =
+      qualityWarnings.where(selectedCaseWarningMatches).toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+  final unmatchedQualityWarnings = qualityWarnings
+      .where(
+        (warning) =>
+            !reportAbnormalityPopulation.any(
+              (record) =>
+                  !record.isDeleted &&
+                  qualityWarningBelongsToCase(warning, record),
+            ) &&
+            filter.qualityKind == QualityReportKind.all &&
+            !filter.raOnly &&
+            (filter.qualitySource == QualityReportSource.all ||
+                filter.qualitySource == QualityReportSource.maintenanceIssue &&
+                    warning.sourceType == QualityWarningSourceType.issue ||
+                filter.qualitySource == QualityReportSource.direct &&
+                    warning.sourceType != QualityWarningSourceType.issue) &&
+            (switch (filter.qualityPeriodBasis) {
+              QualityReportPeriodBasis.firstReported => reportInstantInPeriod(
+                warning.createdAt,
+                filter,
+              ),
+              QualityReportPeriodBasis.outstanding => warning.isOpen,
+              QualityReportPeriodBasis.raPerformed => false,
+            }) &&
+            affectedAssetsMatch(warning),
+      )
+      .toList();
 
   bool directiveMatchesIdentity(OperationalDirective directive) {
     if (effectiveClassId == null && filter.assetInstanceId == null) return true;
@@ -596,6 +707,11 @@ OperationsReport buildOperationsReport({
     selectedAssetClassId: effectiveClassId,
     selectedAssetInstanceId: filter.assetInstanceId,
     selectedSubjectKind: filter.subjectKind,
+    evidenceWarnings: overview.evidenceWarnings,
+    coverSourceWarnings: overview.innerCoverEvidenceWarnings,
+    qualifiedCoverStates: overview.hasQualifiedInnerCoverInventory
+        ? overview.innerCovers
+        : null,
   );
 
   List<CountedReportLabel> rank(
@@ -721,7 +837,13 @@ OperationsReport buildOperationsReport({
   final selectedClasses = assetClasses
       .where(
         (assetClass) =>
-            assetClass.isActive &&
+            (assetClass.isActive ||
+                inventory.numberedAssetStates.any(
+                  (s) => s.asset.assetClassId == assetClass.id,
+                ) ||
+                inventory.innerCovers.any(
+                  (p) => p.assetClassId == assetClass.id,
+                )) &&
             (effectiveClassId == null || assetClass.id == effectiveClassId),
       )
       .toList();
@@ -834,6 +956,12 @@ OperationsReport buildOperationsReport({
           ),
     ),
     inventoryAssetCount: inventory.total,
+    inventoryUnknownAssetCount: inventory.unknown,
+    inventoryEvidenceWarnings: inventory.evidenceWarnings,
+    unverifiedInnerCoverIds: inventory.population.innerCovers
+        .where((s) => s.evidenceWarnings.isNotEmpty)
+        .map((s) => s.profile.id)
+        .toSet(),
     inventoryAvailableAssetCount: inventory.available,
     inventoryUnderMaintenanceAssetCount: inventory.underMaintenance,
     inventoryDownAssetCount: inventory.down,
@@ -843,6 +971,10 @@ OperationsReport buildOperationsReport({
       filteredQualityMonitoring,
     ),
     abnormalities: List<ChargeAbnormality>.unmodifiable(filteredAbnormalities),
+    undatedRaCases: List<ChargeAbnormality>.unmodifiable(undatedRaCases),
+    unmatchedQualityWarnings: List<QualityWarning>.unmodifiable(
+      unmatchedQualityWarnings,
+    ),
     directives: List<OperationalDirective>.unmodifiable(filteredDirectives),
     workflowLanes: List<JobLaneRecord>.unmodifiable(filteredWorkflowLanes),
     complianceRequests: List<ComplianceRequestRecord>.unmodifiable(

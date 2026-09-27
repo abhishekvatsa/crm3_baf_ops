@@ -95,10 +95,9 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         moduleCode: _uniqueModuleCode(seed.moduleCode),
         title: seed.moduleTitle,
         description: seed.closedDossierOutput,
-        assetType:
-            seed.applicableAssetTypes.isNotEmpty
-                ? seed.applicableAssetTypes.first
-                : _draft.assetType,
+        assetType: seed.applicableAssetTypes.isNotEmpty
+            ? seed.applicableAssetTypes.first
+            : _draft.assetType,
         discipline: seed.defaultDiscipline,
         ownerDisciplines: [_ownerFromDiscipline(seed.defaultDiscipline)],
         primaryOwner: _ownerFromDiscipline(seed.defaultDiscipline),
@@ -108,17 +107,15 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
         functionalSection: seed.functionalSection,
         componentGroup: seed.componentGroup,
         subsystem: seed.catalogueArea,
-        safetyClasses:
-            {
-              seed.defaultSafetyClass.name,
-              ...seed.safetyConfirmations.map(_normaliseSafetyText),
-            }.toList(),
-        targetRefs:
-            [
-              seed.catalogueArea,
-              seed.functionalSection,
-              seed.componentGroup,
-            ].where((value) => value.trim().isNotEmpty).toList(),
+        safetyClasses: {
+          seed.defaultSafetyClass.name,
+          ...seed.safetyConfirmations.map(_normaliseSafetyText),
+        }.toList(),
+        targetRefs: [
+          seed.catalogueArea,
+          seed.functionalSection,
+          seed.componentGroup,
+        ].where((value) => value.trim().isNotEmpty).toList(),
         deviceTagRefs: _extractTagsFromSeed(seed),
         procedureRefs: List<String>.from(seed.procedureRefs),
         partRefs: const <String>[],
@@ -271,12 +268,16 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
             'Archived draft restored and synchronized under the same governed identity.',
           SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
             'Archived draft restored on this device; governed synchronization is queued. Reopen it after sync completes.',
+          SyncRequestOutcome.partial =>
+            'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
           SyncRequestOutcome.failed =>
             'Archived draft restored on this device, but governed cloud synchronization needs attention.',
         };
         _showSnack(
           restoreMessage,
-          syncOutcome == SyncRequestOutcome.failed
+          syncOutcome.isPartial
+              ? BafColors.warning
+              : syncOutcome == SyncRequestOutcome.failed
               ? BafColors.danger
               : BafColors.audit,
         );
@@ -338,12 +339,16 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
                 : 'Draft archived and synchronized.',
           SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
             'Draft archived on this device; governed synchronization is queued.',
+          SyncRequestOutcome.partial =>
+            'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
           SyncRequestOutcome.failed =>
             'Draft archived on this device, but governed cloud synchronization needs attention.',
         };
         _showSnack(
           archiveMessage,
-          syncOutcome == SyncRequestOutcome.failed
+          syncOutcome.isPartial
+              ? BafColors.warning
+              : syncOutcome == SyncRequestOutcome.failed
               ? BafColors.danger
               : BafColors.audit,
         );
@@ -509,13 +514,12 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
               );
               await _clearRecoveryDraft();
             },
-            runSync:
-                () => ref
-                    .read(syncCoordinatorProvider)
-                    .runFullSyncWithResult(
-                      reason: 'template_governance_draft_saved_from_composer',
-                      force: true,
-                    ),
+            runSync: () => ref
+                .read(syncCoordinatorProvider)
+                .runFullSyncWithResult(
+                  reason: 'template_governance_draft_saved_from_composer',
+                  force: true,
+                ),
             reloadLocal: repository.getVersionByFirestoreId,
           );
         },
@@ -667,19 +671,18 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
 
     final result = await Navigator.of(context).push<ModuleWorkshopResult>(
       MaterialPageRoute(
-        builder:
-            (_) => ModuleWorkshopScreen(
-              draftModules: _draft.modules
-                  .map(cloneComposerModuleDraft)
-                  .toList(growable: false),
-              seedCatalogueCount: BafModuleCatalogueSeed.modules.length,
-              knowledgeCatalogueCount: _knowledgeRows.length,
-              publishedSourceCount: publishedSources.length,
-              seedModules: BafModuleCatalogueSeed.modules,
-              knowledgeRows: _knowledgeRows,
-              publishedSources: publishedSources,
-              registrySources: registrySources,
-            ),
+        builder: (_) => ModuleWorkshopScreen(
+          draftModules: _draft.modules
+              .map(cloneComposerModuleDraft)
+              .toList(growable: false),
+          seedCatalogueCount: BafModuleCatalogueSeed.modules.length,
+          knowledgeCatalogueCount: _knowledgeRows.length,
+          publishedSourceCount: publishedSources.length,
+          seedModules: BafModuleCatalogueSeed.modules,
+          knowledgeRows: _knowledgeRows,
+          publishedSources: publishedSources,
+          registrySources: registrySources,
+        ),
       ),
     );
 
@@ -1010,10 +1013,9 @@ extension _ModuleComposerActions on _ModuleComposerScreenState {
           module.requiredForClosure && _moduleLooksSafetyCritical(module),
       order: next,
       unit: type == ComposerFieldType.numericWithUnit ? 'as shown' : null,
-      options:
-          type == ComposerFieldType.dropdown
-              ? const <String>['Good', 'Fair', 'Poor', 'Not checked']
-              : const <String>[],
+      options: type == ComposerFieldType.dropdown
+          ? const <String>['Good', 'Fair', 'Poor', 'Not checked']
+          : const <String>[],
       instructionText: 'Added in Module Composer.',
       isSafetyCriticalPreset: false,
     );

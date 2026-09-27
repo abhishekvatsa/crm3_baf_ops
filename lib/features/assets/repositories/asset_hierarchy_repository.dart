@@ -795,41 +795,35 @@ class AssetHierarchyRepository {
     });
   }
 
-  Stream<List<InnerCoverLinkage>> watchInnerCoverHistory(String innerCoverId) {
-    return _innerCoverLinkages
-        .where('innerCoverId', isEqualTo: innerCoverId)
-        .snapshots()
-        .map((snapshot) {
-          final records =
-              decodeSnapshotDocuments(
-                snapshot,
-                InnerCoverLinkage.fromMap,
-                source: 'InnerCoverLinkage',
-              ).toList()..sort(
-                (left, right) => right.installedAt.compareTo(left.installedAt),
-              );
-          return List<InnerCoverLinkage>.unmodifiable(records);
-        });
-  }
+  Stream<DecodedSnapshotBatch<InnerCoverLinkage>> watchInnerCoverHistory(
+    String innerCoverId,
+  ) => _watchInnerCoverHistory(
+    _innerCoverLinkages.where('innerCoverId', isEqualTo: innerCoverId),
+  );
 
-  Stream<List<InnerCoverLinkage>> watchBaseInnerCoverHistory(
+  Stream<DecodedSnapshotBatch<InnerCoverLinkage>> watchBaseInnerCoverHistory(
     String baseAssetInstanceId,
-  ) {
-    return _innerCoverLinkages
-        .where('baseAssetInstanceId', isEqualTo: baseAssetInstanceId)
-        .snapshots()
-        .map((snapshot) {
-          final records =
-              decodeSnapshotDocuments(
-                snapshot,
-                InnerCoverLinkage.fromMap,
-                source: 'InnerCoverLinkage',
-              ).toList()..sort(
-                (left, right) => right.installedAt.compareTo(left.installedAt),
-              );
-          return List<InnerCoverLinkage>.unmodifiable(records);
-        });
-  }
+  ) => _watchInnerCoverHistory(
+    _innerCoverLinkages.where(
+      'baseAssetInstanceId',
+      isEqualTo: baseAssetInstanceId,
+    ),
+  );
+
+  Stream<DecodedSnapshotBatch<InnerCoverLinkage>> _watchInnerCoverHistory(
+    Query<Map<String, dynamic>> query,
+  ) => query.snapshots(includeMetadataChanges: true).map((snapshot) {
+    final batch = decodeSnapshotBatch(
+      snapshot,
+      InnerCoverLinkage.fromMap,
+      source: 'InnerCoverLinkage',
+    );
+    batch.records.sort((left, right) {
+      final date = right.installedAt.compareTo(left.installedAt);
+      return date == 0 ? left.id.compareTo(right.id) : date;
+    });
+    return batch;
+  });
 
   Stream<InnerCoverFabricationDossier?> watchInnerCoverFabrication(
     String innerCoverId,

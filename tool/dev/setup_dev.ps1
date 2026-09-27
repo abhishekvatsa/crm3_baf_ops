@@ -12,7 +12,7 @@ Set-Location (Join-Path $PSScriptRoot '..\..')
 
 $projectId = $env:CRM_DEMO_PROJECT_ID
 if ([string]::IsNullOrWhiteSpace($projectId)) { $projectId = 'demo-crm3-baf-ops' }
-if (-not $projectId.StartsWith('demo-')) {
+if ($projectId -notmatch '^demo-[a-z0-9][a-z0-9-]*$') {
   throw "CRM_DEMO_PROJECT_ID must start with 'demo-'. Received: $projectId"
 }
 
@@ -38,7 +38,7 @@ $config = [ordered]@{
         android_client_info = [ordered]@{ package_name = $_ }
       }
       oauth_client = @()
-      api_key      = @(@{ current_key = 'emulator-only-not-a-real-key' })
+      api_key      = @(@{ current_key = 'AIzaSyDEMOEMULATORONLYNOTAREALKEY000000' })
       services     = [ordered]@{
         appinvite_service = [ordered]@{ other_platform_oauth_client = @() }
       }

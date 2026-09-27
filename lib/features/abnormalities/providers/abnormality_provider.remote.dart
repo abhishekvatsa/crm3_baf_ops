@@ -4,19 +4,26 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   static const _uuid = Uuid();
 
   final AuditRepository _auditRepo;
+  final OnlineRetainedRowMutations _retainedMutations;
+  final fs.FirebaseFirestore _firestore;
 
-  FirestoreAbnormalityRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  FirestoreAbnormalityRepository({
+    AuditRepository? auditRepository,
+    fs.FirebaseFirestore? firestore,
+    OnlineRetainedRowMutations? retainedMutations,
+  }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _firestore = firestore ?? fs.FirebaseFirestore.instance,
+       _retainedMutations = retainedMutations ?? OnlineRetainedRowMutations();
 
-  final fs.CollectionReference<Map<String, dynamic>> _types = fs
-      .FirebaseFirestore
-      .instance
-      .collection('abnormality_types');
+  late final _types = _firestore.collection('abnormality_types');
+  late final _abnormalities = _firestore.collection('charge_abnormalities');
 
-  final fs.CollectionReference<Map<String, dynamic>> _abnormalities = fs
-      .FirebaseFirestore
-      .instance
-      .collection('charge_abnormalities');
+  Future<AbnormalityType?> _readTypeForMutation(String id) async {
+    final doc = await _types
+        .doc(id)
+        .get(const fs.GetOptions(source: fs.Source.server));
+    return doc.exists ? AbnormalityType.fromMap(doc.data()!, doc.id) : null;
+  }
 
   // ───────────────────────────────────────────────────────────
   // TYPE MASTER DATA
@@ -29,8 +36,11 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .snapshots()
         .map((snapshot) {
-          final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
-              .toList();
+          final records = decodeSnapshotDocuments(
+            snapshot,
+            AbnormalityType.fromMap,
+            source: 'AbnormalityType',
+          ).toList();
 
           records.sort(_sortTypes);
           return records;
@@ -42,8 +52,11 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     return _types.where('isDeleted', isEqualTo: false).snapshots().map((
       snapshot,
     ) {
-      final records = decodeSnapshotDocuments(snapshot, AbnormalityType.fromMap, source: 'AbnormalityType')
-          .toList();
+      final records = decodeSnapshotDocuments(
+        snapshot,
+        AbnormalityType.fromMap,
+        source: 'AbnormalityType',
+      ).toList();
 
       records.sort(_sortTypes);
       return records;
@@ -57,7 +70,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isActive', isEqualTo: true)
         .get();
 
-    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs
+        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -68,7 +82,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   Future<List<AbnormalityType>> getAllTypes() async {
     final snapshot = await _types.where('isDeleted', isEqualTo: false).get();
 
-    final records = snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs
+        .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortTypes);
@@ -98,27 +113,28 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AuditContext? auditContext,
   }) async {
     _requireCanManageAbnormalityTypes(actor);
-    _validateTypeForSave(type);
 
     type.firestoreId ??= _uuid.v4();
 
-    final beforeDoc = await _types.doc(type.firestoreId).get();
-    final beforeSnapshot = beforeDoc.exists
-        ? _sanitizeForAudit(beforeDoc.data())
-        : null;
-
-    final isCreate = beforeSnapshot == null;
-
-    type
-      ..updatedAt = DateTime.now()
-      ..version = isCreate
-          ? (type.version <= 0 ? 1 : type.version)
-          : type.version + 1
-      ..isSynced = true;
-
-    await _types
-        .doc(type.firestoreId)
-        .set(type.toMap(), fs.SetOptions(merge: true));
+    final before = await _readTypeForMutation(type.firestoreId!);
+    final beforeSnapshot = before?.toAuditMap();
+    final isCreate = before == null;
+    await _retainedMutations.save(
+      kind: RetainedRowKind.abnormalityType,
+      actor: actor,
+      record: type,
+      readRemote: () => _readTypeForMutation(type.firestoreId!),
+      normalize: (existing) {
+        _validateTypeForSave(type, existing: existing as AbnormalityType?);
+        if (existing == null) {
+          type.createdByUid = actor.uid;
+          type.createdByName = actor.name;
+        }
+        type.lastEditedByUid = actor.uid;
+        type.lastEditedByName = actor.name;
+        type.updatedAt = DateTime.now().toUtc();
+      },
+    );
 
     if (auditContext != null) {
       _logAudit(
@@ -138,41 +154,7 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     AbnormalityType type, {
     required AppUser actor,
     AuditContext? auditContext,
-  }) async {
-    _requireCanManageAbnormalityTypes(actor);
-    _validateTypeForSave(type);
-
-    if (type.firestoreId == null) {
-      throw Exception('firestoreId required for abnormality type update');
-    }
-
-    final beforeDoc = await _types.doc(type.firestoreId).get();
-    final beforeSnapshot = beforeDoc.exists
-        ? _sanitizeForAudit(beforeDoc.data())
-        : null;
-
-    type.markEdited(
-      editedByUid: auditContext?.performedByUid ?? type.lastEditedByUid,
-      editedByName: auditContext?.performedByName ?? type.lastEditedByName,
-    );
-    type.isSynced = true;
-
-    await _types
-        .doc(type.firestoreId)
-        .set(type.toMap(), fs.SetOptions(merge: true));
-
-    if (auditContext != null) {
-      _logAudit(
-        auditRepository: _auditRepo,
-        entityType: 'abnormality_type',
-        entityId: type.firestoreId!,
-        action: AuditAction.update,
-        context: auditContext,
-        before: beforeSnapshot,
-        after: type.toAuditMap(),
-      );
-    }
-  }
+  }) => saveType(type, actor: actor, auditContext: auditContext);
 
   @override
   Future<void> softDeleteType(
@@ -182,42 +164,32 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
   }) async {
     _requireCanManageAbnormalityTypes(actor);
     final docId = id as String;
-
-    final beforeDoc = await _types.doc(docId).get();
-    final beforeSnapshot = beforeDoc.exists
-        ? _sanitizeForAudit(beforeDoc.data())
-        : null;
-
-    final now = DateTime.now().toIso8601String();
-    final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
-    final nextVersion = currentVersion + 1;
-
-    final updateData = <String, dynamic>{
-      'isDeleted': true,
-      'isActive': false,
-      'deletedAt': now,
-      'deletedByUid': auditContext?.performedByUid,
-      'deletedByName': auditContext?.performedByName,
-      'deleteReason': auditContext?.reason?.name ?? auditContext?.reasonNotes,
-      'updatedAt': now,
-      'version': nextVersion,
-      'lastEditedByUid': auditContext?.performedByUid,
-      'lastEditedByName': auditContext?.performedByName,
-    };
-
-    await _types.doc(docId).update(updateData);
-
+    final type = await _readTypeForMutation(docId);
+    if (type == null) return;
+    final before = type.toAuditMap();
+    await _retainedMutations.save(
+      kind: RetainedRowKind.abnormalityType,
+      actor: actor,
+      record: type,
+      readRemote: () => _readTypeForMutation(docId),
+      normalize: (existing) {
+        type.softDelete(
+          deletedByUid: actor.uid,
+          deletedByName: actor.name,
+          reason: auditContext?.reason?.name ?? auditContext?.reasonNotes,
+        );
+        _validateTypeForSave(type, existing: existing as AbnormalityType?);
+      },
+    );
     if (auditContext != null) {
-      final afterSnapshot = {...?beforeSnapshot, ...updateData};
-
       _logAudit(
         auditRepository: _auditRepo,
         entityType: 'abnormality_type',
         entityId: docId,
         action: AuditAction.delete,
         context: auditContext,
-        before: beforeSnapshot,
-        after: afterSnapshot,
+        before: before,
+        after: type.toAuditMap(),
       );
     }
   }
@@ -246,7 +218,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
       createdByName: createdByName,
     )..isSynced = true;
 
-    await _types.doc('RA_COIL_COLOUR').set(type.toMap());
+    type.firestoreId = 'RA_COIL_COLOUR';
+    await saveType(type, actor: actor);
   }
 
   // ───────────────────────────────────────────────────────────
@@ -262,8 +235,11 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snapshot) {
-          final records = decodeSnapshotDocuments(snapshot, ChargeAbnormality.fromMap, source: 'ChargeAbnormality')
-              .toList();
+          final records = decodeSnapshotDocuments(
+            snapshot,
+            ChargeAbnormality.fromMap,
+            source: 'ChargeAbnormality',
+          ).toList();
 
           records.sort(_sortAbnormalities);
           return records;
@@ -272,18 +248,17 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
 
   @override
   Stream<List<ChargeAbnormality>> watchAllAbnormalities() {
-    return _abnormalities
-        .where('isDeleted', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) {
-          final records = decodeSnapshotDocuments(
-            snapshot,
-            ChargeAbnormality.fromMap,
-            source: 'ChargeAbnormality',
-          );
-          records.sort(_sortAbnormalities);
-          return records;
-        });
+    return _abnormalities.where('isDeleted', isEqualTo: false).snapshots().map((
+      snapshot,
+    ) {
+      final records = decodeSnapshotDocuments(
+        snapshot,
+        ChargeAbnormality.fromMap,
+        source: 'ChargeAbnormality',
+      );
+      records.sort(_sortAbnormalities);
+      return records;
+    });
   }
 
   @override
@@ -295,7 +270,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs
+        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -308,7 +284,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
         .where('isDeleted', isEqualTo: false)
         .get();
 
-    final records = snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+    final records = snapshot.docs
+        .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
         .toList();
 
     records.sort(_sortAbnormalities);
@@ -514,7 +491,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedAbnormalityTypesResult(
-      records: snapshot.docs.map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
+      records: snapshot.docs
+          .map((doc) => AbnormalityType.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );
@@ -552,7 +530,8 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
     }
 
     return PaginatedChargeAbnormalitiesResult(
-      records: snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
+      records: snapshot.docs
+          .map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snapshot.docs.last,
     );
@@ -599,7 +578,9 @@ class FirestoreAbnormalityRepository implements AbnormalityRepository {
           .get();
 
       results.addAll(
-        snapshot.docs.map((doc) => ChargeAbnormality.fromMap(doc.data(), doc.id)),
+        snapshot.docs.map(
+          (doc) => ChargeAbnormality.fromMap(doc.data(), doc.id),
+        ),
       );
     }
 

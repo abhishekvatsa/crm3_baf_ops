@@ -11,10 +11,18 @@ function Invoke-PrivateGcsCommand {
 }
 
 function Get-PrivateGcsCustodyDescriptor {
-  param([object]$BuildNumber)
+  param(
+    [object]$BuildNumber, [string]$RepositoryRoot,
+    [string]$CandidateSourceCommit, [string]$ApprovalCommit, [string]$ApprovalSha256
+  )
   if (($BuildNumber -isnot [int] -and $BuildNumber -isnot [int64]) -or
-      $BuildNumber -notin @(28, 29)) {
+      $BuildNumber -notin @(28, 29, 30)) {
     throw 'Private cloud custody requires an explicitly admitted integer build number.'
+  }
+  if ($BuildNumber -eq 30) {
+    return Get-Build30PrivateGcsCustodyDescriptor -RepositoryRoot $RepositoryRoot `
+      -CandidateSourceCommit $CandidateSourceCommit -ApprovalCommit $ApprovalCommit `
+      -ApprovalSha256 $ApprovalSha256
   }
   $decision = switch ($BuildNumber) {
     28 {
@@ -42,9 +50,143 @@ function Get-PrivateGcsCustodyDescriptor {
   }
 }
 
+function Get-Build30PrivateGcsCustodyDescriptor {
+  param([string]$RepositoryRoot, [string]$CandidateSourceCommit,
+    [string]$ApprovalCommit, [string]$ApprovalSha256)
+  if ([string]::IsNullOrWhiteSpace($RepositoryRoot) -or
+      $CandidateSourceCommit -cnotmatch '^[0-9a-f]{40}$' -or
+      $ApprovalCommit -cnotmatch '^[0-9a-f]{40}$' -or
+      $ApprovalSha256 -cnotmatch '^[0-9A-F]{64}$') {
+    throw 'Build30 custody requires an explicit source and committed approval digest; no approval is inferred.'
+  }
+  $file = 'release/approvals/build30-private-cloud-custody-approval.json'
+  $approvalPath = Join-Path $RepositoryRoot $file
+  if ((Get-FileHash -LiteralPath $approvalPath -Algorithm SHA256).Hash -cne $ApprovalSha256) {
+    throw 'Build30 custody approval bytes differ from the explicitly selected digest.'
+  }
+  $committedBlob = & git --no-replace-objects -C $RepositoryRoot rev-parse --verify "${ApprovalCommit}:$file"
+  if ($LASTEXITCODE -ne 0) { throw 'Build30 approval Git custody is unavailable.' }
+  $localBlob = & git --no-replace-objects -C $RepositoryRoot hash-object --no-filters -- $approvalPath
+  if ($LASTEXITCODE -ne 0 -or $localBlob -cne $committedBlob) {
+    throw 'Build30 approval is not the explicitly selected committed Git object.'
+  }
+  $candidateApprovalBlob = & git --no-replace-objects -C $RepositoryRoot rev-parse --verify "${CandidateSourceCommit}:$file"
+  if ($LASTEXITCODE -ne 0 -or $candidateApprovalBlob -cne $committedBlob) {
+    throw 'Build30 artifact source does not retain the exact approved custody decision.'
+  }
+  $approvalText = Get-Content -LiteralPath $approvalPath -Raw
+  $approval = $approvalText | ConvertFrom-Json -AsHashtable
+  $sourceBaseline = $approval.sourceBaselineCommit
+  if ($sourceBaseline -isnot [string] -or $sourceBaseline -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Build30 custody requires its committed source/allocation baseline.'
+  }
+  foreach ($pair in @(
+    @('c76cfa38ffdf6ca323613af0270ffe00a40afc7c', $sourceBaseline),
+    @($sourceBaseline, $ApprovalCommit), @($ApprovalCommit, $CandidateSourceCommit),
+    @($CandidateSourceCommit, 'HEAD')
+  )) {
+    & git --no-replace-objects -C $RepositoryRoot merge-base --is-ancestor $pair[0] $pair[1]
+    if ($LASTEXITCODE -ne 0) { throw 'Build30 source/approval is outside the admitted successor history.' }
+  }
+  foreach ($revision in @($sourceBaseline, $ApprovalCommit, $CandidateSourceCommit)) {
+    $ledgerBlob = & git --no-replace-objects -C $RepositoryRoot rev-parse --verify "${revision}:release/build-number-ledger.json"
+    if ($LASTEXITCODE -ne 0 -or $approval.candidateLedgerGitBlob -isnot [string] -or
+        $approval.candidateLedgerGitBlob -cnotmatch '^[0-9a-f]{40}$' -or
+        $ledgerBlob -cne $approval.candidateLedgerGitBlob) {
+      throw 'Build30 candidate source changed the approved committed allocation ledger.'
+    }
+  }
+  $ledgerText = & git --no-replace-objects -C $RepositoryRoot show "${CandidateSourceCommit}:release/build-number-ledger.json"
+  if ($LASTEXITCODE -ne 0) { throw 'Build30 candidate ledger Git custody is unavailable.' }
+  $ledger = ($ledgerText -join "`n") | ConvertFrom-Json -AsHashtable
+  $entries = @($ledger.entries | Where-Object { $_.buildNumber -ceq 30 })
+  if ($ledger.schemaVersion -ne 2 -or $entries.Count -ne 1 -or
+      ($entries[0].buildNumber -isnot [long] -and $entries[0].buildNumber -isnot [int])) {
+    throw 'Build30 requires exactly one integer candidate entry in the selected source ledger.'
+  }
+  $entry = $entries[0]
+  foreach ($key in @('reservationId', 'releaseId', 'campaignId')) {
+    if ($entry[$key] -isnot [string] -or $entry[$key] -cnotmatch '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$') {
+      throw 'Build30 candidate ledger identity is malformed.'
+    }
+  }
+  # ConvertFrom-Json automatically converts ISO strings on newer PowerShell.
+  # Retain the actual JSON scalar spelling for strict UTC chronology validation.
+  $approvalJson = [System.Text.Json.JsonDocument]::Parse($approvalText)
+  try {
+    $approvedAtUtc = $approvalJson.RootElement.GetProperty('approvedAtUtc').GetString()
+    $instructionAtUtc = $approvalJson.RootElement.GetProperty('ownerInstruction').GetProperty('recordedAtUtc').GetString()
+  } finally { $approvalJson.Dispose() }
+  $prefix = "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-30/$($entry.campaignId)"
+  $required = @{
+    schemaVersion = 2; documentType = 'candidate-specific-private-release-backup-custody-decision'
+    approved = $true; buildNumber = 30
+    reservationId = $entry.reservationId; releaseId = $entry.releaseId; campaignId = $entry.campaignId
+    firebaseProjectId = 'crm3-baf-ops-b8638'; permanentApplicationId = 'in.co.sail.bsl.crm3.bafops'
+    scope = 'private-release-custody-only'; custodyMode = 'local-primary-private-gcs-backup'
+  }
+  $backupRequired = @{
+    bucket = 'crm3-baf-ops-b8638-firestore-restore'; prefix = $prefix; location = 'ASIA-SOUTH1'
+    publicAccessPrevention = 'enforced'; uniformBucketLevelAccessRequired = $true
+    publicIamPrincipalsProhibited = $true; versioningRequired = $true
+    existingRetentionSeconds = 7776000; existingSoftDeleteSeconds = 604800
+    acceptExistingRetentionAndOrdinaryStorageCharges = $true
+    createOnlyGenerationPreconditionRequired = $true; overwriteOrDeleteAuthorized = $false
+    accessControlOrBucketConfigurationMutationAuthorized = $false
+  }
+  foreach ($comparison in @(@($approval, $required), @($approval.backup, $backupRequired))) {
+    foreach ($key in $comparison[1].Keys) {
+      $actual = $comparison[0][$key]; $expectedValue = $comparison[1][$key]
+      if ($null -eq $actual -or ($actual.GetType() -ne $expectedValue.GetType() -and
+          -not ($actual -is [long] -and $expectedValue -is [int])) -or $actual -cne $expectedValue) {
+        throw "Build30 custody approval has an invalid or different $key binding."
+      }
+    }
+  }
+  foreach ($value in @($approval.approverName, $approval.ownerInstruction.reference, $approval.ownerInstruction.text)) {
+    if ($value -isnot [string] -or [string]::IsNullOrWhiteSpace($value) -or
+        $value.Length -gt 4000 -or $value -cmatch '^(REPLACE_|TODO|fixture$)') {
+      throw 'Build30 custody needs a real explicit owner-instruction reference and accountable decision.'
+    }
+  }
+  if ($approval.authorityType -cnotin @('owner-delegated agent decision', 'project-owner decision')) {
+    throw 'Build30 custody authority type is not explicit.'
+  }
+  $times = @()
+  foreach ($value in @($instructionAtUtc, $approvedAtUtc)) {
+    if ($value -isnot [string] -or $value -cnotmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,7})?Z$') {
+      throw 'Build30 custody instruction and decision require explicit UTC instants.'
+    }
+    $times += [DateTimeOffset]::Parse($value, [Globalization.CultureInfo]::InvariantCulture)
+  }
+  $sourceTime = & git --no-replace-objects -C $RepositoryRoot show -s --format=%cI $sourceBaseline
+  if ($LASTEXITCODE -ne 0 -or $times[0] -gt $times[1] -or $times[1] -gt [DateTimeOffset]::UtcNow -or
+      [DateTimeOffset]::Parse($sourceTime) -gt $times[1]) {
+    throw 'Build30 custody approval chronology does not cover the selected candidate.'
+  }
+  $commitSeconds = & git --no-replace-objects -C $RepositoryRoot show -s --format=%ct $ApprovalCommit
+  if ($LASTEXITCODE -ne 0 -or $commitSeconds -cnotmatch '^[0-9]+$') {
+    throw 'Build30 approval commit chronology is unavailable.'
+  }
+  $committedAt = [DateTimeOffset]::FromUnixTimeSeconds([long]$commitSeconds)
+  # Git records whole seconds; the decision must predate the end of that second.
+  if ($committedAt -gt [DateTimeOffset]::UtcNow -or $times[1] -ge $committedAt.AddSeconds(1)) {
+    throw 'Build30 custody decision must precede its actual non-future Git custody commit.'
+  }
+  [pscustomobject]@{
+    buildNumber = 30; commit = $ApprovalCommit; file = $file; sha256 = $ApprovalSha256
+    approvedAtUtc = $approvedAtUtc; sourceCommit = $CandidateSourceCommit
+    reservationId = $entry.reservationId; releaseId = $entry.releaseId; campaignId = $entry.campaignId
+    proofFile = 'release/evidence/build30-private-gcs-custody-readback.json'
+    bucket = $backupRequired.bucket; prefixPattern = '^' + [regex]::Escape($prefix) + '$'
+  }
+}
+
 function Assert-PrivateGcsCustodyAuthority {
-  param([string]$RepositoryRoot, [string]$Prefix, [object]$BuildNumber)
-  $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $BuildNumber
+  param([string]$RepositoryRoot, [string]$Prefix, [object]$BuildNumber,
+    [string]$CandidateSourceCommit, [string]$ApprovalCommit, [string]$ApprovalSha256)
+  $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $BuildNumber -RepositoryRoot $RepositoryRoot `
+    -CandidateSourceCommit $CandidateSourceCommit -ApprovalCommit $ApprovalCommit -ApprovalSha256 $ApprovalSha256
   $commit = $descriptor.commit
   $file = $descriptor.file
   $sha256 = $descriptor.sha256
@@ -99,9 +241,11 @@ function Copy-PrivateGcsCustodyFile {
     [Parameter(Mandatory)][string]$SourcePath,
     [Parameter(Mandatory)][ValidatePattern('^[0-9A-Fa-f]{64}$')][string]$ExpectedSha256,
     [Parameter(Mandatory)][ValidateSet('productionPackage','productionPackageSidecar','closurePackage','closurePackageSidecar','custodyRecord','custodyRecordSidecar')][string]$Purpose,
-    [string]$GcloudCommand = 'gcloud'
+    [string]$GcloudCommand = 'gcloud',
+    [string]$CandidateSourceCommit, [string]$ApprovalCommit, [string]$ApprovalSha256
   )
-  $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $Prefix $BuildNumber
+  $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $Prefix $BuildNumber `
+    -CandidateSourceCommit $CandidateSourceCommit -ApprovalCommit $ApprovalCommit -ApprovalSha256 $ApprovalSha256
   $source = Get-Item -LiteralPath $SourcePath
   $name = $source.Name
   if ($source.PSIsContainer -or $source.Length -le 0 -or

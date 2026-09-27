@@ -81,6 +81,18 @@ class _PublishedTemplateAssignmentScreenState
       return const _AssignmentAccessDeniedScaffold();
     }
     final saved = ref.watch(pendingPublishedTemplateAssignmentProvider);
+    final retained = saved.valueOrNull;
+    if (saved.isRefreshing &&
+        retained != null &&
+        retained.actorUid == access.actor!.uid) {
+      // Keep the current request's result visible while its durable state is
+      // reloaded. Account verification above still hides all retained entries.
+      return SavedPublishedAssignmentScreen(
+        key: ValueKey('saved-published-assignment-${retained.submissionId}'),
+        submission: retained,
+        refreshing: true,
+      );
+    }
     if (saved.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Assign planned work',
@@ -104,7 +116,11 @@ class _PublishedTemplateAssignmentScreenState
       );
     }
     if (saved.valueOrNull != null) {
-      return SavedPublishedAssignmentScreen(submission: saved.requireValue!);
+      final submission = saved.requireValue!;
+      return SavedPublishedAssignmentScreen(
+        key: ValueKey('saved-published-assignment-${submission.submissionId}'),
+        submission: submission,
+      );
     }
 
     return appUserAsync.when(

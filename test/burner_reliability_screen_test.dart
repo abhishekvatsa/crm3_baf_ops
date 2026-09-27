@@ -13,6 +13,7 @@ import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dar
 import 'package:crm3_baf_ops/features/reports/presentation/burner_reliability_screen.dart';
 import 'package:crm3_baf_ops/features/reports/providers/operations_report_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +37,207 @@ void main() {
     endExclusive: DateTime(2026, 9, 1),
     assetInstanceId: 'furnace-2' as String?,
   );
+
+  for (final scenario in [(320.0, 1.8), (1440.0, 1.0)]) {
+    testWidgets(
+      'burner report keeps readable evidence and scope at $scenario',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(scenario.$1, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 8, 16, 8);
+        final scopes = <String?>[];
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream.value(_user(now: now)),
+              ),
+              assetClassesProvider.overrideWith(
+                (ref) => Stream.value([_furnaceClass(now: now)]),
+              ),
+              allAssetInstancesProvider.overrideWith(
+                (ref) => Stream.value([_furnace(now: now)]),
+              ),
+              operationsReportTicketsProvider.overrideWith(
+                (ref, _) => Stream.value([_burnerTicket(now: now)]),
+              ),
+              burnerConditionRoundsProvider.overrideWith((ref, query) {
+                scopes.add(query.assetInstanceId);
+                return Stream.value([_round(now: now)]);
+              }),
+            ],
+            child: MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scenario.$2)),
+                child: child!,
+              ),
+              home: BurnerReliabilityScreen(
+                initialStartDate: startDate,
+                initialEndDate: endDate,
+                initialAssetInstanceId: 'furnace-2',
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final list = find.byType(ListView).first;
+        if (scenario.$1 > 1100) {
+          expect(tester.getSize(list).width, lessThanOrEqualTo(1100));
+          expect(
+            tester.getTopLeft(list).dx,
+            closeTo((scenario.$1 - tester.getSize(list).width) / 2, 0.1),
+          );
+        }
+        for (final label in [
+          'Lockout reports',
+          'Witnessed surveys',
+          'Open positions',
+          'Red-hot records',
+        ]) {
+          final text = find.text(label);
+          await tester.scrollUntilVisible(
+            text,
+            240,
+            scrollable: find
+                .descendant(of: list, matching: find.byType(Scrollable))
+                .first,
+          );
+          final paragraph = tester.renderObject<RenderParagraph>(text);
+          expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+          final metric = find
+              .ancestor(of: text, matching: find.byType(Container))
+              .first;
+          expect(
+            find.descendant(
+              of: metric,
+              matching: find.text(label == 'Open positions' ? '0' : '1'),
+            ),
+            findsOneWidget,
+          );
+        }
+        await tester.scrollUntilVisible(
+          find.text('3.6 microamp on 16 Aug 2026'),
+          240,
+          scrollable: find
+              .descendant(of: list, matching: find.byType(Scrollable))
+              .first,
+        );
+        expect(find.text('FR-02-B01'), findsOneWidget);
+        expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.scrollUntilVisible(
+          find.byType(DropdownButtonFormField<String>),
+          -400,
+          scrollable: find
+              .descendant(of: list, matching: find.byType(Scrollable))
+              .first,
+        );
+        await tester.pumpAndSettle();
+        await Scrollable.ensureVisible(
+          tester.element(find.byType(DropdownButtonFormField<String>)),
+          alignment: 0.2,
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(DropdownButtonFormField<String>));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('All Furnaces').last);
+        await tester.pumpAndSettle();
+        expect(scopes, containsAllInOrder(['furnace-2', null]));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final failingSource in ['classes', 'assets', 'tickets', 'rounds']) {
+    testWidgets(
+      'withholds retained evidence after $failingSource stream fails',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 1600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 8, 16, 8);
+        final classes = StreamController<List<AssetClassRecord>>();
+        final assets = StreamController<List<AssetInstanceRecord>>();
+        final tickets = StreamController<List<MaintenanceRecord>>.broadcast();
+        final rounds = StreamController<List<BurnerConditionRound>>.broadcast();
+        addTearDown(classes.close);
+        addTearDown(assets.close);
+        addTearDown(tickets.close);
+        addTearDown(rounds.close);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream.value(_user(now: now)),
+              ),
+              assetClassesProvider.overrideWith((ref) => classes.stream),
+              allAssetInstancesProvider.overrideWith((ref) => assets.stream),
+              operationsReportTicketsProvider(
+                period,
+              ).overrideWith((ref) => tickets.stream),
+              burnerConditionRoundsProvider(
+                furnaceRoundsQuery,
+              ).overrideWith((ref) => rounds.stream),
+            ],
+            child: MaterialApp(
+              home: BurnerReliabilityScreen(
+                initialStartDate: startDate,
+                initialEndDate: endDate,
+                initialAssetInstanceId: 'furnace-2',
+              ),
+            ),
+          ),
+        );
+        classes.add([_furnaceClass(now: now)]);
+        assets.add([_furnace(now: now)]);
+        await tester.pump();
+        await tester.pump();
+        tickets.add([_burnerTicket(now: now)]);
+        rounds.add([_round(now: now)]);
+        await tester.pumpAndSettle();
+        expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
+        final source = switch (failingSource) {
+          'classes' => classes,
+          'assets' => assets,
+          'tickets' => tickets,
+          _ => rounds,
+        };
+        source.addError(StateError('permission-denied'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.text('Lockout reports'), findsNothing);
+        expect(find.text('3.6 microamp on 16 Aug 2026'), findsNothing);
+        expect(
+          find.text(
+            failingSource == 'classes' || failingSource == 'assets'
+                ? 'Could not load governed Furnace records.'
+                : 'Could not load burner reliability evidence.',
+          ),
+          findsOneWidget,
+        );
+        switch (failingSource) {
+          case 'classes':
+            classes.add([_furnaceClass(now: now)]);
+          case 'assets':
+            assets.add([_furnace(now: now)]);
+          case 'tickets':
+            tickets.add([_burnerTicket(now: now)]);
+          case 'rounds':
+            rounds.add([_round(now: now)]);
+        }
+        await tester.pump();
+        await tester.pump();
+        // A renewed catalogue subscription reopens these auto-disposed feeds;
+        // model the fresh server snapshots delivered by Firestore.
+        tickets.add([_burnerTicket(now: now)]);
+        rounds.add([_round(now: now)]);
+        await tester.pumpAndSettle();
+        expect(find.text('3.6 microamp on 16 Aug 2026'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   test(
     'burner cache requires exact-query server proof for each actor',

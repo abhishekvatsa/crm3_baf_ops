@@ -53,43 +53,61 @@ class CriticalAlarmRepository {
 
   final FirebaseFirestore firestore;
 
-  Stream<CriticalAlarmLiveSnapshot> watchActiveAlarms() async* {
+  Stream<CriticalAlarmLiveSnapshot> watchActiveAlarms() => Stream.multi((
+    output,
+  ) {
+    // Own both verification state and the native subscription per listener.
+    // An async* await-for can route a queued query error to its cancellation
+    // future when auth revokes this feed, outside Riverpod's error listener.
     List<CriticalAlarm> lastVerifiedAlarms = const <CriticalAlarm>[];
     DateTime? lastVerifiedAt;
-    await for (final snapshot
-        in firestore
-            .collection('critical_alarms')
-            .where('status', whereIn: const ['raised', 'supportConfirmed'])
-            .snapshots(includeMetadataChanges: true)) {
-      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) {
-        yield lastVerifiedAt == null
-            ? CriticalAlarmLiveSnapshot.unavailable()
-            : CriticalAlarmLiveSnapshot.staleLastKnown(
-                alarms: lastVerifiedAlarms,
-                lastVerifiedAt: lastVerifiedAt,
-              );
-        continue;
-      }
-      final decoded = _decodeAlarms(snapshot.docs);
-      if (decoded.hasMalformed) {
-        // Keep valid new alarms visible, but mark the whole snapshot as
-        // unverified. Replacing it with an older verified set hides newly
-        // raised alarms and can make an operator act on the wrong picture.
-        yield CriticalAlarmLiveSnapshot.partiallyVerified(
-          alarms: decoded.alarms,
-          malformedDocumentCount: decoded.malformedDocumentCount,
-          lastVerifiedAt: lastVerifiedAt,
+    final subscription = firestore
+        .collection('critical_alarms')
+        .where('status', whereIn: const ['raised', 'supportConfirmed'])
+        .snapshots(includeMetadataChanges: true)
+        .map((snapshot) {
+          final previousVerifiedAt = lastVerifiedAt;
+          if (snapshot.metadata.isFromCache ||
+              snapshot.metadata.hasPendingWrites) {
+            return previousVerifiedAt == null
+                ? CriticalAlarmLiveSnapshot.unavailable()
+                : CriticalAlarmLiveSnapshot.staleLastKnown(
+                    alarms: lastVerifiedAlarms,
+                    lastVerifiedAt: previousVerifiedAt,
+                  );
+          }
+          final decoded = _decodeAlarms(snapshot.docs);
+          if (decoded.hasMalformed) {
+            // Keep valid new alarms visible, but mark the whole snapshot as
+            // unverified. Replacing it with an older verified set hides newly
+            // raised alarms and can make an operator act on the wrong picture.
+            return CriticalAlarmLiveSnapshot.partiallyVerified(
+              alarms: decoded.alarms,
+              malformedDocumentCount: decoded.malformedDocumentCount,
+              lastVerifiedAt: lastVerifiedAt,
+            );
+          }
+          lastVerifiedAlarms = decoded.alarms;
+          final verifiedAt = DateTime.now().toUtc();
+          lastVerifiedAt = verifiedAt;
+          return CriticalAlarmLiveSnapshot.serverVerified(
+            alarms: lastVerifiedAlarms,
+            verifiedAt: verifiedAt,
+          );
+        })
+        .listen(
+          output.addSync,
+          onError: (Object error, StackTrace stack) {
+            output.addErrorSync(error, stack);
+            output.closeSync();
+          },
+          onDone: output.closeSync,
+          cancelOnError: true,
         );
-        continue;
-      }
-      lastVerifiedAlarms = decoded.alarms;
-      lastVerifiedAt = DateTime.now().toUtc();
-      yield CriticalAlarmLiveSnapshot.serverVerified(
-        alarms: lastVerifiedAlarms,
-        verifiedAt: lastVerifiedAt,
-      );
-    }
-  }
+    output.onCancel = subscription.cancel;
+    output.onPause = subscription.pause;
+    output.onResume = subscription.resume;
+  });
 
   Stream<List<CriticalAlarm>> watchAlarms() async* {
     await for (final snapshot

@@ -86,7 +86,7 @@ describe('S-03 callable boundary wiring', () => {
       'const actor = await actorFromRequest(request, db);',
     );
     const limiterOffset = workflowSource.indexOf(
-      'executeWithCallableAbuseControl({',
+      'return await admit(db as unknown as CallableAbuseFirestoreLike, actor.uid, async () => {',
     );
     const parseOffset = workflowSource.indexOf(
       'const command = parseCommand(request.data);',
@@ -95,6 +95,9 @@ describe('S-03 callable boundary wiring', () => {
     expect(actorOffset).toBeGreaterThan(-1);
     expect(limiterOffset).toBeGreaterThan(actorOffset);
     expect(parseOffset).toBeGreaterThan(limiterOffset);
+    expect(workflowSource.match(/executeWithCallableAbuseControl\(\{/g)).toHaveLength(2);
+    expect(workflowSource).toContain('executeWorkflowRequest(request, false,');
+    expect(workflowSource).toContain('executeWorkflowRequest({...request, data: payload}, true,');
   });
 
   test.each([

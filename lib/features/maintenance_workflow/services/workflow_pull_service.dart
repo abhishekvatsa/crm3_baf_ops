@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/serialization/persisted_data_reader.dart';
+import '../../../core/services/sync_run_guard.dart';
 import '../repositories/firestore_workflow_read_repository.dart';
 import '../repositories/workflow_repository.dart';
 
@@ -162,8 +163,10 @@ class WorkflowPullService {
   /// failures are retained as capped local diagnostics. Remote mapping failures
   /// with a valid timestamp are retried after the server document changes. Any
   /// local-upsert failure holds the watermark so the unchanged record is retried.
-  Future<WorkflowPullSummary> pull() async {
+  Future<WorkflowPullSummary> pull({SyncRunGuard? runGuard}) async {
+    runGuard?.checkCurrent();
     final prefs = await SharedPreferences.getInstance();
+    runGuard?.checkCurrent();
     final failures = <String, String>{};
     final quarantined = <WorkflowPullQuarantineRecord>[];
 
@@ -171,6 +174,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _workflowKey,
       name: 'workflows',
+      runGuard: runGuard,
       fetch: remote.fetchWorkflowsUpdatedSince,
       upsert: local.upsertWorkflowFromRemote,
       identity: (record) => record.firestoreId,
@@ -182,6 +186,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _laneKey,
       name: 'lanes',
+      runGuard: runGuard,
       fetch: remote.fetchLanesUpdatedSince,
       upsert: local.upsertLaneFromRemote,
       identity: (record) => record.firestoreId ?? 'unknown-lane',
@@ -193,6 +198,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _complianceKey,
       name: 'compliance',
+      runGuard: runGuard,
       fetch: remote.fetchComplianceUpdatedSince,
       upsert: local.upsertComplianceFromRemote,
       identity: (record) => record.firestoreId ?? 'unknown-compliance',
@@ -204,6 +210,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _attemptKey,
       name: 'attempts',
+      runGuard: runGuard,
       fetch: remote.fetchAttemptsAfter,
       upsert: local.upsertComplianceAttemptFromRemote,
       identity: (record) => record.firestoreId,
@@ -219,6 +226,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _equipmentKey,
       name: 'equipment',
+      runGuard: runGuard,
       fetch: remote.fetchEquipmentUpdatedSince,
       upsert: local.upsertEquipmentFromRemote,
       identity: (record) => record.firestoreId ?? 'unknown-equipment',
@@ -230,6 +238,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _promptKey,
       name: 'prompts',
+      runGuard: runGuard,
       fetch: remote.fetchPromptsUpdatedSince,
       upsert: local.upsertPromptFromRemote,
       identity: (record) => record.firestoreId ?? 'unknown-prompt',
@@ -241,6 +250,7 @@ class WorkflowPullService {
       prefs: prefs,
       key: _eventKey,
       name: 'events',
+      runGuard: runGuard,
       fetch: remote.fetchEventsAfter,
       upsert: local.upsertEventFromRemote,
       identity: (record) => record.firestoreId ?? 'unknown-event',
@@ -249,6 +259,7 @@ class WorkflowPullService {
       quarantined: quarantined,
     );
 
+    runGuard?.checkCurrent();
     return WorkflowPullSummary(
       workflows: workflows,
       lanes: lanes,
@@ -284,6 +295,7 @@ class WorkflowPullService {
     required SharedPreferences prefs,
     required String key,
     required String name,
+    required SyncRunGuard? runGuard,
     required Future<WorkflowRemoteBatch<T>> Function(DateTime? since) fetch,
     required Future<void> Function(T record) upsert,
     required String Function(T record) identity,
@@ -292,12 +304,14 @@ class WorkflowPullService {
     required List<WorkflowPullQuarantineRecord> quarantined,
   }) async {
     try {
+      runGuard?.checkCurrent();
       final quarantineStart = quarantined.length;
       final storedQuarantine = _readStoredQuarantine(prefs, _preferenceReader);
       final hasStoredCollectionQuarantine = storedQuarantine.any(
         (record) => record.collection == name,
       );
       final batch = await fetch(_since(prefs, key));
+      runGuard?.checkCurrent();
       final now = DateTime.now().toUtc();
       for (final failure in batch.failures) {
         quarantined.add(
@@ -319,12 +333,18 @@ class WorkflowPullService {
       );
       var localUpsertFailed = false;
       for (final record in batch.records) {
+        runGuard?.checkCurrent();
         final recordTimestamp = timestamp(record).toUtc();
         if (!observed.contains(recordTimestamp)) observed.add(recordTimestamp);
         try {
           await upsert(record);
+          runGuard?.checkCurrent();
           saved += 1;
         } catch (error) {
+          if (runGuard != null) {
+            rethrowIfSyncRunMustAbort(error);
+            runGuard.checkCurrent();
+          }
           localUpsertFailed = true;
           quarantined.add(
             WorkflowPullQuarantineRecord(
@@ -343,7 +363,7 @@ class WorkflowPullService {
       final collectionQuarantine = collectionRecords.length;
       if (collectionQuarantine > 0) {
         failures[name] = '$collectionQuarantine record(s) quarantined';
-        await _appendQuarantine(prefs, collectionRecords);
+        await _appendQuarantine(prefs, collectionRecords, runGuard: runGuard);
       }
       final cursorBlocked =
           hasStoredCollectionQuarantine ||
@@ -351,7 +371,7 @@ class WorkflowPullService {
           unknownFailureTimestamp ||
           localUpsertFailed;
       if (!cursorBlocked) {
-        await _advance(prefs, key, observed);
+        await _advance(prefs, key, observed, runGuard: runGuard);
       } else {
         final reasons = <String>[
           if (hasStoredCollectionQuarantine)
@@ -365,8 +385,13 @@ class WorkflowPullService {
         failures[name] =
             '${failures[name] ?? 'Record quarantine'}; watermark held because ${reasons.join(' and ')}';
       }
+      runGuard?.checkCurrent();
       return saved;
     } catch (error) {
+      if (runGuard != null) {
+        rethrowIfSyncRunMustAbort(error);
+        runGuard.checkCurrent();
+      }
       failures[name] = '$error';
       return 0;
     }
@@ -394,8 +419,9 @@ class WorkflowPullService {
   Future<void> _advance(
     SharedPreferences prefs,
     String key,
-    Iterable<DateTime> timestamps,
-  ) async {
+    Iterable<DateTime> timestamps, {
+    SyncRunGuard? runGuard,
+  }) async {
     final values = timestamps
         .map((value) => value.toUtc())
         .toList(growable: false);
@@ -407,13 +433,15 @@ class WorkflowPullService {
       values.last.toIso8601String(),
       reasonCode: 'workflow-pull-cursor-write-failed',
       message: 'Workflow pull cursor could not be written and read back.',
+      runGuard: runGuard,
     );
   }
 
   Future<void> _appendQuarantine(
     SharedPreferences prefs,
-    List<WorkflowPullQuarantineRecord> newRecords,
-  ) async {
+    List<WorkflowPullQuarantineRecord> newRecords, {
+    SyncRunGuard? runGuard,
+  }) async {
     if (newRecords.isEmpty) return;
     final existing = _readStoredQuarantine(prefs, _preferenceReader);
     final byIdentity = <String, WorkflowPullQuarantineRecord>{};
@@ -443,6 +471,7 @@ class WorkflowPullService {
       encoded,
       reasonCode: 'workflow-pull-quarantine-write-failed',
       message: 'Workflow pull quarantine could not be written and read back.',
+      runGuard: runGuard,
     );
   }
 
@@ -452,13 +481,16 @@ class WorkflowPullService {
     String value, {
     required String reasonCode,
     required String message,
+    SyncRunGuard? runGuard,
   }) async {
     String? previousValue;
     var writeAttempted = false;
     try {
+      runGuard?.checkCurrent();
       previousValue = _preferenceReader(prefs, key);
       writeAttempted = true;
       final written = await _preferenceWriter(prefs, key, value);
+      runGuard?.checkCurrent();
       if (!written || _preferenceReader(prefs, key) != value) {
         throw WorkflowPullStateException(
           reasonCode: reasonCode,
@@ -468,6 +500,10 @@ class WorkflowPullService {
     } catch (error) {
       if (writeAttempted) {
         await _restorePreferenceAfterFailedWrite(prefs, key, previousValue);
+      }
+      if (runGuard != null) {
+        rethrowIfSyncRunMustAbort(error);
+        runGuard.checkCurrent();
       }
       if (error is WorkflowPullStateException) rethrow;
       throw WorkflowPullStateException(

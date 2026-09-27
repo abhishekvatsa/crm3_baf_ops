@@ -38,6 +38,7 @@ class _PairingDialogState extends State<_PairingDialog> {
           : _compareInnerCoverSerial(left, right);
     });
   late InnerCoverProfile _selected = _candidates.first;
+  bool _showValidation = false;
   final _search = TextEditingController();
   final _reason = TextEditingController();
   DateTime _physicalEventAt = DateTime.now();
@@ -141,7 +142,7 @@ class _PairingDialogState extends State<_PairingDialog> {
                 ),
               if (widget.current != null && _selected.isAvailable) ...[
                 const SizedBox(height: BafSpacing.md),
-                _PhysicalEventDateTimeField(
+                InnerCoverPhysicalEventField(
                   value: _physicalEventAt,
                   onChanged: (value) => setState(() {
                     _physicalEventAt = value;
@@ -152,8 +153,12 @@ class _PairingDialogState extends State<_PairingDialog> {
               TextField(
                 controller: _reason,
                 maxLines: 2,
-                decoration: const InputDecoration(
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
                   labelText: 'Reason',
+                  errorText: _showValidation && _reason.text.trim().isEmpty
+                      ? 'Enter a reason.'
+                      : null,
                   alignLabelWithHint: true,
                 ),
               ),
@@ -169,7 +174,13 @@ class _PairingDialogState extends State<_PairingDialog> {
         FilledButton(
           onPressed: () {
             final reason = _reason.text.trim();
-            if (reason.isEmpty) return;
+            if (reason.isEmpty ||
+                (widget.current != null &&
+                    _selected.isAvailable &&
+                    innerCoverPhysicalEventError(_physicalEventAt) != null)) {
+              setState(() => _showValidation = true);
+              return;
+            }
             Navigator.pop(
               context,
               _PairingSelection(
@@ -254,7 +265,11 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
     final selectedAssignment = _selected == null
         ? null
         : widget.assignments[_selected!.id];
-    final canSubmit = _selected != null && _reason.text.trim().isNotEmpty;
+    final canSubmit =
+        _selected != null &&
+        _reason.text.trim().isNotEmpty &&
+        (selectedAssignment == null ||
+            innerCoverPhysicalEventError(_physicalEventAt) == null);
 
     return AlertDialog(
       title: Text('Assign ${widget.cover.serialNumber} to a Base'),
@@ -359,7 +374,7 @@ class _BaseAssignmentDialogState extends State<_BaseAssignmentDialog> {
                 ),
               if (selectedAssignment != null) ...[
                 const SizedBox(height: BafSpacing.md),
-                _PhysicalEventDateTimeField(
+                InnerCoverPhysicalEventField(
                   value: _physicalEventAt,
                   onChanged: (value) => setState(() {
                     _physicalEventAt = value;
@@ -419,61 +434,6 @@ class _StateReasonResult {
   });
 }
 
-class _PhysicalEventDateTimeField extends StatelessWidget {
-  final DateTime value;
-  final ValueChanged<DateTime> onChanged;
-
-  const _PhysicalEventDateTimeField({
-    required this.value,
-    required this.onChanged,
-  });
-
-  Future<void> _pick(BuildContext context) async {
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: value.isAfter(now) ? now : value,
-      firstDate: DateTime(1900),
-      lastDate: now,
-      helpText: 'When did the physical change happen?',
-    );
-    if (date == null || !context.mounted) return;
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.fromDateTime(value),
-      helpText: 'Physical event time',
-    );
-    if (selectedTime == null || !context.mounted) return;
-    final selected = DateTime(
-      date.year,
-      date.month,
-      date.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    );
-    onChanged(selected.isAfter(now) ? now : selected);
-  }
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      OutlinedButton.icon(
-        onPressed: () => _pick(context),
-        icon: const Icon(Icons.event_available_rounded),
-        label: Text(
-          'Physical event: ${DateFormat('dd MMM yyyy, HH:mm').format(value.toLocal())}',
-        ),
-      ),
-      const SizedBox(height: BafSpacing.xs),
-      const Text(
-        'Use when the physical change happened, not when it was recorded.',
-        style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
-      ),
-    ],
-  );
-}
-
 class _StateReasonDialog extends StatefulWidget {
   final String title;
   final List<InnerCoverLifecycleState> states;
@@ -494,6 +454,7 @@ class _StateReasonDialog extends StatefulWidget {
 }
 
 class _StateReasonDialogState extends State<_StateReasonDialog> {
+  bool _showValidation = false;
   late InnerCoverLifecycleState _state = widget.initialState;
   InnerCoverRetirementCondition? _retirementCondition;
   final _reason = TextEditingController();
@@ -550,7 +511,10 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
               DropdownButtonFormField<InnerCoverRetirementCondition>(
                 initialValue: _retirementCondition,
                 isExpanded: true,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
+                  errorText: _showValidation && _retirementCondition == null
+                      ? 'Choose the condition recorded at retirement.'
+                      : null,
                   labelText: 'Condition recorded at retirement',
                 ),
                 items: [
@@ -565,7 +529,7 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
               ),
             ],
             const SizedBox(height: BafSpacing.md),
-            _PhysicalEventDateTimeField(
+            InnerCoverPhysicalEventField(
               value: _physicalEventAt,
               onChanged: (value) => setState(() {
                 _physicalEventAt = value;
@@ -575,7 +539,11 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
             TextField(
               controller: _reason,
               maxLines: 3,
-              decoration: const InputDecoration(
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                errorText: _showValidation && _reason.text.trim().isEmpty
+                    ? 'Enter a reason.'
+                    : null,
                 labelText: 'Reason',
                 alignLabelWithHint: true,
               ),
@@ -592,8 +560,13 @@ class _StateReasonDialogState extends State<_StateReasonDialog> {
       FilledButton(
         onPressed: () {
           final reason = _reason.text.trim();
-          if (reason.isEmpty) return;
+          if (reason.isEmpty ||
+              innerCoverPhysicalEventError(_physicalEventAt) != null) {
+            setState(() => _showValidation = true);
+            return;
+          }
           if (_needsRetirementCondition && _retirementCondition == null) {
+            setState(() => _showValidation = true);
             return;
           }
           Navigator.pop(
@@ -1047,7 +1020,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   Future<void> _pickReceivedOrCompletedDate() async {
     final now = DateTime.now();
     final current = _receivedOrCompletedOn?.toLocal() ?? now;
-    final selected = await showDatePicker(
+    final selected = await showInnerCoverDatePicker(
       context: context,
       initialDate: current.isAfter(now) ? now : current,
       firstDate: DateTime(1950),
@@ -1066,7 +1039,7 @@ class _RegistrationDialogState extends State<_RegistrationDialog> {
   Future<void> _pickIncorporationDate() async {
     final now = DateTime.now();
     final current = _incorporatedOn?.toLocal() ?? now;
-    final selected = await showDatePicker(
+    final selected = await showInnerCoverDatePicker(
       context: context,
       initialDate: current.isAfter(now) ? now : current,
       firstDate: DateTime(1950),

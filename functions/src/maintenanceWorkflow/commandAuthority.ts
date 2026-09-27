@@ -40,6 +40,9 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   Partial<Record<WorkflowCommandType, WorkflowAuthorityCapability>>
 > = {
   createLegacyWorkflowJob: "laneSet.finalize",
+  upsertAbnormalityType: "abnormalityType.manage",
+  upsertLegacyJobTemplate: "legacyJobTemplate.manage",
+  updateJobExecutionWork: "jobExecution.work",
   createMaintenanceTicket: "ticket.create",
   finalizeLaneSet: "laneSet.finalize",
   addLane: "lanePopulation.manage",
@@ -56,6 +59,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   closeMaintenanceTicketWithoutResolution: "ticket.closeWithoutResolution",
   reopenMaintenanceTicket: "ticket.reopen",
   correctMaintenanceTicket: "ticket.correct",
+  identifyMaintenanceTicketComponent: "ticket.identifyComponent",
   upsertFrequentIssueDefinition: "issueDefinition.manage",
   setFrequentIssueDefinitionStatus: "issueDefinition.manage",
   upsertMaintenanceClassDefinition: "maintenanceClass.manage",
@@ -104,6 +108,7 @@ const LANE_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
 ]);
 
 const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
+  "abnormalityType.manage", "legacyJobTemplate.manage", "jobExecution.work",
   "ticket.create",
   "laneSet.finalize",
   "lanePopulation.manage",
@@ -116,6 +121,7 @@ const STATIC_CAPABILITIES = new Set<WorkflowAuthorityCapability>([
   "equipment.reconcile",
   "compliance.unscoped.manage",
   "ticket.correct",
+  "ticket.identifyComponent",
   "ticket.closeWithoutResolution",
   "ticket.lanes.manage",
   "ticket.reopen",
@@ -231,6 +237,17 @@ export const assertWorkflowAuthorityScope = (
   };
 
   switch (scope.capability) {
+  case "abnormalityType.manage":
+    if (!actor.roles.has("admin")) denied();
+    return;
+  case "legacyJobTemplate.manage":
+    if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "jobExecution.work":
+    if (!["admin", "si", "contractSupervisor", "shiftSupervisor", "seniorMechanical",
+      "seniorElectrical", "seniorInstrumentation", "seniorRefractory"]
+      .some((role) => actor.roles.has(role as RoleKey))) denied();
+    return;
   case "ticket.create":
     // The callable and transaction have already revalidated the canonical
     // approved-user capsule. Every approved role may raise an issue.
@@ -265,6 +282,9 @@ export const assertWorkflowAuthorityScope = (
     return;
   case "ticket.correct":
     if (!actor.roles.has("admin") && !actor.roles.has("si")) denied();
+    return;
+  case "ticket.identifyComponent":
+    if (!isIssueSupervisor(actor)) denied();
     return;
   case "ticket.closeWithoutResolution":
     if (!actor.roles.has("admin")) denied();

@@ -16,8 +16,9 @@ void main() {
               File('governance/test-evidence-taxonomy.json').readAsStringSync(),
             )
             as Map<String, dynamic>;
-    final workflow =
-        File('.github/workflows/release-gate.yml').readAsStringSync();
+    final workflow = File(
+      '.github/workflows/release-gate.yml',
+    ).readAsStringSync();
     final localGate = File('release_gate.ps1').readAsStringSync();
 
     test('levels and critical paths are explicit and evidence-bound', () {
@@ -91,7 +92,7 @@ void main() {
       expect(
         workflow,
         contains(
-          'Android emulator app-shell integration '
+          'Android emulator shell + business integration '
           '(not physical-device evidence)',
         ),
       );
@@ -126,9 +127,10 @@ void main() {
       expect(workflow, contains('api-level: 33'));
       final emulatorSections = workflow.split('\n  android-emulator:\n');
       expect(emulatorSections, hasLength(2));
-      final emulatorJob =
-          emulatorSections.last.split('\n  firestore-rules:\n').first;
-      expect(emulatorJob, contains('timeout-minutes: 30'));
+      final emulatorJob = emulatorSections.last
+          .split('\n  firestore-rules:\n')
+          .first;
+      expect(emulatorJob, contains('timeout-minutes: 60'));
 
       final registry =
           jsonDecode(
@@ -140,10 +142,9 @@ void main() {
       expect(emulator['repository'], 'ReactiveCircus/android-emulator-runner');
       expect(emulator['commitSha'], 'a421e43855164a8197daf9d8d40fe71c6996bb0d');
 
-      final productionPolicy =
-          File(
-            'tools/release/Test-ProductionReleasePolicy.ps1',
-          ).readAsStringSync();
+      final productionPolicy = File(
+        'tools/release/Test-ProductionReleasePolicy.ps1',
+      ).readAsStringSync();
       expect(productionPolicy, isNot(contains('Properties).Count -ne 5')));
       expect(
         productionPolicy,
@@ -156,8 +157,9 @@ void main() {
       expect(pubspec, contains('integration_test:'));
       expect(pubspec, contains('sdk: flutter'));
 
-      final gradleProperties =
-          File('android/gradle.properties').readAsStringSync();
+      final gradleProperties = File(
+        'android/gradle.properties',
+      ).readAsStringSync();
       expect(gradleProperties, contains('org.gradle.jvmargs=-Xmx4G'));
       expect(gradleProperties, contains('MaxMetaspaceSize=1G'));
       expect(gradleProperties, contains('org.gradle.workers.max=4'));

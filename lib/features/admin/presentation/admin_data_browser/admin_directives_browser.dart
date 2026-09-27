@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/incremental_list_footer.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../auth/presentation/current_actor_gate.dart';
@@ -29,8 +30,24 @@ class DirectivesBrowser extends ConsumerStatefulWidget {
   ConsumerState<DirectivesBrowser> createState() => _DirectivesBrowserState();
 }
 
+enum _DirectiveListStatus { open, all, closed }
+
 class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
   String _searchQuery = '';
+  _DirectiveListStatus _status = _DirectiveListStatus.open;
+  int _visibleLimit = businessListPageSize;
+  final _scrollController = ScrollController();
+
+  void _resetVisibleRows() {
+    _visibleLimit = businessListPageSize;
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,6 +60,7 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
           Padding(
             padding: const EdgeInsets.all(BafSpacing.sm),
             child: TextField(
+              key: const ValueKey('admin-directives-search'),
               decoration: InputDecoration(
                 hintText:
                     'Search title, target, asset, component, tag, issuer, or remarks',
@@ -60,9 +78,31 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
                 isDense: true,
               ),
               onChanged: (val) {
-                setState(() => _searchQuery = val.trim().toLowerCase());
+                setState(() {
+                  _searchQuery = val.trim().toLowerCase();
+                  _resetVisibleRows();
+                });
               },
             ),
+          ),
+          Wrap(
+            spacing: BafSpacing.sm,
+            children: [
+              for (final status in _DirectiveListStatus.values)
+                ChoiceChip(
+                  key: ValueKey('admin-directives-status-${status.name}'),
+                  label: Text(switch (status) {
+                    _DirectiveListStatus.open => 'Open',
+                    _DirectiveListStatus.all => 'All',
+                    _DirectiveListStatus.closed => 'Closed',
+                  }),
+                  selected: _status == status,
+                  onSelected: (_) => setState(() {
+                    _status = status;
+                    _resetVisibleRows();
+                  }),
+                ),
+            ],
           ),
           Expanded(
             child: directivesAsync.when(
@@ -77,22 +117,52 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
                 ),
               ),
               data: (directives) {
-                final filtered = directives.where(_matchesSearch).toList();
+                final filtered = directives.where((directive) {
+                  final matchesStatus = switch (_status) {
+                    _DirectiveListStatus.open =>
+                      !directive.isClosed && !directive.isDeleted,
+                    _DirectiveListStatus.all => true,
+                    _DirectiveListStatus.closed => directive.isClosed,
+                  };
+                  return matchesStatus && _matchesSearch(directive);
+                }).toList()..sort((left, right) {
+                  final newest = right.createdAt.compareTo(left.createdAt);
+                  return newest != 0 ? newest :
+                      (left.firestoreId ?? 'local-${left.id}').compareTo(
+                        right.firestoreId ?? 'local-${right.id}',
+                      );
+                });
                 if (filtered.isEmpty) {
                   return const Center(child: Text('No directives match.'));
                 }
+                final visible = filtered.take(_visibleLimit).toList();
                 return ListView.separated(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(
                     BafSpacing.md,
                     BafSpacing.sm,
                     BafSpacing.md,
                     BafSpacing.xl,
                   ),
-                  itemCount: filtered.length,
+                  itemCount: visible.length + 1,
                   separatorBuilder: (_, __) =>
                       const SizedBox(height: BafSpacing.sm),
-                  itemBuilder: (ctx, idx) =>
-                      _DirectiveCard(directive: filtered[idx]),
+                  itemBuilder: (ctx, idx) {
+                    if (idx == visible.length) {
+                      return IncrementalListFooter(
+                        visibleCount: visible.length,
+                        totalCount: filtered.length,
+                        onShowMore: () => setState(
+                          () => _visibleLimit += businessListPageSize,
+                        ),
+                      );
+                    }
+                    final directive = visible[idx];
+                    return _DirectiveCard(
+                      key: ValueKey('admin-directive-${directive.firestoreId ?? directive.id}'),
+                      directive: directive,
+                    );
+                  },
                 );
               },
             ),
@@ -128,7 +198,7 @@ class _DirectivesBrowserState extends ConsumerState<DirectivesBrowser> {
 class _DirectiveCard extends ConsumerStatefulWidget {
   final OperationalDirective directive;
 
-  const _DirectiveCard({required this.directive});
+  const _DirectiveCard({super.key, required this.directive});
 
   @override
   ConsumerState<_DirectiveCard> createState() => _DirectiveCardState();
@@ -261,7 +331,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                   onPressed: () => _confirmDelete(d),
                 )
               else ...[
-                const MiniChip(label: 'DELETED', color: BafColors.admin),
+                MiniChip(
+                  label: d.isDeleted ? 'DELETED' : 'CLOSED',
+                  color: BafColors.admin,
+                ),
                 if (d.firestoreId != null)
                   IconButton(
                     tooltip: 'Permanently remove pilot record',

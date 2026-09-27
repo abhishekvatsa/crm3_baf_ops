@@ -8,6 +8,7 @@ import '../../data/template_governance_model.dart';
 import '../../domain/module_composer_models.dart';
 import '../../domain/publish_metadata_builder.dart';
 import '../../domain/template_version_snapshot_contract.dart';
+import 'template_closure_review_dialog.dart';
 
 class PublishMetadataDialogActions {
   final Future<void> Function(TemplatePackage package, AppUser actor)
@@ -319,7 +320,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
     }
   }
 
-  Future<TemplatePackage> _ensurePackage() async {
+  TemplatePackage _preparePackage() {
     final package = _createNewPackage
         ? buildTemplatePackageForPublish(input: _input(), actor: widget.actor)
         : _selectedPackage!;
@@ -331,6 +332,11 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         'A resumed TemplateVersion draft cannot be moved to another package.',
       );
     }
+    return package;
+  }
+
+  Future<TemplatePackage> _ensurePackage({TemplatePackage? prepared}) async {
+    final package = prepared ?? _preparePackage();
     if (_createNewPackage || package.firestoreId == null) {
       await widget.actions.savePackage(package, widget.actor);
     }
@@ -404,7 +410,7 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
       return;
     }
     await _run(() async {
-      final package = await _ensurePackage();
+      final package = _preparePackage();
       final version = buildTemplateVersionForPublish(
         input: _input(),
         draft: widget.draft,
@@ -415,6 +421,18 @@ class _PublishMetadataDialogState extends State<PublishMetadataDialog> {
         createSuccessorForPublication: true,
         actor: widget.actor,
       );
+      if (!mounted) return;
+      final reviewed = await reviewTemplateClosureBeforePublication(
+        context,
+        version,
+        widget.actor,
+      );
+      if (!mounted || !reviewed) return;
+      requireCurrentTemplateReviewer(context, widget.actor.uid);
+      await _ensurePackage(prepared: package);
+      if (!mounted) return;
+      requireCurrentTemplateReviewer(context, widget.actor.uid);
+      version.packageFirestoreId = package.firestoreId;
       final saved = await widget.actions.saveVersionDraft(
         version,
         widget.actor,

@@ -19,19 +19,29 @@ final firebaseAuthProvider = Provider<FirebaseAuth>((ref) {
   return FirebaseAuth.instance;
 });
 
+final authFirestoreProvider = Provider<FirebaseFirestore>((ref) {
+  return FirebaseFirestore.instance;
+});
+
 final authStateProvider = StreamProvider<User?>((ref) {
   return ref.watch(firebaseAuthProvider).authStateChanges();
 });
 
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
+  // Revoke profile authority before credential cleanup can invalidate its
+  // Firestore listener. Clearing this gate creates a fresh session stream.
+  if (ref.watch(signOutInProgressProvider)) return Stream.value(null);
   final auth = ref.watch(firebaseAuthProvider);
+  final firestore = ref.watch(authFirestoreProvider);
   final retryBudget = CurrentAppUserPermissionRetryBudget();
   return switchLatestNullableStream<User, AppUser>(
     source: auth.idTokenChanges(),
+    isCurrentSource: (user) => auth.currentUser?.uid == user.uid,
+    registerCancellation: (cancel) => ref.onDispose(cancel),
     onSourceEvent: (user) => retryBudget.observeAuthEvent(user?.uid),
     mapper: (user) => _watchCurrentAppUser(
       auth: auth,
-      firestore: FirebaseFirestore.instance,
+      firestore: firestore,
       user: user,
       retryBudget: retryBudget,
     ),
@@ -43,10 +53,16 @@ Stream<T?> switchLatestNullableStream<S, T>({
   required Stream<S?> source,
   required Stream<T?> Function(S value) mapper,
   void Function(S? value)? onSourceEvent,
+  bool Function(S value)? isCurrentSource,
+  void Function(Future<void> Function() cancel)? registerCancellation,
 }) {
   late final StreamController<T?> controller;
   StreamSubscription<S?>? sourceSubscription;
   StreamSubscription<T?>? activeSubscription;
+  S? activeSource;
+  void Function()? invalidateActiveSource;
+  var cancelled = false;
+  Future<void>? cancellation;
   var generation = 0;
   var sourceCompleted = false;
   var replacementCount = 0;
@@ -61,14 +77,52 @@ Stream<T?> switchLatestNullableStream<S, T>({
   }
 
   Future<void> replace(S? value) async {
+    if (cancelled || controller.isClosed) return;
+    // A delayed token event must not replace a newer live account or reset its
+    // retry budget. The synchronous identity is checked again on every event.
+    if (value != null && isCurrentSource?.call(value) == false) {
+      final mapped = activeSource;
+      if (mapped != null && isCurrentSource?.call(mapped) == false) {
+        invalidateActiveSource?.call();
+      }
+      return;
+    }
     final replacementGeneration = ++generation;
     onSourceEvent?.call(value);
     final previous = activeSubscription;
     activeSubscription = null;
+    activeSource = null;
+    invalidateActiveSource = null;
     replacementCount++;
+    var replacementInvalidated = false;
+    void invalidateReplacement() {
+      if (replacementGeneration != generation ||
+          controller.isClosed ||
+          replacementInvalidated) {
+        return;
+      }
+      replacementInvalidated = true;
+      controller.add(null);
+    }
+
+    bool mayForward() {
+      if (replacementGeneration != generation ||
+          controller.isClosed ||
+          replacementInvalidated) {
+        return false;
+      }
+      if (value != null && isCurrentSource?.call(value) == false) {
+        // Auth and Firestore use separate platform channels. Invalidate the
+        // obsolete profile immediately even if its token event is still queued.
+        invalidateReplacement();
+        return false;
+      }
+      return true;
+    }
+
     try {
       await previous?.cancel();
-      if (replacementGeneration != generation || controller.isClosed) return;
+      if (!mayForward()) return;
       if (value == null) {
         controller.add(null);
         return;
@@ -78,12 +132,12 @@ Stream<T?> switchLatestNullableStream<S, T>({
       StreamSubscription<T?>? next;
       next = mapper(value).listen(
         (event) {
-          if (replacementGeneration == generation && !controller.isClosed) {
+          if (mayForward()) {
             controller.add(event);
           }
         },
         onError: (Object error, StackTrace stackTrace) {
-          if (replacementGeneration == generation && !controller.isClosed) {
+          if (mayForward()) {
             controller.addError(error, stackTrace);
           }
         },
@@ -109,8 +163,10 @@ Stream<T?> switchLatestNullableStream<S, T>({
         return;
       }
       activeSubscription = started;
+      activeSource = value;
+      invalidateActiveSource = invalidateReplacement;
     } catch (error, stackTrace) {
-      if (replacementGeneration == generation && !controller.isClosed) {
+      if (mayForward()) {
         controller.addError(error, stackTrace);
       }
     } finally {
@@ -119,12 +175,34 @@ Stream<T?> switchLatestNullableStream<S, T>({
     }
   }
 
+  Future<void> cancelSubscriptions() {
+    if (cancellation != null) return cancellation!;
+    cancelled = true;
+    generation++;
+    final active = activeSubscription;
+    final source = sourceSubscription;
+    activeSubscription = null;
+    activeSource = null;
+    invalidateActiveSource = null;
+    sourceSubscription = null;
+    return cancellation = () async {
+      try {
+        await active?.cancel();
+      } finally {
+        await source?.cancel();
+      }
+    }();
+  }
+
   controller = StreamController<T?>(
     onListen: () {
+      if (cancelled) return;
       sourceSubscription = source.listen(
         (value) => unawaited(replace(value)),
         onError: (Object error, StackTrace stackTrace) {
-          if (!controller.isClosed) controller.addError(error, stackTrace);
+          if (!cancelled && !controller.isClosed) {
+            controller.addError(error, stackTrace);
+          }
         },
         onDone: () {
           sourceCompleted = true;
@@ -132,14 +210,11 @@ Stream<T?> switchLatestNullableStream<S, T>({
         },
       );
     },
-    onCancel: () async {
-      generation++;
-      final active = activeSubscription;
-      activeSubscription = null;
-      await active?.cancel();
-      await sourceSubscription?.cancel();
-    },
+    onCancel: cancelSubscriptions,
   );
+  // Riverpod may retain a stream listener for its pending future during a
+  // rebuild. Session disposal still must immediately detach Firebase listeners.
+  registerCancellation?.call(cancelSubscriptions);
 
   return controller.stream;
 }
@@ -191,39 +266,96 @@ Stream<AppUser?> _watchCurrentAppUser({
   required FirebaseFirestore firestore,
   required User user,
   required CurrentAppUserPermissionRetryBudget retryBudget,
-}) async* {
-  while (true) {
+}) {
+  late final StreamController<AppUser?> controller;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? subscription;
+  var stopped = false;
+  var generation = 0;
+  late void Function() listen;
+
+  Future<void> failOrRetry(
+    Object error,
+    StackTrace stack,
+    int failedGeneration,
+  ) async {
+    if (stopped || failedGeneration != generation) return;
+    generation++;
+    final previous = subscription;
+    subscription = null;
     try {
-      await for (final doc
-          in firestore
-              .collection('users')
-              .doc(user.uid)
-              .snapshots(includeMetadataChanges: true)) {
-        final data = doc.data();
-        if (!doc.exists || data == null) {
-          yield null;
-          continue;
-        }
-        yield AppUser.fromFirestore(
-          data,
-          doc.id,
-          fromCache: doc.metadata.isFromCache,
-          hasPendingWrites: doc.metadata.hasPendingWrites,
-          observedAt: DateTime.now().toUtc(),
-        );
+      await previous?.cancel();
+      if (stopped) return;
+      if (error is FirebaseException &&
+          retryBudget.tryClaimPermissionDeniedRetry(
+            errorCode: error.code,
+            authenticatedUid: auth.currentUser?.uid,
+            expectedUid: user.uid,
+          )) {
+        await user.getIdToken(true);
+        if (!stopped) listen();
+        return;
       }
-      return;
-    } on FirebaseException catch (error) {
-      if (!retryBudget.tryClaimPermissionDeniedRetry(
-        errorCode: error.code,
-        authenticatedUid: auth.currentUser?.uid,
-        expectedUid: user.uid,
-      )) {
-        rethrow;
-      }
-      await user.getIdToken(true);
+    } catch (retryError, retryStack) {
+      error = retryError;
+      stack = retryStack;
+    }
+    if (!stopped) {
+      controller.addError(error, stack);
+      await controller.close();
     }
   }
+
+  listen = () {
+    if (stopped) return;
+    final currentGeneration = ++generation;
+    try {
+      subscription = firestore
+          .collection('users')
+          .doc(user.uid)
+          .snapshots(includeMetadataChanges: true)
+          .listen(
+            (doc) {
+              if (stopped || currentGeneration != generation) return;
+              try {
+                final data = doc.data();
+                controller.add(
+                  !doc.exists || data == null
+                      ? null
+                      : AppUser.fromFirestore(
+                          data,
+                          doc.id,
+                          fromCache: doc.metadata.isFromCache,
+                          hasPendingWrites: doc.metadata.hasPendingWrites,
+                          observedAt: DateTime.now().toUtc(),
+                        ),
+                );
+              } catch (error, stack) {
+                unawaited(failOrRetry(error, stack, currentGeneration));
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              unawaited(failOrRetry(error, stack, currentGeneration));
+            },
+            onDone: () {
+              if (!stopped && currentGeneration == generation) {
+                unawaited(controller.close());
+              }
+            },
+          );
+    } catch (error, stack) {
+      unawaited(failOrRetry(error, stack, currentGeneration));
+    }
+  };
+
+  controller = StreamController<AppUser?>(
+    onListen: listen,
+    onCancel: () async {
+      stopped = true;
+      generation++;
+      await subscription?.cancel();
+    },
+  );
+  return controller.stream;
 }
 
 /// Keeps Crashlytics identity aligned with the current approved/pending app user.

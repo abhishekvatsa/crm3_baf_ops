@@ -22,6 +22,7 @@ import 'package:crm3_baf_ops/features/planned_maintenance/presentation/job_modul
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/planned_job_detail_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/maintenance_intelligence_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/maintenance_intelligence.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/widgets/action_mini_card.dart';
@@ -258,6 +259,22 @@ class _DiagnosticsReadProbeRepository implements WorkflowRepository {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _StaticPlannedRepository extends Fake
+    implements PlannedMaintenanceRepository {
+  _StaticPlannedRepository(this.execution);
+  final JobExecution execution;
+  int executionReads = 0;
+  @override
+  Future<JobExecution?> getExecutionByFirestoreId(String firestoreId) async {
+    executionReads++;
+    return firestoreId == execution.firestoreId ? execution : null;
+  }
+
+  @override
+  Future<JobTemplate?> getTemplateByFirestoreId(String firestoreId) async =>
+      null;
+}
+
 Future<void> _pumpDetail(
   WidgetTester tester, {
   required AppUser actor,
@@ -265,6 +282,8 @@ Future<void> _pumpDetail(
   JobExecution? execution,
   JobModuleRepository? moduleRepository,
   JobDiaryRepository? diaryRepository,
+  PlannedMaintenanceRepository? plannedRepository,
+  WorkflowRepository? workflowRepository,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -273,6 +292,12 @@ Future<void> _pumpDetail(
       overrides: [
         currentAppUserProvider.overrideWith(
           (ref) => Stream<AppUser?>.value(actor),
+        ),
+        if (workflowRepository != null)
+          workflowRepositoryProvider.overrideWithValue(workflowRepository),
+        plannedRepositoryProvider.overrideWithValue(
+          plannedRepository ??
+              _StaticPlannedRepository(execution ?? _governedExecution()),
         ),
         jobModuleRepositoryProvider.overrideWithValue(
           moduleRepository ?? _StaticJobModuleRepository(),
@@ -494,6 +519,9 @@ void main() {
     testWidgets(
       'planned-job PDF requests complete report-only diary and module evidence',
       (tester) async {
+        final plannedRepository = _StaticPlannedRepository(
+          _governedExecution(),
+        );
         final diaryRepository = _StaticJobDiaryRepository(
           _diaryEntries(51),
           true,
@@ -513,6 +541,8 @@ void main() {
           size: const Size(360, 760),
           moduleRepository: moduleRepository,
           diaryRepository: diaryRepository,
+          plannedRepository: plannedRepository,
+          workflowRepository: _DiagnosticsReadProbeRepository(),
         );
 
         expect(diaryRepository.lastLimit, 50);
@@ -522,6 +552,8 @@ void main() {
         await tester.tap(
           find.byKey(const ValueKey('planned-job-complete-report')),
         );
+        await tester.pump();
+        expect(plannedRepository.executionReads, 1);
 
         expect(diaryRepository.lastReportLimit, isNull);
         expect(diaryRepository.lastReportIncludeDeleted, isTrue);

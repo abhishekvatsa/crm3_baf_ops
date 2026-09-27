@@ -180,31 +180,29 @@ class HomeManagementPulsePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overview = plantOverview.value;
-    final availability =
-        overview == null || overview.total == 0
-            ? '--'
-            : '${((overview.available / overview.total) * 100).round()}%';
-    final availabilityDetail =
-        overview == null
-            ? 'Plant data unavailable'
-            : '${overview.available} of ${overview.total} assets';
-    final availabilityColor =
-        overview == null || overview.total == 0
-            ? BafColors.textSecondary
-            : overview.available / overview.total >= 0.9
-            ? BafColors.success
-            : overview.available / overview.total >= 0.75
-            ? BafColors.warning
-            : BafColors.danger;
-    final unavailableAssets =
-        overview == null ? 0 : overview.total - overview.available;
-    final highRiskUnavailableAssets =
-        overview == null
-            ? 0
-            : overview.assets
-                .where((asset) => asset.isDown || asset.isUnfit)
-                .length;
+    final overview = plantOverview.asData?.value;
+    final availableRate = overview?.availabilityRate;
+    final availability = availableRate == null
+        ? '--'
+        : '${(availableRate * 100).round()}%';
+    final availabilityDetail = overview == null
+        ? 'Plant data unavailable'
+        : overview.hasCompleteEvidence
+        ? '${overview.available} of ${overview.total} assets'
+        : '${overview.available} verified available · ${overview.total} recorded · evidence incomplete';
+    final availabilityColor = availableRate == null
+        ? BafColors.textSecondary
+        : availableRate >= 0.9
+        ? BafColors.success
+        : availableRate >= 0.75
+        ? BafColors.warning
+        : BafColors.danger;
+    final unavailableAssets = overview == null
+        ? 0
+        : overview.total - overview.available;
+    final highRiskUnavailableAssets = overview == null
+        ? 0
+        : overview.down + overview.unfit;
     final leading = _leadingSignal(
       unavailableAssets: unavailableAssets,
       highRiskUnavailableAssets: highRiskUnavailableAssets,
@@ -248,7 +246,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
                       'Availability, action pressure and assurance',
                       style: TextStyle(
                         color: BafColors.textSecondary,
-                        fontSize: 11,
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -265,7 +263,16 @@ class HomeManagementPulsePanel extends StatelessWidget {
           const SizedBox(height: BafSpacing.md),
           LayoutBuilder(
             builder: (context, constraints) {
-              final width = (constraints.maxWidth - BafSpacing.sm * 2) / 3;
+              final minimumWidth =
+                  156 * MediaQuery.textScalerOf(context).scale(12) / 12;
+              final columns =
+                  ((constraints.maxWidth + BafSpacing.sm) /
+                          (minimumWidth + BafSpacing.sm))
+                      .floor()
+                      .clamp(1, 3);
+              final width =
+                  (constraints.maxWidth - BafSpacing.sm * (columns - 1)) /
+                  columns;
               return Wrap(
                 spacing: BafSpacing.sm,
                 runSpacing: BafSpacing.sm,
@@ -286,16 +293,14 @@ class HomeManagementPulsePanel extends StatelessWidget {
                       value: dataUnavailable ? '--' : '$actionCount',
                       label: 'Action queue',
                       detail: 'Issues, work and disruptions',
-                      color:
-                          actionCount == 0
-                              ? BafColors.success
-                              : BafColors.warning,
-                      onTap:
-                          ticketCount > 0
-                              ? onIssues
-                              : executionCount > 0
-                              ? onWork
-                              : onControl,
+                      color: actionCount == 0
+                          ? BafColors.success
+                          : BafColors.warning,
+                      onTap: ticketCount > 0
+                          ? onIssues
+                          : executionCount > 0
+                          ? onWork
+                          : onControl,
                     ),
                   ),
                   SizedBox(
@@ -304,18 +309,16 @@ class HomeManagementPulsePanel extends StatelessWidget {
                       value: dataUnavailable ? '--' : '$assuranceCount',
                       label: 'Assurance',
                       detail: 'Monitoring, overdue and findings',
-                      color:
-                          assuranceCount == 0
-                              ? BafColors.success
-                              : BafColors.maintenance,
-                      onTap:
-                          overdueMaintenanceCount > 0
-                              ? onMaintenanceRhythm
-                              : activeInspectionFindingCount > 0
-                              ? onInspectionProgrammes
-                              : activeQualityMonitoringCount > 0
-                              ? onQualityMonitoring
-                              : onInspectionProgrammes,
+                      color: assuranceCount == 0
+                          ? BafColors.success
+                          : BafColors.maintenance,
+                      onTap: overdueMaintenanceCount > 0
+                          ? onMaintenanceRhythm
+                          : activeInspectionFindingCount > 0
+                          ? onInspectionProgrammes
+                          : activeQualityMonitoringCount > 0
+                          ? onQualityMonitoring
+                          : onInspectionProgrammes,
                     ),
                   ),
                 ],
@@ -361,7 +364,8 @@ class HomeManagementPulsePanel extends StatelessWidget {
     required int unavailableAssets,
     required int highRiskUnavailableAssets,
   }) {
-    if (dataUnavailable) {
+    if (dataUnavailable ||
+        plantOverview.asData?.value.hasCompleteEvidence != true) {
       return _HomeLeadingSignal(
         text: 'Live sources are incomplete. Refresh before final decisions.',
         icon: Icons.sync_problem_outlined,
@@ -381,10 +385,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
     }
     if (highRiskUnavailableAssets > 0) {
       return _HomeLeadingSignal(
-        text:
-            highRiskUnavailableAssets == 1
-                ? '1 asset is down or unfit.'
-                : '$highRiskUnavailableAssets assets are down or unfit.',
+        text: highRiskUnavailableAssets == 1
+            ? '1 asset is down or unfit.'
+            : '$highRiskUnavailableAssets assets are down or unfit.',
         icon: Icons.precision_manufacturing_outlined,
         color: BafColors.danger,
         onTap: onPlantCondition,
@@ -432,10 +435,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
     }
     if (unavailableAssets > 0) {
       return _HomeLeadingSignal(
-        text:
-            unavailableAssets == 1
-                ? '1 asset is outside the available state.'
-                : '$unavailableAssets assets are outside the available state.',
+        text: unavailableAssets == 1
+            ? '1 asset is outside the available state.'
+            : '$unavailableAssets assets are outside the available state.',
         icon: Icons.precision_manufacturing_outlined,
         color: BafColors.warning,
         onTap: onPlantCondition,
@@ -516,8 +518,8 @@ class _HomePulseMetric extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(BafRadius.small),
       child: Container(
-        constraints: const BoxConstraints(minHeight: 88),
-        padding: const EdgeInsets.all(BafSpacing.sm),
+        constraints: const BoxConstraints(minHeight: 104),
+        padding: const EdgeInsets.all(BafSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -531,19 +533,15 @@ class _HomePulseMetric extends StatelessWidget {
             ),
             Text(
               label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
             Text(
               detail,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: BafColors.textSecondary,
-                fontSize: 9,
-                height: 1.15,
+                fontSize: 12,
+                height: 1.35,
               ),
             ),
           ],

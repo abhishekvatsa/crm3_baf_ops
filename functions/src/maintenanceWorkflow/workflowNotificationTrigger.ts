@@ -1,5 +1,6 @@
 import {createHash} from "node:crypto";
 import * as admin from "firebase-admin";
+import {FieldValue} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 import {onDocumentCreated} from "firebase-functions/v2/firestore";
 import {deviceRecoveryStateDocumentId} from "../deviceRecoveryMutation";
@@ -58,7 +59,7 @@ function notificationRuntime(
 ): NotificationReceiptRuntime {
   return {
     db: db as unknown as NotificationReceiptFirestoreLike,
-    serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+    serverTimestamp: () => FieldValue.serverTimestamp(),
     reportDeliveryUncertain: (signal) => {
       logger.error("Notification delivery requires governed adjudication", signal);
     },

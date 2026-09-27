@@ -24,6 +24,7 @@ import 'remote_tombstone_apply_result.dart';
 import 'global_pull_cursor_store.dart';
 import 'global_pull_protocol.dart';
 import 'isar_schema_migration.dart';
+import 'sync_run_guard.dart';
 
 part 'global_pull_service.watermark.dart';
 part 'global_pull_service.conflicts.dart';
@@ -72,6 +73,7 @@ class GlobalPullService {
   FirebaseAuth get _authentication => _auth ?? FirebaseAuth.instance;
 
   bool _isPulling = false;
+  SyncRunGuard? _activeRunGuard;
   bool _hadRecordProcessingError = false;
   bool _hadCleanLocalReconciliation = false;
   GlobalPullDomain? lastFailedDomain;
@@ -113,10 +115,12 @@ class GlobalPullService {
   // ENTRY POINT
   // ─────────────────────────────────────────────────────────────
 
-  Future<void> pullAndReconcile() async {
+  Future<void> pullAndReconcile({SyncRunGuard? runGuard}) async {
+    runGuard?.checkCurrent();
     if (_isPulling) return;
 
     _isPulling = true;
+    _activeRunGuard = runGuard;
 
     lastInserted = 0;
     lastUpdated = 0;
@@ -146,6 +150,7 @@ class GlobalPullService {
         );
       }
       final authority = await _authorityReader.beginRun(expectedUid: actorUid);
+      _requireCurrentActor(actorUid);
       final cursorStore = SharedPreferencesGlobalPullCursorStore(prefs);
       var envelope = await cursorStore.begin(
         actorUid: actorUid,
@@ -233,6 +238,7 @@ class GlobalPullService {
       debugPrintStack(stackTrace: stackTrace);
       rethrow;
     } finally {
+      _activeRunGuard = null;
       _isPulling = false;
 
       debugPrint(
@@ -279,6 +285,7 @@ class GlobalPullService {
   }
 
   void _requireCurrentActor(String expectedUid) {
+    _activeRunGuard?.checkCurrent();
     if (_authentication.currentUser?.uid != expectedUid) {
       throw const GlobalPullCursorException(
         'The authenticated actor changed during global pull.',

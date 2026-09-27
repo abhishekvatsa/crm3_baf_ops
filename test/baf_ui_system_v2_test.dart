@@ -313,13 +313,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: BafAppTheme.light,
-          builder:
-              (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: const TextScaler.linear(2)),
-                child: child!,
-              ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
           home: Scaffold(
             body: BafStatePanel.error(
               title: 'Workflow state requires attention',
@@ -399,14 +398,13 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: BafAppTheme.light,
-          builder:
-              (context, child) => MediaQuery(
-                data: const MediaQueryData(
-                  size: Size(320, 700),
-                  textScaler: TextScaler.linear(2),
-                ),
-                child: child!,
-              ),
+          builder: (context, child) => MediaQuery(
+            data: const MediaQueryData(
+              size: Size(320, 700),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: child!,
+          ),
           home: const BafScreenScaffold(
             title: 'Inspection programmes',
             subtitle: 'Component evidence across selected assets',
@@ -574,13 +572,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: BafAppTheme.light,
-          builder:
-              (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: const TextScaler.linear(2)),
-                child: child!,
-              ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: child!,
+          ),
           home: BafScreenStateScaffold.error(
             appBarTitle: 'Maintenance intelligence',
             appBarSubtitle: 'Governed evidence and recommendations',
@@ -687,71 +684,75 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('dashboard identity and actions occupy two stable phone rows', (
-      tester,
-    ) async {
-      await tester.binding.setSurfaceSize(const Size(320, 260));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+    testWidgets(
+      'dashboard identity and actions remain readable on a narrow phone',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(320, 260));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: BafAppTheme.light,
-          home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(BafSpacing.md),
-              child: DashboardHeader(
-                userName: 'Abhishek Vatsa',
-                avatar: const CircleAvatar(child: Text('A')),
-                syncIndicator: Container(
-                  width: 96,
-                  height: 30,
-                  alignment: Alignment.center,
-                  child: const Text('Sync now'),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: BafAppTheme.light,
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  child: DashboardHeader(
+                    userName: 'Test Operator',
+                    avatar: const CircleAvatar(child: Text('A')),
+                    syncIndicator: Container(
+                      width: 96,
+                      height: 30,
+                      alignment: Alignment.center,
+                      child: const Text('Sync now'),
+                    ),
+                    onProfileTap: () {},
+                  ),
                 ),
-                onProfileTap: () {},
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      final header = tester.getRect(find.byType(DashboardHeader));
-      final profile = tester.getRect(
-        find.byKey(const ValueKey('dashboard-profile-action')),
-      );
-      final brand = tester.getRect(
-        find.byKey(const ValueKey('dashboard-brand-lockup')),
-      );
-      final sync = tester.getRect(
-        find.byKey(const ValueKey('dashboard-sync-action')),
-      );
-      final title = tester.getRect(
-        find.byKey(const ValueKey('dashboard-shift-title')),
-      );
-      final productName = tester.renderObject<RenderParagraph>(
-        find.text(BafBrand.productName),
-      );
-      final makerName = tester.renderObject<RenderParagraph>(
-        find.text(BafBrand.makerLabel),
-      );
+        final header = tester.getRect(find.byType(DashboardHeader));
+        final profile = tester.getRect(
+          find.byKey(const ValueKey('dashboard-profile-action')),
+        );
+        final brand = tester.getRect(
+          find.byKey(const ValueKey('dashboard-brand-lockup')),
+        );
+        final sync = tester.getRect(
+          find.byKey(const ValueKey('dashboard-sync-action')),
+        );
+        final title = tester.getRect(
+          find.byKey(const ValueKey('dashboard-shift-title')),
+        );
+        final productName = tester.renderObject<RenderParagraph>(
+          find.text(BafBrand.productName),
+        );
+        final makerName = tester.renderObject<RenderParagraph>(
+          find.text(BafBrand.makerLabel),
+        );
 
-      expect(
-        header.right - profile.right,
-        lessThanOrEqualTo(BafSpacing.lg + 1.1),
-      );
-      expect(sync.top, greaterThan(profile.bottom));
-      expect(sync.right, closeTo(profile.right, 0.1));
-      expect((sync.center.dy - title.center.dy).abs(), lessThan(8));
-      expect(
-        productName.didExceedMaxLines,
-        isFalse,
-        reason:
-            'product=${productName.size}, constraints=${productName.constraints}, brand=$brand',
-      );
-      expect(makerName.didExceedMaxLines, isFalse);
-      expect(tester.takeException(), isNull);
-    });
+        expect(
+          header.right - profile.right,
+          lessThanOrEqualTo(BafSpacing.lg + 1.1),
+        );
+        expect(sync.top, greaterThan(profile.bottom));
+        expect(sync.left, closeTo(title.left, 0.1));
+        expect(sync.top, greaterThan(title.bottom));
+        expect(sync.right, lessThanOrEqualTo(header.right));
+        expect(
+          productName.didExceedMaxLines,
+          isFalse,
+          reason:
+              'product=${productName.size}, constraints=${productName.constraints}, brand=$brand',
+        );
+        expect(makerName.didExceedMaxLines, isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     test('migrated operational surfaces use the shared page language', () {
       const paths = <String>[
@@ -775,10 +776,9 @@ void main() {
     });
 
     test('primary creation does not float over directive records', () {
-      final source =
-          File(
-            'lib/features/directives/presentation/directives_screen.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/directives/presentation/directives_screen.dart',
+      ).readAsStringSync();
 
       expect(source, contains("label: const Text('New Directive')"));
       expect(source, contains('onCreate:'));
@@ -787,11 +787,10 @@ void main() {
     });
 
     test('operational events exposes one stable creation control', () {
-      final source =
-          File(
-            'lib/features/operational_events/presentation/'
-            'operational_events_screen.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/operational_events/presentation/'
+        'operational_events_screen.dart',
+      ).readAsStringSync();
 
       expect(source, contains("ValueKey('operational-events-add')"));
       expect(source, contains("label: const Text('Add event')"));
@@ -853,13 +852,11 @@ void main() {
 }
 
 double _contrastRatio(Color first, Color second) {
-  final lighter =
-      first.computeLuminance() > second.computeLuminance()
-          ? first.computeLuminance()
-          : second.computeLuminance();
-  final darker =
-      first.computeLuminance() > second.computeLuminance()
-          ? second.computeLuminance()
-          : first.computeLuminance();
+  final lighter = first.computeLuminance() > second.computeLuminance()
+      ? first.computeLuminance()
+      : second.computeLuminance();
+  final darker = first.computeLuminance() > second.computeLuminance()
+      ? second.computeLuminance()
+      : first.computeLuminance();
   return (lighter + 0.05) / (darker + 0.05);
 }

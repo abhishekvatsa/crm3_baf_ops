@@ -6,6 +6,7 @@ import {
   MaintenanceWorkflowCommandService,
 } from "./dispatcher";
 import {WorkflowError} from "./errors";
+import {assertRetainedQueueAdmission} from "./retainedQueueHandlers";
 import {FirebaseWorkflowStore} from "./firebaseStore";
 import {MUTATING_CALLABLE_SECURITY_OPTIONS} from "../callableSecurityConfig";
 import {FUNCTION_RUNTIME_SERVICE_ACCOUNTS} from "../functionFleetRuntimeIdentity";
@@ -28,6 +29,7 @@ import {
   JsonMap,
   RoleKey,
   WorkflowCommand,
+  WorkflowCommandReceipt,
 } from "./types";
 
 const CALLABLE_REGION = "asia-south1";
@@ -111,32 +113,24 @@ const toHttpsError = (error: WorkflowError): HttpsError => {
   return new HttpsError(code, error.message, {workflowCode: error.code, ...error.details});
 };
 
-export const executeMaintenanceWorkflowCommand = onCall(
-  {
-    maxInstances: 20,
-    region: CALLABLE_REGION,
-    timeoutSeconds: 60,
-    memory: "512MiB",
-    concurrency: 20,
-    serviceAccount:
-      FUNCTION_RUNTIME_SERVICE_ACCOUNTS.executeMaintenanceWorkflowCommand,
-    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
-  },
-  async (request: CallableRequest<unknown>) => {
+const executeWorkflowRequest = async (
+  request: CallableRequest<unknown>, originBound: boolean,
+  admit: (db: CallableAbuseFirestoreLike, actorUid: string,
+    execute: () => Promise<WorkflowCommandReceipt>) => Promise<WorkflowCommandReceipt>,
+) => {
     const db = withSubmissionRecoveryFence(admin.firestore(), "executeMaintenanceWorkflowCommand", request.data);
     try {
       const actor = await actorFromRequest(request, db);
-      return await executeWithCallableAbuseControl({
-        db: db as unknown as CallableAbuseFirestoreLike,
-        actorUid: actor.uid,
-        callableName: "executeMaintenanceWorkflowCommand",
-        execute: async () => {
-          const command = parseCommand(request.data);
+      return await admit(db as unknown as CallableAbuseFirestoreLike, actor.uid, async () => {
+      const command = parseCommand(request.data);
+      const invocation = {actor, serverNow: new Date(),
+        ...(originBound ? {originBoundProtocolVersion: 2 as const} : {}),
+        projectId: admin.app().options.projectId ?? process.env.GCLOUD_PROJECT};
+      assertRetainedQueueAdmission(command, invocation);
           const service = new MaintenanceWorkflowCommandService(
             new FirebaseWorkflowStore(db),
           );
-          return service.execute(command, {actor, serverNow: new Date()});
-        },
+          return service.execute(command, invocation);
       });
     } catch (error) {
       if (error instanceof HttpsError) throw error;
@@ -147,7 +141,19 @@ export const executeMaintenanceWorkflowCommand = onCall(
       logger.error("executeMaintenanceWorkflowCommand failed", error);
       throw new HttpsError("internal", "Maintenance workflow command failed.");
     }
+};
+
+export const executeMaintenanceWorkflowCommand = onCall(
+  {
+    maxInstances: 20, region: CALLABLE_REGION, timeoutSeconds: 60,
+    memory: "512MiB", concurrency: 20,
+    serviceAccount: FUNCTION_RUNTIME_SERVICE_ACCOUNTS.executeMaintenanceWorkflowCommand,
+    ...MUTATING_CALLABLE_SECURITY_OPTIONS,
   },
+  (request: CallableRequest<unknown>) => executeWorkflowRequest(request, false,
+    (db, actorUid, execute) => executeWithCallableAbuseControl({
+      db, actorUid, callableName: "executeMaintenanceWorkflowCommand", execute,
+    })),
 );
 
 export const executeMaintenanceWorkflowCommandV2 = onCall(
@@ -165,7 +171,11 @@ export const executeMaintenanceWorkflowCommandV2 = onCall(
     authUid: request.auth?.uid ?? null,
     data: request.data,
     readActor: async (uid) => (await admin.firestore().collection("users").doc(uid).get()).data() ?? null,
-    execute: async (payload) => executeMaintenanceWorkflowCommand.run({...request, data: payload}),
+    execute: async (payload) => executeWorkflowRequest({...request, data: payload}, true,
+      (db, actorUid, execute) => executeWithCallableAbuseControl({
+        // V1 and V2 retain one quota bucket, with V2 admission established above.
+        db, actorUid, callableName: "executeMaintenanceWorkflowCommand", execute,
+      })),
     recoverSubmission: async (payload) => reviewSavedSubmissionWithDb({
       db: admin.firestore() as unknown as SubmissionRecoveryDb,
       endpoint: "executeMaintenanceWorkflowCommandV2", authUid: request.auth?.uid ?? null, data: payload,

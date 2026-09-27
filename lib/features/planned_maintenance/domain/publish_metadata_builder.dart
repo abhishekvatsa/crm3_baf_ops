@@ -5,6 +5,7 @@ import 'module_composer_json_builder.dart';
 import 'module_composer_models.dart';
 import 'module_composer_validator.dart';
 import 'template_version_snapshot_contract.dart';
+import 'template_closure_review.dart';
 
 const int kPublishReasonMinLength = 1;
 
@@ -237,6 +238,9 @@ TemplateVersion buildTemplateVersionForPublish({
       ..updatedByName = actor.name;
   }
 
+  if (existingVersion == null || shouldForkPublishedNumber) {
+    clearTemplateClosureReview(version);
+  }
   version.refreshContentHash();
   return version;
 }

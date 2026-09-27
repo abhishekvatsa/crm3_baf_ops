@@ -562,7 +562,21 @@ function Test-CompletedReleaseCustody {
     # its immutable approval are shared with the producer; loading these
     # functions performs no bucket or upload calls.
     . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
-    $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $Receipt.release.buildNumber
+    $candidateCustodyArguments = @{}
+    if ($Receipt.release.buildNumber -ceq 30) {
+      $candidateBinding = $Receipt.dualCustody.backupVerification
+      if ($candidateBinding.file -cne 'release/evidence/build30-private-gcs-custody-readback.json' -or
+          $candidateBinding.sha256 -isnot [string] -or $candidateBinding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
+      $candidatePath = Join-Path $RepositoryRoot $candidateBinding.file
+      if ((Get-Sha256 $candidatePath) -cne $candidateBinding.sha256) { return $false }
+      $candidateReadback = Get-Content -LiteralPath $candidatePath -Raw | ConvertFrom-Json
+      $candidateCustodyArguments = @{
+        RepositoryRoot = $RepositoryRoot; CandidateSourceCommit = $Receipt.sourceAuthority.commit
+        ApprovalCommit = $candidateReadback.approval.commit; ApprovalSha256 = $candidateReadback.approval.sha256
+      }
+    }
+    $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $Receipt.release.buildNumber @candidateCustodyArguments
+    if ($descriptor.buildNumber -eq 30 -and $Receipt.release.releaseId -cne $descriptor.releaseId) { return $false }
     if ($modeProperty.Value -isnot [string] -or
         $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
         -not (Test-PrivateCustodyFacts $Receipt @(
@@ -679,7 +693,8 @@ function Test-CompletedReleaseCustody {
         $proofs.closurePackageSidecar.sha256 -cne $Receipt.closure.closurePackageSidecarSha256) { return $false }
     # This function only reads the fixed approval's file/Git object. It does not
     # call the helper's upload or bucket APIs, so CI needs no cloud credentials.
-    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix $descriptor.buildNumber
+    $candidateCustodyArguments.Remove('RepositoryRoot')
+    $authority = Assert-PrivateGcsCustodyAuthority $RepositoryRoot $prefix $descriptor.buildNumber @candidateCustodyArguments
     return (Test-PrivateCustodyFacts $authority $approvalFacts)
   } catch { return $false }
 }
@@ -2733,6 +2748,12 @@ if ($null -ne $requiredRulesShaProperty) {
     throw ('Current source backend authority differs from source state: ' +
       ($backendAuthorityDifferences -join '; ') + '.')
   }
+}
+if ($RequireArtifactConstructionAuthority -and $policy.release.buildNumber -ge 30) {
+  # Runs in workflow preflight before the reservation tag can consume a number.
+  # Ordinary historical policy verification retains its exact prior contract.
+  . (Join-Path $RepositoryRoot 'tools/release/Production-AppCheckPolicy.ps1')
+  Get-ProductionAppCheckRepositoryEvidence -RepositoryRoot $RepositoryRoot -Policy $policy | Out-Null
 }
 if ($RequireArtifactConstructionAuthority -and
     -not $expectedArtifactConstructionAuthority) {

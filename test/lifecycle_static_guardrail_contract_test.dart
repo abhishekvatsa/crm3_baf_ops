@@ -380,9 +380,12 @@ void main() {
         final abnormality = _read(
           'lib/features/abnormalities/presentation/abnormality_types_screen.dart',
         );
-        final directives = _read(
-          'lib/features/directives/presentation/directives_screen.dart',
-        );
+        final directives = [
+          _read('lib/features/directives/presentation/directives_screen.dart'),
+          _read(
+            'lib/features/directives/presentation/directives_screen.closure_dialog.dart',
+          ),
+        ].join('\n');
         final rowEditor = _read(
           'lib/features/planned_maintenance/presentation/widgets/knowledge_row_editor.dart',
         );

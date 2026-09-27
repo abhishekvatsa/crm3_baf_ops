@@ -1,9 +1,11 @@
 import 'package:uuid/uuid.dart';
 import 'report_provenance.dart';
+import 'operations_report_options.dart';
 
 enum OperationsReportDocumentPreset {
   executive,
   assetCondition,
+  baseInnerCoverRegister,
   maintenance,
   reliability,
   quality,
@@ -19,7 +21,10 @@ extension OperationsReportDocumentPresetLabel
     OperationsReportDocumentPreset.executive => 'Executive brief',
     OperationsReportDocumentPreset.assetCondition =>
       'Asset availability and condition',
-    OperationsReportDocumentPreset.maintenance => 'Maintenance performance',
+    OperationsReportDocumentPreset.baseInnerCoverRegister =>
+      'Current Base / Inner Cover register',
+    OperationsReportDocumentPreset.maintenance =>
+      'Maintenance register and performance',
     OperationsReportDocumentPreset.reliability => 'Reliability and condition',
     OperationsReportDocumentPreset.quality => 'Quality and RA assurance',
     OperationsReportDocumentPreset.safetyAndDisruption =>
@@ -34,8 +39,10 @@ extension OperationsReportDocumentPresetLabel
       'Management summary, plant availability and priority exceptions.',
     OperationsReportDocumentPreset.assetCondition =>
       'Current status of every asset, with availability constraints and maintenance exposure.',
+    OperationsReportDocumentPreset.baseInnerCoverRegister =>
+      'Every selected Base, with confirmed linkage, no recorded linkage, or unavailable evidence. Current snapshot only.',
     OperationsReportDocumentPreset.maintenance =>
-      'Maintenance issues, planned work, cadence and current asset condition.',
+      'Maintenance issue and planned-work registers, with period summaries and optional detailed issue records.',
     OperationsReportDocumentPreset.reliability =>
       'Failure concentrations plus the current Furnace Burner and UV snapshot.',
     OperationsReportDocumentPreset.quality =>
@@ -54,6 +61,7 @@ extension OperationsReportDocumentPresetLabel
 enum OperationsReportSection {
   executiveSummary,
   assetCondition,
+  baseInnerCoverRegister,
   maintenanceIssues,
   plannedMaintenance,
   operationalControl,
@@ -68,6 +76,8 @@ extension OperationsReportSectionLabel on OperationsReportSection {
   String get label => switch (this) {
     OperationsReportSection.executiveSummary => 'Executive summary',
     OperationsReportSection.assetCondition => 'Plant condition',
+    OperationsReportSection.baseInnerCoverRegister =>
+      'Current Base / Inner Cover register',
     OperationsReportSection.maintenanceIssues => 'Maintenance issues',
     OperationsReportSection.plannedMaintenance => 'Planned maintenance',
     OperationsReportSection.operationalControl =>
@@ -85,6 +95,8 @@ extension OperationsReportSectionLabel on OperationsReportSection {
       'Selected-period outcomes and the leading management signals.',
     OperationsReportSection.assetCondition =>
       'Current fleet availability, maintenance, down and unfit state.',
+    OperationsReportSection.baseInnerCoverRegister =>
+      'Current authoritative assignment, reciprocal cover evidence and installation confirmation for each selected Base.',
     OperationsReportSection.maintenanceIssues =>
       'Issue lifecycle, ownership, component and impact evidence.',
     OperationsReportSection.plannedMaintenance =>
@@ -107,6 +119,7 @@ extension OperationsReportSectionLabel on OperationsReportSection {
 const operationsReportSectionOrder = <OperationsReportSection>[
   OperationsReportSection.executiveSummary,
   OperationsReportSection.assetCondition,
+  OperationsReportSection.baseInnerCoverRegister,
   OperationsReportSection.maintenanceIssues,
   OperationsReportSection.plannedMaintenance,
   OperationsReportSection.burnerUvCondition,
@@ -133,12 +146,11 @@ Set<OperationsReportSection> operationsReportSectionsForPreset(
     OperationsReportSection.maintenanceIssues,
     OperationsReportSection.plantDisruptions,
   },
+  OperationsReportDocumentPreset.baseInnerCoverRegister =>
+    <OperationsReportSection>{OperationsReportSection.baseInnerCoverRegister},
   OperationsReportDocumentPreset.maintenance => <OperationsReportSection>{
-    OperationsReportSection.executiveSummary,
-    OperationsReportSection.assetCondition,
     OperationsReportSection.maintenanceIssues,
     OperationsReportSection.plannedMaintenance,
-    OperationsReportSection.reliability,
   },
   OperationsReportDocumentPreset.reliability => <OperationsReportSection>{
     OperationsReportSection.assetCondition,
@@ -146,7 +158,6 @@ Set<OperationsReportSection> operationsReportSectionsForPreset(
     OperationsReportSection.burnerUvCondition,
   },
   OperationsReportDocumentPreset.quality => <OperationsReportSection>{
-    OperationsReportSection.executiveSummary,
     OperationsReportSection.qualityAndAssurance,
   },
   OperationsReportDocumentPreset.safetyAndDisruption =>
@@ -181,6 +192,12 @@ class OperationsReportDocumentRequest {
     required this.reportId,
     required this.provenance,
     String? snapshotStatement,
+    this.maintenancePeriodBasis = MaintenanceReportPeriodBasis.activeDuring,
+    this.includeMaintenanceDetails = false,
+    this.qualityPeriodBasis = QualityReportPeriodBasis.firstReported,
+    this.qualitySource = QualityReportSource.all,
+    this.qualityKind = QualityReportKind.all,
+    this.raOnly = false,
   }) : sections = Set<OperationsReportSection>.unmodifiable(sections),
        snapshotStatement = snapshotStatement ?? provenance.evidenceStatement;
 
@@ -221,6 +238,12 @@ class OperationsReportDocumentRequest {
   final String reportId;
   final ReportProvenance provenance;
   final String snapshotStatement;
+  final MaintenanceReportPeriodBasis maintenancePeriodBasis;
+  final bool includeMaintenanceDetails;
+  final QualityReportPeriodBasis qualityPeriodBasis;
+  final QualityReportSource qualitySource;
+  final QualityReportKind qualityKind;
+  final bool raOnly;
 
   List<OperationsReportSection> get orderedSections =>
       operationsReportSectionOrder
@@ -242,6 +265,12 @@ class OperationsReportDocumentRequest {
     Set<OperationsReportSection>? sections,
     String? snapshotStatement,
     ReportProvenance? provenance,
+    MaintenanceReportPeriodBasis? maintenancePeriodBasis,
+    bool? includeMaintenanceDetails,
+    QualityReportPeriodBasis? qualityPeriodBasis,
+    QualityReportSource? qualitySource,
+    QualityReportKind? qualityKind,
+    bool? raOnly,
   }) => OperationsReportDocumentRequest(
     title: title ?? this.title,
     preset: preset ?? this.preset,
@@ -252,6 +281,14 @@ class OperationsReportDocumentRequest {
     reportId: reportId,
     provenance: provenance ?? this.provenance,
     snapshotStatement: snapshotStatement ?? this.snapshotStatement,
+    maintenancePeriodBasis:
+        maintenancePeriodBasis ?? this.maintenancePeriodBasis,
+    includeMaintenanceDetails:
+        includeMaintenanceDetails ?? this.includeMaintenanceDetails,
+    qualityPeriodBasis: qualityPeriodBasis ?? this.qualityPeriodBasis,
+    qualitySource: qualitySource ?? this.qualitySource,
+    qualityKind: qualityKind ?? this.qualityKind,
+    raOnly: raOnly ?? this.raOnly,
   );
 }
 

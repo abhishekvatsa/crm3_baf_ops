@@ -483,3 +483,21 @@ operation and site counts moved by exactly one, which is the single added call.
 Production is unaffected. `crm3UseEmulators` is false in every build that does
 not explicitly set the dart-define, so the production startup path still uses
 `DefaultFirebaseOptions.currentPlatform` and contacts no emulator.
+
+
+## Original-account queue ownership — 27 September 2026
+
+The reviewed current source has 626 operations across 2199 primitive sites and 87 classified persistence surfaces. Its digest is `E3DDFA103A24520FCACC538CA7AC5FBA5A62FE81ACDDA60898E50A31FE0F2A90`. The added native retained-row service uses the existing journal transaction for the immutable original-account command and local row, with exact accepted-payload comparison before adoption. The former direct catalogue, legacy-template and open-work upload/adoption paths now delegate to the V2 command boundary. Unknown legacy origin remains saved for review. No presentation persistence, production activation or historical closure evidence is added by this source inventory update.
+
+## Inner Cover history completeness — 27 September 2026
+
+The measured current source has 625 operations across 2196 primitive sites and
+87 classified persistence surfaces. Its digest is
+`9DCDBFDE91816018F603C1F782AC2AB8273C9027BACEA3013D67D47961E7D9DD`.
+The two Inner Cover history query paths now share one metadata-aware repository
+snapshot reader. It preserves rejected-record and cache/pending-write evidence,
+so partial history cannot become a definitive empty-history claim. The existing
+repository profile remains Firestore/read-only; no presentation persistence,
+permission, transaction ownership, production activation or historical closure
+receipt changes. `test/inner_cover_history_completeness_test.dart` exercises both
+real repository decoder paths and qualified history display/recovery.

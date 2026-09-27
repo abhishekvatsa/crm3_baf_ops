@@ -6,6 +6,11 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
+import '../../assets/domain/inner_cover_date_format.dart';
+import '../../abnormalities/data/abnormality_model.dart';
+import '../domain/base_inner_cover_register.dart';
+import '../domain/maintenance_ticket_dossier.dart';
+import '../domain/structured_report_document.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/burner_condition_round.dart';
 import '../../assets/domain/plant_asset_overview.dart';
@@ -41,7 +46,16 @@ class OperationsReportPdfService {
     required String assetLabel,
     required List<AssetInstanceRecord> furnaceAssets,
     required Map<String, BurnerConditionRound> currentBurnerRounds,
+    BaseInnerCoverRegister? baseInnerCoverRegister,
+    List<StructuredReportDocument> plannedJobDetails = const [],
   }) async {
+    if (report.filter.includeMaintenanceDetails &&
+        request.sections.contains(OperationsReportSection.plannedMaintenance) &&
+        plannedJobDetails.length != report.executions.length) {
+      throw StateError(
+        "Complete planned-job evidence must be loaded for every included job.",
+      );
+    }
     if (!report.filter.queryPlan.covers(
       OperationsReportQueryPlan.forSections(request.sections),
     )) {
@@ -70,6 +84,7 @@ class OperationsReportPdfService {
     document.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
+        maxPages: 1000,
         theme: pw.ThemeData.withFont(base: regularFont, bold: mediumFont),
         margin: const pw.EdgeInsets.fromLTRB(28, 30, 28, 30),
         header: (context) => _header(
@@ -91,11 +106,15 @@ class OperationsReportPdfService {
             sectionIndex < request.orderedSections.length;
             sectionIndex += 1
           ) ...<pw.Widget>[
+            pw.NewPage(freeSpace: 160),
             ..._buildSection(
               section: request.orderedSections[sectionIndex],
               report: report,
               furnaceAssets: furnaceAssets,
               currentBurnerRounds: currentBurnerRounds,
+              baseInnerCoverRegister:
+                  baseInnerCoverRegister ?? report.baseInnerCoverRegister,
+              plannedJobDetails: plannedJobDetails,
             ),
             if (sectionIndex < request.orderedSections.length - 1)
               pw.SizedBox(height: 16),
@@ -313,11 +332,22 @@ class OperationsReportPdfService {
     required OperationsReport report,
     required List<AssetInstanceRecord> furnaceAssets,
     required Map<String, BurnerConditionRound> currentBurnerRounds,
+    BaseInnerCoverRegister? baseInnerCoverRegister,
+    List<StructuredReportDocument> plannedJobDetails = const [],
   }) => switch (section) {
     OperationsReportSection.executiveSummary => _executiveSummary(report),
     OperationsReportSection.assetCondition => _assetCondition(report),
+    OperationsReportSection.baseInnerCoverRegister => _baseCoverRegister(
+      report,
+      baseInnerCoverRegister,
+    ),
     OperationsReportSection.maintenanceIssues => _maintenanceIssues(report),
-    OperationsReportSection.plannedMaintenance => _plannedMaintenance(report),
+    OperationsReportSection.plannedMaintenance => [
+      ..._plannedMaintenance(report),
+      if (report.filter.includeMaintenanceDetails)
+        for (final dossier in plannedJobDetails)
+          ..._structuredDossierDetails(dossier),
+    ],
     OperationsReportSection.operationalControl => _operationalControl(report),
     OperationsReportSection.reliability => _reliability(report),
     OperationsReportSection.qualityAndAssurance => _qualityAndAssurance(report),
@@ -331,6 +361,243 @@ class OperationsReportPdfService {
       report,
     ),
   };
+
+  static List<pw.Widget> _baseCoverRegister(
+    OperationsReport report,
+    BaseInnerCoverRegister? register,
+  ) => [
+    _sectionHeading(
+      'Current Base / Inner Cover register',
+      'Current server reads completed ${_formatInnerCoverLocalDateTime(register?.capturedAt ?? report.asOf)} $operationsReportTimeZone. These rows do not describe the historical date range.',
+    ),
+    if (register == null)
+      _emptyStatement(
+        'Linkage evidence was not loaded. Occupancy and vacancy are unknown.',
+      )
+    else ...[
+      for (final note in register.notes) _emptyStatement(note),
+      pw.SizedBox(height: 8),
+      ..._simpleTables(
+        headers: const [
+          'Base / identity',
+          'Registry state',
+          'Link state',
+          'Cover / linkage',
+          'Pairing recorded / by',
+          'Evidence',
+        ],
+        rows: baseCoverRegisterRows(register),
+        widths: const {
+          0: pw.FlexColumnWidth(1.1),
+          1: pw.FlexColumnWidth(.8),
+          2: pw.FlexColumnWidth(1),
+          3: pw.FlexColumnWidth(1.6),
+          4: pw.FlexColumnWidth(1.5),
+          5: pw.FlexColumnWidth(2),
+        },
+      ),
+    ],
+  ];
+
+  @visibleForTesting
+  static List<List<String>> baseCoverRegisterRows(
+    BaseInnerCoverRegister register,
+  ) => register.rows
+      .map(
+        (r) => [
+          '${r.base.name}\n${r.base.id}',
+          r.base.serviceState.label,
+          r.label,
+          '${r.assignment?.innerCoverSerialNumber ?? '-'}\n${r.assignment?.linkageId ?? ''}',
+          r.linkage == null
+              ? 'Not verified'
+              : '${_formatInnerCoverLocalDateTime(r.linkage!.installedAt)}\n${r.linkage!.installedByName} (${r.linkage!.installedByUid})',
+          '${r.explanation}${r.assignment == null ? '' : '\nAssignment v${r.assignment!.version}; updated ${_formatInnerCoverLocalDateTime(r.assignment!.updatedAt)}'}',
+        ],
+      )
+      .toList();
+
+  static List<pw.Widget> _maintenanceDetails(
+    OperationsReport report,
+    List<MaintenanceRecord> tickets,
+  ) {
+    if (tickets.isEmpty) return const [];
+    final widgets = <pw.Widget>[];
+    for (final ticket in tickets) {
+      final dossier = buildMaintenanceTicketDossier(
+        ticket: ticket,
+        correctionEvents: const [],
+        generatedAt: report.asOf,
+        generatedByName: 'Operations report',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+      widgets.addAll(
+        _structuredDossierDetails(
+          dossier,
+          omitIssueCorrections: true,
+          includeTitle: false,
+          originalIssueDescription: ticket.description,
+          leading: [
+            if (ticket == tickets.first) ...[
+              pw.SizedBox(height: 14),
+              _sectionHeading(
+                'Detailed issue records',
+                'Retained issue lifecycle, work and closure evidence at generation time. Separately stored Admin/SI correction audit events are not loaded by this register; use each issue dossier for that audit.',
+              ),
+            ],
+            pw.SizedBox(height: 12),
+            _sectionHeading(
+              'Issue ${ticket.firestoreId ?? ticket.id}',
+              _ticketSubjectLabel(ticket),
+            ),
+          ],
+        ),
+      );
+    }
+    return widgets;
+  }
+
+  static List<pw.Widget> _structuredDossierDetails(
+    StructuredReportDocument dossier, {
+    bool omitIssueCorrections = false,
+    bool includeTitle = true,
+    String? originalIssueDescription,
+    List<pw.Widget> leading = const [],
+  }) {
+    final widgets = <pw.Widget>[];
+    var pending = <pw.Widget>[
+      ...leading,
+      if (includeTitle) ...[
+        pw.SizedBox(height: 12),
+        _sectionHeading(dossier.title, dossier.scopeLabel),
+      ],
+    ];
+    for (final section in dossier.sections.where(
+      (section) =>
+          !omitIssueCorrections ||
+          section.title != 'Audited Admin / SI corrections',
+    )) {
+      pending.addAll([
+        pw.SizedBox(height: 8),
+        _sectionHeading(section.title, section.subtitle ?? ''),
+      ]);
+      void addEvidenceTable({
+        required List<String> headers,
+        required List<List<String>> rows,
+        Map<int, pw.TableColumnWidth>? widths,
+      }) {
+        widgets.addAll(
+          _simpleTables(
+            headers: headers,
+            rows: rows.isEmpty
+                ? [
+                    List.generate(
+                      headers.length,
+                      (index) => index == 0 ? 'No saved entries' : '-',
+                    ),
+                  ]
+                : rows,
+            widths: widths,
+            leading: pending,
+          ),
+        );
+        pending = <pw.Widget>[];
+      }
+
+      if (section.metrics.isNotEmpty) {
+        addEvidenceTable(
+          headers: const ['Measure', 'Current value'],
+          rows: section.metrics.map((m) => [m.label, m.value]).toList(),
+        );
+      }
+      if (section.fields.isNotEmpty) {
+        addEvidenceTable(
+          headers: const ['Field', 'Saved evidence'],
+          rows: section.fields
+              .map((field) => [field.label, field.value])
+              .toList(),
+          widths: const {0: pw.FlexColumnWidth(1), 1: pw.FlexColumnWidth(4)},
+        );
+      }
+      for (final paragraph in section.paragraphs) {
+        addEvidenceTable(
+          headers: const ['Evidence'],
+          rows: [
+            [paragraph],
+          ],
+        );
+      }
+      for (final table in section.tables) {
+        if (table.title != null) pending.add(_emptyStatement(table.title!));
+        if (table.subtitle != null) {
+          pending.add(_emptyStatement(table.subtitle!));
+        }
+        final rows = table.rows.map((row) {
+          // The complete original observation is already in the identity
+          // section. Keep its chronology entry without copying the same long
+          // narrative twice in the bulk register.
+          if (originalIssueDescription != null &&
+              section.title == 'Lifecycle chronology' &&
+              row.length == 3 &&
+              row[1] == 'Issue started' &&
+              row[2] == originalIssueDescription) {
+            return [
+              row[0],
+              row[1],
+              'Original observation: see Issue identity and context above.',
+            ];
+          }
+          return row;
+        }).toList();
+        addEvidenceTable(
+          headers: table.headers,
+          rows: rows,
+          widths: table.columnFlex == null
+              ? null
+              : {
+                  for (var i = 0; i < table.columnFlex!.length; i++)
+                    i: pw.FlexColumnWidth(table.columnFlex![i]),
+                },
+        );
+      }
+      if (pending.isNotEmpty) {
+        addEvidenceTable(headers: const ['Evidence'], rows: const []);
+      }
+    }
+    return widgets;
+  }
+
+  @visibleForTesting
+  static String qualityObservationEvidence(ChargeAbnormality record) => [
+    record.observedReason,
+    if (record.description != null) record.description!,
+    if (record.possibleRootReasonCategory != RootReasonCategory.unknown)
+      'Possible cause category: ${_reportLabel(record.possibleRootReasonCategory.name)}',
+    if (record.possibleRootReasonNotes != null) record.possibleRootReasonNotes!,
+    for (final cause
+        in record.assessment?.candidateCauses ?? <CandidateProcessCause>[])
+      'Cause ${cause.id}: ${cause.description}; ${_reportLabel(cause.assessment.name)}; evidence: ${cause.evidence ?? 'Not recorded'}'
+          '${cause.maintenanceTicketId == null ? '' : '; issue ${cause.maintenanceTicketId}'}'
+          '${cause.processAbnormalityId == null ? '' : '; process observation ${cause.processAbnormalityId}'}',
+    if (record.assessment == null)
+      'Structured cause assessment not recorded; a possible cause is not a confirmed cause.',
+  ].join('\n');
+
+  @visibleForTesting
+  static String qualityRaEvidence(ChargeAbnormality record) => [
+    _reportLabel(record.reannealingStatus.name),
+    if (record.reannealedToChargeNo != null)
+      'RA charge ${record.reannealedToChargeNo}',
+    if (record.hasCompletedReannealing)
+      'Performed: ${record.raPerformedAt == null ? 'Unknown / historical date not recorded' : _formatLocalDateTime(record.raPerformedAt!)}',
+    'Post-RA result: ${switch (record.assessment?.postRaResult) {
+      PostRaResult.acceptable => 'Acceptable',
+      PostRaResult.abnormal => 'Abnormal',
+      _ => 'Not yet inspected',
+    }}',
+    if (record.assessment?.postRaObservation != null)
+      record.assessment!.postRaObservation!,
+  ].join('\n');
 
   static List<pw.Widget> _executiveSummary(
     OperationsReport report,
@@ -401,6 +668,10 @@ class OperationsReportPdfService {
       'Plant condition',
       'Current fleet state as of ${_dateTime.format(operationsReportPlantTime(report.asOf))} Asia/Kolkata; these figures are not historical-period totals.',
     ),
+    if (!report.inventoryEvidenceComplete)
+      _incompleteEvidenceStatement(
+        'Inventory evidence is incomplete. ${report.unknownAssetCount} recorded assets have unverified condition. Readable identities remain counted; absence of evidence is not availability or a complete fleet total.',
+      ),
     _metricGrid(<({String label, String value, PdfColor color})>[
       (label: 'Assets', value: '${report.assetCount}', color: _graphite),
       (
@@ -479,7 +750,7 @@ class OperationsReportPdfService {
     return <pw.Widget>[
       _sectionHeading(
         'Maintenance issues',
-        'Issues intersecting the selected reporting period, including reopen-aware impact.',
+        '${report.filter.maintenancePeriodBasis.label}. ${report.filter.maintenancePeriodBasis.explanation} Impact is clipped to the period and may overlap across issues.',
       ),
       _metricGrid(<({String label, String value, PdfColor color})>[
         (label: 'Issues', value: '${report.issueCount}', color: _graphite),
@@ -533,7 +804,9 @@ class OperationsReportPdfService {
                   '${ticket.lifecycleSummaryLabel}${ticket.isCritical ? ' | Critical' : ''}',
                   _ticketLanes(ticket),
                   _componentLabel(ticket),
-                  ticket.description,
+                  report.filter.includeMaintenanceDetails
+                      ? 'See detailed issue record ${ticket.firestoreId ?? ticket.id} below for the full observation.'
+                      : ticket.description,
                   _duration(report.issueImpactDurationFor(ticket)),
                 ],
               )
@@ -549,6 +822,8 @@ class OperationsReportPdfService {
             7: pw.FixedColumnWidth(50),
           },
         ),
+      if (report.filter.includeMaintenanceDetails)
+        ..._maintenanceDetails(report, tickets),
     ];
   }
 
@@ -558,7 +833,7 @@ class OperationsReportPdfService {
     return <pw.Widget>[
       _sectionHeading(
         'Planned maintenance',
-        'Planned jobs in the selected period; current completion state is shown for each dossier.',
+        '${report.filter.maintenancePeriodBasis.label}. ${report.filter.maintenancePeriodBasis.explanation}',
       ),
       _metricGrid(<({String label, String value, PdfColor color})>[
         (label: 'Jobs', value: '${report.plannedJobCount}', color: _graphite),
@@ -1070,7 +1345,7 @@ class OperationsReportPdfService {
   ) => <pw.Widget>[
     _sectionHeading(
       'Quality and assurance',
-      'Current warning, monitoring and assurance posture with selected-period abnormality evidence.',
+      '${report.filter.qualityPeriodBasis.label}. ${report.filter.qualityPeriodBasis.explanation} ${report.filter.qualitySource.label}; ${report.filter.qualityKind.label}; ${report.filter.raOnly ? 'RA required or completed only' : 'all RA dispositions'}.',
     ),
     _metricGrid(<({String label, String value, PdfColor color})>[
       (
@@ -1131,6 +1406,10 @@ class OperationsReportPdfService {
       },
     ),
     pw.SizedBox(height: 12),
+    _emptyStatement(
+      '${report.qualityCaseCount} cases on ${report.qualityDistinctChargeCount} distinct source charges. Warning rows below are linked lifecycle evidence and are not additional cases.',
+    ),
+    pw.SizedBox(height: 8),
     if (report.qualityWarnings.isEmpty)
       _emptyStatement('No quality warning intersects this report scope.')
     else
@@ -1215,21 +1494,23 @@ class OperationsReportPdfService {
           'Logged / charge',
           'Type / severity',
           'Assets / component',
-          'Observation',
-          'RA status / charge',
+          'Observation / possible cause',
+          'RA status / performed / result',
           'Recorded by',
         ],
         rows: report.abnormalities
             .map(
               (record) => <String>[
-                '${_dateTime.format(operationsReportPlantTime(record.loggedAt))}\nCharge ${record.sourceChargeNo}',
-                '${record.abnormalityTypeTitle}\n${_reportLabel(record.severity.name)}',
+                '${_dateTime.format(operationsReportPlantTime(record.loggedAt))}\nCharge ${record.sourceChargeNo}\nCase ${record.firestoreId ?? record.id}\n${record.linkedTicketFirestoreId == null ? 'Direct log' : 'Maintenance issue ${record.linkedTicketFirestoreId}'}',
+                '${record.abnormalityTypeTitle}\n${_reportLabel(record.severity.name)} / ${_reportLabel(record.category.name)}\n${switch (record.observationKind) {
+                  AbnormalityObservationKind.resultFinding => 'Result finding',
+                  AbnormalityObservationKind.processEquipment => 'Process / equipment observation',
+                  _ => 'Observation kind not recorded',
+                }}',
                 '${record.affectedAssetsLabel}'
                     '${record.component == null ? '' : '\n${record.component}'}',
-                '${record.observedReason}'
-                    '${record.description == null ? '' : '\n${record.description}'}',
-                '${_reportLabel(record.reannealingStatus.name)}'
-                    '${record.reannealedToChargeNo == null ? '' : '\nCharge ${record.reannealedToChargeNo}'}',
+                qualityObservationEvidence(record),
+                qualityRaEvidence(record),
                 '${record.loggedByName ?? 'Not recorded'}\nv${record.version}',
               ],
             )
@@ -1242,6 +1523,50 @@ class OperationsReportPdfService {
           4: pw.FlexColumnWidth(1.05),
           5: pw.FlexColumnWidth(0.9),
         },
+      ),
+    ],
+    if (report.unmatchedQualityWarnings.isNotEmpty) ...[
+      pw.SizedBox(height: 12),
+      _sectionHeading(
+        'Warnings without a readable case',
+        '${report.unmatchedQualityWarnings.length} warnings have no matching case in the available population. They are not included in case or distinct-charge totals. ${report.filter.qualityPeriodBasis == QualityReportPeriodBasis.outstanding ? 'Open now, regardless of dates.' : 'Warning creation time falls within the period; case first-report time is unknown.'}',
+      ),
+      ..._simpleTables(
+        headers: const [
+          'Warning / charge',
+          'Source identity',
+          'Current state / evidence',
+        ],
+        rows: report.unmatchedQualityWarnings
+            .map(
+              (w) => [
+                '${w.warningId} / ${w.sourceChargeNo}',
+                '${w.sourceType.name} / ${w.sourceId}',
+                '${w.status.name}: ${w.warningReason}',
+              ],
+            )
+            .toList(),
+      ),
+    ],
+    if (report.undatedRaCases.isNotEmpty) ...[
+      pw.SizedBox(height: 12),
+      ..._simpleTables(
+        leading: [
+          _sectionHeading(
+            'Completed RA with unknown performed date',
+            '${report.undatedRaCases.length} historical cases are excluded from period counts. Their completion time cannot be inferred from logging or update time.',
+          ),
+        ],
+        headers: const ['Case / source charge', 'RA charge', 'Reason excluded'],
+        rows: report.undatedRaCases
+            .map(
+              (r) => [
+                '${r.firestoreId ?? r.id} / ${r.sourceChargeNo}',
+                '${r.reannealedToChargeNo ?? '-'}',
+                'Physical RA completion time not recorded',
+              ],
+            )
+            .toList(),
       ),
     ],
     if (report.inspectionFindings.isNotEmpty) ...<pw.Widget>[
@@ -1451,19 +1776,45 @@ class OperationsReportPdfService {
     required List<String> headers,
     required List<List<String>> rows,
     Map<int, pw.TableColumnWidth>? widths,
+    List<pw.Widget> leading = const [],
   }) {
     const rowsPerBlock = 8;
     final normalizedRows = rows
         .expand(_reportRowSegments)
         .toList(growable: false);
     final tables = <pw.Widget>[];
-    for (var start = 0; start < normalizedRows.length; start += rowsPerBlock) {
+    if (leading.isNotEmpty && normalizedRows.isNotEmpty) {
+      // Inseparable is deliberately non-spanning: keep headings with a real
+      // first evidence row, while the remaining narrative may span pages.
+      tables.add(
+        pw.Inseparable(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            mainAxisSize: pw.MainAxisSize.min,
+            children: [
+              ...leading,
+              _simpleTable(
+                headers: headers,
+                rows: [normalizedRows.first],
+                widths: widths,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    for (
+      var start = leading.isNotEmpty ? 1 : 0;
+      start < normalizedRows.length;
+      start += rowsPerBlock
+    ) {
       if (tables.isNotEmpty) {
         tables.add(pw.SizedBox(height: 6));
       }
       final end = start + rowsPerBlock < normalizedRows.length
           ? start + rowsPerBlock
           : normalizedRows.length;
+      tables.add(pw.NewPage(freeSpace: 140));
       tables.add(
         _simpleTable(
           headers: headers,
@@ -1551,6 +1902,14 @@ class OperationsReportPdfService {
 
   static String _reportCellText(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  static String _formatInnerCoverLocalDateTime(DateTime value) => DateFormat(
+    innerCoverDateTimePattern,
+  ).format(operationsReportPlantTime(value));
+
+  static String _formatInnerCoverLocalDate(DateTime value) => DateFormat(
+    innerCoverDatePattern,
+  ).format(operationsReportPlantTime(value));
 
   static String _formatLocalDateTime(DateTime value) =>
       _dateTime.format(operationsReportPlantTime(value));
@@ -1802,7 +2161,13 @@ class OperationsReportPdfService {
             _assetStateTime(state),
           ],
         ),
-        ...report.innerCoverProfiles.map(_innerCoverConditionRow),
+        ...report.innerCoverProfiles.map((profile) {
+          final row = _innerCoverConditionRow(profile);
+          if (report.unverifiedInnerCoverIds.contains(profile.id)) {
+            row[1] = 'Recorded: ${row[1]}\nCondition unverified';
+          }
+          return row;
+        }),
       ];
 
   static List<String> _innerCoverConditionRow(InnerCoverProfile profile) {
@@ -1833,12 +2198,12 @@ class OperationsReportPdfService {
     };
     final times = <String>[
       if (profile.receivedOrCompletedOn != null)
-        'Received/completed ${_formatLocalDate(profile.receivedOrCompletedOn!)}',
+        'Received/completed ${_formatInnerCoverLocalDate(profile.receivedOrCompletedOn!)}',
       if (profile.incorporatedOn != null)
-        'Incorporated ${_formatLocalDate(profile.incorporatedOn!)}',
+        'Incorporated ${_formatInnerCoverLocalDate(profile.incorporatedOn!)}',
       if (profile.acceptedAt != null)
-        'Accepted ${_formatLocalDateTime(profile.acceptedAt!)}',
-      'Updated ${_formatLocalDateTime(profile.updatedAt)}',
+        'Accepted ${_formatInnerCoverLocalDateTime(profile.acceptedAt!)}',
+      'Updated ${_formatInnerCoverLocalDateTime(profile.updatedAt)}',
     ];
     return <String>[
       'Inner Cover ${profile.serialNumber}\n${profile.assetClassName}',
@@ -1865,6 +2230,7 @@ class OperationsReportPdfService {
       if (state.isAdministrativelyOutOfService) 'Out of service',
       if (state.isStandby) 'Standby',
       if (state.isAvailable) 'Available',
+      if (state.hasUnverifiedWorkflowEvidence) 'Condition unverified',
     ];
     return labels.isEmpty
         ? _reportLabel(state.asset.serviceState.name)
@@ -1875,6 +2241,8 @@ class OperationsReportPdfService {
     final condition = state.operationalCondition;
     final availability = state.availability;
     final details = <String>[
+      ...state.evidenceWarnings,
+      if (state.workflowStatus == null) 'Current workflow evidence is missing.',
       if (condition?.active == true)
         '${condition!.condition.label}${condition.basis == null ? '' : ' / ${condition.basis!.label}'}',
       if (condition?.causes.isNotEmpty == true)
@@ -2020,7 +2388,7 @@ class OperationsReportPdfService {
             : report.unreadableExecutionCount == 0
             ? 'PM source complete'
             : 'PM unreadable ${report.unreadableExecutionCount}'} | '
-        'Long narrative cells may be abbreviated; complete records remain in the app.';
+        '${report.filter.includeMaintenanceDetails ? 'Detailed maintenance text is retained across continuation rows. Issue summary rows point to the full records.' : 'Summary fields retain their text across continuation rows; complete record dossiers remain available separately.'}';
   }
 
   static String _criticalAlarmStatusLabel(CriticalAlarmStatus status) =>

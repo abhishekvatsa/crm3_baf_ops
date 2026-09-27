@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
 import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
@@ -23,12 +25,82 @@ import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/features/assets/presentation/widgets/inner_cover_physical_event_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../tool/test_support/in_memory_durable_submission_store.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    await (FontLoader('Roboto')
+          ..addFont(rootBundle.load('assets/fonts/Roboto-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Roboto-Medium.ttf')))
+        .load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+  });
+  for (final size in [(width: 390.0, scale: 1.0), (width: 320.0, scale: 1.6)]) {
+    testWidgets(
+      '${size.width}px summary filters and detail metadata remain usable at ${size.scale} text',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(size.width, 740));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 9, 20);
+        final repository = _IntakeRepository()
+          ..profiles = [
+            _profile(
+              id: 'narrow-cover',
+              serial: 'GR-LARGE-TEXT',
+              state: InnerCoverLifecycleState.retiredForSalvage,
+              receivedOrCompletedOn: DateTime(2026, 9, 7),
+              incorporatedOn: DateTime(2026, 9, 15),
+              now: now,
+            ),
+          ];
+        addTearDown(repository.updates.close);
+        final captureKey = GlobalKey();
+        await _pumpIntake(
+          tester,
+          repository,
+          bases: [_base(101, now)],
+          textScale: size.scale,
+          captureKey: captureKey,
+        );
+        expect(find.text('1 Bases'), findsOneWidget);
+        final summary = find.byKey(
+          const ValueKey('inner-cover-summary-scroll'),
+        );
+        await tester.drag(summary, const Offset(0, -350));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('1 retired'));
+        await tester.tap(find.text('1 retired'));
+        await tester.pumpAndSettle();
+        expect(find.text('GR-LARGE-TEXT'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await _captureInnerCover(
+          tester,
+          captureKey,
+          'inner-cover-summary-${size.width.toInt()}',
+        );
+        await tester.tap(find.text('GR-LARGE-TEXT'));
+        await tester.pumpAndSettle();
+        expect(find.text('Origin'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await _captureInnerCover(
+          tester,
+          captureKey,
+          'inner-cover-details-${size.width.toInt()}',
+        );
+      },
+    );
+  }
+
   testWidgets(
     'Start inspection selects inspection for an unqualified pool cover',
     (tester) async {
@@ -957,7 +1029,7 @@ void main() {
 
     expect(find.text('Base 201'), findsOneWidget);
     expect(
-      find.text('Inner Cover GR26\nIncorporated 18 Nov 2022'),
+      find.text('Inner Cover GR26\nIncorporated 18-11-2022'),
       findsOneWidget,
     );
     expect(find.text('1 installed'), findsOneWidget);
@@ -969,11 +1041,11 @@ void main() {
     expect(find.text('GR30'), findsOneWidget);
     expect(find.text(longSerial.serialNumber), findsOneWidget);
     expect(find.textContaining('Available'), findsWidgets);
-    expect(find.textContaining('Incorporated 13 Dec 2025'), findsOneWidget);
+    expect(find.textContaining('Incorporated 13-12-2025'), findsOneWidget);
     await tester.tap(find.text('GR30'));
     await tester.pumpAndSettle();
     expect(find.text('Fabrication completed on'), findsOneWidget);
-    expect(find.text('05 Dec 2025'), findsOneWidget);
+    expect(find.text('05-12-2025'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -1054,10 +1126,12 @@ void main() {
               (ref) => Stream.value([declaration]),
             ),
             innerCoverHistoryProvider.overrideWith(
-              (ref, innerCoverId) => Stream.value(const []),
+              (ref, innerCoverId) =>
+                  _completeBatchStream<InnerCoverLinkage>(const []),
             ),
             baseInnerCoverHistoryProvider.overrideWith(
-              (ref, baseId) => Stream.value(const []),
+              (ref, baseId) =>
+                  _completeBatchStream<InnerCoverLinkage>(const []),
             ),
             innerCoverFabricationProvider.overrideWith(
               (ref, innerCoverId) => Stream.value(null),
@@ -1195,7 +1269,8 @@ void main() {
             (ref) => Stream.value(const []),
           ),
           innerCoverHistoryProvider.overrideWith(
-            (ref, innerCoverId) => Stream.value(const []),
+            (ref, innerCoverId) =>
+                _completeBatchStream<InnerCoverLinkage>(const []),
           ),
           innerCoverFabricationProvider.overrideWith(
             (ref, innerCoverId) => Stream.value(null),
@@ -1231,6 +1306,30 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Available'), findsNothing);
+    // A future physical time must not be silently replaced and dispatched.
+    final future = DateTime.now().add(const Duration(hours: 2));
+    tester
+        .widget<InnerCoverPhysicalEventField>(
+          find.byType(InnerCoverPhysicalEventField),
+        )
+        .onChanged(future);
+    await tester.pump();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Reason'),
+      'Reviewed return',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'Confirm'));
+    await tester.pump();
+    expect(find.text('Return retired cover to inspection'), findsOneWidget);
+    expect(find.textContaining('cannot be in the future'), findsOneWidget);
+    expect(
+      tester
+          .widget<InnerCoverPhysicalEventField>(
+            find.byType(InnerCoverPhysicalEventField),
+          )
+          .value,
+      future,
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -1548,6 +1647,8 @@ Future<void> _pumpIntake(
   WidgetTester tester,
   _IntakeRepository repository, {
   bool adminEntry = false,
+  double textScale = 1,
+  GlobalKey? captureKey,
   Stream<AppUser?>? actorStream,
   InMemoryDurableSubmissionStore? submissionStore,
   List<AssetInstanceRecord> bases = const [],
@@ -1638,13 +1739,23 @@ Future<void> _pumpIntake(
           (ref) => Stream.value(const []),
         ),
         innerCoverHistoryProvider.overrideWith(
-          (ref, id) => Stream.value(const []),
+          (ref, id) => _completeBatchStream<InnerCoverLinkage>(const []),
         ),
         innerCoverFabricationProvider.overrideWith(
           (ref, id) => Stream.value(null),
         ),
       ],
       child: MaterialApp(
+        theme: captureKey == null ? null : _captureTheme(),
+        builder: (context, child) => RepaintBoundary(
+          key: captureKey,
+          child: MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+        ),
         home: adminEntry
             ? Scaffold(
                 body: AssetHierarchyAdminTab(actor: _actor(AppRole.admin)),
@@ -1974,3 +2085,58 @@ AppUser _actor(AppRole role) => AppUser(
   isApproved: true,
   createdAt: DateTime.utc(2026),
 );
+
+Future<void> _captureInnerCover(
+  WidgetTester tester,
+  GlobalKey key,
+  String name,
+) async {
+  final directory = Platform.environment['INNER_COVER_CAPTURE_DIR'];
+  if (directory == null || directory.isEmpty) return;
+  final boundary =
+      key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+  await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 2);
+    try {
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      await Directory(directory).create(recursive: true);
+      await File(
+        '$directory/$name.png',
+      ).writeAsBytes(bytes!.buffer.asUint8List());
+    } finally {
+      image.dispose();
+    }
+  });
+}
+
+// Explicit component styles otherwise resolve to Flutter test's Ahem font.
+// Only font family changes; all application dimensions, colors and weights stay.
+ThemeData _captureTheme() {
+  final theme = BafAppTheme.light;
+  ButtonStyle? withFont(ButtonStyle? style) => style?.copyWith(
+    textStyle: WidgetStateProperty.resolveWith(
+      (states) => (style.textStyle?.resolve(states) ?? const TextStyle())
+          .copyWith(fontFamily: 'Roboto'),
+    ),
+  );
+  return theme.copyWith(
+    textTheme: theme.textTheme.apply(fontFamily: 'Roboto'),
+    appBarTheme: theme.appBarTheme.copyWith(
+      titleTextStyle: theme.appBarTheme.titleTextStyle?.copyWith(
+        fontFamily: 'Roboto',
+      ),
+    ),
+    chipTheme: theme.chipTheme.copyWith(
+      labelStyle: theme.chipTheme.labelStyle?.copyWith(fontFamily: 'Roboto'),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: withFont(theme.outlinedButtonTheme.style),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: withFont(theme.filledButtonTheme.style),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: withFont(theme.textButtonTheme.style),
+    ),
+  );
+}

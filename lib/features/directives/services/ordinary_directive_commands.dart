@@ -12,6 +12,7 @@ import '../../../core/persistence/durable_submission_repository.dart';
 import '../../../core/persistence/durable_submission_record.dart';
 import '../../../core/persistence/durable_submission_review.dart';
 import '../../../core/release/command_capability_service.dart';
+import '../../../core/services/sync_run_guard.dart';
 import '../../../core/serialization/persisted_json_equality.dart';
 import '../../auth/data/user_model.dart';
 import '../data/operational_directive_model.dart';
@@ -456,25 +457,36 @@ class OrdinaryDirectiveCommands {
     return true;
   }
 
-  Future<({int succeeded, int failed})> checkAll() async {
+  Future<({int succeeded, int failed})> checkAll({
+    SyncRunGuard? runGuard,
+  }) async {
+    runGuard?.checkCurrent();
     final uid = _actor();
     int succeeded = 0, failed = 0;
     if (web) {
       final prefs = await SharedPreferences.getInstance();
+      runGuard?.checkCurrent();
       for (final key in prefs.getKeys().where(
         (key) =>
             key.startsWith('ordinaryDirective:$projectId:$uid:') &&
             !key.endsWith(':accepted'),
       )) {
+        runGuard?.checkCurrent();
         try {
           await _checkWeb(key, prefs);
+          runGuard?.checkCurrent();
           succeeded++;
-        } catch (_) {
+        } catch (error) {
+          if (runGuard != null) {
+            rethrowIfSyncRunMustAbort(error);
+            runGuard.checkCurrent();
+          }
           failed++;
         }
       }
     } else {
       for (final row in await store.listForActor(uid, includeTerminal: true)) {
+        runGuard?.checkCurrent();
         if (!row.resourceKey.startsWith('ordinaryDirective:$projectId:$uid:')) {
           continue;
         }
@@ -485,12 +497,18 @@ class OrdinaryDirectiveCommands {
         try {
           if (row.state == DurableSubmissionState.reviewResolved) {
             if (await _adoptReviewed(row)) succeeded++;
+            runGuard?.checkCurrent();
             continue;
           }
           if (!row.state.isUnresolved) continue;
           await check(row.submissionId);
+          runGuard?.checkCurrent();
           succeeded++;
-        } catch (_) {
+        } catch (error) {
+          if (runGuard != null) {
+            rethrowIfSyncRunMustAbort(error);
+            runGuard.checkCurrent();
+          }
           failed++;
         }
       }

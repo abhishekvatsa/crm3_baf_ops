@@ -202,7 +202,7 @@ void sample(String id, {String? reason}) {
       final shell = _read(_shellFile);
       final pullBlock = _blockStartingAt(
         shell,
-        'Future<void> pullAndReconcile()',
+        'Future<void> pullAndReconcile(',
       );
 
       _expectOrder(pullBlock, const [
@@ -466,7 +466,10 @@ void sample(String id, {String? reason}) {
       );
       expect(coordinator, contains('fatal: false'));
       expect(coordinator, contains('syncFailureDiagnosticContext('));
-      expect(coordinator, contains('pullDomain: _pull.lastFailedDomain'));
+      expect(
+        coordinator,
+        contains('pullDomain: pullStarted ? _pull.lastFailedDomain : null'),
+      );
     });
 
     test('static constants are qualified from extension slices', () {
@@ -563,9 +566,12 @@ void sample(String id, {String? reason}) {
         shell,
         contains('final pullServiceProvider = Provider<GlobalPullService>'),
       );
-      expect(shell, contains('Future<void> pullAndReconcile()'));
+      expect(
+        shell,
+        contains('Future<void> pullAndReconcile({SyncRunGuard? runGuard})'),
+      );
       expect(partSource, isNot(contains('pullServiceProvider')));
-      expect(partSource, isNot(contains('Future<void> pullAndReconcile()')));
+      expect(partSource, isNot(contains('Future<void> pullAndReconcile(')));
     });
 
     test(

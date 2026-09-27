@@ -50,6 +50,7 @@ const DECISION_EVIDENCE_FIELDS = [
   "severity",
   "component",
   "observedReason",
+  "assessment",
 ];
 
 const isMap = (value: unknown): value is JsonMap =>

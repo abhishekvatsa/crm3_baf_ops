@@ -3,16 +3,46 @@ part of 'planned_maintenance_provider.dart';
 class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
+  final FirebaseFirestore _firestore;
+  final OnlineRetainedRowMutations _retainedMutations;
 
   FirestorePlannedRepository({
     AuditRepository? auditRepository,
     PlannedJobServerCompletionService? serverCompletion,
+    FirebaseFirestore? firestore,
+    OnlineRetainedRowMutations? retainedMutations,
   }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _retainedMutations = retainedMutations ?? OnlineRetainedRowMutations(),
        _serverCompletion =
-           serverCompletion ?? PlannedJobServerCompletionService();
+           serverCompletion ?? PlannedJobServerCompletionService(),
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final _templates = FirebaseFirestore.instance.collection('job_templates');
-  final _executions = FirebaseFirestore.instance.collection('job_executions');
+  late final _templates = _firestore.collection('job_templates');
+  late final _executions = _firestore.collection('job_executions');
+
+  Future<Map<String, dynamic>> _executionWriteDataPreservingCreation(
+    JobExecution record,
+  ) async {
+    final data = record.toClientWritableMap();
+    data['createdAt'] = record.createdAt.toUtc().toIso8601String();
+    data['updatedAt'] = record.updatedAt.toUtc().toIso8601String();
+    final snapshot = await _executions
+        .doc(record.firestoreId)
+        .get(const GetOptions(source: Source.server));
+    final remoteData = snapshot.data();
+    if (remoteData == null) return data;
+    final remote = JobExecution.fromMap(remoteData, snapshot.id);
+    if (!record.createdAt.isAtSameMomentAs(remote.createdAt)) {
+      throw StateError('The planned job creation time cannot be changed.');
+    }
+    // Isar reloads DateTime in local time. Rules pin the original wire value,
+    // which may be UTC text, offset text, or a native Firestore Timestamp.
+    data['createdAt'] = remoteData['createdAt'];
+    if (record.updatedAt.isAtSameMomentAs(remote.updatedAt)) {
+      data['updatedAt'] = remoteData['updatedAt'];
+    }
+    return data;
+  }
 
   Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
     if (data == null) return null;
@@ -40,8 +70,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobTemplate.fromMap, source: 'JobTemplate')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobTemplate.fromMap,
+        source: 'JobTemplate',
+      ).toList(),
     );
   }
 
@@ -56,8 +89,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -122,9 +158,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map(
-          (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-              .where((execution) => !execution.isCancelled)
-              .toList(),
+          (snap) => decodeSnapshotDocuments(
+            snap,
+            JobExecution.fromMap,
+            source: 'JobExecution',
+          ).where((execution) => !execution.isCancelled).toList(),
         );
   }
 
@@ -145,8 +183,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -165,8 +206,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -206,7 +250,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('templateFirestoreId', isEqualTo: templateFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -217,16 +262,31 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }) async {
     _requireCanSaveLegacyTemplate(actor);
     if (template.firestoreId == null) throw Exception('firestoreId required');
-    _normalizeTemplateForUserSave(template, markUnsynced: false);
-    await _templates
-        .doc(template.firestoreId)
-        .set(template.toMap(), SetOptions(merge: true));
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: template,
+      readRemote: () async {
+        final doc = await _templates
+            .doc(template.firestoreId)
+            .get(const GetOptions(source: Source.server));
+        return doc.exists ? JobTemplate.fromMap(doc.data()!, doc.id) : null;
+      },
+      normalize: (existing) {
+        _normalizeTemplateForUserSave(template, markUnsynced: false);
+        if (existing == null) {
+          template.createdByUid = actor.uid;
+          template.createdByName = actor.name;
+        }
+      },
+    );
   }
 
   @override
   Future<List<JobTemplate>> getAllTemplates() async {
     final snap = await _templates.where('isDeleted', isEqualTo: false).get();
-    return snap.docs.map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -246,52 +306,42 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     _requireCanDeleteLegacyTemplate(actor);
     final docId = id as String;
 
-    final beforeDoc = await _templates.doc(docId).get();
-    Map<String, dynamic>? beforeSnapshot;
-    if (beforeDoc.exists) {
-      beforeSnapshot = _sanitizeForAudit(beforeDoc.data());
-    }
-
-    final now = DateTime.now().toIso8601String();
-    final currentVersion = (beforeSnapshot?['version'] as int?) ?? 0;
-    final nextVersion = currentVersion + 1;
-
-    final updateData = <String, dynamic>{
-      'isDeleted': true,
-      'deletedAt': now,
-      'updatedAt': now,
-      'version': nextVersion,
-    };
+    final beforeDoc = await _templates
+        .doc(docId)
+        .get(const GetOptions(source: Source.server));
+    if (!beforeDoc.exists) return;
+    final template = JobTemplate.fromMap(beforeDoc.data()!, docId);
+    final before = template.toAuditMap();
+    await _retainedMutations.save(
+      kind: RetainedRowKind.legacyTemplate,
+      actor: actor,
+      record: template,
+      readRemote: () async {
+        final doc = await _templates
+            .doc(docId)
+            .get(const GetOptions(source: Source.server));
+        return doc.exists ? JobTemplate.fromMap(doc.data()!, docId) : null;
+      },
+      normalize: (_) {
+        template.isDeleted = true;
+        template.deletedAt = DateTime.now().toUtc();
+        template.updatedAt = template.deletedAt!;
+        template.deletedByUid = actor.uid;
+        template.deletedByName = actor.name;
+        template.deleteReason =
+            auditContext?.reason?.name ?? auditContext?.reasonNotes;
+      },
+    );
     if (auditContext != null) {
-      updateData['deletedByUid'] = auditContext.performedByUid;
-      updateData['deletedByName'] = auditContext.performedByName;
-      updateData['deleteReason'] =
-          auditContext.reason?.name ?? auditContext.reasonNotes;
-    }
-    await _templates.doc(docId).update(updateData);
-
-    if (auditContext != null) {
-      final afterSnapshot = {
-        ...?beforeSnapshot,
-        'isDeleted': true,
-        'deletedAt': now,
-        'deletedByUid': auditContext.performedByUid,
-        'deletedByName': auditContext.performedByName,
-        'deleteReason': auditContext.reason?.name ?? auditContext.reasonNotes,
-        'updatedAt': now,
-        'version': nextVersion,
-      };
-
-      final auditRepo = _auditRepo;
       unawaited(
-        auditRepo.log(
+        _auditRepo.log(
           AuditEvent.fromContext(
             entityType: 'template',
             entityId: docId,
             action: AuditAction.delete,
             context: auditContext.copyWith(
-              before: beforeSnapshot,
-              after: afterSnapshot,
+              before: before,
+              after: template.toAuditMap(),
             ),
           ),
         ),
@@ -318,16 +368,35 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }) async {
     _requireCanAssignJobExecution(actor);
     if (execution.firestoreId == null) throw Exception('firestoreId required');
-    _normalizeExecutionForUserSave(execution, markUnsynced: false);
-    await _executions
+    final snapshot = await _executions
         .doc(execution.firestoreId)
-        .set(execution.toClientWritableMap(), SetOptions(merge: true));
+        .get(const GetOptions(source: Source.server));
+    if (snapshot.exists) {
+      await _retainedMutations.save(
+        kind: RetainedRowKind.executionWork,
+        actor: actor,
+        record: execution,
+        readRemote: () async {
+          final doc = await _executions
+              .doc(execution.firestoreId)
+              .get(const GetOptions(source: Source.server));
+          return doc.exists ? JobExecution.fromMap(doc.data()!, doc.id) : null;
+        },
+        normalize: (_) =>
+            _normalizeExecutionForUserSave(execution, markUnsynced: false),
+      );
+      return;
+    }
+    throw StateError(
+      'Assign new jobs from a published template. No assignment was saved.',
+    );
   }
 
   @override
   Future<List<JobExecution>> getAllExecutions() async {
     final snap = await _executions.where('isDeleted', isEqualTo: false).get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -337,7 +406,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isCompleted', isEqualTo: false)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .where((execution) => !execution.isCancelled)
         .toList();
   }
@@ -352,7 +422,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('assetNumber', isEqualTo: number)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -579,7 +650,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Future<void> batchUpsertTemplates(List<JobTemplate> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final r in records) {
       if (r.firestoreId != null) {
         batch.set(
@@ -612,12 +683,13 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Future<void> batchUpsertExecutions(List<JobExecution> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final r in records) {
       if (r.firestoreId != null) {
+        final data = await _executionWriteDataPreservingCreation(r);
         batch.set(
           _executions.doc(r.firestoreId),
-          r.toClientWritableMap(),
+          data,
           SetOptions(merge: true),
         );
       }

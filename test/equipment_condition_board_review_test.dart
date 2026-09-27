@@ -70,6 +70,9 @@ void main() {
           plantTicketEvidenceProvider.overrideWith(
             (ref) => Stream.error(StateError('Issue source unavailable')),
           ),
+          plantInnerCoverEvidenceProvider.overrideWith(
+            (ref) => Stream.value(batch([])),
+          ),
           plantConditionTicketsProvider.overrideWith((ref) => Stream.value([])),
         ],
       );

@@ -1,5 +1,6 @@
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/burner_lockout_case.dart';
+import '../../maintenance/domain/burner_attendance_history.dart';
 import '../../planned_maintenance/models/component_action_model.dart';
 import '../../assets/data/burner_condition_round.dart';
 
@@ -104,6 +105,27 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
         'malformed resolution history.',
       );
     }
+    try {
+      for (final attendance in readBurnerAttendanceHistory(
+        ticket.metadataJson,
+      )) {
+        final resolution = burnerResolutionFromActions(
+          lockout: lockout,
+          actions: attendance.actions,
+        );
+        _applyClosureEvidence(
+          ticket: ticket,
+          rows: rows,
+          actionTotals: actionTotals,
+          resolution: resolution,
+          actions: attendance.actions,
+        );
+      }
+    } on FormatException catch (error) {
+      throw StateError(
+        'Burner attendance evidence is malformed: ${error.message}',
+      );
+    }
     for (var index = 0; index < historyRead.entries.length; index++) {
       final history = historyRead.entries[index];
       final historyActions = ComponentAction.decode(
@@ -122,7 +144,6 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
         actionTotals: actionTotals,
         resolution: resolution,
         actions: historyActions,
-        observedAt: history.resolvedAt!,
       );
     }
     final actionRead = ticket.actionsReadResult;
@@ -153,7 +174,6 @@ BurnerReliabilityReport buildBurnerReliabilityReport(
           microampReadings: lockout.resolutionMicroampReadings,
         ),
         actions: actionRead.entries,
-        observedAt: ticket.endDate ?? ticket.updatedAt,
       );
     }
   }
@@ -249,7 +269,6 @@ void _applyClosureEvidence({
   required Map<BurnerActionCode, int> actionTotals,
   required BurnerLockoutResolution resolution,
   required Iterable<ComponentAction> actions,
-  required DateTime observedAt,
 }) {
   for (final entry in resolution.outcomes.entries) {
     final row = rows['${ticket.assetNumber}:${entry.key}'];
@@ -263,13 +282,6 @@ void _applyClosureEvidence({
     } else if (entry.value == BurnerResolutionOutcome.remainsLockedOut ||
         entry.value == BurnerResolutionOutcome.isolatedForFollowUp) {
       row.followUpCount++;
-    }
-    final reading = resolution.microampReadings[entry.key];
-    if (reading != null &&
-        (row.latestMicroampAt == null ||
-            observedAt.isAfter(row.latestMicroampAt!))) {
-      row.latestMicroampReading = reading;
-      row.latestMicroampAt = observedAt;
     }
   }
   for (final action in actions) {
@@ -287,6 +299,17 @@ void _applyClosureEvidence({
     }
     row.actionCounts.update(code, (count) => count + 1, ifAbsent: () => 1);
     actionTotals.update(code, (count) => count + 1, ifAbsent: () => 1);
+    // A closure or later edit is a recording event. Reading age belongs to
+    // the validated physical action carrying that reading.
+    final observedAt = action.createdAt;
+    if (observedAt.isAfter(row.latest)) row.latest = observedAt;
+    final reading = action.burnerMicroampReading;
+    if (reading != null &&
+        (row.latestMicroampAt == null ||
+            observedAt.isAfter(row.latestMicroampAt!))) {
+      row.latestMicroampReading = reading;
+      row.latestMicroampAt = observedAt;
+    }
   }
 }
 

@@ -150,7 +150,7 @@
       "compatibility": "none",
       "regression": "test/a05_template_governance_integrity_test.dart",
       "reArmCondition": "snapshot decode bypasses quarantine or advances sync state",
-      "riskFingerprint": "9b2beda808d29c1fcf0db01ec68f457af005823471c1ab762d3929949bd4885d"
+      "riskFingerprint": "1a5aa152b6587f8451157c56330d9b4e1205a7d26d3e99670b82dc4f6efdc893"
     },
     {
       "id": "affected-assets",
@@ -209,10 +209,10 @@
       "classification": "IMMUTABLE_AUDIT_EVIDENCE",
       "owner": "audit",
       "authorityBoundary": "Firestore audit chronology",
-      "malformedDisposition": "fail closed per record and surface read failure",
+      "malformedDisposition": "Malformed persisted audit fields remain strict typed refusals; unavailable server reads expose incomplete history with immutable retained local rows and original failure cause, never a successful complete local-only history.",
       "compatibility": "absent optional narrative fields only",
-      "regression": "test/a05_operational_timestamp_integrity_test.dart",
-      "reArmCondition": "required audit state is defaulted or malformed rows are silently skipped",
+      "regression": "test/a05_operational_timestamp_integrity_test.dart; test/audit_history_completeness_test.dart",
+      "reArmCondition": "Required audit state is defaulted, malformed rows are silently skipped, cache-only queries appear complete, or remote failure silently returns local-only history.",
       "riskFingerprint": "242e5217b9ba3867c4f15de3193da749eadb099270404b06892c301057c4054c"
     },
     {
@@ -224,9 +224,9 @@
       "classification": "REMOTE_AUTHORITY_RECORD",
       "owner": "authentication",
       "authorityBoundary": "approved-user identity and roles",
-      "malformedDisposition": "Reject malformed profile/revision/disposition; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority.",
+      "malformedDisposition": "Reject malformed profile/revision/disposition and malformed present nested reason with a typed persisted-field error; unknown roles force unapproved authority. Cached or pending snapshots never prove current server authority. Profile failures keep protected content concealed with retry/sign-out available.",
       "compatibility": "none for identity; unknown roles deny authority",
-      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart",
+      "regression": "test/user_model_test.dart; test/user_authority_recovery_test.dart; test/online_access_gate_test.dart; test/user_profile_authority_reason_test.dart",
       "reArmCondition": "unknown authority data grants or preserves permissions",
       "riskFingerprint": "09d8d21aede6fcab98211fc71d5ed2c12370a2afec0c8b5b5ef1c48e876764da"
     },
@@ -289,8 +289,8 @@
       "malformedDisposition": "fail closed and retain the original retry bytes for manual review; actor mismatch defers the existing claim without spending an execution attempt",
       "compatibility": "legacy payloads remain readable for diagnosis but production execution requires their verified original account; malformed present origin wrappers cannot fall through as legacy payloads",
       "regression": "test/workflow_uncertain_retry_service_test.dart; test/workflow_origin_binding_review_test.dart",
-      "reArmCondition": "malformed retry payload is discarded or executed, or original-account authority is substituted after restart or account change",
-      "riskFingerprint": "ffad88936c324ebad4fcad359b4aac5f7324a06324fa4e74c4ca071894c8b0f4"
+      "reArmCondition": "malformed retry payload is discarded or executed, or original-account authority is substituted after restart or account change; guarded session or fatal storage/authentication errors must abort and release a saved claim without dispatch or false acknowledgement.",
+      "riskFingerprint": "be8125bccb7f24b48fd8e97d46a6ef22c7793ef7fcb8a9f9418cb6b47879cfc4"
     },
     {
       "id": "maintenance-resolution-history",
@@ -306,7 +306,7 @@
       "compatibility": "absent pre-feature payload only",
       "regression": "test/a05_maintenance_audit_integrity_test.dart; test/maintenance_closure_evidence_admission_test.dart; test/maintenance_plant_condition_stream_test.dart",
       "reArmCondition": "Invalid history is dropped or rewritten empty, terminal closure loses its required disposition, unknown relevance becomes clear, or stored index state hides unreadable closure evidence.",
-      "riskFingerprint": "7df65528fc511b6da062653171be04d2e73d15681bbfd99666441986589c77be"
+      "riskFingerprint": "5a1e1689f9836b9029f9cd58c665f0bfec9644373633a26b8732bbc757698d37"
     },
     {
       "id": "maintenance-issue-lane-plan",
@@ -1131,7 +1131,7 @@
       "compatibility": "complete schema-versioned selection or wholly absent legacy fields; governed metadata merge retains malformed and non-object legacy JSON verbatim under legacyMetadata",
       "regression": "test/maintenance_issue_create_command_test.dart; test/maintenance_metadata_preservation_test.dart",
       "reArmCondition": "partial selection fields are ignored or a definition and unlisted reason can coexist, or merging metadata discards opaque source bytes",
-      "riskFingerprint": "a6ba389b952072ba47921df903863bb7776ca4f6949f86e4814ace0161a1d60a"
+      "riskFingerprint": "139d019e655a9667ddea4c6af8840d938a142319f398c5e7b23c81f03a26040b"
     },
     {
       "id": "furnace-stuckup-intent",
@@ -1244,7 +1244,7 @@
       "compatibility": "a synchronized replay requires the exact observed version and updatedAt receipt; closure rebased over an intervening acknowledgement may converge after restart with unchanged saved closure evidence, while reopen retains exact revision; only a pre-replay server-confirmed immutable identity match admits an ordinary edit, which is not proof of accepted creation or a frozen request",
       "regression": "test/maintenance_creation_receipt_local_convergence_test.dart; test/maintenance_lifecycle_replay_contract_test.dart; test/audit_corrections/sync_ticket_acceptance_baseline_test.dart",
       "reArmCondition": "uncertain or contradictory recovery falls through to a generic write, hold-read failure authorizes sending, readback becomes optional, receipt fields default, a higher closure revision alone authorizes adoption, changed actor/closure/history/subject is ignored, or a stale local row is marked synchronized",
-      "riskFingerprint": "b6669b84b41bf721cf7fd6e9c4fa0649a8eeea11d93a35f9564bd988b644c1f5"
+      "riskFingerprint": "e3831fe1d8c2a3c1642c7e28d7f7cbe793f4b9f98aedbfd54d1a130aae0e2889"
     },
     {
       "id": "asset-hierarchy-command-receipt",
@@ -1985,6 +1985,89 @@
       "regression": "test/maintenance_creation_successor_review_ui_test.dart",
       "reArmCondition": "A known dependent or malformed evidence exposes target correction, locked device labels are offered as applicable, metadata fallback grants authority, or the UI claims server-only dependencies were checked.",
       "riskFingerprint": "884df2e902b2017c2bdfafe63d0e45aefc93b53f5f203aa374d501c66b7072b5"
+    },
+    {
+      "id": "abnormality-structured-assessment",
+      "file": "lib/features/abnormalities/domain/abnormality_assessment.dart",
+      "markers": [
+        "factory CandidateProcessCause.fromMap",
+        "factory AbnormalityAssessment.fromMap"
+      ],
+      "classification": "VERSIONED_OPERATIONAL_EVIDENCE",
+      "owner": "quality",
+      "authorityBoundary": "Optional versioned observation/cause/RA occurrence and post-RA evidence; same-charge linked-record validity and RA state are rechecked by the governed mutation and record decoder.",
+      "malformedDisposition": "Reject unknown fields/enums, duplicate cause IDs, malformed present dates/text and assessed causes/results without evidence; never infer causation or an occurrence date.",
+      "compatibility": "Wholly absent assessment remains legacy unknown; completed historical RA can have an unknown occurrence date.",
+      "regression": "test/abnormality_assessment_test.dart",
+      "reArmCondition": "Malformed evidence is dropped/defaulted, cause occurrence becomes confirmation, or an unknown RA date is synthesized.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "maintenance-component-identification",
+      "file": "lib/features/maintenance/domain/maintenance_component_identification.dart",
+      "markers": [
+        "factory MaintenanceComponentIdentification.fromMap",
+        "Map<String, dynamic> maintenanceComponentContext(",
+        "String mergeMaintenanceComponentContext(",
+        "String? mergeRemoteMaintenanceComponentContext("
+      ],
+      "classification": "VERSIONED_OPERATIONAL_EVIDENCE",
+      "owner": "maintenance",
+      "authorityBoundary": "Versioned component identification on the originally reported physical asset; optional metadata envelope retains original intake and Quality linkage.",
+      "malformedDisposition": "Reject present malformed component context, identification, date, governed target, enum or foreign-asset association; opaque old metadata remains unmodified on reads and is retained verbatim under legacyMetadata when merged.",
+      "compatibility": "Absent/pre-feature or opaque non-JSON metadata has no component context; structured context is strictly validated and never treated as authority to rewrite the original issue.",
+      "regression": "test/maintenance_component_identification_test.dart; test/maintenance_metadata_preservation_test.dart",
+      "reArmCondition": "Malformed present structured evidence becomes empty/identified, merging loses old bytes, or identification changes the original target/Quality link.",
+      "riskFingerprint": "436002dfd262afe552b19d8569877d33bb0b0668cf8a3eb8fbd1e458d7a4c250"
+    },
+    {
+      "id": "template-closure-review-chronology",
+      "file": "lib/features/planned_maintenance/domain/template_closure_review.dart",
+      "markers": [
+        "void clearTemplateClosureReview(",
+        "void confirmTemplateClosureReview("
+      ],
+      "classification": "VERSIONED_OPERATIONAL_INTENT",
+      "owner": "template-governance",
+      "authorityBoundary": "Local draft snapshot content/hash and explicitly attributed closure review; successor drafts cannot inherit predecessor attestation.",
+      "malformedDisposition": "Malformed root/composer JSON propagates before mutation; invalid actor or review before draft creation is rejected rather than manufacturing a review.",
+      "compatibility": "Legacy absent composer is created only for explicit review/clear operations; existing snapshot contract still validates publication.",
+      "regression": "test/template_publisher_review_timeline_test.dart",
+      "reArmCondition": "Old attestation is inherited or new review predates the draft, loses actor evidence, or bypasses hash refresh.",
+      "riskFingerprint": "7d45861e6d8e4275a8ed159ba8c2fb7b6de2c492ef500f6367403e2d37873202"
+    },
+    {
+      "id": "retained-row-native-command",
+      "file": "lib/core/services/retained_row_mutations.dart",
+      "markers": [
+        "Future<void> check(",
+        "static dynamic decode(",
+        "static Map<String, dynamic> wire("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "retained-row-command-persistence",
+      "authorityBoundary": "Native catalogue, legacy-template and existing open-job edits atomically retain the original actor, project, command, expected version and complete immutable payload with the dirty row; the V2 callable rechecks authority and returns exact content-bound acceptance.",
+      "malformedDisposition": "Malformed or unknown-origin work stays preserved and cannot dispatch or acknowledge. Exact accepted receipts are retained before full-payload compare-and-adopt in the journal transaction; newer local data is never overwritten.",
+      "compatibility": "Existing Isar models and durable journal schema are reused. Legacy dirty rows without a verified original envelope are imported for review without attributing the current account; generic new assignments require the published-assignment workflow.",
+      "regression": "test/retained_row_mutations_test.dart; integration_test/dev_queue_ownership_journey_test.dart",
+      "reArmCondition": "A changed account or project can send or acknowledge earlier work, a mutable caller changes the frozen projection, legacy origin is inferred, or receipt adoption no longer compares the full saved payload.",
+      "riskFingerprint": "a68301c80abb158d74e61875bafe8887fae0033e376621004dc7b0015a1218d0"
+    },
+    {
+      "id": "retained-row-online-command",
+      "file": "lib/core/services/online_retained_row_mutations.dart",
+      "markers": [
+        "class OnlineRetainedRowMutations",
+        "Future<void> _send("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "retained-row-command-persistence",
+      "authorityBoundary": "The online adapter journals an immutable original-account/project V2 envelope before dispatch, verifies request, collection, document, revision and complete accepted record, and clears only that exact confirmed request.",
+      "malformedDisposition": "Malformed, concurrent or wrong-owner retained requests withhold dispatch and preserve all evidence. Missing or mismatched receipts cannot clear the journal; a changed caller model remains unsent rather than being acknowledged as the accepted snapshot.",
+      "compatibility": "Uses the existing immutable preference journal without a new storage schema. Confirmation of an earlier uncertain request requires a reload before another edit; no current actor is substituted for an earlier request owner.",
+      "regression": "test/online_retained_row_mutations_test.dart; test/planned_record_creation_wire_test.dart",
+      "reArmCondition": "Changed account inherits a retained request, mutable caller data is sent instead of journal bytes, an unconfirmed request is erased, or a newer caller state is falsely acknowledged.",
+      "riskFingerprint": "06a6ceae41fec283873b090605b5f367925029226d9f27bc95b6ae456f494a90"
     }
   ],
   "catchSites": [
@@ -2041,17 +2124,30 @@
       "reArmCondition": "malformed provenance permits existing-store open"
     },
     {
-      "id": "profile-token-race-retry",
+      "id": "profile-snapshot-decoder-propagation",
       "file": "lib/features/auth/providers/auth_provider.dart",
-      "siteFingerprint": "c12b9501f490dd9930f2d63798e679955af7baaffa16f4dd3707e85fd97dbb54",
+      "siteFingerprint": "4de32447dec516d6e41e70f43955a69cc56e7775ef402b49eb55bf527cf9788f",
+      "classification": "FAIL_CLOSED_ERROR_PROPAGATION",
+      "purpose": "forward current-session profile decoding failures to the provider error stream without supplying an approved fallback",
+      "authorityBoundary": "live Firebase UID and the active profile listener generation; sign-out and replacement revoke the old listener",
+      "mutability": "no persisted profile mutation; authentication token refresh only for the existing eligible permission-denial retry",
+      "dataScope": "users/{uid} snapshot decoding through AppUser.fromFirestore",
+      "malformedDisposition": "profile format failures remain errors and close the active profile stream; only the existing eligible Firebase permission denial can retry once",
+      "regression": "test/auth_profile_session_lifecycle_test.dart; test/auth_profile_stream_replacement_test.dart; test/user_authority_schema_test.dart",
+      "reArmCondition": "malformed current profile becomes approved data, obsolete listener errors replace a new actor, or retry eligibility or budget broadens"
+    },
+    {
+      "id": "profile-listener-admission-retry",
+      "file": "lib/features/auth/providers/auth_provider.dart",
+      "siteFingerprint": "4040a10c482f3a4752be0272bbadc711f51158bee756f494e4538b4abe27ed55",
       "classification": "TRANSPORT_RETRY_ONLY",
-      "purpose": "retry one Firestore permission denial after forced token refresh",
-      "authorityBoundary": "current approved user profile",
-      "mutability": "authentication token refresh only",
-      "dataScope": "users/{uid} snapshot stream",
-      "malformedDisposition": "profile format failures escape; only eligible Firebase permission denial is retried",
-      "regression": "test/auth_profile_token_race_test.dart",
-      "reArmCondition": "profile format error is caught, authority is retained, or retry budget broadens"
+      "purpose": "route synchronous profile listener setup failures through the same bounded permission-denial retry and visible-error path",
+      "authorityBoundary": "live Firebase UID and the active listener generation; cancelled or replaced sessions cannot emit profile authority",
+      "mutability": "authentication token refresh only; no durable profile or business-data writes",
+      "dataScope": "users/{uid} snapshot listener setup",
+      "malformedDisposition": "noneligible and exhausted errors are propagated to the current provider and close its stream; no stale or fabricated profile is returned",
+      "regression": "test/auth_profile_token_race_test.dart; test/auth_profile_session_lifecycle_test.dart; test/auth_profile_stream_replacement_test.dart",
+      "reArmCondition": "listener failure becomes approved data, an old session is reattached, or retry eligibility or budget broadens"
     },
     {
       "id": "workflow-command-receipt-translation",
@@ -2433,7 +2529,7 @@
     {
       "id": "publisher-semantic-input-validation",
       "file": "lib/features/planned_maintenance/presentation/template_publisher_screen.validation.dart",
-      "siteFingerprint": "4193292180a53b13b5e183df3b34f475ebefcede732390fe99f759713b33ed01",
+      "siteFingerprint": "b285937a628e1fcdaaadfaf5bb3bf906df89a941dece070a2c3a108127799b4b",
       "classification": "PRE_MUTATION_VALIDATION_REJECTION",
       "purpose": "turn immutable snapshot-contract failures into publication form errors",
       "authorityBoundary": "template publication semantic validation",
@@ -2851,7 +2947,7 @@
       "malformedDisposition": "Return false on either malformed side, including two identical malformed strings; surrounding replay cannot infer equivalence.",
       "regression": "test/persisted_json_equality_test.dart; test/maintenance_lifecycle_replay_contract_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "malformed '{' vs '{}' and '{' vs '{' both false (lines26–27); pinned-field replay contract checks metadata comparison (line878)."
+      "verificationNote": "malformed '{' vs '{}' and '{' vs '{' both false (lines26â€“27); pinned-field replay contract checks metadata comparison (line878)."
     },
     {
       "id": "pull-domain-cursor-invalid-timestamp",
@@ -2893,7 +2989,7 @@
       "malformedDisposition": "Return false on any decoding/comparison exception; dependency guard blocks audit synchronization.",
       "regression": "test/template_governance_lifecycle_replay_contract_test.dart; test/a05_template_governance_integrity_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "lifecycle replay contract lines390–410 checks exact snapshot matcher and strict date reader; integrity test validates lifecycle snapshot payload shape."
+      "verificationNote": "lifecycle replay contract lines390â€“410 checks exact snapshot matcher and strict date reader; integrity test validates lifecycle snapshot payload shape."
     },
     {
       "id": "maintenance-legacy-metadata-exact-comparison",
@@ -3005,7 +3101,7 @@
       "malformedDisposition": "Record malformed IDs, pass unavailableKeys to mergeOverrides, expose isComplete=false and disable catalogue changes; no fallback built-in for a damaged override.",
       "regression": "test/critical_alarm_configuration_test.dart; test/critical_alarm_model_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "malformed fire override remains unavailable rather than defaulting to built-in definition (configuration lines34–51)."
+      "verificationNote": "malformed fire override remains unavailable rather than defaulting to built-in definition (configuration lines34â€“51)."
     },
     {
       "id": "ordinary-directive-reviewed-absence",
@@ -3075,7 +3171,7 @@
       "malformedDisposition": "Return null for opaque malformed metadata at probe, then classified stuck-up caller throws because evidence is absent. Present malformed structured envelope throws directly.",
       "regression": "test/furnace_stuckup_case_test.dart; test/a05_remote_maintenance_record_integrity_test.dart",
       "reArmCondition": "Malformed evidence becomes success, absence becomes permission, original bytes are discarded, or the reviewed caller/disposition changes.",
-      "verificationNote": "local metadata merge preserves unrelated envelopes (line98); classification/evidence parity enforced at maintenance_model.dart:714–725. No direct malformed-opaque probe assertion located."
+      "verificationNote": "local metadata merge preserves unrelated envelopes (line98); classification/evidence parity enforced at maintenance_model.dart:714â€“725. No direct malformed-opaque probe assertion located."
     },
     {
       "id": "local-administrative-closure-opaque-preservation",
@@ -3440,6 +3536,45 @@
       "regression": "test/issue_administrative_closure_transition_test.dart; test/a05_remote_maintenance_record_integrity_test.dart; test/maintenance_closure_evidence_admission_test.dart; test/maintenance_plant_condition_stream_test.dart",
       "reArmCondition": "An optional null probe becomes terminal closure authority, typed invalid state is confused with valid absence, an old false index hides an unreadable candidate, raw metadata is rewritten, or unknown evidence is reported as available equipment.",
       "verificationNote": "Direct admission/qualification regressions and the real native stream exercise missing, malformed and contradictory closure evidence, including an older persisted false index. Existing ordinary legacy metadata remains supported; this does not migrate or invent a disposition."
+    },
+    {
+      "id": "component-context-opaque-legacy-read",
+      "file": "lib/features/maintenance/domain/maintenance_component_identification.dart",
+      "siteFingerprint": "96e8b6ceefaa527ddc085b2f79acd7fd9bf9d3593d6b997fb63a6d85f4086f7f",
+      "classification": "OPAQUE_LEGACY_METADATA_COMPATIBILITY",
+      "purpose": "Preserve the pre-feature freeform metadata representation without granting component identity.",
+      "authorityBoundary": "Optional component context on an issue; governed identity evidence is decoded separately and never reconstructed from opaque bytes.",
+      "mutability": "read only",
+      "dataScope": "Pre-feature metadata string; present structured componentContext is outside the swallowed JSON syntax failure.",
+      "malformedDisposition": "Malformed opaque pre-feature metadata has no component context; source bytes remain untouched and malformed present structured context still throws.",
+      "regression": "test/maintenance_component_identification_test.dart; test/maintenance_metadata_preservation_test.dart",
+      "reArmCondition": "Structured evidence errors are swallowed, original bytes disappear, or opaque metadata is treated as proof of identification."
+    },
+    {
+      "id": "component-context-opaque-legacy-merge",
+      "file": "lib/features/maintenance/domain/maintenance_component_identification.dart",
+      "siteFingerprint": "5fc2444973e6c70a8d78bce98491c22fa6b3c7d292afaa5ecfd80d967bd446cb",
+      "classification": "OPAQUE_LEGACY_METADATA_COMPATIBILITY",
+      "purpose": "Preserve the pre-feature freeform metadata representation without granting component identity.",
+      "authorityBoundary": "Optional component context on an issue; governed identity evidence is decoded separately and never reconstructed from opaque bytes.",
+      "mutability": "explicit metadata merge preserving the original bytes",
+      "dataScope": "Pre-feature metadata string; present structured componentContext is outside the swallowed JSON syntax failure.",
+      "malformedDisposition": "Malformed opaque pre-feature metadata is retained verbatim under legacyMetadata when adding the new context; never discarded or substituted with fresh business evidence.",
+      "regression": "test/maintenance_component_identification_test.dart; test/maintenance_metadata_preservation_test.dart",
+      "reArmCondition": "Structured evidence errors are swallowed, original bytes disappear, or opaque metadata is treated as proof of identification."
+    },
+    {
+      "id": "inner-cover-day-first-user-input",
+      "file": "lib/features/assets/presentation/widgets/inner_cover_date_picker.dart",
+      "siteFingerprint": "6466943d5412c5409aa60848c1c950a0296100c65442be551ffc6dc653598772",
+      "classification": "PRE_MUTATION_VALIDATION_RESULT",
+      "purpose": "Reject malformed or impossible dd-MM-yyyy calendar text without reinterpreting the date or substituting an occurrence time.",
+      "authorityBoundary": "Unsubmitted Inner Cover date-picker input only; persisted timestamps continue through existing strict model readers and server chronology checks.",
+      "mutability": "none",
+      "dataScope": "User-entered calendar date text; no database or received business record is decoded here.",
+      "malformedDisposition": "Return null to Material calendar validation, keep the input editable, and display the explicit dd-MM-yyyy error; no command is prepared or sent.",
+      "regression": "test/inner_cover_date_entry_test.dart",
+      "reArmCondition": "Malformed input becomes a valid fallback date, month-first text is silently reinterpreted, or the helper starts decoding persisted records or mutating state."
     }
   ],
   "staleRegressionReferences": [

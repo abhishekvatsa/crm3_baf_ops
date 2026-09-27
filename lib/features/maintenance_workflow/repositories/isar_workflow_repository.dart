@@ -381,7 +381,10 @@ class IsarWorkflowRepository implements WorkflowRepository {
       // means this lease expired and someone else took the work.
       if (record.lastAttemptAt?.toUtc() != claimedAt.toUtc()) return;
       record.stateKey = 'uncertainOutcome';
-      record.nextRetryAt = nextRetryAt?.toUtc() ?? record.nextRetryAt;
+      // First-send leases can be reclaimed before any outcome schedules a
+      // retry. Releasing one must not leave an uncertain row without a due time.
+      record.nextRetryAt =
+          nextRetryAt?.toUtc() ?? record.nextRetryAt ?? claimedAt.toUtc();
       await isar.workflowCommandRecords.put(record);
     });
   }

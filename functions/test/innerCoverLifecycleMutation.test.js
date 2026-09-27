@@ -1227,6 +1227,43 @@ describe('Inner Cover lifecycle mutation', () => {
       .toMatchObject({active: true, removedAt: null});
   });
 
+  test.each(['DELINK_INNER_COVER', 'TRANSFER_INNER_COVER'])(
+    '%s rejects a source assignment copied from another Base without writes',
+    async (operation) => {
+      const custody = installedCustody(
+        IDS.cover, 'GR26', IDS.base, 201, 'link-actual-source',
+      );
+      const wrongAssignment = {
+        ...custody[`base_inner_cover_assignments/${IDS.base}`],
+        baseAssetInstanceId: IDS.base2,
+      };
+      const memory = fakeDb({
+        ...seed(),
+        ...custody,
+        [`base_inner_cover_assignments/${IDS.base2}`]: wrongAssignment,
+        [`asset_instances/${IDS.register}`]: base(IDS.register, 203),
+      });
+      const before = clone([...memory.store]);
+      await expect(invoke(memory, {
+        requestId: IDS.delink,
+        operation,
+        innerCoverId: IDS.cover,
+        expectedVersion: 4,
+        sourceBaseAssetInstanceId: IDS.base2,
+        expectedSourceAssignmentVersion: 1,
+        ...(operation === 'DELINK_INNER_COVER' ? {
+          targetState: 'awaitingInspection',
+        } : {targetBaseAssetInstanceId: IDS.register}),
+        reason: 'A copied assignment is not the installed cover source Base.',
+      })).rejects.toMatchObject({
+        code: 'failed-precondition',
+        details: {reasonCode: 'inner-cover-assignment-drift'},
+      });
+      expect(memory.writes).toHaveLength(0);
+      expect([...memory.store]).toEqual(before);
+    },
+  );
+
   test('a removal cannot be recorded before the installation it ends', async () => {
     const memory = fakeDb(seed());
     await invoke(memory, registerRequest());

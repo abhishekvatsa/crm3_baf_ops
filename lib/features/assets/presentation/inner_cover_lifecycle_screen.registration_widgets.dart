@@ -574,7 +574,7 @@ class _PendingInnerCoverRegistrationsPageState
                 leading: const Icon(Icons.layers_outlined),
                 title: Text(serial),
                 subtitle: Text(
-                  'Saved ${DateFormat('dd MMM yyyy, HH:mm').format(row.createdAt.toLocal())}\n'
+                  'Saved ${DateFormat(innerCoverDateTimePattern).format(row.createdAt.toLocal())}\n'
                   'Request ${row.requestId} · ${row.state.name}',
                 ),
                 isThreeLine: true,

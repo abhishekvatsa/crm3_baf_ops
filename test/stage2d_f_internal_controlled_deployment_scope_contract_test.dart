@@ -160,10 +160,9 @@ void main() {
     expect(severityVocabulary, contains(attestation['trackASeverity']));
     expect(severityVocabulary, contains(attestation['trackBSeverity']));
 
-    final triggerIds =
-        (payload['reArmTriggers'] as List<dynamic>)
-            .map((dynamic item) => _object(item)['id'] as String)
-            .toSet();
+    final triggerIds = (payload['reArmTriggers'] as List<dynamic>)
+        .map((dynamic item) => _object(item)['id'] as String)
+        .toSet();
     expect(triggerIds, <String>{
       'RA-01',
       'RA-02',
@@ -173,17 +172,47 @@ void main() {
       'RA-06',
     });
 
-    final appCheckSource =
-        File('lib/core/security/app_check_bootstrap.dart').readAsStringSync();
+    final appCheckSource = File(
+      'lib/core/security/app_check_bootstrap.dart',
+    ).readAsStringSync();
     expect(appCheckSource, contains("'CRM3_APP_CHECK_ENABLED'"));
     expect(appCheckSource, contains('defaultValue: false'));
 
-    final artifactSource =
-        File('tools/release/New-ProductionArtifact.ps1').readAsStringSync();
+    final artifactSource = File(
+      'tools/release/New-ProductionArtifact.ps1',
+    ).readAsStringSync();
+    final policy = _readJson('release/production-release-policy.json');
+    expect(_object(policy['release'])['buildNumber'], 29);
+    expect(policy.containsKey('appCheckBuild'), isFalse);
+    final appCheckBuildSource = File(
+      'tools/release/Production-AppCheckPolicy.ps1',
+    ).readAsStringSync();
     expect(
       artifactSource,
-      isNot(contains('CRM3_APP_CHECK_ENABLED')),
-      reason: 'The controlled artifact path must match the governed deferral.',
+      contains(r'if ($ExpectedBuildNumber -ge 30)'),
+      reason: 'Historical Build29 retains its default-false client deferral.',
+    );
+    expect(
+      artifactSource,
+      contains(
+        r"$identityDefines['CRM3_APP_CHECK_ENABLED'] = $appCheckEvidence.dartDefine",
+      ),
+    );
+    expect(
+      appCheckBuildSource,
+      contains(r'if ($build -ge 1 -and $build -le 29) { return $null }'),
+    );
+    expect(
+      appCheckBuildSource,
+      contains(
+        'Build30 requires an explicit governed App Check client choice.',
+      ),
+    );
+    expect(
+      appCheckBuildSource,
+      contains(
+        'App Check client choice and pinned backend enforcement evidence disagree.',
+      ),
     );
 
     final functionsSource = File('functions/src/index.ts').readAsStringSync();

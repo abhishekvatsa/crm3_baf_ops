@@ -7,6 +7,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('secondary reading text retains contrast on operational surfaces', () {
+    for (final foreground in [
+      BafColors.textSecondary,
+      BafColors.textTertiary,
+    ]) {
+      for (final background in [
+        BafColors.background,
+        BafColors.surfaceRaised,
+        BafColors.surfaceMuted,
+      ]) {
+        final ratio =
+            (background.computeLuminance() + 0.05) /
+            (foreground.computeLuminance() + 0.05);
+        expect(ratio, greaterThanOrEqualTo(4.5));
+      }
+    }
+  });
+
   test('brand identity and operational geometry remain intentional', () {
     expect(BafBrand.productName, 'CRM-III BAF Ops');
     expect(BafBrand.makerName, 'A ManMithas Productions');
@@ -35,12 +53,11 @@ void main() {
     expect(find.text(BafBrand.plantName), findsOneWidget);
     expect(find.text(BafBrand.makerLabel), findsOneWidget);
     expect(find.text('Sign in with Google'), findsOneWidget);
-    final systemStyle =
-        tester
-            .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
-              find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
-            )
-            .value;
+    final systemStyle = tester
+        .widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+          find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
+        )
+        .value;
     expect(systemStyle.statusBarIconBrightness, Brightness.light);
     expect(tester.takeException(), isNull);
   });

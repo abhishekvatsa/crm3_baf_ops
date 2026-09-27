@@ -3,6 +3,7 @@ part of 'sync_service.dart';
 extension _SyncServiceJobDiary on SyncService {
   Future<void> _syncJobDiaryEntries() async {
     final unsynced = await _jobDiaryRepo.getUnsyncedEntries();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -10,6 +11,7 @@ extension _SyncServiceJobDiary on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -18,19 +20,20 @@ extension _SyncServiceJobDiary on SyncService {
         entityType: 'job_diary_entry',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreJobDiary.getEntriesByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <JobDiaryEntry>[];
@@ -38,6 +41,7 @@ extension _SyncServiceJobDiary on SyncService {
       final convergedRecords = <JobDiaryEntry>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -78,11 +82,14 @@ extension _SyncServiceJobDiary on SyncService {
         if (remote != null && remote.isDeleted) {
           try {
             final result = await _jobDiaryRepo.applyTombstoneFromRemote(remote);
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'job_diary_entry',
-              record: record,
-              entityLabel: 'job diary entry',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'job_diary_entry',
+                record: record,
+                entityLabel: 'job diary entry',
+              ),
             )) {
               continue;
             }
@@ -92,11 +99,14 @@ extension _SyncServiceJobDiary on SyncService {
               evidence:
                   'The canonical remote job-diary tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for job diary entry ${record.id}',
             );
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for job diary entry ${record.id}: $e',
@@ -113,6 +123,7 @@ extension _SyncServiceJobDiary on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local job diary entry ${record.id} and did not overwrite newer remote data',
@@ -129,11 +140,15 @@ extension _SyncServiceJobDiary on SyncService {
         try {
           await _retry(() async {
             await _firestoreJobDiary.batchUpsertEntries(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
 
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'job_diary_entry',
@@ -154,12 +169,14 @@ extension _SyncServiceJobDiary on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _jobDiaryRepo.markEntriesSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'job_diary_entry',
           records: convergedRecords,
           evidence:
               'The remote job-diary write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }

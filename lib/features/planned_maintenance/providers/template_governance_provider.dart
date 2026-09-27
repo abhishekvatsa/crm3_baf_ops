@@ -22,6 +22,7 @@ import '../../../core/serialization/tolerant_snapshot_decode.dart';
 part 'template_governance_provider.local.dart';
 part 'template_governance_publication.dart';
 part 'template_governance_provider.remote.dart';
+part 'template_governance_provider.remote_wire.dart';
 
 // ─────────────────────────────────────────────────────────────
 // NORMALIZATION HELPERS
@@ -273,6 +274,10 @@ void _normalizeVersionForUserSave(
   if (markUnsynced) {
     record.isSynced = false;
   }
+
+  // Both local and remote writes must remain readable by governed sync.
+  // In particular, never persist an inherited review before draft creation.
+  TemplateVersion.fromMap(record.toMap(), record.firestoreId!);
 }
 
 void _applyTemplateVersionDraftLifecycleTransition(

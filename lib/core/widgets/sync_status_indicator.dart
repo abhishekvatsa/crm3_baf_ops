@@ -14,6 +14,8 @@ import '../services/sync_rejection_service.dart';
 import '../services/sync_service.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/auth/data/user_model.dart';
+import '../../features/auth/domain/current_actor_access.dart';
+import '../../features/auth/presentation/current_actor_gate.dart';
 import '../../features/auth/providers/auth_provider.dart';
 import '../theme/baf_design_system.dart';
 
@@ -26,7 +28,34 @@ import '../theme/baf_design_system.dart';
 // ─────────────────────────────────────────────────────────────
 
 class SyncStatusIndicator extends ConsumerStatefulWidget {
-  const SyncStatusIndicator({super.key});
+  const SyncStatusIndicator({super.key}) : _healthPanelOnly = false;
+  const SyncStatusIndicator._healthPanel() : _healthPanelOnly = true;
+
+  final bool _healthPanelOnly;
+
+  static Future<void> showHealthPanel(BuildContext context) async {
+    final access = CurrentActorAccess.resolve(
+      ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(currentAppUserProvider),
+    );
+    if (!access.isReady) {
+      _showSyncSnack(context, access.message, BafColors.warning);
+      return;
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: access.actor!.uid,
+        permission: (actor) => actor.isApproved,
+        child: const SyncStatusIndicator._healthPanel(),
+      ),
+    );
+  }
 
   @override
   ConsumerState<SyncStatusIndicator> createState() =>
@@ -38,6 +67,7 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget._healthPanelOnly) return _buildHealthPanel(context);
     final status = ref.watch(syncStatusProvider);
     final conflictCount = ref.watch(syncConflictProvider);
     final runHealth = ref.watch(syncRunHealthProvider);
@@ -83,25 +113,24 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                   children: [
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 220),
-                      child:
-                          isSyncing
-                              ? SizedBox(
-                                key: const ValueKey('spinner'),
-                                width: 17,
-                                height: 17,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation(
-                                    visual.color,
-                                  ),
+                      child: isSyncing
+                          ? SizedBox(
+                              key: const ValueKey('spinner'),
+                              width: 17,
+                              height: 17,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation(
+                                  visual.color,
                                 ),
-                              )
-                              : Icon(
-                                visual.icon,
-                                key: ValueKey(visual.icon),
-                                size: 18,
-                                color: visual.color,
                               ),
+                            )
+                          : Icon(
+                              visual.icon,
+                              key: ValueKey(visual.icon),
+                              size: 18,
+                              color: visual.color,
+                            ),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -128,10 +157,9 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
               color: visual.color.withValues(alpha: 0.20),
             ),
             TextButton.icon(
-              onPressed:
-                  isSyncing
-                      ? null
-                      : () => _runManualSync(context, source: 'indicator'),
+              onPressed: isSyncing
+                  ? null
+                  : () => _runManualSync(context, source: 'indicator'),
               style: TextButton.styleFrom(
                 foregroundColor: visual.color,
                 padding: const EdgeInsets.symmetric(
@@ -193,542 +221,530 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
   Future<void> _showHealthPanel(BuildContext context) async {
     if (_isHealthPanelOpen) return;
     _isHealthPanelOpen = true;
-
     try {
-      await showModalBottomSheet<void>(
-        context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: Colors.transparent,
-        builder: (sheetContext) {
-          return Consumer(
-            builder: (context, ref, _) {
-              final status = ref.watch(syncStatusProvider);
-              final conflictCount = ref.watch(syncConflictProvider);
-              final runHealth = ref.watch(syncRunHealthProvider);
-              final liveHealth = ref.watch(liveRemoteSyncHealthProvider);
-              final autoHealth = ref.watch(autoSyncHealthProvider);
-              final pendingAsync = ref.watch(syncPendingCountsProvider);
-              final recentRejectionsAsync = ref.watch(
-                recentSyncRejectionsProvider,
-              );
-              final actorAsync = ref.watch(currentAppUserProvider);
-              final actor = actorAsync.asData?.value;
-              final recoveryActive = ref.watch(syncLocalRecoveryActiveProvider);
-              final networkAccessExplanation =
-                  (ref.watch(appNetworkAccessProvider).asData?.value ??
-                          AppNetworkAccess.unknown)
-                      .operatorExplanation;
-              final permanentRejectionCount =
-                  ref
-                      .watch(unresolvedPermanentSyncRejectionCountProvider)
-                      .asData
-                      ?.value ??
-                  0;
-              final canResolveSyncRejections =
-                  actor?.canResolveSyncConflicts == true;
-              final isSyncing =
-                  status == SyncStatus.syncing ||
-                  runHealth.isRunning ||
-                  recoveryActive;
-
-              return DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.72,
-                minChildSize: 0.42,
-                maxChildSize: 0.92,
-                builder: (context, scrollController) {
-                  return Container(
-                    decoration: const BoxDecoration(
-                      color: BafColors.background,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(BafRadius.xLarge),
-                      ),
-                    ),
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(
-                        BafSpacing.lg,
-                        BafSpacing.sm,
-                        BafSpacing.lg,
-                        BafSpacing.xl,
-                      ),
-                      children: [
-                        Center(
-                          child: Container(
-                            width: 44,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: BafColors.border,
-                              borderRadius: BorderRadius.circular(99),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: BafSpacing.lg),
-                        Row(
-                          children: [
-                            Container(
-                              width: 46,
-                              height: 46,
-                              decoration: BoxDecoration(
-                                color: BafColors.sync.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(
-                                  BafRadius.medium,
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.health_and_safety_rounded,
-                                color: BafColors.sync,
-                                size: 26,
-                              ),
-                            ),
-                            const SizedBox(width: BafSpacing.md),
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Sync health',
-                                    style: TextStyle(
-                                      color: BafColors.textPrimary,
-                                      fontSize: 21,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                  SizedBox(height: 3),
-                                  Text(
-                                    'Freshness, live receiving, and pending work.',
-                                    style: TextStyle(
-                                      color: BafColors.textSecondary,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.lg),
-                        // Stated before any health counter, because it changes
-                        // what those counters mean: a refused request is not a
-                        // fault, and the work behind it is waiting rather than
-                        // lost.
-                        if (networkAccessExplanation != null) ...[
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(BafSpacing.md),
-                            decoration: BoxDecoration(
-                              color: BafColors.warning.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(
-                                BafRadius.medium,
-                              ),
-                              border: Border.all(
-                                color: BafColors.warning.withValues(
-                                  alpha: 0.35,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.pause_circle_outline_rounded,
-                                  color: BafColors.warning,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: BafSpacing.sm),
-                                Expanded(
-                                  child: Text(
-                                    networkAccessExplanation,
-                                    style: const TextStyle(
-                                      color: BafColors.textPrimary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: BafSpacing.lg),
-                        ],
-                        _HealthCard(
-                          title: 'Manual override',
-                          icon: Icons.sync_rounded,
-                          color: BafColors.sync,
-                          children: [
-                            Text(
-                              isSyncing
-                                  ? 'A sync is already running.'
-                                  : 'Business changes synchronize immediately. Press to reconcile all current server and device records again.',
-                              style: const TextStyle(
-                                color: BafColors.textSecondary,
-                                fontSize: 13,
-                                height: 1.35,
-                              ),
-                            ),
-                            const SizedBox(height: BafSpacing.md),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed:
-                                    isSyncing
-                                        ? null
-                                        : () async {
-                                          await _runManualSync(
-                                            sheetContext,
-                                            source: 'health_panel',
-                                          );
-                                        },
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: BafColors.sync,
-                                  foregroundColor: Colors.white,
-                                ),
-                                icon: Icon(
-                                  isSyncing
-                                      ? Icons.hourglass_top_rounded
-                                      : Icons.sync_rounded,
-                                ),
-                                label: Text(
-                                  isSyncing ? 'Syncing…' : 'Sync now',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        _HealthCard(
-                          title: 'Full sync engine',
-                          icon: Icons.cloud_done_rounded,
-                          color: _statusColor(status, runHealth),
-                          children: [
-                            _HealthRow(
-                              'Status',
-                              _statusLabel(status, runHealth),
-                            ),
-                            _HealthRow(
-                              'Last completed',
-                              _relativeTime(runHealth.lastCompletedAt),
-                            ),
-                            _HealthRow(
-                              'Last reason',
-                              runHealth.lastReason ?? '—',
-                            ),
-                            if (runHealth.hasPendingFollowUp) ...[
-                              _HealthRow(
-                                'Pending follow-up',
-                                runHealth.pendingFollowUpForce
-                                    ? 'Queued · forced'
-                                    : 'Queued',
-                              ),
-                              _HealthRow(
-                                'Follow-up reason',
-                                runHealth.pendingFollowUpReason ?? '—',
-                              ),
-                            ],
-                            _HealthRow(
-                              'Last result',
-                              runHealth.lastSucceeded == null
-                                  ? 'No completed run yet'
-                                  : (runHealth.lastSucceeded!
-                                      ? 'Success'
-                                      : 'Failed'),
-                            ),
-                            _HealthRow(
-                              'Last push result',
-                              '${runHealth.successCount} success / ${runHealth.failureCount} failed',
-                            ),
-                            if (conflictCount > 0)
-                              _HealthRow('Conflicts', '$conflictCount'),
-                              if (runHealth.workflowAttentionReason != null)
-                                _HealthRow(
-                                  'Submitted work',
-                                  runHealth.workflowAttentionReason!,
-                                ),
-                            if (runHealth.lastSkippedReason != null)
-                              _HealthRow(
-                                'Last skipped',
-                                '${runHealth.lastSkippedReason} • ${_relativeTime(runHealth.lastSkippedAt)}',
-                              ),
-                            if (runHealth.lastError != null)
-                              _HealthRow('Last error', runHealth.lastError!),
-                            if (runHealth.failureDetails.isNotEmpty) ...[
-                              const SizedBox(height: BafSpacing.sm),
-                              const _SectionLabel('Affected records'),
-                              ...runHealth.failureDetails
-                                  .take(5)
-                                  .map(
-                                    (detail) =>
-                                        _FailureDetailRow(detail: detail),
-                                  ),
-                              if (runHealth.failureDetails.length > 5 ||
-                                  runHealth.failureDetailOverflowCount > 0)
-                                _HealthRow(
-                                  'More affected',
-                                  '+${(runHealth.failureDetails.length > 5 ? runHealth.failureDetails.length - 5 : 0) + runHealth.failureDetailOverflowCount} more',
-                                ),
-                            ],
-                            recentRejectionsAsync.when(
-                              loading: () => const SizedBox.shrink(),
-                              error:
-                                  (error, _) => _HealthRow(
-                                    'Durable rejection log',
-                                    'Could not read local sync rejections: $error',
-                                  ),
-                              data: (rejections) {
-                                if (rejections.isEmpty) {
-                                  return const SizedBox.shrink();
-                                }
-
-                                return Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    const SizedBox(height: BafSpacing.sm),
-                                    const _SectionLabel(
-                                      'Recent durable sync rejections',
-                                    ),
-                                    ...rejections.map(
-                                      (row) => _SyncRejectionRow(
-                                        row: row,
-                                        canRecheck: actor?.isApproved == true,
-                                        onRecheck:
-                                            actor?.isApproved == true
-                                                ? () => _recheckSyncRejections(
-                                                  sheetContext,
-                                                  ref,
-                                                )
-                                                : null,
-                                        canResolve: canResolveSyncRejections,
-                                        onResolve:
-                                            canResolveSyncRejections &&
-                                                    actor != null
-                                                ? () =>
-                                                    _showResolveSyncRejectionDialog(
-                                                      sheetContext,
-                                                      ref,
-                                                      row,
-                                                      actor,
-                                                    )
-                                                : null,
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        _HealthCard(
-                          title: 'Pending local writes',
-                          icon: Icons.pending_actions_rounded,
-                          color: _pendingColor(pendingAsync.asData?.value),
-                          children: [
-                            pendingAsync.when(
-                              loading:
-                                  () => const _InlineLoadingText(
-                                    text: 'Checking pending local records…',
-                                  ),
-                              error:
-                                  (error, _) => Text(
-                                    'Could not read pending local records: $error',
-                                    style: const TextStyle(
-                                      color: BafColors.danger,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                              data:
-                                  (pending) => Column(
-                                    children: [
-                                      _HealthRow(
-                                        'Total pending',
-                                        '${pending.total}',
-                                      ),
-                                      _HealthRow(
-                                        'Maintenance tickets',
-                                        '${pending.maintenanceTickets}',
-                                      ),
-                                      _HealthRow(
-                                        'Job templates',
-                                        '${pending.jobTemplates}',
-                                      ),
-                                      _HealthRow(
-                                        'Job executions',
-                                        '${pending.jobExecutions}',
-                                      ),
-                                      _HealthRow(
-                                        'Directives',
-                                        '${pending.directives}',
-                                      ),
-                                      _HealthRow(
-                                        'Abnormality types',
-                                        '${pending.abnormalityTypes}',
-                                      ),
-                                      _HealthRow(
-                                        'Charge abnormalities',
-                                        '${pending.chargeAbnormalities}',
-                                      ),
-                                    ],
-                                  ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        if (actor?.isApproved == true) ...[
-                          _HealthCard(
-                            title: 'Remove unsynced local data',
-                            icon: Icons.cleaning_services_outlined,
-                            color:
-                                permanentRejectionCount > 0
-                                    ? BafColors.warning
-                                    : BafColors.sync,
-                            children: [
-                              _HealthRow(
-                                'Rejected changes',
-                                '$permanentRejectionCount',
-                              ),
-                              const SizedBox(height: BafSpacing.xs),
-                              const Text(
-                                'Only your permanently rejected local changes are removed. Existing server records are restored, valid pending work is retained, and synchronization resumes automatically.',
-                                style: TextStyle(
-                                  color: BafColors.textSecondary,
-                                  fontSize: 12,
-                                  height: 1.4,
-                                ),
-                              ),
-                              const SizedBox(height: BafSpacing.md),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton.icon(
-                                  key: const ValueKey(
-                                    'discard-rejected-local-changes',
-                                  ),
-                                  onPressed:
-                                      recoveryActive ||
-                                              permanentRejectionCount == 0
-                                          ? null
-                                          : () => _discardRejectedLocalChanges(
-                                            sheetContext,
-                                            actor!,
-                                          ),
-                                  icon: Icon(
-                                    recoveryActive
-                                        ? Icons.hourglass_top_rounded
-                                        : Icons.cleaning_services_outlined,
-                                  ),
-                                  label: Text(
-                                    recoveryActive
-                                        ? 'Recovering local data'
-                                        : 'Remove my unsynced local data',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: BafSpacing.md),
-                        ],
-                        _HealthCard(
-                          title: 'Immediate synchronization',
-                          icon: Icons.bolt_rounded,
-                          color:
-                              autoHealth.normalIssueSyncPending
-                                  ? BafColors.warning
-                                  : BafColors.success,
-                          children: [
-                            _HealthRow(
-                              'Auto-sync service',
-                              autoHealth.isStarted ? 'Active' : 'Stopped',
-                            ),
-                            _HealthRow(
-                              'Normal issue queue',
-                              autoHealth.normalIssueSyncPending
-                                  ? 'Sending or awaiting reconnection'
-                                  : 'No changes waiting',
-                            ),
-                            _HealthRow(
-                              'Last automatic attempt',
-                              _relativeTime(autoHealth.lastAutomaticAttemptAt),
-                            ),
-                            _HealthRow(
-                              'Last automatic result',
-                              autoHealth.lastAutomaticOutcome == null
-                                  ? '—'
-                                  : autoHealth
-                                      .lastAutomaticOutcome!
-                                      .diagnosticLabel,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: BafSpacing.md),
-                        _HealthCard(
-                          title: 'Live receiving',
-                          icon: Icons.sensors_rounded,
-                          color: _liveColor(liveHealth),
-                          children: [
-                            _HealthRow(
-                              'Open-ticket listener',
-                              _liveLabel(liveHealth.maintenanceState),
-                            ),
-                            _HealthRow(
-                              'Scope',
-                              liveHealth.maintenanceScopeLabel ?? '—',
-                            ),
-                            _HealthRow(
-                              'Listener count',
-                              '${liveHealth.listenerCount}',
-                            ),
-                            _HealthRow(
-                              'Started',
-                              _relativeTime(liveHealth.startedAt),
-                            ),
-                            _HealthRow(
-                              'Paused',
-                              _relativeTime(liveHealth.pausedAt),
-                            ),
-                            _HealthRow(
-                              'Last remote event',
-                              _relativeTime(liveHealth.lastEventAt),
-                            ),
-                            _HealthRow(
-                              'Last applied locally',
-                              _relativeTime(liveHealth.lastAppliedAt),
-                            ),
-                            _HealthRow(
-                              'Applied records',
-                              '${liveHealth.appliedCount}',
-                            ),
-                            _HealthRow(
-                              'Skipped local edits',
-                              '${liveHealth.skippedUnsyncedLocalCount}',
-                            ),
-                            _HealthRow(
-                              'Removed-query events',
-                              '${liveHealth.removedEventCount}',
-                            ),
-                            _HealthRow(
-                              'Pause / resume',
-                              '${liveHealth.pauseCount} / ${liveHealth.resumeCount}',
-                            ),
-                            if (liveHealth.lastError != null)
-                              _HealthRow(
-                                'Last live error',
-                                liveHealth.lastError!,
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              );
-            },
-          );
-        },
-      );
+      await SyncStatusIndicator.showHealthPanel(context);
     } finally {
       _isHealthPanelOpen = false;
     }
+  }
+
+  Widget _buildHealthPanel(BuildContext sheetContext) {
+    return Consumer(
+      builder: (context, ref, _) {
+        final status = ref.watch(syncStatusProvider);
+        final conflictCount = ref.watch(syncConflictProvider);
+        final runHealth = ref.watch(syncRunHealthProvider);
+        final liveHealth = ref.watch(liveRemoteSyncHealthProvider);
+        final autoHealth = ref.watch(autoSyncHealthProvider);
+        final pendingAsync = ref.watch(syncPendingCountsProvider);
+        final recentRejectionsAsync = ref.watch(recentSyncRejectionsProvider);
+        final actorAsync = ref.watch(currentAppUserProvider);
+        final actor = CurrentActorAccess.resolve(actorAsync).actor;
+        final recoveryActive = ref.watch(syncLocalRecoveryActiveProvider);
+        final networkAccessExplanation =
+            (ref.watch(appNetworkAccessProvider).asData?.value ??
+                    AppNetworkAccess.unknown)
+                .operatorExplanation;
+        final permanentRejectionCount =
+            ref
+                .watch(unresolvedPermanentSyncRejectionCountProvider)
+                .asData
+                ?.value ??
+            0;
+        final canResolveSyncRejections = actor?.canResolveSyncConflicts == true;
+        final isSyncing =
+            status == SyncStatus.syncing ||
+            runHealth.isRunning ||
+            recoveryActive;
+
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.42,
+          maxChildSize: 0.92,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                color: BafColors.background,
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(BafRadius.xLarge),
+                ),
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(
+                  BafSpacing.lg,
+                  BafSpacing.sm,
+                  BafSpacing.lg,
+                  BafSpacing.xl,
+                ),
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: BafColors.border,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  Row(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: BafColors.sync.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(BafRadius.medium),
+                        ),
+                        child: const Icon(
+                          Icons.health_and_safety_rounded,
+                          color: BafColors.sync,
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: BafSpacing.md),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Sync health',
+                              style: TextStyle(
+                                color: BafColors.textPrimary,
+                                fontSize: 21,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            SizedBox(height: 3),
+                            Text(
+                              'Freshness, live receiving, and pending work.',
+                              style: TextStyle(
+                                color: BafColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  // Stated before any health counter, because it changes
+                  // what those counters mean: a refused request is not a
+                  // fault, and the work behind it is waiting rather than
+                  // lost.
+                  if (networkAccessExplanation != null) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(BafSpacing.md),
+                      decoration: BoxDecoration(
+                        color: BafColors.warning.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(BafRadius.medium),
+                        border: Border.all(
+                          color: BafColors.warning.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.pause_circle_outline_rounded,
+                            color: BafColors.warning,
+                            size: 20,
+                          ),
+                          const SizedBox(width: BafSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              networkAccessExplanation,
+                              style: const TextStyle(
+                                color: BafColors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                  ],
+                  _HealthCard(
+                    title: 'Manual override',
+                    icon: Icons.sync_rounded,
+                    color: BafColors.sync,
+                    children: [
+                      Text(
+                        isSyncing
+                            ? 'A sync is already running.'
+                            : 'Business changes synchronize immediately. Press to reconcile all current server and device records again.',
+                        style: const TextStyle(
+                          color: BafColors.textSecondary,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: BafSpacing.md),
+                      if (actor?.isApproved == true &&
+                          permanentRejectionCount > 0)
+                        OutlinedButton.icon(
+                          key: const ValueKey('recheck-held-sync-changes'),
+                          onPressed: isSyncing
+                              ? null
+                              : () => _recheckSyncRejections(
+                                  sheetContext,
+                                  ref,
+                                  actor!.uid,
+                                ),
+                          icon: const Icon(Icons.sync_problem_rounded),
+                          label: const Text('Recheck with server'),
+                        ),
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: isSyncing
+                              ? null
+                              : () async {
+                                  await _runManualSync(
+                                    sheetContext,
+                                    source: 'health_panel',
+                                  );
+                                },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: BafColors.sync,
+                            foregroundColor: Colors.white,
+                          ),
+                          icon: Icon(
+                            isSyncing
+                                ? Icons.hourglass_top_rounded
+                                : Icons.sync_rounded,
+                          ),
+                          label: Text(isSyncing ? 'Syncing…' : 'Sync now'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  _HealthCard(
+                    title: 'Full sync engine',
+                    icon: Icons.cloud_done_rounded,
+                    color: _statusColor(status, runHealth),
+                    children: [
+                      _HealthRow('Status', _statusLabel(status, runHealth)),
+                      if (runHealth.lastPartiallySucceeded) ...[
+                        const _HealthRow(
+                          'Attention',
+                          'Some changes still need attention',
+                        ),
+                        const _HealthRow(
+                          'Last server refresh',
+                          'Completed; some saved changes could not be sent.',
+                        ),
+                      ],
+                      _HealthRow(
+                        'Last completed',
+                        _relativeTime(runHealth.lastCompletedAt),
+                      ),
+                      _HealthRow('Last reason', runHealth.lastReason ?? '—'),
+                      if (runHealth.hasPendingFollowUp) ...[
+                        _HealthRow(
+                          'Pending follow-up',
+                          runHealth.pendingFollowUpForce
+                              ? 'Queued · forced'
+                              : 'Queued',
+                        ),
+                        _HealthRow(
+                          'Follow-up reason',
+                          runHealth.pendingFollowUpReason ?? '—',
+                        ),
+                      ],
+                      _HealthRow(
+                        'Last result',
+                        runHealth.lastPartiallySucceeded
+                            ? 'Partly synced'
+                            : runHealth.lastSucceeded == null
+                            ? 'No completed run yet'
+                            : (runHealth.lastSucceeded! ? 'Success' : 'Failed'),
+                      ),
+                      _HealthRow(
+                        'Last push result',
+                        '${runHealth.successCount} success / ${runHealth.failureCount} failed',
+                      ),
+                      if (conflictCount > 0)
+                        _HealthRow('Conflicts', '$conflictCount'),
+                      if (runHealth.deferredRecordCount > 0)
+                        _HealthRow(
+                          'Waiting for related records',
+                          '${runHealth.deferredRecordCount} saved locally',
+                        ),
+                      if (runHealth.workflowAttentionReason != null)
+                        _HealthRow(
+                          'Submitted work',
+                          runHealth.workflowAttentionReason!,
+                        ),
+                      if (runHealth.lastSkippedReason != null)
+                        _HealthRow(
+                          'Last skipped',
+                          '${runHealth.lastSkippedReason} • ${_relativeTime(runHealth.lastSkippedAt)}',
+                        ),
+                      if (actor?.isAdmin == true && runHealth.lastError != null)
+                        _HealthRow('Last error', runHealth.lastError!),
+                      if (actor?.isAdmin == true &&
+                          runHealth.failureDetails.isNotEmpty) ...[
+                        const SizedBox(height: BafSpacing.sm),
+                        const _SectionLabel('Affected records'),
+                        ...runHealth.failureDetails
+                            .take(5)
+                            .map((detail) => _FailureDetailRow(detail: detail)),
+                        if (runHealth.failureDetails.length > 5 ||
+                            runHealth.failureDetailOverflowCount > 0)
+                          _HealthRow(
+                            'More affected',
+                            '+${(runHealth.failureDetails.length > 5 ? runHealth.failureDetails.length - 5 : 0) + runHealth.failureDetailOverflowCount} more',
+                          ),
+                      ],
+                      recentRejectionsAsync.when(
+                        loading: () => const SizedBox.shrink(),
+                        error: (error, _) => _HealthRow(
+                          'Durable rejection log',
+                          'Could not read local sync rejections: $error',
+                        ),
+                        data: (rejections) {
+                          final visibleRejections = rejections
+                              .where(
+                                (row) =>
+                                    actor?.isAdmin == true ||
+                                    (actor != null &&
+                                        row.originatingUid == actor.uid),
+                              )
+                              .toList(growable: false);
+                          if (visibleRejections.isEmpty) {
+                            return const SizedBox.shrink();
+                          }
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const SizedBox(height: BafSpacing.sm),
+                              const _SectionLabel(
+                                'Recent durable sync rejections',
+                              ),
+                              ...visibleRejections.map(
+                                (row) => _SyncRejectionRow(
+                                  row: row,
+                                  canRecheck: actor?.isApproved == true,
+                                  onRecheck: actor?.isApproved == true
+                                      ? () => _recheckSyncRejections(
+                                          sheetContext,
+                                          ref,
+                                          actor!.uid,
+                                        )
+                                      : null,
+                                  canResolve: canResolveSyncRejections,
+                                  onResolve:
+                                      canResolveSyncRejections && actor != null
+                                      ? () => _showResolveSyncRejectionDialog(
+                                          sheetContext,
+                                          ref,
+                                          row,
+                                          actor,
+                                        )
+                                      : null,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  _HealthCard(
+                    title: 'Pending local writes',
+                    icon: Icons.pending_actions_rounded,
+                    color: _pendingColor(pendingAsync.asData?.value),
+                    children: [
+                      pendingAsync.when(
+                        loading: () => const _InlineLoadingText(
+                          text: 'Checking pending local records…',
+                        ),
+                        error: (error, _) => Text(
+                          'Could not read pending local records: $error',
+                          style: const TextStyle(
+                            color: BafColors.danger,
+                            fontSize: 13,
+                          ),
+                        ),
+                        data: (pending) => Column(
+                          children: [
+                            _HealthRow('Total pending', '${pending.total}'),
+                            _HealthRow(
+                              'Maintenance tickets',
+                              '${pending.maintenanceTickets}',
+                            ),
+                            _HealthRow(
+                              'Job templates',
+                              '${pending.jobTemplates}',
+                            ),
+                            _HealthRow(
+                              'Job executions',
+                              '${pending.jobExecutions}',
+                            ),
+                            _HealthRow('Directives', '${pending.directives}'),
+                            _HealthRow(
+                              'Abnormality types',
+                              '${pending.abnormalityTypes}',
+                            ),
+                            _HealthRow(
+                              'Charge abnormalities',
+                              '${pending.chargeAbnormalities}',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  if (actor?.isApproved == true) ...[
+                    _HealthCard(
+                      title: 'Remove unsynced local data',
+                      icon: Icons.cleaning_services_outlined,
+                      color: permanentRejectionCount > 0
+                          ? BafColors.warning
+                          : BafColors.sync,
+                      children: [
+                        _HealthRow(
+                          'Rejected changes',
+                          '$permanentRejectionCount',
+                        ),
+                        const SizedBox(height: BafSpacing.xs),
+                        const Text(
+                          'Only your permanently rejected local changes are removed. Existing server records are restored, valid pending work is retained, and synchronization resumes automatically.',
+                          style: TextStyle(
+                            color: BafColors.textSecondary,
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: BafSpacing.md),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey(
+                              'discard-rejected-local-changes',
+                            ),
+                            onPressed:
+                                recoveryActive || permanentRejectionCount == 0
+                                ? null
+                                : () => _discardRejectedLocalChanges(
+                                    sheetContext,
+                                    actor!,
+                                  ),
+                            icon: Icon(
+                              recoveryActive
+                                  ? Icons.hourglass_top_rounded
+                                  : Icons.cleaning_services_outlined,
+                            ),
+                            label: Text(
+                              recoveryActive
+                                  ? 'Recovering local data'
+                                  : 'Remove my unsynced local data',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: BafSpacing.md),
+                  ],
+                  _HealthCard(
+                    title: 'Immediate synchronization',
+                    icon: Icons.bolt_rounded,
+                    color: autoHealth.normalIssueSyncPending
+                        ? BafColors.warning
+                        : BafColors.success,
+                    children: [
+                      _HealthRow(
+                        'Auto-sync service',
+                        autoHealth.isStarted ? 'Active' : 'Stopped',
+                      ),
+                      _HealthRow(
+                        'Normal issue queue',
+                        autoHealth.normalIssueSyncPending
+                            ? 'Sending or awaiting reconnection'
+                            : 'No changes waiting',
+                      ),
+                      _HealthRow(
+                        'Last automatic attempt',
+                        _relativeTime(autoHealth.lastAutomaticAttemptAt),
+                      ),
+                      _HealthRow(
+                        'Last automatic result',
+                        autoHealth.lastAutomaticOutcome == null
+                            ? '—'
+                            : autoHealth.lastAutomaticOutcome!.diagnosticLabel,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: BafSpacing.md),
+                  _HealthCard(
+                    title: 'Live receiving',
+                    icon: Icons.sensors_rounded,
+                    color: _liveColor(liveHealth),
+                    children: [
+                      _HealthRow(
+                        'Open-ticket listener',
+                        _liveLabel(liveHealth.maintenanceState),
+                      ),
+                      _HealthRow(
+                        'Scope',
+                        liveHealth.maintenanceScopeLabel ?? '—',
+                      ),
+                      _HealthRow(
+                        'Listener count',
+                        '${liveHealth.listenerCount}',
+                      ),
+                      _HealthRow(
+                        'Started',
+                        _relativeTime(liveHealth.startedAt),
+                      ),
+                      _HealthRow('Paused', _relativeTime(liveHealth.pausedAt)),
+                      _HealthRow(
+                        'Last remote event',
+                        _relativeTime(liveHealth.lastEventAt),
+                      ),
+                      _HealthRow(
+                        'Last applied locally',
+                        _relativeTime(liveHealth.lastAppliedAt),
+                      ),
+                      _HealthRow(
+                        'Applied records',
+                        '${liveHealth.appliedCount}',
+                      ),
+                      _HealthRow(
+                        'Skipped local edits',
+                        '${liveHealth.skippedUnsyncedLocalCount}',
+                      ),
+                      _HealthRow(
+                        'Removed-query events',
+                        '${liveHealth.removedEventCount}',
+                      ),
+                      _HealthRow(
+                        'Pause / resume',
+                        '${liveHealth.pauseCount} / ${liveHealth.resumeCount}',
+                      ),
+                      if (liveHealth.lastError != null)
+                        _HealthRow('Last live error', liveHealth.lastError!),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _discardRejectedLocalChanges(
@@ -737,39 +753,42 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
   ) async {
     final approved = await showDialog<bool>(
       context: context,
-      builder:
-          (dialogContext) => AlertDialog(
-            title: const Text('Remove unsynced local data?'),
-            content: const Text(
-              'Synchronization will pause while your permanently rejected local changes are discarded. Existing server records will be restored. Other users\' records, normal pending work, and audit evidence will not be deleted.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(dialogContext).pop(true),
-                child: const Text('Remove unsynced data'),
-              ),
-            ],
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove unsynced local data?'),
+        content: const Text(
+          'Synchronization will pause while your permanently rejected local changes are discarded. Existing server records will be restored. Other users\' records, normal pending work, and audit evidence will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
           ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove unsynced data'),
+          ),
+        ],
+      ),
     );
     if (approved != true || !mounted || !context.mounted) return;
+    final current = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (current?.uid != actor.uid) return;
 
     final coordinator = ref.read(syncCoordinatorProvider);
     final recoveryService = ref.read(localSyncRecoveryServiceProvider);
     try {
       final result = await coordinator.runWithSyncPaused(
-        operation: () => recoveryService.discardOwnRejectedChanges(actor: actor),
+        operation: () =>
+            recoveryService.discardOwnRejectedChanges(actor: actor),
       );
       if (!mounted || !context.mounted) return;
       ref.invalidate(syncPendingCountsProvider);
 
-      final preserved =
-          result.preservedCount == 0
-              ? ''
-              : ' ${result.preservedCount} protected or unavailable record(s) were preserved.';
+      final preserved = result.preservedCount == 0
+          ? ''
+          : ' ${result.preservedCount} protected or unavailable record(s) were preserved.';
       _showSyncSnack(
         context,
         '${result.restoredFromServer} server record(s) restored, ${result.removedLocalOnly} local-only record(s) removed.$preserved',
@@ -796,10 +815,9 @@ _SyncVisual _visualFor(
 ) {
   if (status == SyncStatus.syncing || runHealth.isRunning) {
     return _SyncVisual(
-      icon:
-          runHealth.hasPendingFollowUp
-              ? Icons.schedule_send_rounded
-              : Icons.sync_rounded,
+      icon: runHealth.hasPendingFollowUp
+          ? Icons.schedule_send_rounded
+          : Icons.sync_rounded,
       color: BafColors.planned,
       label: runHealth.hasPendingFollowUp ? 'Sync queued' : 'Syncing',
     );
@@ -831,6 +849,14 @@ _SyncVisual _visualFor(
       icon: Icons.error_outline_rounded,
       color: BafColors.danger,
       label: 'Sync issue',
+    );
+  }
+
+  if (status == SyncStatus.partial || runHealth.lastPartiallySucceeded) {
+    return const _SyncVisual(
+      icon: Icons.sync_problem_rounded,
+      color: BafColors.warning,
+      label: 'Partly synced',
     );
   }
 
@@ -880,6 +906,7 @@ _SyncVisual _visualFor(
 Color _manualSyncColor(SyncRequestOutcome outcome) {
   return switch (outcome) {
     SyncRequestOutcome.succeeded => BafColors.sync,
+    SyncRequestOutcome.partial => BafColors.warning,
     SyncRequestOutcome.failed => BafColors.danger,
     SyncRequestOutcome.queued => BafColors.planned,
     SyncRequestOutcome.throttled => BafColors.warning,
@@ -908,22 +935,26 @@ Future<void> _showResolveSyncRejectionDialog(
     return;
   }
 
-  final initialNote =
-      rejection.isLikelyPermanent
-          ? 'Reviewed. Underlying data, role, or Firestore rule condition has been corrected; allow retry on next sync.'
-          : 'Reviewed; allow retry on next sync.';
+  final initialNote = rejection.isLikelyPermanent
+      ? 'Reviewed. Underlying data, role, or Firestore rule condition has been corrected; allow retry on next sync.'
+      : 'Reviewed; allow retry on next sync.';
 
   final resolutionNotes = await showDialog<String>(
     context: context,
-    builder:
-        (dialogContext) => _ResolveSyncRejectionDialog(
-          rejection: rejection,
-          initialNote: initialNote,
-        ),
+    builder: (dialogContext) => _ResolveSyncRejectionDialog(
+      rejection: rejection,
+      initialNote: initialNote,
+    ),
   );
 
   if (!context.mounted) return;
   if (resolutionNotes == null) return;
+  final current = CurrentActorAccess.resolve(
+    ref.read(currentAppUserProvider),
+  ).actor;
+  if (current?.uid != actor.uid || current?.canResolveSyncConflicts != true) {
+    return;
+  }
 
   await _resolveSyncRejection(
     context,
@@ -934,7 +965,13 @@ Future<void> _showResolveSyncRejectionDialog(
   );
 }
 
-Future<void> _recheckSyncRejections(BuildContext context, WidgetRef ref) async {
+Future<void> _recheckSyncRejections(
+  BuildContext context,
+  WidgetRef ref,
+  String originUid,
+) async {
+  final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+  if (!access.isReady || access.actor!.uid != originUid) return;
   final coordinator = ref.read(syncCoordinatorProvider);
   try {
     final outcome = await coordinator.runFullSyncWithResult(
@@ -946,6 +983,10 @@ Future<void> _recheckSyncRejections(BuildContext context, WidgetRef ref) async {
     ref.invalidate(syncPendingCountsProvider);
 
     final (message, color) = switch (outcome) {
+      SyncRequestOutcome.partial => (
+        'Partly synced. Server data was refreshed, but some held changes still need attention. Local evidence was preserved.',
+        BafColors.warning,
+      ),
       SyncRequestOutcome.succeeded => (
         'Held items were rechecked against the server. Accepted or identical records are now synchronized.',
         BafColors.sync,
@@ -1008,6 +1049,10 @@ Color _statusColor(SyncStatus status, SyncRunHealth health) {
   if (health.isRunning || status == SyncStatus.syncing) {
     return BafColors.planned;
   }
+  if (status == SyncStatus.failed) return BafColors.danger;
+  if (status == SyncStatus.partial || health.lastPartiallySucceeded) {
+    return BafColors.warning;
+  }
   if (status == SyncStatus.failed || health.lastSucceeded == false) {
     return BafColors.danger;
   }
@@ -1021,6 +1066,10 @@ String _statusLabel(SyncStatus status, SyncRunHealth health) {
   if (health.isRunning || status == SyncStatus.syncing) {
     return 'Running';
   }
+  if (status == SyncStatus.failed) return 'Failed';
+  if (status == SyncStatus.partial || health.lastPartiallySucceeded) {
+    return 'Partly synced';
+  }
 
   switch (status) {
     case SyncStatus.idle:
@@ -1029,6 +1078,8 @@ String _statusLabel(SyncStatus status, SyncRunHealth health) {
       return 'Running';
     case SyncStatus.success:
       return 'Success';
+    case SyncStatus.partial:
+      return 'Partly synced';
     case SyncStatus.failed:
       return 'Failed';
   }
@@ -1198,11 +1249,9 @@ class _ResolveSyncRejectionDialogState
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          onPressed:
-              canSubmit
-                  ? () =>
-                      Navigator.of(context).pop(_notesController.text.trim())
-                  : null,
+          onPressed: canSubmit
+              ? () => Navigator.of(context).pop(_notesController.text.trim())
+              : null,
           icon: const Icon(Icons.fact_check_rounded),
           label: const Text('Mark resolved'),
         ),
@@ -1319,10 +1368,9 @@ class _SyncRejectionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final suffix =
-        row.isLikelyPermanent
-            ? ' • automatic retry held until resolved'
-            : ' • retryable';
+    final suffix = row.isLikelyPermanent
+        ? ' • automatic retry held until resolved'
+        : ' • retryable';
 
     return Container(
       margin: const EdgeInsets.only(bottom: BafSpacing.xs),

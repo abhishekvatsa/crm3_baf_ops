@@ -13,6 +13,8 @@ import '../../../core/services/sync_coordinator.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
+import '../../../core/widgets/live_dropdown_form_field.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -31,9 +33,13 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/domain/governed_issue_asset_selection.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
+import '../services/abnormality_cause_evidence_reader.dart';
+import 'ra_performed_at_field.dart';
+import 'abnormality_list_filter.dart';
 
 part 'charge_abnormalities_screen.form.dart';
 part 'charge_abnormalities_screen.widgets.dart';
+part 'charge_abnormalities_screen.assessment.dart';
 
 class ChargeAbnormalitiesScreen extends ConsumerStatefulWidget {
   final int sourceChargeNo;
@@ -54,6 +60,17 @@ class ChargeAbnormalitiesScreen extends ConsumerStatefulWidget {
 
 class _ChargeAbnormalitiesScreenState
     extends ConsumerState<ChargeAbnormalitiesScreen> {
+  AbnormalityListFilter _filter = AbnormalityListFilter.open;
+  int _visibleLimit = businessListPageSize;
+
+  @override
+  void didUpdateWidget(covariant ChargeAbnormalitiesScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sourceChargeNo != widget.sourceChargeNo) {
+      _visibleLimit = businessListPageSize;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
@@ -148,66 +165,128 @@ class _ChargeAbnormalitiesScreenState
                   ),
                 ),
               ],
-              data: (records) => [
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(
-                    BafSpacing.lg,
-                    BafSpacing.lg,
-                    BafSpacing.lg,
-                    BafSpacing.sm,
-                  ),
-                  sliver: SliverToBoxAdapter(
-                    child: _HeaderCard(
-                      sourceChargeNo: widget.sourceChargeNo,
-                      subtitle: widget.subtitle,
-                      total: records.length,
-                      raCount: records
-                          .where((record) => record.requiresReannealing)
-                          .length,
-                      completedRaCount: records
-                          .where((record) => record.hasCompletedReannealing)
-                          .length,
-                    ),
-                  ),
-                ),
-                if (records.isEmpty)
-                  const SliverToBoxAdapter(
-                    child: _StateCard(
-                      icon: Icons.fact_check_outlined,
-                      title: 'No abnormalities logged',
-                      message:
-                          'Use “Log Abnormality” to record process, equipment, result-quality or RA observations for this charge.',
-                    ),
-                  )
-                else
+              data: (records) {
+                final filtered = records.where(_filter.includes).toList()
+                  ..sort((left, right) {
+                    final logged = right.loggedAt.compareTo(left.loggedAt);
+                    if (logged != 0) return logged;
+                    final updated = right.updatedAt.compareTo(left.updatedAt);
+                    if (updated != 0) return updated;
+                    return (left.firestoreId ?? '${left.id}').compareTo(
+                      right.firestoreId ?? '${right.id}',
+                    );
+                  });
+                final visible = filtered.take(_visibleLimit).toList();
+                return [
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(
                       BafSpacing.lg,
+                      BafSpacing.lg,
+                      BafSpacing.lg,
                       BafSpacing.sm,
-                      BafSpacing.lg,
-                      BafSpacing.lg,
                     ),
-                    sliver: SliverList.builder(
-                      itemCount: records.length,
-                      itemBuilder: (context, index) {
-                        final record = records[index];
-
-                            return _ChargeAbnormalityCard(
-                              record: record,
-                              onEdit:
-                                  actor.canEditChargeAbnormality
-                                      ? () =>
-                                          _showAbnormalityForm(existing: record)
-                                      : null,
-                              onDelete:
-                                  actor.canSoftDeleteChargeAbnormality
-                                      ? () => _confirmDelete(record)
-                                      : null,
-                            );
-                          },
-                        ),
+                    sliver: SliverToBoxAdapter(
+                      child: _HeaderCard(
+                        sourceChargeNo: widget.sourceChargeNo,
+                        subtitle: widget.subtitle,
+                        total: records.length,
+                        raCount: records
+                            .where((record) => record.requiresReannealing)
+                            .length,
+                        completedRaCount: records
+                            .where((record) => record.hasCompletedReannealing)
+                            .length,
                       ),
-                  ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: BafSpacing.lg,
+                      vertical: BafSpacing.sm,
+                    ),
+                    sliver: SliverToBoxAdapter(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          DropdownButtonFormField<AbnormalityListFilter>(
+                            key: const ValueKey(
+                              'charge-abnormality-status-filter',
+                            ),
+                            initialValue: _filter,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Status',
+                            ),
+                            items: [
+                              for (final filter in AbnormalityListFilter.values)
+                                DropdownMenuItem(
+                                  value: filter,
+                                  child: Text(filter.label),
+                                ),
+                            ],
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _filter = value;
+                                _visibleLimit = businessListPageSize;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: BafSpacing.sm),
+                          const Text(
+                            'Open / RA pending means a pending decision or required RA. Quality adjudication is separate.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (filtered.isEmpty)
+                    const SliverToBoxAdapter(
+                      child: _StateCard(
+                        icon: Icons.fact_check_outlined,
+                        title: 'No abnormalities in this view',
+                        message:
+                            'Choose All to include other RA states, or log a new observation for this charge.',
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(
+                        BafSpacing.lg,
+                        BafSpacing.sm,
+                        BafSpacing.lg,
+                        BafSpacing.lg,
+                      ),
+                      sliver: SliverList.builder(
+                        itemCount: visible.length,
+                        itemBuilder: (context, index) {
+                          final record = visible[index];
+
+                          return _ChargeAbnormalityCard(
+                            key: ValueKey(
+                              'charge-abnormality-${record.firestoreId ?? record.id}',
+                            ),
+                            record: record,
+                            onEdit: actor.canEditChargeAbnormality
+                                ? () => _showAbnormalityForm(existing: record)
+                                : null,
+                            onDelete: actor.canSoftDeleteChargeAbnormality
+                                ? () => _confirmDelete(record)
+                                : null,
+                          );
+                        },
+                      ),
+                    ),
+                  SliverToBoxAdapter(
+                    child: IncrementalListFooter(
+                      visibleCount: visible.length,
+                      totalCount: filtered.length,
+                      onShowMore: () =>
+                          setState(() => _visibleLimit += businessListPageSize),
+                    ),
+                  ),
+                ];
+              },
             ),
           ],
         ),
@@ -220,10 +299,9 @@ class _ChargeAbnormalitiesScreenState
       ref.read(currentAppUserProvider),
     ).actor;
 
-    final allowed =
-        existing == null
-            ? actor?.canLogChargeAbnormality == true
-            : actor?.canEditChargeAbnormality == true;
+    final allowed = existing == null
+        ? actor?.canLogChargeAbnormality == true
+        : actor?.canEditChargeAbnormality == true;
 
     if (actor == null || !allowed) {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
@@ -268,7 +346,7 @@ class _ChargeAbnormalitiesScreenState
         ) !=
         null) {
       return;
-        }
+    }
 
     final draft = await showDialog<_ChargeAbnormalityDraft>(
       context: context,
@@ -295,15 +373,14 @@ class _ChargeAbnormalitiesScreenState
         ) !=
         null) {
       return;
-        }
+    }
 
     try {
       final now = DateTime.now();
 
-      final record =
-          existing == null
-              ? ChargeAbnormality()
-              : copyChargeAbnormality(existing);
+      final record = existing == null
+          ? ChargeAbnormality()
+          : copyChargeAbnormality(existing);
 
       if (existing == null) {
         record
@@ -323,6 +400,7 @@ class _ChargeAbnormalitiesScreenState
         ..category = draft.selectedType.category
         ..severity = draft.severity
         ..affectedAssets = draft.affectedAssets
+        ..assessment = draft.assessment
         ..component = draft.component
         ..observedReason = draft.observedReason
         ..description = draft.description
@@ -385,10 +463,9 @@ class _ChargeAbnormalitiesScreenState
         // only refreshes related local projections and may remain background.
         unawaited(
           syncCoordinator.runFullSync(
-            reason:
-                existing == null
-                    ? 'charge_abnormality_created_refresh'
-                    : 'charge_abnormality_edited_refresh',
+            reason: existing == null
+                ? 'charge_abnormality_created_refresh'
+                : 'charge_abnormality_edited_refresh',
             force: true,
           ),
         );
@@ -410,6 +487,10 @@ class _ChargeAbnormalitiesScreenState
               ),
               SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
                 'Charge abnormality saved on this device; synchronization is queued.',
+                BafColors.warning,
+              ),
+              SyncRequestOutcome.partial => (
+                'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
                 BafColors.warning,
               ),
               SyncRequestOutcome.failed => (
@@ -465,7 +546,7 @@ class _ChargeAbnormalitiesScreenState
         ) !=
         null) {
       return;
-        }
+    }
 
     try {
       if (record.firestoreId == null) {
@@ -581,27 +662,25 @@ List<AbnormalityType> _abnormalityTypesForForm({
     return <AbnormalityType>[match, ...available];
   }
 
-  final historical =
-      AbnormalityType()
-        ..firestoreId = existing.abnormalityTypeId
-        ..code = existing.abnormalityTypeCode
-        ..title = '${existing.abnormalityTypeTitle} (historical)'
-        ..description =
-            'Retained from the original abnormality because its governed type is no longer active.'
-        ..category = existing.category
-        ..severity = existing.severity
-        ..applicableAssetTypes =
-            existing.affectedAssets
-                .map((asset) => asset.assetType)
-                .toSet()
-                .toList()
-        ..suggestsReannealing = existing.requiresReannealing
-        ..isActive = false
-        ..isDeleted = true
-        ..version = 1
-        ..isSynced = true
-        ..createdAt = existing.loggedAt
-        ..updatedAt = existing.updatedAt;
+  final historical = AbnormalityType()
+    ..firestoreId = existing.abnormalityTypeId
+    ..code = existing.abnormalityTypeCode
+    ..title = '${existing.abnormalityTypeTitle} (historical)'
+    ..description =
+        'Retained from the original abnormality because its governed type is no longer active.'
+    ..category = existing.category
+    ..severity = existing.severity
+    ..applicableAssetTypes = existing.affectedAssets
+        .map((asset) => asset.assetType)
+        .toSet()
+        .toList()
+    ..suggestsReannealing = existing.requiresReannealing
+    ..isActive = false
+    ..isDeleted = true
+    ..version = 1
+    ..isSynced = true
+    ..createdAt = existing.loggedAt
+    ..updatedAt = existing.updatedAt;
   return <AbnormalityType>[historical, ...available];
 }
 
@@ -633,13 +712,6 @@ String _registeredAssetLabel(AssetInstanceRecord asset) {
   if (name == number || name.endsWith(' $number')) return name;
   return '$number - $name';
 }
-
-RootReasonCategory _rootReasonForAssetType(AssetType type) => switch (type) {
-  AssetType.base || AssetType.innerCover => RootReasonCategory.baseRelated,
-  AssetType.furnace => RootReasonCategory.furnaceRelated,
-  AssetType.forceCooler => RootReasonCategory.forceCoolerRelated,
-  AssetType.governedCustom => RootReasonCategory.other,
-};
 
 AssetHierarchyReference _copyReferenceWithAssociation(
   AssetHierarchyReference reference,
@@ -709,15 +781,7 @@ String? _componentSummary(
 }
 
 ReannealingStatus _defaultRaStatusForType(AbnormalityType type) {
-  if (type.isRaCoilColourType) {
-    return ReannealingStatus.required;
-  }
-
-  if (type.suggestsReannealing) {
-    return ReannealingStatus.pendingDecision;
-  }
-
-  return ReannealingStatus.notApplicable;
+  return ReannealingStatus.pendingDecision;
 }
 
 String? _emptyToNull(String value) {

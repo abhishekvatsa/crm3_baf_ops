@@ -39,56 +39,63 @@ class DurableSubmissionRepository {
   IsarCollection<DurableSubmissionRecord> get _rows =>
       isar.durableSubmissionRecords;
 
-  Future<DurableSubmission> prepare(DurableSubmissionDraft draft) async {
+  Future<DurableSubmission> prepare(DurableSubmissionDraft draft) =>
+      prepareAtomically(prepareDraft: () async => draft);
+
+  /// Domain row and immutable intent commit together. The callback reads the
+  /// baseline inside this transaction; neither side survives a failed save.
+  Future<DurableSubmission> prepareAtomically({
+    required Future<DurableSubmissionDraft> Function() prepareDraft,
+    Future<void> Function()? persistProjection,
+  }) => isar.writeTxn(() async {
+    final draft = await prepareDraft();
     final immutable = draft.toImmutableMap();
     _validateImmutable(immutable);
     final raw = jsonEncode(immutable);
     final requestKey = _requestKey(draft.protocol, draft.requestId);
-    return isar.writeTxn(() async {
-      final existing = await _rows
-          .where()
-          .submissionIdEqualTo(draft.submissionId)
-          .findFirst();
-      if (existing != null) {
-        final view = _view(existing);
-        if (existing.immutableJson != raw) {
-          _fail(
-            'identity-conflict',
-            'This submission already has different saved evidence. Nothing was replaced.',
-          );
-        }
-        return view;
-      }
-      if (await _rows.where().requestKeyEqualTo(requestKey).findFirst() !=
-          null) {
+    final existing = await _rows
+        .where()
+        .submissionIdEqualTo(draft.submissionId)
+        .findFirst();
+    if (existing != null) {
+      final view = _view(existing);
+      if (existing.immutableJson != raw) {
         _fail(
           'identity-conflict',
-          'This request already belongs to another saved submission.',
+          'This submission already has different saved evidence. Nothing was replaced.',
         );
       }
-      final pending = await _unresolvedForResource(draft.resourceKey);
-      if (pending.isNotEmpty) {
-        _fail(
-          'resource-pending',
-          'An earlier submission for this item still needs confirmation.',
-          submissionId: pending.first.submissionId,
-        );
-      }
-      final at = _time;
-      final row = DurableSubmissionRecord()
-        ..submissionId = draft.submissionId
-        ..requestKey = requestKey
-        ..resourceKey = draft.resourceKey
-        ..actorUid = draft.actorUid
-        ..immutableJson = raw
-        ..immutableSha256 = durableSubmissionSha256(raw)
-        ..createdAt = at
-        ..updatedAt = at;
-      _view(row);
-      await _rows.put(row);
-      return _view(row);
-    });
-  }
+      return view;
+    }
+    if (await _rows.where().requestKeyEqualTo(requestKey).findFirst() != null) {
+      _fail(
+        'identity-conflict',
+        'This request already belongs to another saved submission.',
+      );
+    }
+    final pending = await _unresolvedForResource(draft.resourceKey);
+    if (pending.isNotEmpty) {
+      _fail(
+        'resource-pending',
+        'An earlier submission for this item still needs confirmation.',
+        submissionId: pending.first.submissionId,
+      );
+    }
+    final at = _time;
+    final row = DurableSubmissionRecord()
+      ..submissionId = draft.submissionId
+      ..requestKey = requestKey
+      ..resourceKey = draft.resourceKey
+      ..actorUid = draft.actorUid
+      ..immutableJson = raw
+      ..immutableSha256 = durableSubmissionSha256(raw)
+      ..createdAt = at
+      ..updatedAt = at;
+    _view(row);
+    await persistProjection?.call();
+    await _rows.put(row);
+    return _view(row);
+  });
 
   Future<DurableSubmission?> read(String submissionId) async {
     final row = await _rows

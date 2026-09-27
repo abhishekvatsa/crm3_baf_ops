@@ -322,7 +322,7 @@ void main() {
         _expectCapturedSyncBeforeAwaitInSource(
           source: templatePublisher,
           methodMarker: 'Future<void> _publish',
-          awaitMarker: 'await _ensurePackageSaved(repo, actor);',
+          awaitMarker: 'await _ensurePackageSaved(repo, actor, prepared: package);',
           syncReason: 'template_governance_version_published',
         );
       },

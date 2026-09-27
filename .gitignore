@@ -63,3 +63,9 @@ tmp/
 # by tools/security/codeql/prepare_android.py inside the CodeQL runner, which
 # refuses to replace an existing file. It must never be committed.
 android/app/src/debug/google-services.json
+
+# Local emulator parameter values. Written by tool/dev/emulators.ps1. Never
+# committed: functions/ is an approved artifact source path, so an extra file
+# here makes the current source diverge from the deployed backend and the
+# canonical audit reports functions=pending.
+functions/.env.demo-*

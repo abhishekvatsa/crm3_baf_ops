@@ -16,9 +16,12 @@ const {
 const {
   planQualityMonitoringArchive,
 } = require('../lib/qualityMonitoringRetention');
+const {Timestamp} = require('firebase-admin/firestore');
+const {baseAssociationCase} = require('./qualityTimestampFixtures.cjs');
 
 function clone(value) {
   if (value == null || typeof value !== 'object') return value;
+  if (value instanceof Timestamp) return value;
   if (value instanceof Date) return new Date(value.valueOf());
   if (Array.isArray(value)) return value.map(clone);
   return Object.fromEntries(
@@ -324,6 +327,114 @@ async function invoke(memory, authUid, data) {
 }
 
 describe('quality mutation', () => {
+  test('SI direct completion persists actual date and replay, while legacy completed unknown stays unknown', async () => {
+    const memory = fakeDb(linkedIssueSeed({reannealingStatus: 'required'}));
+    const request = {requestId: IDS.close, operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'issue_ticket-1', expectedVersion: 1, reason: 'RA physically completed; coil review accepted',
+      disposition: 'reannealingCompleted', linkedReannealingChargeNos: [13001],
+      raPerformedAt: '2026-08-14T09:00:00.000Z'};
+    const first = await invoke(memory, 'si-1', request);
+    expect(memory.store.get('charge_abnormalities/issue_quality_ticket-1').assessment.raPerformedAt).toBe(request.raPerformedAt);
+    expect(await invoke(memory, 'si-1', request)).toEqual({...first, idempotentReplay: true});
+    const historical = fakeDb(linkedIssueSeed({reannealingStatus: 'completed', reannealedToChargeNo: 13001}));
+    const {raPerformedAt, ...legacyRequest} = request;
+    await invoke(historical, 'si-1', legacyRequest);
+    expect(historical.store.get('charge_abnormalities/issue_quality_ticket-1').assessment?.raPerformedAt ?? null).toBeNull();
+  });
+
+  test('SI closure cannot silently author a date for an already completed legacy case', async () => {
+    const memory = fakeDb(linkedIssueSeed({reannealingStatus: 'completed', reannealedToChargeNo: 13001}));
+    await expect(invoke(memory, 'si-1', {requestId: IDS.close, operation: 'CLOSE_QUALITY_WARNING',
+      warningId: 'issue_ticket-1', expectedVersion: 1, reason: 'Close reviewed RA case',
+      disposition: 'reannealingCompleted', linkedReannealingChargeNos: [13001],
+      raPerformedAt: '2026-08-14T09:00:00.000Z'})).rejects.toMatchObject({code: 'invalid-argument'});
+    expect(memory.writes).toHaveLength(0);
+  });
+  test.each([undefined, '2026-08-14T09:30:00.000Z'])('RA occurrence uses only supplied physical completion date: %s', async (performedAt) => {
+    const memory = fakeDb(linkedIssueSeed({reannealingStatus: 'required'}));
+    const request = {requestId: IDS.raCompleted, operation: 'RECORD_QUALITY_CASE_RA_COMPLETED',
+      warningId: 'issue_ticket-1', expectedVersion: 1, reason: 'Actual cycle completed and recorded',
+      linkedReannealingChargeNos: [13001], ...(performedAt == null ? {} : {raPerformedAt: performedAt})};
+    const first = await invoke(memory, 'ops-1', request);
+    const saved = memory.store.get('charge_abnormalities/issue_quality_ticket-1');
+    expect(saved.reannealingStatus).toBe('completed');
+    expect(saved.assessment?.raPerformedAt ?? null).toBe(performedAt ?? null);
+    if (performedAt != null) expect(saved.assessment.postRaResult).toBe('notAssessed');
+    const writes = memory.writes.length;
+    expect(await invoke(memory, 'ops-1', request)).toEqual({...first, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+  });
+  test.each(['noneLinked', 'linked'])('persisted Base association native Timestamps remain adjudicable and replayable: %s', async (positionState) => {
+    const fixture = baseAssociationCase();
+    if (positionState === 'linked') Object.assign(
+      fixture.warning.affectedAssets[0].assetHierarchyRef.innerCoverAssociation,
+      {positionState, innerCoverId: 'cover-1', innerCoverSerialNumber: 'IC-1',
+        linkageId: 'link-1', assignmentVersion: 1,
+        linkedAt: Timestamp.fromDate(new Date('2026-09-14T02:00:00.000Z'))},
+    );
+    const memory = fakeDb({
+      ...seed(),
+      [`quality_warnings/${fixture.warningId}`]: fixture.warning,
+      [`charge_abnormalities/${fixture.abnormalityId}`]: fixture.abnormality,
+      [`maintenance_records/${fixture.issueId}`]: fixture.issue,
+    });
+    const beforeAssets = JSON.stringify(fixture.warning.affectedAssets);
+    const data = {
+      requestId: IDS.close,
+      operation: 'CLOSE_QUALITY_WARNING',
+      warningId: fixture.warningId,
+      expectedVersion: 1,
+      reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable',
+      linkedReannealingChargeNos: [],
+    };
+    const call = () => mutateQualityWithDb({
+      db: memory.db,
+      authUid: 'si-1',
+      data,
+      now: () => new Date('2026-09-26T12:00:00.000Z'),
+      timestampFromDate: Timestamp.fromDate,
+    });
+    const result = await call();
+    expect(result).toMatchObject({version: 2, idempotentReplay: false});
+    const closed = memory.store.get(`quality_warnings/${fixture.warningId}`);
+    expect(closed).toMatchObject({
+      status: 'closed', closureDisposition: 'coilFoundAcceptable', closedByUid: 'si-1',
+    });
+    expect(JSON.stringify(closed.affectedAssets)).toBe(beforeAssets);
+    const linked = memory.store.get(`charge_abnormalities/${fixture.abnormalityId}`);
+    expect(linked).toMatchObject({reannealingStatus: 'notRequired', version: 2});
+    expect(linked.affectedAssets).toEqual(fixture.abnormality.affectedAssets);
+    expect(JSON.stringify(linked.affectedAssetHierarchyRefs)).toBe(beforeAssets);
+    const audit = memory.store.get(`audit_logs/server_quality_${IDS.close}`);
+    expect(JSON.parse(audit.beforeJson).affectedAssets).toEqual(JSON.parse(beforeAssets));
+    expect(JSON.parse(audit.afterJson).affectedAssets).toEqual(JSON.parse(beforeAssets));
+    expect(audit).toMatchObject({linkedAbnormalityId: fixture.abnormalityId,
+      linkedAbnormalityBeforeVersion: 1, linkedAbnormalityResultVersion: 2});
+    const count = memory.writes.length;
+    expect(await call()).toEqual({...result, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(count);
+  });
+
+  test.each([
+    ['invalid Date', new Date(Number.NaN)],
+    ['invalid timestamp nanos', {seconds: 1, nanoseconds: 1000000000}],
+    ['invalid date text', 'not-an-instant'],
+    ['event after confirmation', Timestamp.fromDate(new Date('2026-09-15T00:00:00Z'))],
+  ])('persisted association rejects %s without writes', async (_, eventAt) => {
+    const fixture = baseAssociationCase();
+    fixture.warning.affectedAssets[0].assetHierarchyRef.innerCoverAssociation.eventAt = eventAt;
+    const memory = fakeDb({...seed(), [`quality_warnings/${fixture.warningId}`]: fixture.warning});
+    await expect(invoke(memory, 'si-1', {
+      requestId: IDS.close, operation: 'CLOSE_QUALITY_WARNING', warningId: fixture.warningId,
+      expectedVersion: 1, reason: 'Inspection found the affected coil acceptable.',
+      disposition: 'coilFoundAcceptable', linkedReannealingChargeNos: [],
+    })).rejects.toMatchObject({code: 'failed-precondition', details: {
+      reasonCode: 'quality-warning-malformed', field: 'affectedAssets[0].assetHierarchyRef',
+    }});
+    expect(memory.writes).toHaveLength(0);
+  });
+
   test('quality operations map to persisted audit enums', () => {
     expect(qualityAuditActionForOperation(
       'REQUEST_QUALITY_WARNING_CLOSURE',

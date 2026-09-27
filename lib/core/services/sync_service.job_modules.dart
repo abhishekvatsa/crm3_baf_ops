@@ -3,6 +3,7 @@ part of 'sync_service.dart';
 extension _SyncServiceJobModules on SyncService {
   Future<void> _syncJobModules() async {
     final unsynced = await _jobModuleRepo.getUnsyncedModules();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -10,6 +11,7 @@ extension _SyncServiceJobModules on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -18,19 +20,20 @@ extension _SyncServiceJobModules on SyncService {
         entityType: 'job_module',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestoreJobModule.getModulesByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <JobModuleInstance>[];
@@ -38,6 +41,7 @@ extension _SyncServiceJobModules on SyncService {
       final convergedRecords = <JobModuleInstance>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -102,9 +106,11 @@ extension _SyncServiceJobModules on SyncService {
               localSnapshot: record.toAuditMap(),
               remoteSnapshot: remote.toAuditMap(),
             );
+            _checkRunCurrent();
             final result = await _jobModuleRepo.applyTombstoneFromRemote(
               remote,
             );
+            _checkRunCurrent();
             if (result.outcome ==
                 RemoteTombstoneApplyOutcome.localDirtyPreserved) {
               lastFailureCount++;
@@ -117,6 +123,7 @@ extension _SyncServiceJobModules on SyncService {
                   reasonCode: 'remote-tombstone-divergence',
                 ),
               );
+              _checkRunCurrent();
             } else {
               await _resolveRecheckedPermanentRejectionsForRecords(
                 entityType: 'job_module',
@@ -124,6 +131,7 @@ extension _SyncServiceJobModules on SyncService {
                 evidence:
                     'The canonical remote job-module tombstone was adopted locally after preserving divergent evidence.',
               );
+              _checkRunCurrent();
               lastSuccessCount++;
             }
             continue;
@@ -138,6 +146,7 @@ extension _SyncServiceJobModules on SyncService {
             final result = await _jobModuleRepo.applyTombstoneFromRemote(
               remote,
             );
+            _checkRunCurrent();
             if (result.outcome ==
                 RemoteTombstoneApplyOutcome.localDirtyPreserved) {
               lastFailureCount++;
@@ -150,6 +159,7 @@ extension _SyncServiceJobModules on SyncService {
                   reasonCode: 'remote-tombstone-local-dirty-preserved',
                 ),
               );
+              _checkRunCurrent();
             } else {
               await _resolveRecheckedPermanentRejectionsForRecords(
                 entityType: 'job_module',
@@ -157,12 +167,15 @@ extension _SyncServiceJobModules on SyncService {
                 evidence:
                     'The canonical remote job-module tombstone was adopted locally.',
               );
+              _checkRunCurrent();
               lastSuccessCount++;
               debugPrint(
                 '📥 Applied remote tombstone for job module ${record.id}',
               );
             }
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for job module ${record.id}: $e',
@@ -179,6 +192,7 @@ extension _SyncServiceJobModules on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local job module ${record.id} and did not overwrite newer remote data',
@@ -188,6 +202,7 @@ extension _SyncServiceJobModules on SyncService {
 
         if (remote != null) {
           final replayed = await _tryPushDecomposedJobModule(record, remote);
+          _checkRunCurrent();
           if (replayed) {
             lastSuccessCount++;
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -215,33 +230,38 @@ extension _SyncServiceJobModules on SyncService {
           await _retry(
             () async {
               await _firestoreJobModule.batchUpsertModules(recordsToPush);
+              _checkRunCurrent();
             },
-            shouldRetry:
-                (error) =>
-                    error is! RuntimeJobModulePopulationException ||
-                    error.shouldRetryImmediately,
+            shouldRetry: (error) =>
+                error is! RuntimeJobModulePopulationException ||
+                error.shouldRetryImmediately,
           );
+          _checkRunCurrent();
 
           lastSuccessCount += recordsToPush.length;
           snapshotsToMark.addAll(_syncPushSnapshots(recordsToPush));
           convergedRecords.addAll(recordsToPush);
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           debugPrint(
             '❌ Job module batch sync failed; splitting batch for diagnostics: $e',
           );
           debugPrintStack(stackTrace: stackTrace);
 
           for (final record in recordsToPush) {
+            _checkRunCurrent();
             try {
               await _retry(
                 () async {
                   await _firestoreJobModule.batchUpsertModules([record]);
+                  _checkRunCurrent();
                 },
-                shouldRetry:
-                    (error) =>
-                        error is! RuntimeJobModulePopulationException ||
-                        error.shouldRetryImmediately,
+                shouldRetry: (error) =>
+                    error is! RuntimeJobModulePopulationException ||
+                    error.shouldRetryImmediately,
               );
+              _checkRunCurrent();
 
               lastSuccessCount++;
               snapshotsToMark.add(_syncPushSnapshot(record));
@@ -252,10 +272,11 @@ extension _SyncServiceJobModules on SyncService {
                 '(${_shortText(record.moduleTitle)})',
               );
             } catch (singleError, singleStackTrace) {
-              final remote =
-                  record.firestoreId == null
-                      ? null
-                      : remoteMap[record.firestoreId];
+              rethrowIfSyncRunMustAbort(singleError);
+              _checkRunCurrent();
+              final remote = record.firestoreId == null
+                  ? null
+                  : remoteMap[record.firestoreId];
 
               if (_shouldRebaseRejectedTerminalJobModule(record, remote)) {
                 await _recordPushConflict(
@@ -264,6 +285,7 @@ extension _SyncServiceJobModules on SyncService {
                   localSnapshot: record.toMap(),
                   remoteSnapshot: remote!.toMap(),
                 );
+                _checkRunCurrent();
 
                 final rebased = await _jobModuleRepo
                     .applyModuleServerReadbackIfUnchanged(
@@ -274,6 +296,7 @@ extension _SyncServiceJobModules on SyncService {
                           'Rules rejected a dirty terminal-state module push. '
                           'The local snapshot was preserved in audit before rebasing.',
                     );
+                _checkRunCurrent();
                 if (!rebased) {
                   lastFailureCount++;
                   _recordPushFailureDetail(
@@ -292,6 +315,7 @@ extension _SyncServiceJobModules on SyncService {
                   evidence:
                       'The canonical terminal job-module state was read and force-rebased locally after preserving conflict evidence.',
                 );
+                _checkRunCurrent();
 
                 lastSuccessCount++;
                 debugPrint(
@@ -307,6 +331,7 @@ extension _SyncServiceJobModules on SyncService {
                   record: record,
                   error: singleError,
                 );
+                _checkRunCurrent();
               } else {
                 _recordPushFailureDetail(
                   entityType: 'job_module',
@@ -328,12 +353,14 @@ extension _SyncServiceJobModules on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _jobModuleRepo.markModulesSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'job_module',
           records: convergedRecords,
           evidence:
               'The governed job-module replay, remote write, or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
@@ -374,7 +401,9 @@ extension _SyncServiceJobModules on SyncService {
     String currentUid;
     try {
       currentUid = FirebaseAuth.instance.currentUser?.uid ?? 'null';
-    } catch (_) {
+    } catch (syncError) {
+      rethrowIfSyncRunMustAbort(syncError);
+      _checkRunCurrent();
       currentUid = 'firebase-auth-unavailable';
     }
     final localActionRead = local.actionsReadResult;
@@ -383,88 +412,120 @@ extension _SyncServiceJobModules on SyncService {
     final remoteResponseRead = remote?.responsesReadResult;
     final localFieldRead = local.fieldDefinitionsReadResult;
     final remoteFieldRead = remote?.fieldDefinitionsReadResult;
-    final buffer =
-        StringBuffer()
-          ..writeln('  currentAuthUid: $currentUid')
-          ..writeln('  firestoreId: ${local.firestoreId ?? 'null'}')
-          ..writeln('  localId: ${local.id}')
-          ..writeln('  title: ${_shortText(local.moduleTitle, max: 120)}')
-          ..writeln(
-            '  local status/discipline/version/isSynced/isDeleted: '
-            '${local.status.name}/${local.discipline.name}/${local.version}/'
-            '${local.isSynced}/${local.isDeleted}',
-          )
-          ..writeln(
-            '  remote status/discipline/version/isDeleted: '
-            '${remote?.status.name ?? 'missing'}/'
-            '${remote?.discipline.name ?? 'missing'}/'
-            '${remote?.version.toString() ?? 'missing'}/'
-            '${remote?.isDeleted.toString() ?? 'missing'}',
-          )
-          ..writeln(
-            '  local createdBy/updatedBy/submittedBy/acceptedBy/reopenedBy/notApplicableBy/deletedBy: '
-            '${_uid(local.createdByUid)}/${_uid(local.updatedByUid)}/'
-            '${_uid(local.submittedByUid)}/${_uid(local.acceptedByUid)}/'
-            '${_uid(local.reopenedByUid)}/${_uid(local.notApplicableByUid)}/'
-            '${_uid(local.deletedByUid)}',
-          )
-          ..writeln(
-            '  remote createdBy/updatedBy/submittedBy/acceptedBy/reopenedBy/notApplicableBy/deletedBy: '
-            '${_uid(remote?.createdByUid)}/${_uid(remote?.updatedByUid)}/'
-            '${_uid(remote?.submittedByUid)}/${_uid(remote?.acceptedByUid)}/'
-            '${_uid(remote?.reopenedByUid)}/${_uid(remote?.notApplicableByUid)}/'
-            '${_uid(remote?.deletedByUid)}',
-          )
-          ..writeln(
-            '  local assetType/assetNumber: '
-            '${local.assetType.name}/${local.assetNumber}',
-          )
-          ..writeln(
-            '  remote assetType/assetNumber: '
-            '${remote?.assetType.name ?? 'missing'}/'
-            '${remote?.assetNumber.toString() ?? 'missing'}',
-          )
-          ..writeln(
-            '  local createdAt/updatedAt: '
-            '${_date(local.createdAt)}/${_date(local.updatedAt)}',
-          )
-          ..writeln(
-            '  remote createdAt/updatedAt: '
-            '${_date(remote?.createdAt)}/${_date(remote?.updatedAt)}',
-          )
-          ..writeln(
-            '  local field/response/action counts: '
-            '${localFieldRead.isValid ? localFieldRead.entries.length : 'invalid'}/'
-            '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
-            '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
-          )
-          ..writeln(
-            '  remote field/response/action counts: '
-            '${remoteFieldRead == null
-                ? 'missing'
-                : remoteFieldRead.isValid
-                ? remoteFieldRead.entries.length
-                : 'invalid'}/'
-            '${remoteResponseRead == null
-                ? 'missing'
-                : remoteResponseRead.isValid
-                ? remoteResponseRead.entries.length
-                : 'invalid'}/'
-            '${remoteActionRead == null
-                ? 'missing'
-                : remoteActionRead.isValid
-                ? remoteActionRead.entries.length
-                : 'invalid'}',
-          )
-          ..writeln(
-            '  payload comparison: ${_jobModulePayloadDiff(local, remote)}',
-          )
-          ..writeln(
-            '  pinned-field comparison: ${_jobModulePinnedFieldDiff(local, remote)}',
-          )
-          ..writeln(
-            '  lifecycle-field comparison: ${_jobModuleLifecycleDiff(local, remote)}',
-          );
+    final timestampInstantDifferences = <String>[];
+    final timestampEncodingDifferences = <String>[];
+    if (remote != null) {
+      // Compare the decoded models' outgoing ISO text as well as their instants.
+      // Equal instants can still differ on the wire after an Isar round trip.
+      final immutableTimestamps = <String, (DateTime?, DateTime?)>{
+        'createdAt': (local.createdAt, remote.createdAt),
+        'addedAt': (local.addedAt, remote.addedAt),
+      };
+      for (final entry in immutableTimestamps.entries) {
+        _checkRunCurrent();
+        final (localTime, remoteTime) = entry.value;
+        if (!_sameInstant(localTime, remoteTime)) {
+          timestampInstantDifferences.add(entry.key);
+        } else if (_date(localTime) != _date(remoteTime)) {
+          timestampEncodingDifferences.add(entry.key);
+        }
+      }
+    }
+    final buffer = StringBuffer()
+      ..writeln('  currentAuthUid: $currentUid')
+      ..writeln('  firestoreId: ${local.firestoreId ?? 'null'}')
+      ..writeln('  localId: ${local.id}')
+      ..writeln('  title: ${_shortText(local.moduleTitle, max: 120)}')
+      ..writeln(
+        '  local status/discipline/version/isSynced/isDeleted: '
+        '${local.status.name}/${local.discipline.name}/${local.version}/'
+        '${local.isSynced}/${local.isDeleted}',
+      )
+      ..writeln(
+        '  remote status/discipline/version/isDeleted: '
+        '${remote?.status.name ?? 'missing'}/'
+        '${remote?.discipline.name ?? 'missing'}/'
+        '${remote?.version.toString() ?? 'missing'}/'
+        '${remote?.isDeleted.toString() ?? 'missing'}',
+      )
+      ..writeln(
+        '  local createdBy/updatedBy/submittedBy/acceptedBy/reopenedBy/notApplicableBy/deletedBy: '
+        '${_uid(local.createdByUid)}/${_uid(local.updatedByUid)}/'
+        '${_uid(local.submittedByUid)}/${_uid(local.acceptedByUid)}/'
+        '${_uid(local.reopenedByUid)}/${_uid(local.notApplicableByUid)}/'
+        '${_uid(local.deletedByUid)}',
+      )
+      ..writeln(
+        '  remote createdBy/updatedBy/submittedBy/acceptedBy/reopenedBy/notApplicableBy/deletedBy: '
+        '${_uid(remote?.createdByUid)}/${_uid(remote?.updatedByUid)}/'
+        '${_uid(remote?.submittedByUid)}/${_uid(remote?.acceptedByUid)}/'
+        '${_uid(remote?.reopenedByUid)}/${_uid(remote?.notApplicableByUid)}/'
+        '${_uid(remote?.deletedByUid)}',
+      )
+      ..writeln(
+        '  local assetType/assetNumber: '
+        '${local.assetType.name}/${local.assetNumber}',
+      )
+      ..writeln(
+        '  remote assetType/assetNumber: '
+        '${remote?.assetType.name ?? 'missing'}/'
+        '${remote?.assetNumber.toString() ?? 'missing'}',
+      )
+      ..writeln(
+        '  local createdAt/updatedAt: '
+        '${_date(local.createdAt)}/${_date(local.updatedAt)}',
+      )
+      ..writeln(
+        '  remote createdAt/updatedAt: '
+        '${_date(remote?.createdAt)}/${_date(remote?.updatedAt)}',
+      )
+      ..writeln(
+        '  local field/response/action counts: '
+        '${localFieldRead.isValid ? localFieldRead.entries.length : 'invalid'}/'
+        '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
+        '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
+      )
+      ..writeln(
+        '  remote field/response/action counts: '
+        '${remoteFieldRead == null
+            ? 'missing'
+            : remoteFieldRead.isValid
+            ? remoteFieldRead.entries.length
+            : 'invalid'}/'
+        '${remoteResponseRead == null
+            ? 'missing'
+            : remoteResponseRead.isValid
+            ? remoteResponseRead.entries.length
+            : 'invalid'}/'
+        '${remoteActionRead == null
+            ? 'missing'
+            : remoteActionRead.isValid
+            ? remoteActionRead.entries.length
+            : 'invalid'}',
+      )
+      ..writeln('  payload comparison: ${_jobModulePayloadDiff(local, remote)}')
+      ..writeln(
+        '  pinned-field comparison: ${_jobModulePinnedFieldDiff(local, remote)}',
+      )
+      ..writeln(
+        '  immutable timestamp instant differences: '
+        '${remote == null
+            ? 'remote missing'
+            : timestampInstantDifferences.isEmpty
+            ? 'none'
+            : timestampInstantDifferences.join(', ')}',
+      )
+      ..writeln(
+        '  immutable timestamp same-instant ISO encoding differences: '
+        '${remote == null
+            ? 'remote missing'
+            : timestampEncodingDifferences.isEmpty
+            ? 'none'
+            : timestampEncodingDifferences.join(', ')}',
+      )
+      ..writeln(
+        '  lifecycle-field comparison: ${_jobModuleLifecycleDiff(local, remote)}',
+      );
 
     return buffer.toString().trimRight();
   }
@@ -623,6 +684,7 @@ extension _SyncServiceJobModules on SyncService {
     var stepVersion = remote.version;
     try {
       for (final step in plan) {
+        _checkRunCurrent();
         final Map<String, dynamic> stepData;
         if (step == _JobModuleReplayStep.submit) {
           stepVersion += 1;
@@ -637,10 +699,14 @@ extension _SyncServiceJobModules on SyncService {
             firestoreId,
             stepData,
           );
+          _checkRunCurrent();
         });
+        _checkRunCurrent();
       }
       return true;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Decomposed job-module lifecycle replay did not fully complete for '
         '$firestoreId (${_shortText(local.moduleTitle)}): $error',

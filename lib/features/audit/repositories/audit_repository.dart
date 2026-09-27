@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isar_community/isar.dart';
 
 import '../../../core/services/app_logger.dart';
+import '../../../core/services/sync_run_guard.dart';
 import '../../../core/persistence/app_database.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../models/audit_event_model.dart';
@@ -108,11 +109,27 @@ class AuditSyncResult {
   bool get hasFailures => failed > 0 || batchFailureCount > 0;
 }
 
+/// Local rows remain available, but do not establish complete server history.
+class AuditHistoryUnavailable implements Exception {
+  final List<AuditEvent> localEvents;
+  final Object cause;
+
+  AuditHistoryUnavailable(Iterable<AuditEvent> localEvents, this.cause)
+    : localEvents = List.unmodifiable(localEvents);
+
+  @override
+  String toString() =>
+      'Server history could not be verified. Retry when online.';
+}
+
 class AuditRepository {
   static const int _remoteEntityPageSize = 100;
 
+  AuditRepository({FirebaseFirestore? firestore}) : _firestore = firestore;
+  final FirebaseFirestore? _firestore;
+
   CollectionReference<Map<String, dynamic>> get _collection =>
-      FirebaseFirestore.instance.collection('audit_logs');
+      (_firestore ?? FirebaseFirestore.instance).collection('audit_logs');
 
   // ─────────────────────────────────────────────
   // LOCAL (SOURCE OF TRUTH)
@@ -157,10 +174,7 @@ class AuditRepository {
     } on PersistedDataFormatException {
       rethrow;
     } catch (e) {
-      debugPrint(
-        '⚠️ Remote audit timeline unavailable for $entityType/$entityId; using local history only: $e',
-      );
-      return local;
+      throw AuditHistoryUnavailable(local, e);
     }
   }
 
@@ -208,10 +222,7 @@ class AuditRepository {
     } on PersistedDataFormatException {
       rethrow;
     } catch (e) {
-      debugPrint(
-        '⚠️ Remote recent audit events unavailable; using local only: $e',
-      );
-      return local;
+      throw AuditHistoryUnavailable(local, e);
     }
   }
 
@@ -241,8 +252,10 @@ class AuditRepository {
     } on PersistedDataFormatException {
       rethrow;
     } catch (e) {
-      debugPrint('⚠️ Remote sync-conflict audit scan unavailable: $e');
-      return localCandidates.where(_isSyncConflictEvent).take(limit).toList();
+      throw AuditHistoryUnavailable(
+        localCandidates.where(_isSyncConflictEvent).take(limit),
+        e,
+      );
     }
   }
 
@@ -281,7 +294,7 @@ class AuditRepository {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snap = await query.get();
+    final snap = await query.get(const GetOptions(source: Source.server));
     return snap.docs.map(_mapEvent).toList();
   }
 
@@ -310,7 +323,7 @@ class AuditRepository {
         query = query.startAfterDocument(startAfter);
       }
 
-      final snapshot = await query.get();
+      final snapshot = await query.get(const GetOptions(source: Source.server));
       events.addAll(snapshot.docs.map(_mapEvent));
       if (snapshot.docs.length < _remoteEntityPageSize) break;
       startAfter = snapshot.docs.last;
@@ -322,7 +335,7 @@ class AuditRepository {
     final snap = await _collection
         .orderBy('timestamp', descending: true)
         .limit(limit)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     return snap.docs.map(_mapEvent).toList();
   }
@@ -331,7 +344,12 @@ class AuditRepository {
   // UNIFIED LOG (LOCAL + BEST-EFFORT REMOTE)
   // ─────────────────────────────────────────────
 
-  Future<void> log(AuditEvent event, {bool syncToRemote = true}) async {
+  Future<void> log(
+    AuditEvent event, {
+    bool syncToRemote = true,
+    SyncRunGuard? runGuard,
+  }) async {
+    runGuard?.checkCurrent();
     if (kIsWeb) {
       if (!syncToRemote) {
         debugPrint(
@@ -341,20 +359,28 @@ class AuditRepository {
       }
 
       await logRemote(event);
+      runGuard?.checkCurrent();
       return;
     }
 
     await logLocal(event);
+    runGuard?.checkCurrent();
 
     if (syncToRemote) {
       try {
         await logRemote(event);
+        runGuard?.checkCurrent();
 
         await isar.writeTxn(() async {
+          runGuard?.checkCurrent();
           event.isSynced = true;
           await isar.auditEvents.put(event);
         });
       } catch (e) {
+        if (runGuard != null) {
+          rethrowIfSyncRunMustAbort(e);
+          runGuard.checkCurrent();
+        }
         debugPrint('⚠️ Audit remote log failed (will retry): $e');
       }
     }
@@ -364,7 +390,11 @@ class AuditRepository {
   // SYNC RETRY (CRITICAL)
   // ─────────────────────────────────────────────
 
-  Future<AuditSyncResult> syncPendingAuditEvents({int batchSize = 450}) async {
+  Future<AuditSyncResult> syncPendingAuditEvents({
+    int batchSize = 450,
+    SyncRunGuard? runGuard,
+  }) async {
+    runGuard?.checkCurrent();
     if (kIsWeb) return AuditSyncResult.empty;
 
     final effectiveBatchSize = batchSize.clamp(1, 450).toInt();
@@ -372,6 +402,7 @@ class AuditRepository {
         .filter()
         .isSyncedEqualTo(false)
         .findAll();
+    runGuard?.checkCurrent();
 
     if (unsynced.isEmpty) return AuditSyncResult.empty;
 
@@ -382,6 +413,7 @@ class AuditRepository {
     var batchFailures = 0;
 
     for (var i = 0; i < unsynced.length; i += effectiveBatchSize) {
+      runGuard?.checkCurrent();
       final chunk = unsynced.sublist(
         i,
         i + effectiveBatchSize > unsynced.length
@@ -391,9 +423,15 @@ class AuditRepository {
 
       try {
         await logBatchRemote(chunk);
-        await _markLocalAuditEventsSynced(chunk);
+        runGuard?.checkCurrent();
+        await _markLocalAuditEventsSynced(chunk, runGuard: runGuard);
+        runGuard?.checkCurrent();
         synced += chunk.length;
       } catch (error, stackTrace) {
+        if (runGuard != null) {
+          rethrowIfSyncRunMustAbort(error);
+          runGuard.checkCurrent();
+        }
         batchFailures++;
         debugPrint(
           '⚠️ Pending audit batch sync failed for ${chunk.length} event(s): $error',
@@ -408,7 +446,11 @@ class AuditRepository {
           },
         );
 
-        final fallback = await _syncPendingAuditEventsIndividually(chunk);
+        final fallback = await _syncPendingAuditEventsIndividually(
+          chunk,
+          runGuard: runGuard,
+        );
+        runGuard?.checkCurrent();
         synced += fallback.synced;
         failed += fallback.failed;
       }
@@ -438,17 +480,25 @@ class AuditRepository {
   }
 
   Future<AuditSyncResult> _syncPendingAuditEventsIndividually(
-    List<AuditEvent> events,
-  ) async {
+    List<AuditEvent> events, {
+    SyncRunGuard? runGuard,
+  }) async {
     var synced = 0;
     var failed = 0;
 
     for (final event in events) {
+      runGuard?.checkCurrent();
       try {
         await logRemote(event);
-        await _markLocalAuditEventsSynced([event]);
+        runGuard?.checkCurrent();
+        await _markLocalAuditEventsSynced([event], runGuard: runGuard);
+        runGuard?.checkCurrent();
         synced++;
       } catch (error, stackTrace) {
+        if (runGuard != null) {
+          rethrowIfSyncRunMustAbort(error);
+          runGuard.checkCurrent();
+        }
         failed++;
         debugPrint(
           '⚠️ Pending audit event sync failed for '
@@ -475,10 +525,15 @@ class AuditRepository {
     );
   }
 
-  Future<void> _markLocalAuditEventsSynced(List<AuditEvent> events) async {
+  Future<void> _markLocalAuditEventsSynced(
+    List<AuditEvent> events, {
+    SyncRunGuard? runGuard,
+  }) async {
+    runGuard?.checkCurrent();
     if (events.isEmpty || kIsWeb) return;
 
     await isar.writeTxn(() async {
+      runGuard?.checkCurrent();
       for (final event in events) {
         event.isSynced = true;
       }
@@ -529,7 +584,7 @@ class AuditRepository {
         query = query.startAfterDocument(startAfter);
       }
 
-      final snap = await query.get();
+      final snap = await query.get(const GetOptions(source: Source.server));
 
       if (snap.docs.isEmpty) {
         break;
@@ -563,7 +618,7 @@ class AuditRepository {
         query = query.startAfterDocument(startAfter);
       }
 
-      final snap = await query.get();
+      final snap = await query.get(const GetOptions(source: Source.server));
       if (snap.docs.isEmpty) break;
 
       events.addAll(snap.docs.map(_mapEvent));

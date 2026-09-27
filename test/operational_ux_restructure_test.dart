@@ -290,17 +290,17 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('issues-raise-issue'))).dy,
       ),
     );
-    final actionRowY = tester
-        .getCenter(find.byKey(const ValueKey('issues-raise-issue')))
-        .dy;
-    expect(
-      tester.getCenter(find.byKey(const ValueKey('issues-sync-now'))).dy,
-      actionRowY,
-    );
-    expect(
-      tester.getCenter(find.byKey(const ValueKey('issues-view-resolved'))).dy,
-      actionRowY,
-    );
+    // Controls use their readable intrinsic widths and wrap on a small phone.
+    for (final key in [
+      'issues-raise-issue',
+      'issues-view-resolved',
+      'issues-sync-now',
+    ]) {
+      final rect = tester.getRect(find.byKey(ValueKey(key)));
+      expect(rect.left, greaterThanOrEqualTo(0));
+      expect(rect.right, lessThanOrEqualTo(320));
+      expect(rect.height, greaterThanOrEqualTo(48));
+    }
     expect(find.text('All clear'), findsOneWidget);
     expect(find.text('Manual sync now'), findsNothing);
     expect(find.byTooltip('Refresh issues'), findsOneWidget);

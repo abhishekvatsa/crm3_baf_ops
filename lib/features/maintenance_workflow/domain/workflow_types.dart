@@ -55,6 +55,9 @@ enum EquipmentWorkflowState {
 }
 
 enum WorkflowCommandType {
+  upsertAbnormalityType,
+  upsertLegacyJobTemplate,
+  updateJobExecutionWork,
   createLegacyWorkflowJob,
   createMaintenanceTicket,
   startIssueCoordination,
@@ -107,6 +110,7 @@ enum WorkflowCommandType {
   closeMaintenanceTicketWithoutResolution,
   reopenMaintenanceTicket,
   correctMaintenanceTicket,
+  identifyMaintenanceTicketComponent,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
   correctBurnerBlockInstallation,

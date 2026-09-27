@@ -11,6 +11,10 @@ import '../../assets/data/burner_condition_round.dart';
 import '../../assets/providers/burner_condition_round_provider.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/operations_report_provider.dart';
+import '../providers/base_inner_cover_register_provider.dart';
+import '../providers/planned_register_details_provider.dart';
+import '../domain/structured_report_document.dart';
+import '../domain/base_inner_cover_register.dart';
 import '../domain/operations_report_asset_inventory.dart';
 import '../domain/operations_report_document.dart';
 import '../domain/report_provenance.dart';
@@ -74,6 +78,7 @@ class _OperationsReportPreparationState
   OperationsReportPdfPreviewScreen? _prepared;
   Future<Uint8List>? _preparedBytes;
   bool _accessLost = false;
+  OperationsReport? _detailSnapshot;
 
   @override
   Widget build(BuildContext context) {
@@ -113,7 +118,9 @@ class _OperationsReportPreparationState
         filter: widget.filter,
       )),
     );
-    final sourceReport = source.asData?.value;
+    final sourceReport = widget.filter.includeMaintenanceDetails
+        ? (_detailSnapshot ??= source.asData?.value)
+        : source.asData?.value;
     final furnaceAssets = sourceReport == null
         ? <AssetInstanceRecord>[]
         : furnaceAssetsForOperationsReport(
@@ -138,17 +145,49 @@ class _OperationsReportPreparationState
             ),
           )
         : const AsyncData<Map<String, BurnerConditionRound>>({});
-    if (source.hasError || rounds.hasError) {
+    final AsyncValue<BaseInnerCoverRegister?> linkage =
+        widget.request.sections.contains(
+          OperationsReportSection.baseInnerCoverRegister,
+        )
+        ? ref.watch(
+            baseInnerCoverRegisterProvider((
+              actorUid: widget.actorUid,
+              classId: widget.filter.assetClassId,
+              assetId: widget.filter.assetInstanceId,
+            )),
+          )
+        : const AsyncData<BaseInnerCoverRegister?>(null);
+    final details =
+        widget.filter.includeMaintenanceDetails &&
+            sourceReport != null &&
+            widget.request.sections.contains(
+              OperationsReportSection.plannedMaintenance,
+            )
+        ? ref.watch(
+            plannedRegisterDetailsProvider((
+              actorUid: widget.actorUid,
+              report: sourceReport,
+            )),
+          )
+        : const AsyncData<List<StructuredReportDocument>>([]);
+    if (source.hasError ||
+        rounds.hasError ||
+        linkage.hasError ||
+        details.hasError) {
       return BafScreenStateScaffold.error(
         appBarTitle: 'Prepare report',
         appBarSubtitle: 'The selected information needs attention',
         appBarIcon: Icons.picture_as_pdf_outlined,
         accent: BafColors.maintenance,
         title: 'Report could not be prepared',
-        message: '${source.error ?? rounds.error}',
+        message:
+            '${source.error ?? rounds.error ?? linkage.error ?? details.error}',
       );
     }
-    if (source.isLoading || rounds.isLoading) {
+    if (source.isLoading ||
+        rounds.isLoading ||
+        linkage.isLoading ||
+        details.isLoading) {
       return BafScreenStateScaffold.loading(
         appBarTitle: 'Prepare report',
         appBarSubtitle: 'Verifying the selected information',
@@ -157,7 +196,7 @@ class _OperationsReportPreparationState
         label: 'Preparing selected report sections',
       );
     }
-    final report = source.requireValue;
+    final report = sourceReport ?? source.requireValue;
     final assetClassLabel = _preparedClassLabel(report);
     final assetLabel = _preparedAssetLabel(report);
     // Authority placeholders dispose the preview subtree. Keep its single PDF
@@ -169,6 +208,8 @@ class _OperationsReportPreparationState
       assetClassLabel: assetClassLabel,
       assetLabel: assetLabel,
       furnaceAssets: List.unmodifiable(furnaceAssets),
+      baseInnerCoverRegister: linkage.value,
+      plannedJobDetails: details.requireValue,
       currentBurnerRounds: Map.fromEntries(
         rounds.requireValue.entries.where(
           (entry) => !entry.value.observedAt.isAfter(report.asOf),
@@ -274,6 +315,14 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
   late OperationsReportDocumentPreset _preset;
   late Set<OperationsReportSection> _sections;
   late final TextEditingController _titleController;
+  MaintenanceReportPeriodBasis _maintenanceBasis =
+      MaintenanceReportPeriodBasis.activeDuring;
+  bool _maintenanceDetails = false;
+  QualityReportPeriodBasis _qualityBasis =
+      QualityReportPeriodBasis.firstReported;
+  QualityReportSource _qualitySource = QualityReportSource.all;
+  QualityReportKind _qualityKind = QualityReportKind.all;
+  bool _raOnly = false;
 
   @override
   void initState() {
@@ -386,6 +435,107 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                if (_sections.contains(
+                      OperationsReportSection.maintenanceIssues,
+                    ) ||
+                    _sections.contains(
+                      OperationsReportSection.plannedMaintenance,
+                    )) ...[
+                  DropdownButtonFormField<MaintenanceReportPeriodBasis>(
+                    key: const ValueKey("report-maintenance-period-basis"),
+                    initialValue: _maintenanceBasis,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Maintenance date basis',
+                    ),
+                    items: MaintenanceReportPeriodBasis.values
+                        .map(
+                          (v) =>
+                              DropdownMenuItem(value: v, child: Text(v.label)),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _maintenanceBasis = v!),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(_maintenanceBasis.explanation),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    key: const ValueKey("report-maintenance-details"),
+                    value: _maintenanceDetails,
+                    title: const Text('Include detailed maintenance records'),
+                    subtitle: const Text(
+                      'Adds issue work, closure and reopen evidence plus planned-job modules, diary, component actions and workflow evidence. Removed child records are retained; separately stored issue correction audit events are not fetched.',
+                    ),
+                    onChanged: (v) =>
+                        setState(() => _maintenanceDetails = v == true),
+                  ),
+                ],
+                if (_sections.contains(
+                  OperationsReportSection.qualityAndAssurance,
+                )) ...[
+                  DropdownButtonFormField<QualityReportPeriodBasis>(
+                    key: const ValueKey("report-quality-period-basis"),
+                    initialValue: _qualityBasis,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Quality date basis',
+                    ),
+                    items: QualityReportPeriodBasis.values
+                        .map(
+                          (v) =>
+                              DropdownMenuItem(value: v, child: Text(v.label)),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _qualityBasis = v!),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(_qualityBasis.explanation),
+                  ),
+                  DropdownButtonFormField<QualityReportSource>(
+                    key: const ValueKey("report-quality-source"),
+                    initialValue: _qualitySource,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Reporting route',
+                    ),
+                    items: QualityReportSource.values
+                        .map(
+                          (v) =>
+                              DropdownMenuItem(value: v, child: Text(v.label)),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _qualitySource = v!),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<QualityReportKind>(
+                    key: const ValueKey("report-quality-kind"),
+                    initialValue: _qualityKind,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Observation kind',
+                    ),
+                    items: QualityReportKind.values
+                        .map(
+                          (v) =>
+                              DropdownMenuItem(value: v, child: Text(v.label)),
+                        )
+                        .toList(),
+                    onChanged: (v) => setState(() => _qualityKind = v!),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    key: const ValueKey("report-ra-only"),
+                    value: _raOnly,
+                    title: const Text('Only RA cases'),
+                    subtitle: const Text(
+                      'RA required or completed; pending decisions are not counted as confirmed RA.',
+                    ),
+                    onChanged: (v) => setState(() => _raOnly = v == true),
+                  ),
+                ],
                 Text('Included sections', style: theme.textTheme.titleMedium),
                 const SizedBox(height: 6),
                 ...operationsReportSectionOrder.map((section) {
@@ -456,6 +606,7 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
                   child: const Text('Cancel'),
                 );
                 final previewButton = FilledButton.icon(
+                  key: const ValueKey("report-build-preview"),
                   onPressed: _sections.isEmpty ? null : _submit,
                   icon: const Icon(Icons.preview_outlined),
                   label: const Text('Build preview'),
@@ -528,6 +679,12 @@ class _OperationsReportComposerState extends State<_OperationsReportComposer> {
         ).copyWith(
           title: title.isEmpty ? _preset.label : title,
           sections: _sections,
+          maintenancePeriodBasis: _maintenanceBasis,
+          includeMaintenanceDetails: _maintenanceDetails,
+          qualityPeriodBasis: _qualityBasis,
+          qualitySource: _qualitySource,
+          qualityKind: _qualityKind,
+          raOnly: _raOnly,
         );
     Navigator.of(context).pop(request);
   }
@@ -619,6 +776,7 @@ class _ReportPurposeTile extends StatelessWidget {
 
 IconData _presetIcon(OperationsReportDocumentPreset preset) => switch (preset) {
   OperationsReportDocumentPreset.executive => Icons.space_dashboard_outlined,
+  OperationsReportDocumentPreset.baseInnerCoverRegister => Icons.link,
   OperationsReportDocumentPreset.assetCondition =>
     Icons.precision_manufacturing_outlined,
   OperationsReportDocumentPreset.maintenance => Icons.build_circle_outlined,

@@ -548,6 +548,22 @@ if ((Get-ZipEntrySha256 `
     ([string]$manifest.backend.authorityFileSha256).ToUpperInvariant()) {
   throw 'Backend authority source-entry hash mismatch.'
 }
+if ($policy.release.buildNumber -ge 30) {
+  $appCheckHelper = Join-Path $packageDirectory 'Production-AppCheckPolicy.ps1'
+  if ((Get-Sha256 $appCheckHelper) -cne (Get-ZipEntrySha256 `
+      -ArchivePath $sourceArchivePath -EntryPath 'tools/release/Production-AppCheckPolicy.ps1')) {
+    throw 'App Check verifier helper differs from the immutable source archive.'
+  }
+  . $appCheckHelper
+  $appCheckApprovalEntry = 'release/approvals/build30-app-check-client-approval.json'
+  $appCheckBackendEntry = $policy.finalization.exactFunctionFleetDeploymentReceiptFile
+  $expectedAppCheck = Get-ProductionAppCheckBuildEvidence -Policy $policy `
+    -Approval ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) | ConvertFrom-Json) `
+    -BackendReceipt ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry) | ConvertFrom-Json) `
+    -ApprovalSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) `
+    -BackendReceiptSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry)
+  Assert-ProductionAppCheckManifest -Manifest $manifest -Expected $expectedAppCheck
+}
 
 if ([int]$authority.schemaVersion -ne 2 -or
     [string]$authority.authorityClass -ne

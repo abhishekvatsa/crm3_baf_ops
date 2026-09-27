@@ -70,6 +70,32 @@ const physicalSnapshot = (store) => store.entries().filter(([path]) =>
     'maintenance_workflow_command_receipts/'].some((prefix) => path.startsWith(prefix)));
 
 describe('multi-agency review regressions', () => {
+  test.each(['urgent', 'HIGH', 7, {}, []])(
+    'ordinary compliance rejects unreadable priority %p before any writes', async (priorityKey) => {
+      const f = fixture();
+      const before = f.store.entries();
+      await expect(f.raise('priority-check', false, {priorityKey}))
+        .rejects.toMatchObject({code: 'invalid-argument'});
+      expect(f.store.entries()).toEqual(before);
+    },
+  );
+
+  test.each([
+    [{}, 'medium'], [{priorityKey: null}, 'medium'],
+    [{priorityKey: ''}, 'medium'], [{priorityKey: ' '}, 'medium'],
+    ...['low', 'medium', 'high', 'critical'].map((priorityKey) => [{priorityKey}, priorityKey]),
+    [{priorityKey: ' high '}, 'high'],
+  ])('ordinary compliance preserves admitted priority/default %p and exact replay', async (payload, expected) => {
+    const f = fixture();
+    await f.raise('priority-check', false, payload);
+    expect(f.store.read('compliance_requests/priority-check').priorityKey).toBe(expected);
+    const accepted = f.accepted[0];
+    const before = f.store.entries();
+    expect(await f.service.execute(accepted.command, {actor: accepted.actor,
+      serverNow: new Date('2026-09-20T02:00:00.000Z')})).toEqual(accepted.receipt);
+    expect(f.store.entries()).toEqual(before);
+  });
+
   test('closing a non-blocking response cannot subtract another request\'s blocker', async () => {
     const f = fixture();
     await f.raise('blocker', true);

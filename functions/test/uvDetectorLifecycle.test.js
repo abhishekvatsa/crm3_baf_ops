@@ -425,6 +425,22 @@ describe('uv-detector installation correction command', () => {
     return {store, command, event, current};
   }
 
+  test.each(['invalid', 'submillisecond'])('receipt recovery rejects %s installation time without writes', async kind => {
+    const {store, command} = await seededCommandState();
+    const service = new MaintenanceWorkflowCommandService(store);
+    const context = {actor: commandActor, serverNow: new Date('2026-08-29T09:00:00.000Z')};
+    await service.execute(command, context);
+    const path = `maintenance_workflow_command_receipts/${command.commandId}`;
+    const receipt = store.read(path);
+    receipt.result.expectedCurrentActionPerformedAt = kind === 'invalid' ? 'unknown' : {_seconds: 1786521600, _nanoseconds: 1};
+    store.seed(path, receipt);
+    const before = store.entries();
+    await expect(service.execute(command, context)).rejects.toMatchObject({
+      details: {reasonCode: 'workflow-receipt-result-malformed', field: 'expectedCurrentActionPerformedAt'},
+    });
+    expect(store.entries()).toEqual(before);
+  });
+
   test('writes correction evidence, rebuilds current state and replays without writes', async () => {
     const {store, command, event} = await seededCommandState();
     const service = new MaintenanceWorkflowCommandService(store);
@@ -457,6 +473,8 @@ describe('uv-detector installation correction command', () => {
       correctionPath,
       workflowFirestoreDataForTest(store.read(correctionPath)),
     );
+    const receiptPath = `maintenance_workflow_command_receipts/${command.commandId}`;
+    store.seed(receiptPath, workflowFirestoreDataForTest(store.read(receiptPath)));
     const afterFirst = store.entries();
     await expect(service.execute(command, context)).resolves.toEqual(receipt);
     expect(store.entries()).toEqual(afterFirst);
@@ -797,7 +815,9 @@ describe('uv-detector installation correction command', () => {
     container[field] = {_seconds: stamp.seconds, _nanoseconds: stamp.nanoseconds + 1};
     store.seed(path, row);
     const before = store.entries();
-    await expect(service.execute(command, context)).rejects.toMatchObject({details: {reasonCode: 'uv-detector-correction-replay-invalid'}});
+    await expect(service.execute(command, context)).rejects.toMatchObject({details: {
+      reasonCode: target === 'receipt' ? 'workflow-receipt-result-malformed' : 'uv-detector-correction-replay-invalid',
+    }});
     expect(store.entries()).toEqual(before);
   });
 

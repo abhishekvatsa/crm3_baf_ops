@@ -376,12 +376,15 @@ class QualityCommandService {
     required QualityWarningClosureDisposition disposition,
     required String reason,
     List<int> linkedReannealingChargeNos = const <int>[],
+    DateTime? raPerformedAt,
   }) => _call(QualityCommandOperation.closeWarning, <String, dynamic>{
     'warningId': warning.warningId,
     'expectedVersion': warning.version,
     'reason': reason,
     'disposition': disposition.name,
     'linkedReannealingChargeNos': linkedReannealingChargeNos,
+    if (raPerformedAt != null)
+      'raPerformedAt': raPerformedAt.toUtc().toIso8601String(),
   });
 
   Future<QualityCommandResult> declareRaRequired({
@@ -397,11 +400,14 @@ class QualityCommandService {
     required QualityWarning warning,
     required int reannealedToChargeNo,
     required String reason,
+    DateTime? raPerformedAt,
   }) => _call(QualityCommandOperation.recordRaCompleted, <String, dynamic>{
     'warningId': warning.warningId,
     'expectedVersion': warning.version,
     'reason': reason,
     'linkedReannealingChargeNos': <int>[reannealedToChargeNo],
+    if (raPerformedAt != null)
+      'raPerformedAt': raPerformedAt.toUtc().toIso8601String(),
   });
 
   Future<QualityCommandResult> reopenWarning({

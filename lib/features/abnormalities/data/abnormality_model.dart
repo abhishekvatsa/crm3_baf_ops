@@ -10,6 +10,8 @@ import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'remote_abnormality_timestamps.dart';
+import '../domain/abnormality_assessment.dart';
+export '../domain/abnormality_assessment.dart';
 
 part 'abnormality_model.g.dart';
 part 'remote_abnormality_reader.dart';
@@ -297,7 +299,7 @@ class AbnormalityType {
   }
 
   // ───────────────────────────────────────────────────────────
-  // Seeded default type: RA required due to coil colour
+  // Legacy catalogue identity retained; colour is a finding, not an RA decision.
   // ───────────────────────────────────────────────────────────
 
   static AbnormalityType seedRaCoilColour({
@@ -309,17 +311,17 @@ class AbnormalityType {
     return AbnormalityType()
       ..firestoreId = 'RA_COIL_COLOUR'
       ..code = 'RA_COIL_COLOUR'
-      ..title = 'RA Required – Coil Colour'
+      ..title = 'Coil colour finding'
       ..description =
-          'Re-annealing required based on coil colour or visual condition after cycle completion.'
-      ..category = AbnormalityCategory.reannealing
+          'Observed coil colour or visual condition after cycle completion; RA requires a separate decision.'
+      ..category = AbnormalityCategory.resultQuality
       ..severity = AbnormalitySeverity.high
       ..applicableAssetTypes = [
         AssetType.base,
         AssetType.furnace,
         AssetType.forceCooler,
       ]
-      ..suggestsReannealing = true
+      ..suggestsReannealing = false
       ..isActive = true
       ..isDeleted = false
       ..deletedAt = null
@@ -348,8 +350,9 @@ class AbnormalityType {
       'description': description,
       'category': category.name,
       'severity': severity.name,
-      'applicableAssetTypes':
-          applicableAssetTypes.map((assetType) => assetType.name).toList(),
+      'applicableAssetTypes': applicableAssetTypes
+          .map((assetType) => assetType.name)
+          .toList(),
       'suggestsReannealing': suggestsReannealing,
       'isActive': isActive,
       'isDeleted': isDeleted,
@@ -381,8 +384,9 @@ class AbnormalityType {
       'description': description,
       'category': category.name,
       'severity': severity.name,
-      'applicableAssetTypes':
-          applicableAssetTypes.map((assetType) => assetType.name).toList(),
+      'applicableAssetTypes': applicableAssetTypes
+          .map((assetType) => assetType.name)
+          .toList(),
       'suggestsReannealing': suggestsReannealing,
       'isActive': isActive,
       'isDeleted': isDeleted,
@@ -432,7 +436,8 @@ class ChargeAbnormality {
   @enumerated
   AbnormalitySeverity severity = AbnormalitySeverity.medium;
 
-  /// JSON array of AffectedAssetRef maps.
+  /// Legacy JSON array, or schema-1 envelope with assets and assessment.
+  /// Keeps the existing Isar string property; Firestore assets remain an array.
   ///
   /// Example:
   /// [
@@ -500,8 +505,43 @@ class ChargeAbnormality {
   }
 
   set affectedAssets(List<AffectedAssetRef> values) {
-    affectedAssetsJson = encodeAffectedAssets(values);
+    final evidence = assessment;
+    affectedAssetsJson = evidence == null
+        ? encodeAffectedAssets(values)
+        : jsonEncode({
+            'schemaVersion': 1,
+            'assets': values.map((a) => a.toMap()).toList(),
+            'assessment': evidence.toMap(),
+          });
   }
+
+  @ignore
+  AbnormalityAssessment? get assessment {
+    final raw = _localAbnormalityEnvelope(affectedAssetsJson)['assessment'];
+    return raw == null
+        ? null
+        : AbnormalityAssessment.fromMap(Map<String, dynamic>.from(raw as Map));
+  }
+
+  set assessment(AbnormalityAssessment? value) {
+    final assets = affectedAssets;
+    affectedAssetsJson = value == null
+        ? encodeAffectedAssets(assets)
+        : jsonEncode({
+            'schemaVersion': 1,
+            'assets': assets.map((a) => a.toMap()).toList(),
+            'assessment': AbnormalityAssessment.fromMap(value.toMap()).toMap(),
+          });
+  }
+
+  @ignore
+  DateTime? get raPerformedAt => assessment?.raPerformedAt;
+
+  @ignore
+  AbnormalityObservationKind? get observationKind =>
+      assessment?.observationKind == AbnormalityObservationKind.legacyUnknown
+      ? null
+      : assessment?.observationKind;
 
   @ignore
   bool get requiresReannealing {
@@ -513,6 +553,20 @@ class ChargeAbnormality {
   bool get hasCompletedReannealing {
     return reannealingStatus == ReannealingStatus.completed &&
         reannealedToChargeNo != null;
+  }
+
+  void validateAssessmentLifecycle() {
+    final evidence = assessment;
+    if (evidence != null &&
+        (evidence.raPerformedAt != null ||
+            evidence.postRaResult != PostRaResult.notAssessed) &&
+        !hasCompletedReannealing) {
+      throw PersistedDataFormatException(
+        field: 'assessment',
+        detail:
+            'RA occurrence and post-RA results require completed RA and its charge.',
+      );
+    }
   }
 
   @ignore
@@ -578,33 +632,35 @@ class ChargeAbnormality {
   }) {
     final now = DateTime.now();
 
-    final abnormality =
-        ChargeAbnormality()
-          ..firestoreId = firestoreId
-          ..sourceChargeNo = sourceChargeNo
-          ..abnormalityTypeId = 'RA_COIL_COLOUR'
-          ..abnormalityTypeCode = 'RA_COIL_COLOUR'
-          ..abnormalityTypeTitle = 'RA Required – Coil Colour'
-          ..category = AbnormalityCategory.reannealing
-          ..severity = AbnormalitySeverity.high
-          ..affectedAssets = affectedAssets
-          ..observedReason = observedReason
-          ..description = description
-          ..possibleRootReasonCategory = possibleRootReasonCategory
-          ..possibleRootReasonNotes = possibleRootReasonNotes
-          ..reannealingStatus = ReannealingStatus.required
-          ..reannealedToChargeNo = reannealedToChargeNo
-          ..loggedAt = now
-          ..updatedAt = now
-          ..loggedByUid = loggedByUid
-          ..loggedByName = loggedByName
-          ..updatedByUid = loggedByUid
-          ..updatedByName = loggedByName
-          ..version = 1
-          ..isSynced = false
-          ..isDeleted = false;
+    final abnormality = ChargeAbnormality()
+      ..firestoreId = firestoreId
+      ..sourceChargeNo = sourceChargeNo
+      ..abnormalityTypeId = 'RA_COIL_COLOUR'
+      ..abnormalityTypeCode = 'RA_COIL_COLOUR'
+      ..abnormalityTypeTitle = 'Coil colour finding'
+      ..category = AbnormalityCategory.resultQuality
+      ..severity = AbnormalitySeverity.high
+      ..affectedAssets = affectedAssets
+      ..observedReason = observedReason
+      ..description = description
+      ..possibleRootReasonCategory = possibleRootReasonCategory
+      ..possibleRootReasonNotes = possibleRootReasonNotes
+      ..reannealingStatus = ReannealingStatus.pendingDecision
+      ..reannealedToChargeNo = reannealedToChargeNo
+      ..loggedAt = now
+      ..updatedAt = now
+      ..loggedByUid = loggedByUid
+      ..loggedByName = loggedByName
+      ..updatedByUid = loggedByUid
+      ..updatedByName = loggedByName
+      ..version = 1
+      ..isSynced = false
+      ..isDeleted = false;
 
     abnormality.normalizeReannealingState();
+    abnormality.assessment = const AbnormalityAssessment(
+      observationKind: AbnormalityObservationKind.resultFinding,
+    );
     return abnormality;
   }
 
@@ -614,6 +670,7 @@ class ChargeAbnormality {
 
   Map<String, dynamic> toMap() {
     normalizeReannealingState();
+    validateAssessmentLifecycle();
     final assets = affectedAssets;
 
     return {
@@ -632,17 +689,17 @@ class ChargeAbnormality {
       // affected asset. Omitting this newly introduced field preserves that
       // legacy create contract; current authoring requires at least one asset.
       if (assets.isNotEmpty)
-        'affectedAssetHierarchyRefs':
-            assets
-                .map((asset) => asset.toHierarchyReferenceMap())
-                .whereType<Map<String, dynamic>>()
-                .toList(),
+        'affectedAssetHierarchyRefs': assets
+            .map((asset) => asset.toHierarchyReferenceMap())
+            .whereType<Map<String, dynamic>>()
+            .toList(),
       'component': component,
       'observedReason': observedReason,
       'description': description,
       'possibleRootReasonCategory': possibleRootReasonCategory.name,
       'possibleRootReasonNotes': possibleRootReasonNotes,
       'reannealingStatus': reannealingStatus.name,
+      if (assessment != null) 'assessment': assessment!.toMap(),
       'reannealedToChargeNo': reannealedToChargeNo,
       'loggedAt': loggedAt.toUtc().toIso8601String(),
       'updatedAt': updatedAt.toUtc().toIso8601String(),
@@ -685,6 +742,7 @@ class ChargeAbnormality {
       'possibleRootReasonCategory': possibleRootReasonCategory.name,
       'possibleRootReasonNotes': possibleRootReasonNotes,
       'reannealingStatus': reannealingStatus.name,
+      if (assessment != null) 'assessment': assessment!.toMap(),
       'reannealedToChargeNo': reannealedToChargeNo,
       'loggedAt': loggedAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -713,8 +771,16 @@ String encodeAffectedAssets(List<AffectedAssetRef> assets) {
 }
 
 List<AffectedAssetRef> decodeAffectedAssets(String? jsonText) {
+  return _readAffectedAssetList(
+    _localAbnormalityEnvelope(jsonText)['assets'],
+    field: 'affectedAssetsJson',
+    source: 'local charge abnormality',
+  );
+}
+
+Map<String, dynamic> _localAbnormalityEnvelope(String? jsonText) {
   if (jsonText == null || jsonText.trim().isEmpty) {
-    return [];
+    return {'assets': <dynamic>[]};
   }
   dynamic decoded;
   try {
@@ -725,11 +791,23 @@ List<AffectedAssetRef> decodeAffectedAssets(String? jsonText) {
       detail: 'malformed JSON',
     );
   }
-  return _readAffectedAssetList(
-    decoded,
-    field: 'affectedAssetsJson',
-    source: 'local charge abnormality',
+  if (decoded is List) return {'assets': decoded};
+  if (decoded is! Map ||
+      decoded['schemaVersion'] != 1 ||
+      decoded['assets'] is! List ||
+      decoded['assessment'] is! Map ||
+      decoded.keys.any(
+        (key) => !const {'schemaVersion', 'assets', 'assessment'}.contains(key),
+      )) {
+    throw PersistedDataFormatException(
+      field: 'affectedAssetsJson',
+      detail: 'Malformed local evidence envelope.',
+    );
+  }
+  AbnormalityAssessment.fromMap(
+    Map<String, dynamic>.from(decoded['assessment'] as Map),
   );
+  return Map<String, dynamic>.from(decoded);
 }
 
 List<AffectedAssetRef> decodeAffectedAssetsFromDynamic(dynamic value) {

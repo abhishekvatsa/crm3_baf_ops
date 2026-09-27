@@ -150,15 +150,16 @@ class _FurnaceComponentConditionAuditScreenState
       );
     }
     final furnaceClass = furnaceClasses.single;
-    final furnaces =
+    final registeredFurnaces =
         (assetsAsync.value ?? const <AssetInstanceRecord>[])
             .where(
               (asset) =>
-                  asset.assetClassId == furnaceClass.id &&
-                  asset.isActive &&
-                  asset.assetNumber >= 1 &&
-                  asset.assetNumber <= 26,
+                  asset.assetClassId == furnaceClass.id && asset.isActive,
             )
+            .toList(growable: false);
+    final furnaces =
+        registeredFurnaces
+            .where((asset) => asset.assetNumber >= 1 && asset.assetNumber <= 26)
             .toList()
           ..sort(
             (left, right) => left.assetNumber.compareTo(right.assetNumber),
@@ -340,6 +341,7 @@ class _FurnaceComponentConditionAuditScreenState
             ),
             _AuditStatusBand(
               furnaceCount: furnaces.length,
+              registeredFurnaceCount: registeredFurnaces.length,
               dirtyCount: dirtyCount,
               onShowTotals: () => _showConditionTotals(context, totals),
             ),
@@ -579,11 +581,13 @@ class _FurnaceComponentConditionAuditScreenState
 class _AuditStatusBand extends StatelessWidget {
   const _AuditStatusBand({
     required this.furnaceCount,
+    required this.registeredFurnaceCount,
     required this.dirtyCount,
     required this.onShowTotals,
   });
 
   final int furnaceCount;
+  final int registeredFurnaceCount;
   final int dirtyCount;
   final VoidCallback onShowTotals;
 
@@ -601,13 +605,26 @@ class _AuditStatusBand extends StatelessWidget {
         runSpacing: BafSpacing.xs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text('$furnaceCount Furnaces', style: const TextStyle(fontSize: 12)),
           Text(
-            dirtyCount == 0
-                ? 'Recorded conditions'
-                : '$dirtyCount unsaved furnace${dirtyCount == 1 ? '' : 's'}',
+            '$furnaceCount of $registeredFurnaceCount active furnaces',
             style: const TextStyle(fontSize: 12),
           ),
+          Text(
+            'Supported: 1–26'
+            '${registeredFurnaceCount > furnaceCount ? ' · ${registeredFurnaceCount - furnaceCount} excluded' : ''}',
+            key: const ValueKey('furnace-audit-supported-range'),
+            style: TextStyle(
+              fontSize: 12,
+              color: registeredFurnaceCount > furnaceCount
+                  ? BafColors.warning
+                  : null,
+            ),
+          ),
+          if (dirtyCount > 0)
+            Text(
+              '$dirtyCount unsaved furnace${dirtyCount == 1 ? '' : 's'}',
+              style: const TextStyle(fontSize: 12),
+            ),
           TextButton.icon(
             onPressed: onShowTotals,
             icon: const Icon(Icons.summarize_outlined, size: 18),

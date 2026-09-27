@@ -15,18 +15,25 @@ import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
 import 'package:crm3_baf_ops/core/services/remote_tombstone_apply_result.dart';
 import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:crm3_baf_ops/core/services/sync_service.dart';
+import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/audit/repositories/audit_repository.dart';
 import 'package:crm3_baf_ops/features/directives/providers/operational_directive_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/remote_maintenance_reader.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/repositories/workflow_repository.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_pull_service.dart';
+import 'package:crm3_baf_ops/features/maintenance_workflow/services/workflow_uncertain_retry_service.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/baf_knowledge_repository.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_diary_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/job_module_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/planned_maintenance_provider.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/providers/template_governance_provider.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -47,6 +54,334 @@ final _anchor = DateTime.utc(2026, 9, 8, 10);
 
 void main() {
   setUpAll(initializeTestIsarCore);
+
+  for (final batchFails in [false, true]) {
+    test(
+      'audit session ending after remote ${batchFails ? 'fallback' : 'batch'} response leaves native acknowledgements pending',
+      () async {
+        await _withIsar((isar) async {
+          var ended = false;
+          final first = AuditEvent(
+            entityType: 'maintenance',
+            entityId: 'first',
+            action: AuditAction.update,
+            performedByUid: _actor,
+            after: {'description': 'Original unsent findings'},
+          )..timestamp = _oldAnchor;
+          final second = AuditEvent(
+            entityType: 'maintenance',
+            entityId: 'second',
+            action: AuditAction.update,
+            performedByUid: _actor,
+            after: {'description': 'Later unsent findings'},
+          )..timestamp = _localTime;
+          await isar.writeTxn(() => isar.auditEvents.putAll([first, second]));
+          final audit = _GuardedNativeAudit(
+            batchFails: batchFails,
+            endSession: () {
+              ended = true;
+            },
+          );
+          await expectLater(
+            audit.syncPendingAuditEvents(
+              batchSize: 1,
+              runGuard: SyncRunGuard(() {
+                if (ended) throw const SyncRunAborted('approved session ended');
+              }),
+            ),
+            throwsA(isA<SyncRunAborted>()),
+          );
+          expect(audit.batchIds, [
+            ['first'],
+          ]);
+          expect(audit.individualIds, batchFails ? ['first'] : isEmpty);
+          expect(await audit.countPendingAuditEvents(), 2);
+          for (final original in [first, second]) {
+            final persisted = (await isar.auditEvents.get(original.id))!;
+            expect(persisted.isSynced, isFalse);
+            expect(persisted.afterJson, original.afterJson);
+            expect(persisted.performedByUid, _actor);
+          }
+        });
+      },
+    );
+  }
+
+  test('an already invalid session cannot start global pull', () async {
+    await _withIsar((isar) async {
+      final preferences = await _preparePreferences();
+      final remote = _MaintenanceRemote([
+        _record('unread', 1, _anchor, 'Must not be adopted'),
+      ]);
+      final knowledge = _Knowledge();
+      final pull = _pull(remote, _Audit(), knowledge);
+      await expectLater(
+        pull.pullAndReconcile(
+          runGuard: SyncRunGuard(() {
+            throw const SyncRunAborted('approved session ended');
+          }),
+        ),
+        throwsA(isA<SyncRunAborted>()),
+      );
+      expect(knowledge.calls, 0);
+      expect(remote.requestedSince, isEmpty);
+      expect(await isar.maintenanceRecords.count(), 0);
+      expect(
+        SharedPreferencesGlobalPullCursorStore(
+          preferences,
+        ).read(actorUid: _actor, databaseGenerationId: _generation),
+        isNull,
+      );
+    });
+  });
+
+  test(
+    'same-UID authority revocation stops the next pull domain and cursor completion',
+    () async {
+      await _withIsar((isar) async {
+        final preferences = await _preparePreferences();
+        var revoked = false;
+        final remote = _MaintenanceRemote([
+          _record('unread', 1, _anchor, 'Adopt only on a new run'),
+        ]);
+        final knowledge = _Knowledge()
+          ..onPull = () {
+            revoked = true;
+          };
+        final pull = _pull(remote, _Audit(), knowledge);
+        await expectLater(
+          pull.pullAndReconcile(
+            runGuard: SyncRunGuard(() {
+              if (revoked) throw const SyncRunAborted('authority revoked');
+            }),
+          ),
+          throwsA(isA<SyncRunAborted>()),
+        );
+        expect(knowledge.calls, 1);
+        expect(remote.requestedSince, isEmpty);
+        expect(await isar.maintenanceRecords.count(), 0);
+        final cursorStore = SharedPreferencesGlobalPullCursorStore(preferences);
+        final interrupted = cursorStore.read(
+          actorUid: _actor,
+          databaseGenerationId: _generation,
+        )!;
+        expect(interrupted.state, GlobalPullRunState.prepared);
+        expect(
+          interrupted.cursorFor(GlobalPullDomain.knowledgeBase).completedInRun,
+          isFalse,
+        );
+        // A failed run must release its active guard. Existing direct callers
+        // remain UID-gated and can retry under their own current authority.
+        await pull.pullAndReconcile();
+        expect(remote.requestedSince, hasLength(1));
+        expect(
+          (await isar.maintenanceRecords.where().findFirst())!.description,
+          'Adopt only on a new run',
+        );
+        expect(
+          cursorStore
+              .read(actorUid: _actor, databaseGenerationId: _generation)!
+              .state,
+          GlobalPullRunState.committed,
+        );
+      });
+    },
+  );
+
+  for (final deleteTime in [_localTime, _anchor]) {
+    test(
+      'actual pull retains tombstone policy for dirty rows at or before $deleteTime',
+      () async {
+        await _withIsar((isar) async {
+          await _preparePreferences();
+          final dirty = _record(
+            'deleted',
+            3,
+            _localTime,
+            'Unsent local evidence',
+          )..isSynced = false;
+          await isar.writeTxn(() => isar.maintenanceRecords.put(dirty));
+          final tombstone = _record('deleted', 4, deleteTime, 'Server deletion')
+            ..isDeleted = true
+            ..deletedAt = deleteTime
+            ..deletedByUid = _actor;
+          final pull = _pull(
+            _MaintenanceRemote([tombstone]),
+            _Audit(),
+            _Knowledge(),
+          );
+          await pull.pullAndReconcile();
+          final retained = (await isar.maintenanceRecords.get(dirty.id))!;
+          expect(retained.isDeleted, isTrue);
+          expect(retained.isSynced, isTrue);
+          expect(retained.deletedAt?.toUtc(), deleteTime);
+          expect(retained.version, 4);
+          expect(pull.lastDeleted, 1);
+        });
+      },
+    );
+  }
+
+  test(
+    'early push fetch failure still pulls clean updates and preserves the exact dirty native row',
+    () async {
+      await _withIsar((isar) async {
+        final preferences = await _preparePreferences();
+        final dirty =
+            _record('unsent', 3, _localTime, 'Unsent operator findings')
+              ..isSynced = false
+              ..remarks = 'Do not discard this local evidence';
+        final clean = _record('clean', 1, _oldAnchor, 'Old clean state');
+        await isar.writeTxn(
+          () => isar.maintenanceRecords.putAll([dirty, clean]),
+        );
+        final before = (await isar.maintenanceRecords.get(
+          dirty.id,
+        ))!.toAuditMap();
+        final remote = _FailedMaintenancePush([
+          _record('unsent', 8, _anchor, 'Different authoritative evidence'),
+          _record('clean', 2, _anchor, 'Clean server update adopted'),
+        ]);
+        final audit = _Audit();
+        final knowledge = _Knowledge();
+        final empty = _EmptyPushRepositories();
+        final push = SyncService(
+          maintenanceRepo: IsarMaintenanceRepository(),
+          firestoreMaintenance: remote,
+          plannedRepo: empty,
+          firestorePlanned: empty,
+          serverCompletion: _NoServerCompletion(),
+          jobDiaryRepo: empty,
+          firestoreJobDiary: empty,
+          jobModuleRepo: empty,
+          firestoreJobModule: empty,
+          templateGovernanceRepo: empty,
+          firestoreTemplateGovernance: empty,
+          directiveRepo: empty,
+          firestoreDirective: empty,
+          abnormalityRepo: empty,
+          firestoreAbnormality: empty,
+          knowledgeRepo: knowledge,
+          auditRepository: audit,
+          auth: _Auth(),
+          rejectionOwnerUidLookup: () => _actor,
+        );
+        final pull = _pull(remote, audit, knowledge);
+        final coordinatorProvider = Provider<SyncCoordinator>((ref) {
+          final coordinator = SyncCoordinator(
+            ref,
+            push,
+            pull,
+            LocalRecoverySessionGuard(),
+            runGuardFactory: () => SyncRunGuard(() {}),
+            connectivity: _NoConnectivity(),
+          );
+          ref.onDispose(coordinator.dispose);
+          return coordinator;
+        });
+        final container = ProviderContainer(
+          overrides: [
+            // Purge reconciliation is outside this scenario. Actual pull still
+            // obtains its independent approved authority from _Authority.
+            currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+            workflowUncertainRetryServiceProvider.overrideWithValue(
+              _EmptyWorkflowRetry(),
+            ),
+            workflowRepositoryProvider.overrideWithValue(
+              _EmptyWorkflowRepository(),
+            ),
+            workflowPullServiceProvider.overrideWithValue(_EmptyWorkflowPull()),
+          ],
+        );
+        try {
+          final outcome = await container
+              .read(coordinatorProvider)
+              .runFullSyncWithResult(
+                reason: 'CF-02 native preservation',
+                force: true,
+              );
+          expect(remote.pushReads, [
+            ['unsent'],
+          ]);
+          expect(
+            remote.requestedSince,
+            hasLength(1),
+            reason:
+                'A recoverable early push fetch failure must not skip real pull.',
+          );
+          expect(knowledge.pushCalls, 1);
+          expect(audit.pushCalls, 1);
+          expect(empty.calls, contains(#getUnsyncedAbnormalities));
+          final retained = (await isar.maintenanceRecords.get(dirty.id))!;
+          expect(retained.id, dirty.id);
+          expect(retained.toAuditMap(), before);
+          expect(retained.isSynced, isFalse);
+          expect(retained.isDeleted, isFalse);
+          expect(
+            (await isar.maintenanceRecords.get(clean.id))!.description,
+            'Clean server update adopted',
+          );
+          expect(
+            (await isar.maintenanceRecords.get(clean.id))!.isSynced,
+            isTrue,
+          );
+          expect(pull.lastConflicted, 1);
+          expect(pull.lastConflictKeys, {'maintenance ticket:unsent'});
+          expect(
+            audit.events.single.before!['description'],
+            'Unsent operator findings',
+          );
+          expect(
+            audit.events.single.after!['description'],
+            'Different authoritative evidence',
+          );
+          final cursor = SharedPreferencesGlobalPullCursorStore(
+            preferences,
+          ).read(actorUid: _actor, databaseGenerationId: _generation)!;
+          expect(cursor.state, GlobalPullRunState.committed);
+          expect(push.lastFailureCount, greaterThan(0));
+          expect(
+            push.lastFailureDetails.any(
+              (detail) => detail.errorCode == 'unavailable',
+            ),
+            isTrue,
+          );
+          expect(outcome, SyncRequestOutcome.partial);
+          expect(container.read(syncStatusProvider), SyncStatus.partial);
+          expect(container.read(syncRunHealthProvider).lastSucceeded, isFalse);
+          expect(
+            container.read(syncRunHealthProvider).lastPartiallySucceeded,
+            isTrue,
+          );
+          expect(container.read(syncConflictProvider), 1);
+        } finally {
+          container.dispose();
+        }
+      });
+    },
+  );
+
+  test(
+    'live mirror disposal does not read its disposed provider owner',
+    () async {
+      await _withIsar((isar) async {
+        final container = ProviderContainer();
+        final live = LiveRemoteSyncService(isar, container.read);
+        live.pauseForLifecycle();
+        live.stop();
+        expect(
+          container.read(liveRemoteSyncHealthProvider).maintenanceState,
+          LiveRemoteSyncConnectionState.disconnected,
+        );
+        container.dispose();
+        expect(live.dispose, returnsNormally);
+        expect(live.dispose, returnsNormally);
+        expect(live.stop, returnsNormally);
+        expect(live.pauseForLifecycle, returnsNormally);
+        expect(live.resumeAfterLifecyclePause, returnsNormally);
+      });
+    },
+  );
 
   test(
     'malformed directive page retains cursor while valid rows on later pages are adopted',
@@ -134,6 +469,7 @@ void main() {
             _Push(),
             pull,
             LocalRecoverySessionGuard(),
+            runGuardFactory: () => SyncRunGuard(() {}),
             connectivity: _NoConnectivity(),
           );
           ref.onDispose(coordinator.dispose);
@@ -427,6 +763,8 @@ _Snapshot _snapshot(MaintenanceRecord record) => _validatedSnapshot(
     'isResolved': record.isResolved,
     'isCritical': record.isCritical,
     'isDeleted': record.isDeleted,
+    if (record.isDeleted) 'deletedAt': record.deletedAt,
+    if (record.isDeleted) 'deletedByUid': record.deletedByUid,
     'updatedAt': record.updatedAt,
     'createdAt': record.createdAt,
     'startDate': record.startDate,
@@ -452,6 +790,8 @@ Future<void> _withIsar(Future<void> Function(Isar) body) async {
   );
   final isar = await Isar.open([
     MaintenanceRecordSchema,
+    SyncRejectionSchema,
+    AuditEventSchema,
   ], directory: directory.path);
   app.isar = isar;
   try {
@@ -511,13 +851,20 @@ class _NoConnectivity extends Fake implements Connectivity {
 
 class _Push extends Fake implements SyncService {
   @override
-  Future<void> syncAll({bool recheckPermanentRejections = false}) async {}
+  Future<void> syncAll({
+    bool recheckPermanentRejections = false,
+    SyncRunGuard? runGuard,
+  }) async {}
   @override
   int get lastSuccessCount => 0;
   @override
   int get lastFailureCount => 0;
   @override
   int get lastConflictCount => 0;
+  @override
+  Set<String> get lastDeferredPushStages => {};
+  @override
+  Set<String> get lastDeferredPushRecordKeys => {};
   @override
   int get lastFailureDetailOverflowCount => 0;
   @override
@@ -546,22 +893,73 @@ class _MaintenanceRemote extends Fake
 
 class _Audit extends Fake implements AuditRepository {
   final events = <AuditEvent>[];
+  int pushCalls = 0;
   @override
-  Future<void> log(AuditEvent event, {bool syncToRemote = true}) async {
+  Future<AuditSyncResult> syncPendingAuditEvents({
+    int batchSize = 450,
+    SyncRunGuard? runGuard,
+  }) async {
+    pushCalls++;
+    return AuditSyncResult.empty;
+  }
+
+  @override
+  Future<void> log(
+    AuditEvent event, {
+    bool syncToRemote = true,
+    SyncRunGuard? runGuard,
+  }) async {
     events.add(event);
   }
 }
 
 class _Knowledge extends Fake implements BafKnowledgeRepository {
   int calls = 0;
+  int pushCalls = 0;
+  void Function()? onPull;
+  @override
+  Future<int> syncUnsyncedToCloud({SyncRunGuard? runGuard}) async {
+    pushCalls++;
+    return 0;
+  }
+
   @override
   Future<BafKnowledgePullResult> pullCloudToLocal([
     DateTime? since,
     DateTime? through,
   ]) async {
     calls++;
+    onPull?.call();
     return const BafKnowledgePullResult();
   }
+}
+
+class _EmptyWorkflowRetry extends Fake
+    implements WorkflowUncertainRetryService {
+  @override
+  Future<WorkflowRetryRunSummary> retryDueCommands({
+    SyncRunGuard? runGuard,
+  }) async => const WorkflowRetryRunSummary();
+}
+
+class _EmptyWorkflowRepository extends Fake implements WorkflowRepository {
+  @override
+  Future<WorkflowOutcomeInventory> readOutcomeInventory() async =>
+      const WorkflowOutcomeInventory();
+}
+
+class _EmptyWorkflowPull extends Fake implements WorkflowPullService {
+  @override
+  Future<WorkflowPullSummary> pull({SyncRunGuard? runGuard}) async =>
+      const WorkflowPullSummary(
+        workflows: 0,
+        lanes: 0,
+        compliance: 0,
+        attempts: 0,
+        equipment: 0,
+        prompts: 0,
+        events: 0,
+      );
 }
 
 // Empty remote pages keep the runtime coordinator's normal sequence intact.
@@ -598,6 +996,87 @@ class _EmptyPages extends Fake {
       ),
       _ => super.noSuchMethod(invocation),
     };
+  }
+}
+
+class _FailedMaintenancePush extends _MaintenanceRemote {
+  _FailedMaintenancePush(super.records);
+  final pushReads = <List<String>>[];
+
+  @override
+  Future<List<MaintenanceRecord>> getTicketsByFirestoreIds(
+    List<String> ids,
+  ) async {
+    pushReads.add(List.of(ids));
+    throw FirebaseException(
+      plugin: 'cloud_firestore',
+      code: 'unavailable',
+      message: 'Synthetic early maintenance batch fetch failure',
+    );
+  }
+}
+
+class _GuardedNativeAudit extends AuditRepository {
+  _GuardedNativeAudit({required this.batchFails, required this.endSession});
+  final bool batchFails;
+  final void Function() endSession;
+  final batchIds = <List<String>>[];
+  final individualIds = <String>[];
+
+  @override
+  Future<void> logBatchRemote(List<AuditEvent> events) async {
+    batchIds.add(events.map((event) => event.entityId).toList());
+    if (batchFails) {
+      throw FirebaseException(plugin: 'cloud_firestore', code: 'unavailable');
+    }
+    endSession();
+  }
+
+  @override
+  Future<void> logRemote(AuditEvent event) async {
+    individualIds.add(event.entityId);
+    endSession();
+  }
+}
+
+class _NoServerCompletion extends Fake
+    implements PlannedJobServerCompletionService {}
+
+/// Empty independent domains leave the production push orchestration intact.
+/// Only its repository boundaries are substituted; all local maintenance reads,
+/// remote application, conflict accounting, and cursor writes remain real.
+class _EmptyPushRepositories extends Fake
+    implements
+        PlannedMaintenanceRepository,
+        JobDiaryRepository,
+        JobModuleRepository,
+        TemplateGovernanceRepository,
+        DirectiveRepository,
+        AbnormalityRepository {
+  final calls = <Symbol>[];
+
+  @override
+  Future<RemoteTombstoneApplyResult> applyTombstoneFromRemote(Object remote) =>
+      throw StateError('Empty push fixtures cannot apply a tombstone.');
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    if (const {
+      #getUnsyncedTemplates,
+      #getUnsyncedExecutions,
+      #getUnsyncedEntries,
+      #getUnsyncedModules,
+      #getUnsyncedPackages,
+      #getUnsyncedVersions,
+      #getUnsyncedAudits,
+      #getUnsyncedDirectives,
+      #getUnsyncedTypes,
+      #getUnsyncedAbnormalities,
+    }.contains(invocation.memberName)) {
+      calls.add(invocation.memberName);
+      return Future.value(<Never>[]);
+    }
+    return super.noSuchMethod(invocation);
   }
 }
 

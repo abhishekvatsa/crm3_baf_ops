@@ -9,13 +9,34 @@ import '../../../core/security/actor_session_cache_trust.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/services/auth_service.dart';
 import '../data/quality_warning.dart';
 import '../data/quality_monitoring_population.dart';
 export '../data/quality_monitoring_population.dart';
 import '../services/quality_command_service.dart';
 import 'quality_monitoring_submission_provider.dart';
 
+part 'quality_provider.warning_windows.dart';
+
 const qualityWarningLiveWindowLimit = 500;
+
+final qualityFirestoreProvider = Provider<FirebaseFirestore>(
+  (ref) => FirebaseFirestore.instance,
+);
+
+// These feeds outlive an individual screen because Home also watches them.
+// End the old subscriptions before credentials disappear, and create fresh
+// subscriptions for the next approved actor even when the container survives.
+final _qualityReadActorProvider = Provider<String?>((ref) {
+  if (ref.watch(signOutInProgressProvider)) return null;
+  return ref.watch(
+    currentAppUserProvider.select((authority) {
+      if (authority.isLoading || authority.hasError) return null;
+      final actor = authority.valueOrNull;
+      return actor?.canViewQuality == true ? actor!.uid : null;
+    }),
+  );
+});
 
 final qualityCommandServiceProvider = Provider<QualityCommandService>(
   (ref) => QualityCommandService(
@@ -62,7 +83,12 @@ final qualityReportCacheTrustProvider = Provider<ActorSessionCacheTrust>((ref) {
 });
 
 final qualityWarningsProvider = StreamProvider<List<QualityWarning>>((ref) {
-  final warnings = FirebaseFirestore.instance.collection('quality_warnings');
+  if (ref.watch(_qualityReadActorProvider) == null) {
+    return Stream<List<QualityWarning>>.value(const []);
+  }
+  final warnings = ref
+      .watch(qualityFirestoreProvider)
+      .collection('quality_warnings');
   final nonClosed = warnings
       .where(
         'status',
@@ -208,75 +234,14 @@ List<Object?> _warningRevisionEvidence(QualityWarning warning) => [
   ...warning.linkedReannealingChargeNos,
 ];
 
-Stream<List<QualityWarning>> combineQualityWarningWindows(
-  Stream<List<QualityWarning>> nonClosed,
-  Stream<List<QualityWarning>> recent,
-) {
-  late StreamController<List<QualityWarning>> controller;
-  StreamSubscription<List<QualityWarning>>? nonClosedSubscription;
-  StreamSubscription<List<QualityWarning>>? recentSubscription;
-  List<QualityWarning>? latestNonClosed;
-  List<QualityWarning>? latestRecent;
-  var observed = <String, QualityWarning>{};
-
-  void emitWhenReady() {
-    if (latestNonClosed == null || latestRecent == null) return;
-    try {
-      final merged = mergeQualityWarningWindows(
-        latestNonClosed!,
-        latestRecent!,
-      );
-      // Keep the greatest observed revision while an identity is in either
-      // window, even if both listeners later deliver a delayed older snapshot.
-      // Removing an identity from both windows also releases this memory.
-      final previous = [
-        for (final warning in merged)
-          if (observed[warning.warningId] case final value?) value,
-      ];
-      final current = mergeQualityWarningWindows(merged, previous);
-      observed = {for (final warning in current) warning.warningId: warning};
-      controller.add(current);
-    } catch (error, stack) {
-      controller.addError(error, stack);
-    }
-  }
-
-  controller = StreamController<List<QualityWarning>>(
-    onListen: () {
-      nonClosedSubscription = nonClosed.listen(
-        (value) {
-          latestNonClosed = value;
-          emitWhenReady();
-        },
-        onError: (Object error, StackTrace stack) {
-          latestNonClosed = null;
-          controller.addError(error, stack);
-        },
-      );
-      recentSubscription = recent.listen(
-        (value) {
-          latestRecent = value;
-          emitWhenReady();
-        },
-        onError: (Object error, StackTrace stack) {
-          latestRecent = null;
-          controller.addError(error, stack);
-        },
-      );
-    },
-    onCancel: () async {
-      await nonClosedSubscription?.cancel();
-      await recentSubscription?.cancel();
-    },
-  );
-  return controller.stream;
-}
-
 final qualityMonitoringRequestsProvider =
     StreamProvider<List<QualityMonitoringRequest>>((ref) {
-      final requests = FirebaseFirestore.instance.collection(
-        'quality_monitoring_requests',
-      );
+      if (ref.watch(_qualityReadActorProvider) == null) {
+        return Stream<List<QualityMonitoringRequest>>.value(const []);
+      }
+      final requests = ref
+          .watch(qualityFirestoreProvider)
+          .collection('quality_monitoring_requests');
       // Read one authoritative population. The former current+legacy query
       // merge let delayed snapshots reintroduce an older row, and filtered
       // queries hid schema-3 rows whose visibility fields were malformed.

@@ -9,6 +9,8 @@ import 'package:isar_community/isar.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/persistence/app_database.dart';
+import '../../../core/services/retained_row_mutations.dart';
+import '../../../core/services/online_retained_row_mutations.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../data/abnormality_model.dart';
@@ -213,6 +215,8 @@ void _requireCanManageAbnormalityTypes(AppUser actor) {
   if (!actor.canManageAbnormalityTypes) {
     throw StateError('Not authorized to manage abnormality type master data.');
   }
+  _requireLocalText(actor.uid, 'current editor UID', maximum: 512);
+  _requireLocalText(actor.name, 'current editor name', maximum: 500);
 }
 
 void _requireCanLogChargeAbnormality(AppUser actor) {
@@ -376,20 +380,31 @@ int _sortAbnormalities(ChargeAbnormality a, ChargeAbnormality b) {
   return b.updatedAt.compareTo(a.updatedAt);
 }
 
-void _validateTypeForSave(AbnormalityType type) {
+void _validateTypeForSave(AbnormalityType type, {AbnormalityType? existing}) {
+  // Check raw attribution before optional-text normalization can turn a blank
+  // into null. Unknown historical creators are valid only on an existing row.
+  _requireOptionalLocalText(type.createdByUid, 'createdByUid', maximum: 512);
+  _requireOptionalLocalText(type.createdByName, 'createdByName', maximum: 500);
+  if (existing == null) {
+    _requireLocalText(type.createdByUid, 'createdByUid', maximum: 512);
+    _requireLocalText(type.createdByName, 'createdByName', maximum: 500);
+  } else if (type.createdByUid == null && type.createdByName != null) {
+    throw ArgumentError('createdByName cannot exist without createdByUid.');
+  }
+  _requireLocalText(type.lastEditedByUid, 'lastEditedByUid', maximum: 512);
+  _requireLocalText(type.lastEditedByName, 'lastEditedByName', maximum: 500);
   _normalizeType(type);
+  // Match the persisted reader's identity semantics for older clean Isar rows.
+  // Keep blank distinct from absent; a blank historical field is still invalid.
+  if (existing != null &&
+      (type.createdByUid != existing.createdByUid?.trim() ||
+          type.createdByName != existing.createdByName?.trim())) {
+    throw ArgumentError('The original catalogue creator cannot be changed.');
+  }
 
   _requireLocalText(type.code, 'code', maximum: 160);
   _requireLocalText(type.title, 'title', maximum: 500);
   _requireOptionalLocalText(type.description, 'description', maximum: 4000);
-  _requireLocalText(type.createdByUid, 'createdByUid', maximum: 512);
-  _requireOptionalLocalText(type.createdByName, 'createdByName', maximum: 500);
-  _requireLocalText(type.lastEditedByUid, 'lastEditedByUid', maximum: 512);
-  _requireOptionalLocalText(
-    type.lastEditedByName,
-    'lastEditedByName',
-    maximum: 500,
-  );
   if (type.version <= 0) {
     throw ArgumentError.value(type.version, 'version', 'must be positive');
   }
@@ -439,6 +454,7 @@ void _validateTypeForSave(AbnormalityType type) {
 
 void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
   _normalizeAbnormality(abnormality);
+  abnormality.validateAssessmentLifecycle();
 
   if (!isValidChargeNumber(abnormality.sourceChargeNo)) {
     throw ArgumentError.value(

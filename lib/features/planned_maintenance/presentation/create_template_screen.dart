@@ -98,64 +98,58 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
           _cleanOptionalText(firebaseUser?.displayName) ??
           _cleanOptionalText(firebaseUser?.email);
 
-      final template =
-          JobTemplate()
-            ..firestoreId = const Uuid().v4()
-            ..jobName = _nameController.text.trim()
-            ..description = _cleanOptionalText(_descController.text)
-            ..applicableAssetType = _assetType
-            ..assignedAgencies = (_selectedAgencies.toList()..sort())
-            ..createdByUid = createdByUid
-            ..createdByName = createdByName
-            ..isActive = true
-            ..isDeprecated = false
-            ..version = 1
-            ..isSynced = false
-            ..createdAt = now
-            ..updatedAt = now;
+      final template = JobTemplate()
+        ..firestoreId = const Uuid().v4()
+        ..jobName = _nameController.text.trim()
+        ..description = _cleanOptionalText(_descController.text)
+        ..applicableAssetType = _assetType
+        ..assignedAgencies = (_selectedAgencies.toList()..sort())
+        ..createdByUid = createdByUid
+        ..createdByName = createdByName
+        ..isActive = true
+        ..isDeprecated = false
+        ..version = 1
+        ..isSynced = false
+        ..createdAt = now
+        ..updatedAt = now;
 
-      final assetClass =
-          ref
-              .read(assetClassesProvider)
-              .value
-              ?.where((item) => item.id == _assetClassId)
-              .firstOrNull;
-      final definition =
-          _assetClassId == null
-              ? null
-              : ref
-                  .read(assetHierarchyNodesProvider(_assetClassId!))
-                  .value
-                  ?.where((item) => item.id == _definitionNodeId)
-                  .firstOrNull;
+      final assetClass = ref
+          .read(assetClassesProvider)
+          .value
+          ?.where((item) => item.id == _assetClassId)
+          .firstOrNull;
+      final definition = _assetClassId == null
+          ? null
+          : ref
+                .read(assetHierarchyNodesProvider(_assetClassId!))
+                .value
+                ?.where((item) => item.id == _definitionNodeId)
+                .firstOrNull;
       if (assetClass != null) {
         final hierarchyPath =
             definition?.hierarchyPath ?? <String>[assetClass.name];
         template
           ..component = definition?.name
-          ..subsystem =
-              hierarchyPath.length > 1
-                  ? hierarchyPath[hierarchyPath.length - 2]
-                  : null
+          ..subsystem = hierarchyPath.length > 1
+              ? hierarchyPath[hierarchyPath.length - 2]
+              : null
           ..hierarchyPath = List<String>.from(hierarchyPath)
-          ..assetHierarchyRefJson =
-              AssetHierarchyReference(
-                scope: AssetHierarchyReferenceScope.definition,
-                assetClassId: assetClass.id,
-                assetClassCode: assetClass.code,
-                assetClassName: assetClass.name,
-                nodeId: definition?.id ?? assetClass.id,
-                nodeVersion: definition?.version ?? assetClass.version,
-                nodeName: definition?.name ?? assetClass.name,
-                componentTag: definition?.componentTag,
-                hierarchyPath: hierarchyPath,
-                ownershipStatus:
-                    definition?.ownershipStatus ??
-                    AssetOwnershipStatus.unassigned,
-                ownerDiscipline: definition?.ownerDiscipline,
-                accountableRoleKeys:
-                    definition?.accountableRoleKeys ?? const <String>[],
-              ).encode();
+          ..assetHierarchyRefJson = AssetHierarchyReference(
+            scope: AssetHierarchyReferenceScope.definition,
+            assetClassId: assetClass.id,
+            assetClassCode: assetClass.code,
+            assetClassName: assetClass.name,
+            nodeId: definition?.id ?? assetClass.id,
+            nodeVersion: definition?.version ?? assetClass.version,
+            nodeName: definition?.name ?? assetClass.name,
+            componentTag: definition?.componentTag,
+            hierarchyPath: hierarchyPath,
+            ownershipStatus:
+                definition?.ownershipStatus ?? AssetOwnershipStatus.unassigned,
+            ownerDiscipline: definition?.ownerDiscipline,
+            accountableRoleKeys:
+                definition?.accountableRoleKeys ?? const <String>[],
+          ).encode();
       }
 
       template.setFields(<TemplateField>[]);
@@ -165,13 +159,12 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
 
       await repository.saveTemplate(template, actor: appUser);
 
-      final syncOutcome =
-          template.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'template_created',
-                force: true,
-              );
+      final syncOutcome = template.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'template_created',
+              force: true,
+            );
       final (message, color) = switch (syncOutcome) {
         SyncRequestOutcome.succeeded => (
           'Template created and synchronized.',
@@ -179,6 +172,10 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
         ),
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
           'Template saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
           BafColors.warning,
         ),
         SyncRequestOutcome.failed => (
@@ -281,18 +278,17 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                   initialValue: _assetType,
                   isExpanded: true,
                   decoration: _inputDecoration('Asset type'),
-                  items:
-                      AssetType.values
-                          .map(
-                            (type) => DropdownMenuItem<AssetType>(
-                              value: type,
-                              child: Text(
-                                _assetTypeLabel(type),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                  items: AssetType.values
+                      .map(
+                        (type) => DropdownMenuItem<AssetType>(
+                          value: type,
+                          child: Text(
+                            _assetTypeLabel(type),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (value) {
                     if (value == null) return;
                     setState(() {
@@ -313,8 +309,8 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                       _definitionNodeId = null;
                     });
                   },
-                  onDefinitionChanged:
-                      (value) => setState(() => _definitionNodeId = value),
+                  onDefinitionChanged: (value) =>
+                      setState(() => _definitionNodeId = value),
                 ),
               ],
             ),
@@ -327,44 +323,39 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
                 Wrap(
                   spacing: BafSpacing.sm,
                   runSpacing: BafSpacing.sm,
-                  children:
-                      _availableAgencies.map((agency) {
-                        final selected = _selectedAgencies.contains(agency);
-                        return FilterChip(
-                          label: Text(
-                            _agencyLabel(agency),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color:
-                                  selected
-                                      ? BafColors.planned
-                                      : BafColors.textSecondary,
-                            ),
-                          ),
-                          selected: selected,
-                          selectedColor: BafColors.planned.withValues(
-                            alpha: 0.12,
-                          ),
-                          checkmarkColor: BafColors.planned,
-                          side: BorderSide(
-                            color:
-                                selected
-                                    ? BafColors.planned.withValues(alpha: 0.45)
-                                    : BafColors.border,
-                          ),
-                          backgroundColor: BafColors.card,
-                          onSelected: (value) {
-                            setState(() {
-                              if (value) {
-                                _selectedAgencies.add(agency);
-                              } else {
-                                _selectedAgencies.remove(agency);
-                              }
-                            });
-                          },
-                        );
-                      }).toList(),
+                  children: _availableAgencies.map((agency) {
+                    final selected = _selectedAgencies.contains(agency);
+                    return FilterChip(
+                      label: Text(
+                        _agencyLabel(agency),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: selected
+                              ? BafColors.planned
+                              : BafColors.textSecondary,
+                        ),
+                      ),
+                      selected: selected,
+                      selectedColor: BafColors.planned.withValues(alpha: 0.12),
+                      checkmarkColor: BafColors.planned,
+                      side: BorderSide(
+                        color: selected
+                            ? BafColors.planned.withValues(alpha: 0.45)
+                            : BafColors.border,
+                      ),
+                      backgroundColor: BafColors.card,
+                      onSelected: (value) {
+                        setState(() {
+                          if (value) {
+                            _selectedAgencies.add(agency);
+                          } else {
+                            _selectedAgencies.remove(agency);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
                 ),
               ],
             ),
@@ -454,38 +445,34 @@ class _HierarchyTemplateScope extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final classes =
         ref.watch(assetClassesProvider).value ?? const <AssetClassRecord>[];
-    final compatible =
-        classes
-            .where(
-              (item) =>
-                  item.isActive &&
-                  (assetType == AssetType.governedCustom
-                      ? item.legacyAssetTypeKey == null
-                      : item.legacyAssetTypeKey == assetType.name),
-            )
-            .toList();
-    final definitions =
-        assetClassId == null
-            ? const <AssetHierarchyNode>[]
-            : ref.watch(assetHierarchyNodesProvider(assetClassId!)).value ??
-                const <AssetHierarchyNode>[];
-    final selectable =
-        definitions
-            .where(
-              (node) =>
-                  node.isActive &&
-                  (node.nodeType == AssetHierarchyNodeType.component ||
-                      node.nodeType == AssetHierarchyNodeType.subcomponent),
-            )
-            .toList();
+    final compatible = classes
+        .where(
+          (item) =>
+              item.isActive &&
+              (assetType == AssetType.governedCustom
+                  ? item.legacyAssetTypeKey == null
+                  : item.legacyAssetTypeKey == assetType.name),
+        )
+        .toList();
+    final definitions = assetClassId == null
+        ? const <AssetHierarchyNode>[]
+        : ref.watch(assetHierarchyNodesProvider(assetClassId!)).value ??
+              const <AssetHierarchyNode>[];
+    final selectable = definitions
+        .where(
+          (node) =>
+              node.isActive &&
+              (node.nodeType == AssetHierarchyNodeType.component ||
+                  node.nodeType == AssetHierarchyNodeType.subcomponent),
+        )
+        .toList();
 
     return Column(
       children: [
         DropdownButtonFormField<String?>(
-          initialValue:
-              compatible.any((item) => item.id == assetClassId)
-                  ? assetClassId
-                  : null,
+          initialValue: compatible.any((item) => item.id == assetClassId)
+              ? assetClassId
+              : null,
           isExpanded: true,
           decoration: _scopeDecoration('Governed asset class'),
           items: [
@@ -505,10 +492,9 @@ class _HierarchyTemplateScope extends ConsumerWidget {
         if (assetClassId != null) ...[
           const SizedBox(height: BafSpacing.md),
           DropdownButtonFormField<String?>(
-            initialValue:
-                selectable.any((item) => item.id == definitionNodeId)
-                    ? definitionNodeId
-                    : null,
+            initialValue: selectable.any((item) => item.id == definitionNodeId)
+                ? definitionNodeId
+                : null,
             isExpanded: true,
             decoration: _scopeDecoration('Component definition'),
             items: [
@@ -581,17 +567,16 @@ class _CreateTemplateBottomBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
           ),
-          icon:
-              isSubmitting
-                  ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2,
-                    ),
-                  )
-                  : const Icon(Icons.add_task_rounded),
+          icon: isSubmitting
+              ? const SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Icon(Icons.add_task_rounded),
           label: Text(
             isSubmitting ? 'Creating...' : 'Create Template',
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900),

@@ -175,6 +175,7 @@ const physicalComplianceId = (compliance: ComplianceDoc, id: string, closedParen
   closedParent && typeof compliance.physicalSourceComplianceId === "string" ?
     compliance.physicalSourceComplianceId : id;
 const PURPOSES = new Set(["assurance", "deferment", "operationsSupport"]);
+const PRIORITIES = new Set(["low", "medium", "high", "critical"]);
 const DEFERMENT_BASES = new Set([
   "ongoingCycle", "equipmentRequired", "operationalCompliance",
   "safetyConstraint", "qualityConstraint", "other",
@@ -238,6 +239,12 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
   ) {
     throw new WorkflowError("invalid-argument", "Unsupported compliance condition type.");
   }
+  const rawPriority = command.payload.priorityKey;
+  const priority = optionalChoice(
+    typeof rawPriority === "string" ? rawPriority.trim() || "medium" : rawPriority ?? "medium",
+    "priorityKey",
+    PRIORITIES,
+  )!;
   const requestPurpose = optionalChoice(
     command.payload.requestPurposeKey ?? "assurance",
     "requestPurposeKey",
@@ -464,7 +471,7 @@ export const raiseCompliance: CommandHandler = async ({tx, command, context}) =>
     raisedUnderCoordination,
     coordinationBasis: raisedUnderCoordination ?
       "supervisory-workflow-coordination" : null,
-    priorityKey: optionalText(command.payload.priorityKey) ?? "medium",
+    priorityKey: priority,
     assetTypeKey: workflowAssetTypeKey,
     assetNumber: workflowAssetNumber,
     chargeNoAtEvent: linkedMaintenanceData?.chargeNoAtEvent ?? null,

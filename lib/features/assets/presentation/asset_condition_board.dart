@@ -209,7 +209,7 @@ class PlantOverviewPanel extends StatelessWidget {
                     const SizedBox(width: BafSpacing.sm),
                     Expanded(
                       child: Text(
-                        value.evidenceWarnings.isEmpty
+                        value.hasCompleteEvidence
                             ? 'Plant condition'
                             : 'Plant condition — evidence incomplete',
                         style: const TextStyle(
@@ -219,12 +219,17 @@ class PlantOverviewPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Text(
-                      '${value.available}/${value.total}',
-                      style: const TextStyle(
-                        color: BafColors.assets,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
+                    Flexible(
+                      child: Text(
+                        value.hasCompleteEvidence
+                            ? '${value.available}/${value.total}'
+                            : '${value.total} recorded',
+                        textAlign: TextAlign.end,
+                        style: const TextStyle(
+                          color: BafColors.assets,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                     const SizedBox(width: BafSpacing.xs),
@@ -234,10 +239,24 @@ class PlantOverviewPanel extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (!value.hasCompleteEvidence) ...[
+                  const SizedBox(height: BafSpacing.sm),
+                  Text(
+                    '${value.available} verified available · '
+                    '${value.unverifiedWorkflowEvidence > 0 ? '${value.unverifiedWorkflowEvidence} condition unverified' : 'inventory evidence incomplete'}',
+                    key: const ValueKey('plant-condition-evidence-summary'),
+                    style: const TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: BafSpacing.md),
                 if (value.total == 0)
                   Text(
-                    value.evidenceWarnings.isEmpty ? 'No active physical assets are registered yet.' : 'No active assets could be verified from the available evidence.',
+                    value.evidenceWarnings.isEmpty
+                        ? 'No active physical assets are registered yet.'
+                        : 'No active assets could be verified from the available evidence.',
                     style: const TextStyle(color: BafColors.textSecondary),
                   )
                 else ...[
@@ -251,7 +270,10 @@ class PlantOverviewPanel extends StatelessWidget {
                           _PlantMetric(
                             width: width,
                             value: value.available,
-                            label: 'Available',
+                            label: value.hasCompleteEvidence
+                                ? 'Available'
+                                : 'Verified available',
+                            keyLabel: 'available',
                             color: BafColors.success,
                             onTap: () =>
                                 _openFilter(AssetConditionFilter.available),
@@ -370,6 +392,9 @@ class _ConditionBoardBody extends StatelessWidget {
             assets: summary.assets
                 .where(_matchesSelectedCondition)
                 .toList(growable: false),
+            innerCovers: summary.innerCovers
+                .where(_matchesCoverCondition)
+                .toList(growable: false),
           ),
         )
         .where((summary) => summary.total > 0)
@@ -404,7 +429,7 @@ class _ConditionBoardBody extends StatelessWidget {
         ),
         const SizedBox(height: BafSpacing.xs),
         const Text(
-          'Counts may overlap when an asset is both unavailable and under maintenance.',
+          'Physical inventory includes active numbered assets and serial Inner Covers, including standby and out-of-service stock. Components are not extra assets. Counts may overlap when an asset is both unavailable and under maintenance.',
           style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: BafSpacing.lg),
@@ -413,7 +438,7 @@ class _ConditionBoardBody extends StatelessWidget {
           runSpacing: BafSpacing.sm,
           children: [
             _ConditionFilterChip(
-              label: '${overview.total} registered',
+              label: '${overview.total} recorded assets',
               color: BafColors.assets,
               selected: selectedFilter == AssetConditionFilter.all,
               onSelected: () => onFilterChanged(AssetConditionFilter.all),
@@ -497,7 +522,38 @@ class _ConditionBoardBody extends StatelessWidget {
           ),
         ],
         const SizedBox(height: BafSpacing.xl),
-        if (visibleClasses.isEmpty)
+        for (final state in overview.unclassifiedAssets.where(
+          (s) =>
+              (selectedAssetClassId == null ||
+                  s.asset.assetClassId == selectedAssetClassId) &&
+              _matchesSelectedCondition(s),
+        ))
+          ListTile(
+            key: ValueKey('plant-unclassified-${state.asset.id}'),
+            title: Text(state.asset.name),
+            subtitle: const Text(
+              'Registered asset · class evidence unavailable · condition unverified',
+            ),
+            leading: const Icon(Icons.help_outline, color: BafColors.warning),
+          ),
+        for (final cover in overview.innerCovers.where(
+          (c) =>
+              !overview.classes.any(
+                (cls) => cls.assetClass.id == c.profile.assetClassId,
+              ) &&
+              (selectedAssetClassId == null ||
+                  c.profile.assetClassId == selectedAssetClassId) &&
+              _matchesCoverCondition(c),
+        ))
+          ListTile(
+            title: Text('Inner Cover ${cover.profile.serialNumber}'),
+            subtitle: const Text(
+              'Recorded serial identity · class evidence unavailable',
+            ),
+          ),
+        if (visibleClasses.isEmpty &&
+            overview.unclassifiedAssets.isEmpty &&
+            overview.innerCovers.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
             child: Text(
@@ -527,6 +583,17 @@ class _ConditionBoardBody extends StatelessWidget {
         AssetConditionFilter.stuckUp => asset.isTemporarilyBlocked,
         AssetConditionFilter.down => asset.isDown,
         AssetConditionFilter.unfit => asset.isUnfit,
+      };
+  bool _matchesCoverCondition(PlantInnerCoverState cover) =>
+      switch (selectedFilter) {
+        AssetConditionFilter.all => true,
+        AssetConditionFilter.available => cover.isAvailable,
+        AssetConditionFilter.maintenance =>
+          cover.profile.isUnderMaintenanceForPlantCondition,
+        AssetConditionFilter.unfit => cover.profile.isUnfitForPlantCondition,
+        AssetConditionFilter.unavailable ||
+        AssetConditionFilter.stuckUp ||
+        AssetConditionFilter.down => false,
       };
 }
 
@@ -577,18 +644,38 @@ class _AssetClassSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.medium),
             ),
             child: Column(
-              children: List<Widget>.generate(summary.assets.length * 2 - 1, (
-                index,
-              ) {
-                return index.isEven
-                    ? _AssetConditionRow(
-                        state: summary.assets[index ~/ 2],
-                        assetClass: summary.assetClass,
-                        user: user,
-                        openTickets: openTickets,
-                      )
-                    : const Divider(height: 1, color: BafColors.border);
-              }),
+              children: [
+                if (summary.assets.isNotEmpty)
+                  ...List<Widget>.generate(summary.assets.length * 2 - 1, (
+                    index,
+                  ) {
+                    return index.isEven
+                        ? _AssetConditionRow(
+                            state: summary.assets[index ~/ 2],
+                            assetClass: summary.assetClass,
+                            user: user,
+                            openTickets: openTickets,
+                          )
+                        : const Divider(height: 1, color: BafColors.border);
+                  }),
+                for (final cover in summary.innerCovers)
+                  Material(
+                    color: BafColors.card,
+                    child: ListTile(
+                      key: ValueKey('plant-inner-cover-${cover.profile.id}'),
+                      title: Text('Inner Cover ${cover.profile.serialNumber}'),
+                      subtitle: Text(
+                        '${cover.profile.lifecycleState.label}${cover.evidenceWarnings.isEmpty ? '' : ' · evidence unverified'}',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const InnerCoverLifecycleScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
         ],

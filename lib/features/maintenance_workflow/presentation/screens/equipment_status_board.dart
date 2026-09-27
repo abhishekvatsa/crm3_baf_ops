@@ -15,6 +15,7 @@ import '../../domain/equipment_command_identity.dart';
 import '../../domain/workflow_types.dart';
 import '../../providers/workflow_providers.dart';
 import '../../services/workflow_command_factory.dart';
+import 'missing_equipment_projection_screen.dart';
 
 class EquipmentStatusBoard extends ConsumerWidget {
   const EquipmentStatusBoard({super.key});
@@ -86,17 +87,33 @@ class EquipmentStatusBoard extends ConsumerWidget {
                   icon: Icons.settings_input_component_outlined,
                   accent: BafColors.assets,
                   trailing: StatusBadge(
-                    label: '${items.length} assets',
+                    label: '${items.length} workflow records',
                     color: BafColors.assets,
                   ),
                 ),
                 const SizedBox(height: BafSpacing.lg),
+                if (actor.canReconcileMaintenanceEquipment)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: OutlinedButton.icon(
+                      onPressed: commandState.isLoading
+                          ? null
+                          : () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) =>
+                                    const MissingEquipmentProjectionScreen(),
+                              ),
+                            ),
+                      icon: const Icon(Icons.fact_check_outlined),
+                      label: const Text('Review missing equipment states'),
+                    ),
+                  ),
                 Expanded(
                   child: items.isEmpty
                       ? BafStatePanel.empty(
                           title: 'No equipment projections',
                           message:
-                              'Equipment will appear after the governed asset projection is available.',
+                              'An Admin or SI can review registered equipment and reconcile missing workflow states.',
                           icon: Icons.precision_manufacturing_outlined,
                           color: BafColors.assets,
                         )

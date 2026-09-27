@@ -195,10 +195,9 @@ extension _TemplatePublisherValidation on _TemplatePublisherScreenState {
       return _JsonCheck(error: '$label must be a JSON array.');
     }
 
-    final itemCount =
-        decoded is List
-            ? decoded.length
-            : (decoded is Map ? decoded.length : 0);
+    final itemCount = decoded is List
+        ? decoded.length
+        : (decoded is Map ? decoded.length : 0);
     if (!allowEmpty && itemCount == 0) {
       return _JsonCheck(error: '$label must contain at least one item.');
     }
@@ -209,13 +208,12 @@ extension _TemplatePublisherValidation on _TemplatePublisherScreenState {
     final normalizedJson = const JsonEncoder.withIndent('  ').convert(decoded);
 
     if (label == 'fieldDefinitionsJson' && decoded is List) {
-      final missingLabels =
-          decoded.where((item) {
-            if (item is! Map) return true;
-            final key = item['key']?.toString().trim() ?? '';
-            final label = item['label']?.toString().trim() ?? '';
-            return key.isEmpty || label.isEmpty;
-          }).length;
+      final missingLabels = decoded.where((item) {
+        if (item is! Map) return true;
+        final key = item['key']?.toString().trim() ?? '';
+        final label = item['label']?.toString().trim() ?? '';
+        return key.isEmpty || label.isEmpty;
+      }).length;
       if (missingLabels > 0) {
         return _JsonCheck(
           itemCount: itemCount,
@@ -237,7 +235,10 @@ extension _TemplatePublisherValidation on _TemplatePublisherScreenState {
         fieldDefinitionsJson: _fieldDefinitionsJsonController.text,
         checklistJson: _checklistJsonController.text,
       );
-      final validation = snapshotBundle.validate();
+      // Publication asks for an explicit review after a successor is created.
+      final validation = snapshotBundle.validate(
+        requireClosureReviewForClosureCritical: false,
+      );
       return _PublisherPayloadSemanticResult(
         errors: validation.errors,
         warnings: validation.warnings,
@@ -262,33 +263,32 @@ extension _TemplatePublisherValidation on _TemplatePublisherScreenState {
     if (_lastHashInputFingerprint == fingerprint) return _cachedPreviewHash;
 
     try {
-      final version =
-          TemplateVersion()
-            ..jobTemplateSnapshotJson = _normalizedJsonForPreview(
-              _jobTemplateJsonController.text,
-              label: 'jobTemplateSnapshotJson',
-              expectedRoot: _JsonRoot.object,
-              allowEmpty: false,
-            )
-            ..moduleSnapshotsJson = _normalizedJsonForPreview(
-              _moduleSnapshotsJsonController.text,
-              label: 'moduleSnapshotsJson',
-              expectedRoot: _JsonRoot.list,
-              allowEmpty: false,
-            )
-            ..fieldDefinitionsJson = _normalizedJsonForPreview(
-              _fieldDefinitionsJsonController.text,
-              label: 'fieldDefinitionsJson',
-              expectedRoot: _JsonRoot.list,
-              allowEmpty: false,
-            )
-            ..checklistJson = _normalizedJsonForPreview(
-              _checklistJsonController.text,
-              label: 'checklistJson',
-              expectedRoot: _JsonRoot.list,
-              allowEmpty: true,
-            )
-            ..metadataJson = _buildVersionMetadataJson();
+      final version = TemplateVersion()
+        ..jobTemplateSnapshotJson = _normalizedJsonForPreview(
+          _jobTemplateJsonController.text,
+          label: 'jobTemplateSnapshotJson',
+          expectedRoot: _JsonRoot.object,
+          allowEmpty: false,
+        )
+        ..moduleSnapshotsJson = _normalizedJsonForPreview(
+          _moduleSnapshotsJsonController.text,
+          label: 'moduleSnapshotsJson',
+          expectedRoot: _JsonRoot.list,
+          allowEmpty: false,
+        )
+        ..fieldDefinitionsJson = _normalizedJsonForPreview(
+          _fieldDefinitionsJsonController.text,
+          label: 'fieldDefinitionsJson',
+          expectedRoot: _JsonRoot.list,
+          allowEmpty: false,
+        )
+        ..checklistJson = _normalizedJsonForPreview(
+          _checklistJsonController.text,
+          label: 'checklistJson',
+          expectedRoot: _JsonRoot.list,
+          allowEmpty: true,
+        )
+        ..metadataJson = _buildVersionMetadataJson();
       _cachedPreviewHash = version.computeContentHash();
     } catch (_) {
       _cachedPreviewHash = null;

@@ -14,7 +14,6 @@ import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/domain/current_actor_access.dart';
 
-
 import '../providers/abnormality_provider.dart';
 import 'abnormality_reports_screen.dart';
 import 'abnormality_types_screen.dart';
@@ -144,13 +143,12 @@ class _AbnormalitiesHomeScreenState
 
       await repository.seedDefaultTypes(actor: actor);
 
-      final syncOutcome =
-          kIsWeb
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'abnormality_defaults_seeded',
-                force: true,
-              );
+      final syncOutcome = kIsWeb
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'abnormality_defaults_seeded',
+              force: true,
+            );
 
       if (!mounted) return;
 
@@ -159,16 +157,19 @@ class _AbnormalitiesHomeScreenState
           'Default abnormality types checked and synchronized.',
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
           'Default abnormality types checked on this device; synchronization is queued.',
+        SyncRequestOutcome.partial =>
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
         SyncRequestOutcome.failed =>
           'Default abnormality types were checked locally, but cloud synchronization needs attention.',
       };
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor:
-              syncOutcome == SyncRequestOutcome.failed
-                  ? BafColors.danger
-                  : null,
+          backgroundColor: syncOutcome.isPartial
+              ? BafColors.warning
+              : syncOutcome == SyncRequestOutcome.failed
+              ? BafColors.danger
+              : null,
         ),
       );
     } catch (e) {

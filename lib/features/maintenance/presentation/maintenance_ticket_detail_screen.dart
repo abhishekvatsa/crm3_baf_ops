@@ -25,6 +25,7 @@ import 'burner_attendance_history_view.dart';
 import 'maintenance_continuation_links.dart';
 import 'maintenance_ticket_correction_history.dart';
 import 'maintenance_creation_successor_review_panel.dart';
+import 'maintenance_component_identification_panel.dart';
 
 part 'maintenance_ticket_workflow_evidence.dart';
 
@@ -145,6 +146,7 @@ class MaintenanceTicketDetailScreen extends ConsumerWidget {
                   'Closure evidence needs review. The saved closure could not be verified. Ordinary corrections, closure actions and PDF export are unavailable until it is reconciled; the original record is retained. Pending device changes can still be reviewed against verified server evidence.',
             ),
           MaintenanceCreationSuccessorReviewPanel(ticket: ticket),
+          MaintenanceComponentIdentificationPanel(ticket: ticket),
           BurnerAttendanceHistoryView(metadataJson: ticket.metadataJson),
           if (actor?.isApproved == true &&
               closureRead.isValid &&

@@ -4,13 +4,36 @@ extension _SyncServiceTemplateGovernance on SyncService {
   Future<void> _syncTemplateGovernance() async {
     // Version lifecycle must reach Firestore before a package points at an
     // active version or a publish audit is allowed to leave the device.
-    await _syncTemplateVersions();
-    await _syncTemplatePackages();
-    await _syncTemplatePublishAudits();
+    if (!await _guardedPushAwait(
+      () async => _runPushStage(
+        'template_version',
+        () async {
+          await _syncTemplateVersions();
+          _checkRunCurrent();
+        },
+        dependentStages: const ['template_package', 'template_publish_audit'],
+      ),
+    )) {
+      return;
+    }
+    if (!await _guardedPushAwait(
+      () async => _runPushStage('template_package', () async {
+        await _syncTemplatePackages();
+        _checkRunCurrent();
+      }, dependentStages: const ['template_publish_audit']),
+    )) {
+      return;
+    }
+    await _runPushStage('template_publish_audit', () async {
+      await _syncTemplatePublishAudits();
+      _checkRunCurrent();
+    });
+    _checkRunCurrent();
   }
 
   Future<void> _syncTemplatePackages() async {
     final unsynced = await _templateGovernanceRepo.getUnsyncedPackages();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -18,6 +41,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -26,6 +50,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         entityType: 'template_package',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -37,6 +62,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
       final remoteList = await _firestoreTemplateGovernance
           .getPackagesByFirestoreIds(firestoreIds);
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <TemplatePackage>[];
@@ -44,6 +70,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final convergedRecords = <TemplatePackage>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -83,11 +110,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (remote != null && remote.isDeleted) {
           final result = await _templateGovernanceRepo
               .applyTombstoneFromPackageRemote(remote);
-          if (await _retainHoldForPreservedLocalTombstone(
-            result: result,
-            entityType: 'template_package',
-            record: record,
-            entityLabel: 'template package',
+          _checkRunCurrent();
+          if (await _guardedPushAwait(
+            () async => _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'template_package',
+              record: record,
+              entityLabel: 'template package',
+            ),
           )) {
             continue;
           }
@@ -97,6 +127,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             evidence:
                 'The canonical remote template-package tombstone was adopted locally.',
           );
+          _checkRunCurrent();
           lastSuccessCount++;
           continue;
         }
@@ -108,6 +139,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           continue;
         }
@@ -122,10 +154,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
             await _firestoreTemplateGovernance.batchUpsertPackages(
               recordsToPush,
             );
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'template_package',
@@ -146,18 +182,21 @@ extension _SyncServiceTemplateGovernance on SyncService {
         await _templateGovernanceRepo.markPackagesSyncedIfUnchanged(
           snapshotsToMark,
         );
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'template_package',
           records: convergedRecords,
           evidence:
               'The remote template-package write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
 
   Future<void> _syncTemplateVersions() async {
     final unsynced = await _templateGovernanceRepo.getUnsyncedVersions();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -165,6 +204,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -173,6 +213,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         entityType: 'template_version',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -184,6 +225,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
       final remoteList = await _firestoreTemplateGovernance
           .getVersionsByFirestoreIds(firestoreIds);
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <TemplateVersion>[];
@@ -191,6 +233,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final convergedRecords = <TemplateVersion>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -230,11 +273,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (remote != null && remote.isDeleted) {
           final result = await _templateGovernanceRepo
               .applyTombstoneFromVersionRemote(remote);
-          if (await _retainHoldForPreservedLocalTombstone(
-            result: result,
-            entityType: 'template_version',
-            record: record,
-            entityLabel: 'template version',
+          _checkRunCurrent();
+          if (await _guardedPushAwait(
+            () async => _retainHoldForPreservedLocalTombstone(
+              result: result,
+              entityType: 'template_version',
+              record: record,
+              entityLabel: 'template version',
+            ),
           )) {
             continue;
           }
@@ -244,6 +290,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             evidence:
                 'The canonical remote template-version tombstone was adopted locally.',
           );
+          _checkRunCurrent();
           lastSuccessCount++;
           continue;
         }
@@ -255,6 +302,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           continue;
         }
@@ -271,6 +319,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote!.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           continue;
         }
@@ -279,6 +328,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
           record,
           remote,
         );
+        _checkRunCurrent();
         if (archiveReplayed) {
           lastSuccessCount++;
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -294,6 +344,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
           record,
           remote,
         );
+        _checkRunCurrent();
         if (publishReplayed) {
           lastSuccessCount++;
           skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -319,10 +370,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
             await _firestoreTemplateGovernance.batchUpsertVersions(
               recordsToPush,
             );
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'template_version',
@@ -343,12 +398,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
         await _templateGovernanceRepo.markVersionsSyncedIfUnchanged(
           snapshotsToMark,
         );
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'template_version',
           records: convergedRecords,
           evidence:
               'The governed version replay, remote write, or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
@@ -457,6 +514,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
     var expectedDraftVersion = remote?.version;
     try {
       for (final step in plan) {
+        _checkRunCurrent();
         if (step == _TemplateVersionReplayStep.createDraft) {
           final stepData = _templateVersionDraftReplayCreateData(local);
           final receipt = await _applyTemplateVersionLifecycleReplayStep(
@@ -468,6 +526,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
                   stepData,
                 ),
           );
+          _checkRunCurrent();
           expectedDraftVersion = receipt.version;
           continue;
         }
@@ -489,6 +548,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
                   expectedDraftVersion: predecessorVersion,
                 ),
           );
+          _checkRunCurrent();
           expectedDraftVersion = receipt.version;
           continue;
         }
@@ -510,9 +570,12 @@ extension _SyncServiceTemplateGovernance on SyncService {
                 expectedDraftVersion: predecessorVersion,
               ),
         );
+        _checkRunCurrent();
       }
       return true;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Decomposed TemplateVersion archive replay did not fully complete '
         'for $firestoreId: $error',
@@ -602,6 +665,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
     try {
       for (final step in plan) {
+        _checkRunCurrent();
         if (step == _TemplateVersionReplayStep.createDraft) {
           final stepData = _templateVersionDraftReplayCreateData(local);
           await _applyTemplateVersionLifecycleReplayStep(
@@ -613,6 +677,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
                   stepData,
                 ),
           );
+          _checkRunCurrent();
         } else {
           final stepData = _templateVersionPublishReplayStepData(local);
           await _applyTemplateVersionLifecycleReplayStep(
@@ -624,10 +689,13 @@ extension _SyncServiceTemplateGovernance on SyncService {
                   stepData,
                 ),
           );
+          _checkRunCurrent();
         }
       }
       return true;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Decomposed TemplateVersion publish replay did not fully complete '
         'for $firestoreId: $error',
@@ -662,8 +730,12 @@ extension _SyncServiceTemplateGovernance on SyncService {
     TemplateVersion? observed;
     try {
       await _retry(writeStep);
-    } catch (_) {
+      _checkRunCurrent();
+    } catch (syncError) {
+      rethrowIfSyncRunMustAbort(syncError);
+      _checkRunCurrent();
       observed = await _readTemplateVersionLifecycleReplayReceipt(firestoreId);
+      _checkRunCurrent();
       if (!syncLifecycleReplayOutcomeMatches(observed?.toMap(), stepData)) {
         rethrow;
       }
@@ -674,6 +746,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
     }
 
     observed ??= await _readTemplateVersionLifecycleReplayReceipt(firestoreId);
+    _checkRunCurrent();
     if (!syncLifecycleReplayOutcomeMatches(observed?.toMap(), stepData)) {
       throw StateError(
         'TemplateVersion lifecycle replay for $firestoreId did not match '
@@ -688,6 +761,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
   ) async {
     final records = await _firestoreTemplateGovernance
         .getVersionsByFirestoreIds(<String>[firestoreId]);
+    _checkRunCurrent();
     if (records.length > 1) {
       throw StateError(
         'TemplateVersion lifecycle replay readback returned duplicate records '
@@ -940,13 +1014,17 @@ extension _SyncServiceTemplateGovernance on SyncService {
   bool _templatePublishAuditRemoteDependencySatisfied(
     TemplatePublishAudit audit,
     TemplateVersion? remoteVersion,
+    TemplatePackage? remotePackage,
   ) {
     if (remoteVersion == null || remoteVersion.isDeleted) return false;
     switch (audit.action) {
       case TemplatePublishAuditAction.published:
-        return remoteVersion.status == TemplateVersionStatus.published ||
-            remoteVersion.status == TemplateVersionStatus.retired ||
-            remoteVersion.status == TemplateVersionStatus.archived;
+        return (remoteVersion.status == TemplateVersionStatus.published ||
+                remoteVersion.status == TemplateVersionStatus.retired) &&
+            remotePackageSupportsPublicationAudit(
+              package: remotePackage,
+              version: remoteVersion,
+            );
       case TemplatePublishAuditAction.retired:
         return remoteVersion.status == TemplateVersionStatus.retired ||
             remoteVersion.status == TemplateVersionStatus.archived;
@@ -964,11 +1042,13 @@ extension _SyncServiceTemplateGovernance on SyncService {
 
   Future<void> _syncTemplatePublishAudits() async {
     final unsynced = await _templateGovernanceRepo.getUnsyncedAudits();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -977,6 +1057,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
         entityType: 'template_publish_audit',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -987,6 +1068,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
           .toList();
       final remoteList = await _firestoreTemplateGovernance
           .getAuditsByFirestoreIds(firestoreIds);
+      _checkRunCurrent();
       final remoteById = <String, TemplatePublishAudit>{
         for (final remote in remoteList)
           if (remote.firestoreId != null) remote.firestoreId!: remote,
@@ -999,9 +1081,25 @@ extension _SyncServiceTemplateGovernance on SyncService {
           .toList(growable: false);
       final remoteVersions = await _firestoreTemplateGovernance
           .getVersionsByFirestoreIds(versionIds);
+      _checkRunCurrent();
       final remoteVersionById = <String, TemplateVersion>{
         for (final version in remoteVersions)
           if (version.firestoreId != null) version.firestoreId!: version,
+      };
+      final packageIds = activeBatchRecords
+          .where(
+            (record) => record.action == TemplatePublishAuditAction.published,
+          )
+          .map((record) => record.packageFirestoreId)
+          .whereType<String>()
+          .toSet()
+          .toList(growable: false);
+      final remotePackages = await _firestoreTemplateGovernance
+          .getPackagesByFirestoreIds(packageIds);
+      _checkRunCurrent();
+      final remotePackageById = <String, TemplatePackage>{
+        for (final package in remotePackages)
+          if (package.firestoreId != null) package.firestoreId!: package,
       };
 
       final recordsToPush = <TemplatePublishAudit>[];
@@ -1009,6 +1107,7 @@ extension _SyncServiceTemplateGovernance on SyncService {
       final convergedRecords = <TemplatePublishAudit>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -1049,9 +1148,13 @@ extension _SyncServiceTemplateGovernance on SyncService {
         if (!_templatePublishAuditRemoteDependencySatisfied(
           record,
           remoteVersion,
+          remotePackageById[record.packageFirestoreId],
         )) {
+          lastDeferredPushRecordKeys.add(
+            'template_publish_audit/${record.firestoreId}',
+          );
           debugPrint(
-            '⏸️ Holding TemplateVersion audit until remote lifecycle is confirmed: '
+            '⏸️ Holding TemplateVersion audit until remote lifecycle and package dependencies are confirmed: '
             '${record.firestoreId} (action=${record.action.name}, '
             'version=${record.versionFirestoreId ?? 'unknown'})',
           );
@@ -1066,10 +1169,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
         try {
           await _retry(() async {
             await _firestoreTemplateGovernance.batchUpsertAudits(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'template_publish_audit',
@@ -1090,12 +1197,14 @@ extension _SyncServiceTemplateGovernance on SyncService {
         await _templateGovernanceRepo.markAuditsSyncedIfUnchanged(
           snapshotsToMark,
         );
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'template_publish_audit',
           records: convergedRecords,
           evidence:
               'The immutable publish audit was accepted remotely or matched exact remote evidence and was reconciled locally.',
         );
+        _checkRunCurrent();
       }
     }
   }

@@ -818,6 +818,42 @@ void main() {
     },
   );
 
+  testWidgets('quiet alarm access keeps an explicit verified state', (
+    tester,
+  ) async {
+    await _pumpLauncherHost(tester);
+    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+    final semantics = tester.widget<Semantics>(launcher);
+    expect(semantics.properties.label, contains('No active alarms.'));
+    expect(semantics.properties.label, contains('Drag to reposition.'));
+    expect(
+      find.descendant(
+        of: launcher,
+        matching: find.byType(FloatingActionButton),
+      ),
+      findsOneWidget,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpLauncherHost(tester, snapshot: _stale(const []));
+    expect(
+      tester.widget<Semantics>(launcher).properties.label,
+      contains('Live status not verified.'),
+    );
+    expect(
+      tester.widget<Semantics>(launcher).properties.label,
+      isNot(contains('No active alarms.')),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await _pumpLauncherHost(
+      tester,
+      snapshot: _verified([_supportConfirmedAlarm()]),
+    );
+    expect(
+      tester.widget<Semantics>(launcher).properties.label,
+      contains('1 active alarm.'),
+    );
+  });
+
   testWidgets('global alarm launcher applies device safe insets exactly once', (
     tester,
   ) async {
@@ -837,6 +873,73 @@ void main() {
     expect(position.dy, closeTo(systemInsets.top + 12, 1));
     expect(tester.getSize(launcher), const Size.square(48));
   });
+
+  testWidgets(
+    'alarm refresh cannot advertise its retained empty snapshot as live',
+    (tester) async {
+      final pendingFeed = StreamController<CriticalAlarmLiveSnapshot>();
+      addTearDown(pendingFeed.close);
+      var subscriptions = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(_channel, (call) async {
+            if (call.method == 'reconcileActiveNotifications') return 0;
+            return null;
+          });
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
+            activeCriticalAlarmsProvider.overrideWith((_) {
+              subscriptions++;
+              return subscriptions == 1
+                  ? Stream.value(_verified(const []))
+                  : pendingFeed.stream;
+            }),
+          ],
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            builder: (context, child) => CriticalAlarmHost(
+              navigatorKey: navigatorKey,
+              child: child ?? const SizedBox.shrink(),
+            ),
+            home: const Scaffold(body: Text('Operations')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+      expect(
+        tester.widget<Semantics>(launcher).properties.label,
+        contains('No active alarms.'),
+      );
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(CriticalAlarmHost)),
+        listen: false,
+      );
+      container.invalidate(activeCriticalAlarmsProvider);
+      await tester.pump();
+      final refreshing = container.read(activeCriticalAlarmsProvider);
+      expect(refreshing.isLoading, isTrue);
+      expect(refreshing.hasValue, isTrue);
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(launcher).properties.label,
+        contains('Live status not verified.'),
+      );
+      expect(
+        tester.widget<Semantics>(launcher).properties.label,
+        isNot(contains('No active alarms.')),
+      );
+      pendingFeed.add(_verified(const []));
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.widget<Semantics>(launcher).properties.label,
+        contains('No active alarms.'),
+      );
+    },
+  );
 
   testWidgets('global alarm launcher stays above an open keyboard', (
     tester,
@@ -862,6 +965,7 @@ Future<void> _pumpLauncherHost(
   WidgetTester tester, {
   EdgeInsets systemInsets = EdgeInsets.zero,
   EdgeInsets viewInsets = EdgeInsets.zero,
+  CriticalAlarmLiveSnapshot? snapshot,
 }) async {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_channel, (call) async {
@@ -874,7 +978,7 @@ Future<void> _pumpLauncherHost(
       overrides: [
         currentAppUserProvider.overrideWith((_) => Stream.value(_user())),
         activeCriticalAlarmsProvider.overrideWith(
-          (_) => Stream.value(_verified(const <CriticalAlarm>[])),
+          (_) => Stream.value(snapshot ?? _verified(const <CriticalAlarm>[])),
         ),
       ],
       child: MaterialApp(

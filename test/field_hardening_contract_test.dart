@@ -206,8 +206,12 @@ class _ProjectFiles {
   String get closedTickets =>
       _read('lib/features/maintenance/presentation/closed_tickets_screen.dart');
 
-  String get directives =>
-      _read('lib/features/directives/presentation/directives_screen.dart');
+  String get directives => [
+    _read('lib/features/directives/presentation/directives_screen.dart'),
+    _read(
+      'lib/features/directives/presentation/directives_screen.closure_dialog.dart',
+    ),
+  ].join('\n');
 
   String _read(String path) => File(path).readAsStringSync();
 }

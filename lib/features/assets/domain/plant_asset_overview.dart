@@ -4,6 +4,7 @@ import '../data/asset_availability_record.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
+import '../data/inner_cover_lifecycle.dart';
 
 EquipmentStatusRecord? _combineBaseWorkflowStatus({
   required EquipmentStatusRecord? base,
@@ -172,24 +173,34 @@ class PlantAssetState {
 class PlantAssetClassSummary {
   final AssetClassRecord assetClass;
   final List<PlantAssetState> assets;
+  final List<PlantInnerCoverState> innerCovers;
 
   const PlantAssetClassSummary({
     required this.assetClass,
     required this.assets,
+    this.innerCovers = const [],
   });
 
-  int get total => assets.length;
-  int get available => assets.where((asset) => asset.isAvailable).length;
+  int get total => assets.length + innerCovers.length;
+  int get available =>
+      assets.where((asset) => asset.isAvailable).length +
+      innerCovers.where((c) => c.isAvailable).length;
   int get underMaintenance =>
-      assets.where((asset) => asset.isUnderMaintenance).length;
+      assets.where((asset) => asset.isUnderMaintenance).length +
+      innerCovers
+          .where((c) => c.profile.isUnderMaintenanceForPlantCondition)
+          .length;
   int get down => assets.where((asset) => asset.isDown).length;
-  int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get unfit =>
+      assets.where((asset) => asset.isUnfit).length +
+      innerCovers.where((c) => c.profile.isUnfitForPlantCondition).length;
   int get issueUnavailable =>
       assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get unverifiedWorkflowEvidence =>
-      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length;
+      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length +
+      innerCovers.where((c) => c.evidenceWarnings.isNotEmpty).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
@@ -207,29 +218,63 @@ class PlantAssetClassSummary {
       .length;
 }
 
+class PlantInnerCoverState {
+  const PlantInnerCoverState({
+    required this.profile,
+    this.evidenceWarnings = const [],
+  });
+  final InnerCoverProfile profile;
+  final List<String> evidenceWarnings;
+  bool get isAvailable =>
+      evidenceWarnings.isEmpty && profile.isAvailableForPlantCondition;
+}
+
 class PlantAssetOverview {
   final List<PlantAssetClassSummary> classes;
   final List<PlantAssetState> assets;
   final List<String> evidenceWarnings;
+  final List<PlantInnerCoverState> innerCovers;
+  final List<String> innerCoverEvidenceWarnings;
+  final bool hasQualifiedInnerCoverInventory;
 
   const PlantAssetOverview({
     required this.classes,
     required this.assets,
     this.evidenceWarnings = const [],
+    this.innerCovers = const [],
+    this.innerCoverEvidenceWarnings = const [],
+    this.hasQualifiedInnerCoverInventory = false,
   });
 
-  int get total => assets.length;
-  int get available => assets.where((asset) => asset.isAvailable).length;
+  int get total => assets.length + innerCovers.length;
+  int get available =>
+      assets.where((asset) => asset.isAvailable).length +
+      innerCovers.where((c) => c.isAvailable).length;
   int get underMaintenance =>
-      assets.where((asset) => asset.isUnderMaintenance).length;
+      assets.where((asset) => asset.isUnderMaintenance).length +
+      innerCovers
+          .where((c) => c.profile.isUnderMaintenanceForPlantCondition)
+          .length;
   int get down => assets.where((asset) => asset.isDown).length;
-  int get unfit => assets.where((asset) => asset.isUnfit).length;
+  int get unfit =>
+      assets.where((asset) => asset.isUnfit).length +
+      innerCovers.where((c) => c.profile.isUnfitForPlantCondition).length;
   int get issueUnavailable =>
       assets.where((asset) => asset.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get unverifiedWorkflowEvidence =>
-      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length;
+      assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length +
+      innerCovers.where((c) => c.evidenceWarnings.isNotEmpty).length;
+  bool get hasCompleteEvidence =>
+      evidenceWarnings.isEmpty && unverifiedWorkflowEvidence == 0;
+  double? get availabilityRate =>
+      total == 0 || !hasCompleteEvidence ? null : available / total;
+  List<PlantAssetState> get unclassifiedAssets => assets
+      .where(
+        (a) => !classes.any((c) => c.assetClass.id == a.asset.assetClassId),
+      )
+      .toList();
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;

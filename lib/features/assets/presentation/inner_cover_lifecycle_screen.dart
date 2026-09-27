@@ -18,6 +18,10 @@ import '../data/asset_registry_model.dart';
 import '../data/furnace_stuckup_record.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../domain/inner_cover_acceptance_input.dart';
+import '../domain/inner_cover_date_format.dart';
+import 'widgets/inner_cover_date_picker.dart';
+import 'widgets/inner_cover_history.dart';
+import 'widgets/inner_cover_physical_event_field.dart';
 import '../domain/inner_cover_acceptance_submission.dart';
 import '../../maintenance/domain/furnace_stuckup_case.dart';
 import 'widgets/inner_cover_registration_date_field.dart';
@@ -38,6 +42,9 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final scrollTabs =
+        MediaQuery.sizeOf(context).width < 380 ||
+        MediaQuery.textScalerOf(context).scale(14) > 19;
     final actorAsync = ref.watch(currentAppUserProvider);
     if (actorAsync.isLoading) {
       return BafScreenStateScaffold.loading(
@@ -96,8 +103,10 @@ class InnerCoverLifecycleScreen extends ConsumerWidget {
             icon: Icons.layers_outlined,
             accent: BafColors.maintenance,
           ),
-          bottom: const TabBar(
-            tabs: [
+          bottom: TabBar(
+            isScrollable: scrollTabs,
+            tabAlignment: scrollTabs ? TabAlignment.start : TabAlignment.fill,
+            tabs: const [
               Tab(text: 'Bases'),
               Tab(text: 'Pool'),
               Tab(text: 'All covers'),
@@ -497,117 +506,93 @@ class _SummaryBand extends StatelessWidget {
       child: Align(
         alignment: Alignment.center,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 920),
-          child: Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            children: [
-              _SummaryFilterBadge(
-                label: '$baseCount Bases',
-                color: BafColors.assets,
-                tooltip: 'Show all Bases',
-                onTap: onShowAllBases,
-              ),
-              _SummaryFilterBadge(
-                label: populationIncomplete
-                    ? 'Installed unverified'
-                    : '$occupiedBaseCount installed',
-                color: BafColors.success,
-                tooltip: 'Show Bases with an Inner Cover',
-                onTap: onShowInstalled,
-              ),
-              _SummaryFilterBadge(
-                label: populationIncomplete
-                    ? 'Available unverified'
-                    : '$available available',
-                color: BafColors.planned,
-                tooltip: 'Show available Inner Covers',
-                onTap: onShowAvailable,
-              ),
-              _SummaryFilterBadge(
-                label: populationIncomplete
-                    ? 'Attention unverified'
-                    : '$attention need attention',
-                color: attention == 0
-                    ? BafColors.textSecondary
-                    : BafColors.warning,
-                tooltip: 'Show Inner Covers needing attention',
-                onTap: onShowAttention,
-              ),
-              if (!populationIncomplete)
+          constraints: BoxConstraints(
+            maxWidth: 920,
+            maxHeight: MediaQuery.sizeOf(context).height * 0.28,
+          ),
+          child: SingleChildScrollView(
+            key: const ValueKey('inner-cover-summary-scroll'),
+            primary: false,
+            child: Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.sm,
+              children: [
                 _SummaryFilterBadge(
-                  label: '$vacantBases Bases with no Inner Covers',
-                  color: vacantBases == 0
+                  label: '$baseCount Bases',
+                  color: BafColors.assets,
+                  tooltip: 'Show all Bases',
+                  onTap: onShowAllBases,
+                ),
+                _SummaryFilterBadge(
+                  label: populationIncomplete
+                      ? 'Installed unverified'
+                      : '$occupiedBaseCount installed',
+                  color: BafColors.success,
+                  tooltip: 'Show Bases with an Inner Cover',
+                  onTap: onShowInstalled,
+                ),
+                _SummaryFilterBadge(
+                  label: populationIncomplete
+                      ? 'Available unverified'
+                      : '$available available',
+                  color: BafColors.planned,
+                  tooltip: 'Show available Inner Covers',
+                  onTap: onShowAvailable,
+                ),
+                _SummaryFilterBadge(
+                  label: populationIncomplete
+                      ? 'Attention unverified'
+                      : '$attention need attention',
+                  color: attention == 0
                       ? BafColors.textSecondary
-                      : BafColors.audit,
-                  tooltip: 'Show Bases with no Inner Cover',
-                  onTap: onShowVacantBases,
-                )
-              else
-                const StatusBadge(
-                  label: 'Vacancy and totals unverified',
-                  color: BafColors.warning,
+                      : BafColors.warning,
+                  tooltip: 'Show Inner Covers needing attention',
+                  onTap: onShowAttention,
                 ),
-              if (retired > 0)
-                _SummaryFilterBadge(
-                  label: populationIncomplete
-                      ? 'Retired unverified'
-                      : '$retired retired',
-                  color: BafColors.textSecondary,
-                  tooltip: 'Show retired Inner Covers',
-                  onTap: onShowRetired,
-                ),
-              if (bulgeEvidenceAvailable && bulgeRecords > 0)
-                _SummaryFilterBadge(
-                  label: populationIncomplete
-                      ? 'Bulge totals unverified'
-                      : '$bulgeRecords with bulge history',
-                  color: BafColors.danger,
-                  tooltip: 'Show Inner Covers with bulge history',
-                  onTap: onShowBulgeHistory,
-                ),
-              if (!bulgeEvidenceAvailable)
-                const StatusBadge(
-                  label: 'Bulge evidence unavailable',
-                  color: BafColors.danger,
-                ),
-            ],
+                if (!populationIncomplete)
+                  _SummaryFilterBadge(
+                    label: '$vacantBases Bases with no Inner Covers',
+                    color: vacantBases == 0
+                        ? BafColors.textSecondary
+                        : BafColors.audit,
+                    tooltip: 'Show Bases with no Inner Cover',
+                    onTap: onShowVacantBases,
+                  )
+                else
+                  const StatusBadge(
+                    label: 'Vacancy and totals unverified',
+                    color: BafColors.warning,
+                  ),
+                if (retired > 0)
+                  _SummaryFilterBadge(
+                    label: populationIncomplete
+                        ? 'Retired unverified'
+                        : '$retired retired',
+                    color: BafColors.textSecondary,
+                    tooltip: 'Show retired Inner Covers',
+                    onTap: onShowRetired,
+                  ),
+                if (bulgeEvidenceAvailable && bulgeRecords > 0)
+                  _SummaryFilterBadge(
+                    label: populationIncomplete
+                        ? 'Bulge totals unverified'
+                        : '$bulgeRecords with bulge history',
+                    color: BafColors.danger,
+                    tooltip: 'Show Inner Covers with bulge history',
+                    onTap: onShowBulgeHistory,
+                  ),
+                if (!bulgeEvidenceAvailable)
+                  const StatusBadge(
+                    label: 'Bulge evidence unavailable',
+                    color: BafColors.danger,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
-
-class _SummaryFilterBadge extends StatelessWidget {
-  final String label;
-  final Color color;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  const _SummaryFilterBadge({
-    required this.label,
-    required this.color,
-    required this.tooltip,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => Semantics(
-    button: true,
-    label: tooltip,
-    child: Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          onTap: onTap,
-          child: StatusBadge(label: label, color: color),
-        ),
-      ),
-    ),
-  );
 }
 
 enum _BaseListFilter { all, vacant, occupied }
@@ -1194,7 +1179,7 @@ Color _stateColor(InnerCoverLifecycleState state) => switch (state) {
 };
 
 String _formatInnerCoverDate(DateTime value) =>
-    DateFormat('dd MMM yyyy').format(value.toLocal());
+    DateFormat(innerCoverDatePattern).format(value.toLocal());
 
 String _bulgeCaseSummary(FurnaceStuckupRecord item, DateFormat date) {
   final status = switch (item.adjudicationStatus) {

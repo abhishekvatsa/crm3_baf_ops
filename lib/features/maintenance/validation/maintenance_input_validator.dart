@@ -4,6 +4,7 @@ import '../../../core/validation/field_validators.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/validation/validation_result.dart';
 import '../data/maintenance_model.dart';
+import '../domain/maintenance_component_identification.dart';
 import '../utils/asset_validator.dart';
 
 class MaintenanceCreateInput {
@@ -17,6 +18,7 @@ class MaintenanceCreateInput {
   final RoutedTo routedTo;
   final String? otherDepartment;
   final bool hasGovernedAssetIdentity;
+  final ComponentIntakeState? componentIntakeState;
 
   const MaintenanceCreateInput({
     required this.assetType,
@@ -29,6 +31,7 @@ class MaintenanceCreateInput {
     this.chargeNumberText,
     this.otherDepartment,
     this.hasGovernedAssetIdentity = false,
+    this.componentIntakeState,
   });
 }
 
@@ -152,7 +155,8 @@ class MaintenanceInputValidator {
         value: input.assetNumberText,
         hasGovernedAssetIdentity: input.hasGovernedAssetIdentity,
       ),
-      validateComponent(input.component),
+      if (!{ComponentIntakeState.unidentified, ComponentIntakeState.wholeAsset}.contains(input.componentIntakeState))
+        validateComponent(input.component),
       validateDescription(input.description),
       validateTag(input.tag),
       validateChargeNumber(input.chargeNumberText),

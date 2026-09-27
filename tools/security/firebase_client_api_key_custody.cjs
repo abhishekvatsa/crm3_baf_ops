@@ -6,6 +6,16 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const API_KEY_SOURCE = "AIza[0-9A-Za-z_-]{35}";
+// Firebase's native SDK requires key-shaped demo configuration. This pins the
+// one known non-credential fixture by exact bytes without retaining its value.
+// No directory is exempt: all other values at these paths remain key evidence.
+const EMULATOR_PLACEHOLDER_SHA256 =
+  "29A5488C048733318A87AD9E4ACAE359F2769CE6080FC394F24C3B5A255987FA";
+const EMULATOR_PLACEHOLDER_PATHS = Object.freeze([
+  "lib/core/dev/dev_environment.dart",
+  "tool/dev/setup_dev.ps1",
+  "tools/testing/run_ci_business_journeys.py",
+]);
 
 function normalizePath(value) {
   return value.replaceAll("\\", "/");
@@ -59,7 +69,9 @@ function readRepositoryInputs(repositoryRoot, policy) {
   const trackedPaths = listTrackedPaths(repositoryRoot);
   const keyPaths = discoverTrackedKeyPaths(repositoryRoot);
   const requiredPaths = policy.sourceCustody.allowedTrackedPaths.map(normalizePath);
-  const pathsToRead = uniqueSorted([...keyPaths, ...requiredPaths]);
+  const pathsToRead = uniqueSorted([
+    ...keyPaths, ...requiredPaths, ...EMULATOR_PLACEHOLDER_PATHS,
+  ]);
   const files = new Map();
   for (const relativePath of pathsToRead) {
     const absolutePath = path.join(repositoryRoot, relativePath);
@@ -95,8 +107,25 @@ function auditSourceCustody({ policy, files, trackedPaths }) {
     (sourcePolicy.allowedTrackedPaths ?? []).map(normalizePath),
   );
   const keyInventory = [];
+  const isEmulatorPlaceholder = (key) => sha256(key) === EMULATOR_PLACEHOLDER_SHA256;
+  const emulatorInventory = EMULATOR_PLACEHOLDER_PATHS.map((relativePath) => {
+    const source = files.get(relativePath) ?? "";
+    const exactKeys = source.match(new RegExp(
+      `(?<![0-9A-Za-z_-])${API_KEY_SOURCE}(?![0-9A-Za-z_-])`, "g",
+    )) ?? [];
+    return {
+      relativePath,
+      keys: extractApiKeys(source),
+      placeholders: exactKeys.filter(isEmulatorPlaceholder),
+    };
+  });
+  const exactPlaceholderPaths = new Set(emulatorInventory
+    .filter((entry) => entry.placeholders.length > 0)
+    .map((entry) => entry.relativePath));
   for (const [relativePath, source] of files) {
-    const keys = extractApiKeys(source);
+    const keys = extractApiKeys(source).filter((key) =>
+      !exactPlaceholderPaths.has(relativePath) || !isEmulatorPlaceholder(key),
+    );
     if (keys.length > 0) keyInventory.push({ relativePath, keys });
   }
 
@@ -120,6 +149,14 @@ function auditSourceCustody({ policy, files, trackedPaths }) {
       allowedPaths.includes(firebaseOptionsPath) &&
       allowedPaths.includes(googleServicesPath),
     allowedPathsTracked: allowedPaths.every((entry) => trackedPaths.has(entry)),
+    emulatorPlaceholderPathsTracked: EMULATOR_PLACEHOLDER_PATHS.every(
+      (entry) => trackedPaths.has(entry),
+    ),
+    emulatorPlaceholderOccurrences: emulatorInventory.every(
+      (entry) => entry.keys.length === 1 && entry.placeholders.length === 1,
+    ),
+    emulatorPlaceholderAbsentFromProduction: [...firebaseOptionsKeys, ...googleServicesKeys]
+      .every((key) => !isEmulatorPlaceholder(key)),
     keyPathsExact:
       JSON.stringify(discoveredPaths) === JSON.stringify(allowedPaths),
     firebaseOptionsOccurrences:
@@ -147,6 +184,13 @@ function auditSourceCustody({ policy, files, trackedPaths }) {
     trackedKeyPaths: discoveredPaths,
     occurrenceCounts: Object.fromEntries(
       keyInventory.map((entry) => [entry.relativePath, entry.keys.length]),
+    ),
+    emulatorPlaceholderPaths: emulatorInventory
+      .filter((entry) => entry.placeholders.length > 0)
+      .map((entry) => entry.relativePath),
+    emulatorPlaceholderOccurrenceCounts: Object.fromEntries(
+      emulatorInventory.map((entry) => [entry.relativePath,
+        entry.placeholders.length]),
     ),
     distinctKeySha256: distinctKeys.map(sha256).sort(),
     checks,
@@ -202,7 +246,9 @@ if (require.main === module) {
     console.log(
       "PASS_FIREBASE_CLIENT_API_KEY_SOURCE_CUSTODY: " +
         `trackedPaths=${evidence.trackedKeyPaths.length} ` +
-        `distinctKeys=${evidence.distinctKeySha256.length} rawValuesEmitted=false`,
+        `distinctKeys=${evidence.distinctKeySha256.length} ` +
+        `emulatorPlaceholderPaths=${evidence.emulatorPlaceholderPaths.length} ` +
+        "rawValuesEmitted=false",
     );
   } catch (error) {
     console.error(error.message);

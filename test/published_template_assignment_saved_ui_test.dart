@@ -1,10 +1,12 @@
 import 'dart:async';
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission_repository.dart';
+import 'package:crm3_baf_ops/core/persistence/request_identity_journal.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/domain/current_actor_access.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
+import 'package:crm3_baf_ops/features/planned_maintenance/presentation/published_template_assignment_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/saved_published_assignment_screen.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/published_template_assignment_idempotency_store.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/services/published_template_assignment_server_service.dart';
@@ -47,7 +49,7 @@ void main() {
     controller = PublishedTemplateAssignmentSubmissionController(
       store: store,
       server: server,
-      legacy: PublishedTemplateAssignmentIdempotencyStore(),
+      legacy: _NoLegacyAssignments(),
       requireActor: () {
         final access = CurrentActorAccess.resolve(
           container.read(currentAppUserProvider),
@@ -79,7 +81,7 @@ void main() {
     await accounts.close();
   });
 
-  Future<void> show(WidgetTester tester) async {
+  Future<void> show(WidgetTester tester, {bool throughParent = false}) async {
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
@@ -90,8 +92,9 @@ void main() {
                 body: TextButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) =>
-                          SavedPublishedAssignmentScreen(submission: saved),
+                      builder: (_) => throughParent
+                          ? const PublishedTemplateAssignmentScreen()
+                          : SavedPublishedAssignmentScreen(submission: saved),
                     ),
                   ),
                   child: const Text('Open saved assignment'),
@@ -105,6 +108,44 @@ void main() {
     await tester.tap(find.text('Open saved assignment'));
     await tester.pumpAndSettle();
   }
+
+  testWidgets(
+    'real assignment parent retains retry failure across saved-evidence refresh',
+    (tester) async {
+      await show(tester, throughParent: true);
+      await tester.tap(find.text('Check saved assignment'));
+      await tester.pumpAndSettle();
+      final message = find.byKey(
+        const ValueKey('published-assignment-recovery-message'),
+      );
+      expect(message, findsOneWidget);
+      expect(tester.widget<Text>(message).data, contains('not confirmed'));
+      expect(find.text('Cancel unsent assignment'), findsNothing);
+      expect(server.envelopes, [saved.envelopeJson]);
+
+      // An account verification failure must hide both entries and the message.
+      // Returning to the same verified account restores the durable explanation.
+      accounts.addError(StateError('Account verification unavailable'));
+      await tester.pumpAndSettle();
+      expect(message, findsNothing);
+      expect(find.text('Remarks: Original shift inspection'), findsNothing);
+      accounts.add(manager());
+      await tester.pumpAndSettle();
+      expect(message, findsOneWidget);
+      expect(tester.widget<Text>(message).data, contains('not confirmed'));
+      expect(find.text('Remarks: Original shift inspection'), findsOneWidget);
+      server.gate = Completer<void>();
+      await tester.tap(find.text('Check saved assignment'));
+      await tester.pump();
+      expect(message, findsNothing);
+      expect(find.byType(LinearProgressIndicator), findsOneWidget);
+      server.gate!.complete();
+      await tester.pumpAndSettle();
+      expect(message, findsOneWidget);
+      expect(server.envelopes, [saved.envelopeJson, saved.envelopeJson]);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'reopening saved entries does not send; explicit retry preserves the same envelope',
@@ -181,6 +222,11 @@ void main() {
 
 // UI-only transport uncertainty double. Native atomic adoption is exercised in
 // published_template_assignment_submission_test.dart, using real Isar.
+class _NoLegacyAssignments extends PublishedTemplateAssignmentIdempotencyStore {
+  @override
+  Future<List<RetainedRequestBytes>> rawEvidence(String actorUid) async => [];
+}
+
 class _UncertainServer extends PublishedTemplateAssignmentServerService {
   final List<String> envelopes = [];
   Completer<void>? gate;

@@ -11,6 +11,7 @@ import '../../../core/services/app_logger.dart';
 import '../../../core/services/local_recovery_session_guard.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import 'notification_installation_registry.dart';
+import '../../../core/dev/dev_environment.dart';
 
 final signOutInProgressProvider = StateProvider<bool>((ref) => false);
 
@@ -39,18 +40,34 @@ class AuthService {
   );
 
   Future<void> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) return;
+    final UserCredential userCredential;
+    if (crm3UseEmulators) {
+      // Google Sign-In needs a real OAuth client and registered signing
+      // certificate, which a demo project cannot have, so the Auth emulator
+      // stands in for the identity provider. Only the credential differs:
+      // everything below this branch is the ordinary production path.
+      userCredential = await signInToCrm3AuthEmulator();
+    } else {
+      final googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) return;
 
-    final googleAuth = await googleUser.authentication;
+      final googleAuth = await googleUser.authentication;
 
-    final credential = GoogleAuthProvider.credential(
-      accessToken: googleAuth.accessToken,
-      idToken: googleAuth.idToken,
-    );
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
 
-    final userCredential = await _auth.signInWithCredential(credential);
-    final user = userCredential.user;
+      userCredential = await _auth.signInWithCredential(credential);
+    }
+    // UserCredential.user is a snapshot taken at sign-in. The emulator branch
+    // sets the display name that the real provider would have supplied, and
+    // that write lands on the live user rather than on this snapshot, so read
+    // the refreshed user back. The production branch keeps the snapshot it has
+    // always used.
+    final user = crm3UseEmulators
+        ? (_auth.currentUser ?? userCredential.user)
+        : userCredential.user;
     if (user == null) return;
 
     // Keep crash identity minimal while the authoritative profile hydrates.

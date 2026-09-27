@@ -1,4 +1,5 @@
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -33,6 +34,19 @@ if (devAppRaw != null && devAppRaw != "true") {
     )
 }
 val devApp = devAppRaw == "true"
+val dartDefines = (project.findProperty("dart-defines") as? String)
+    .orEmpty().split(',').filter { it.isNotBlank() }.map {
+        String(Base64.getDecoder().decode(it), Charsets.UTF_8)
+    }
+val emulatorBackend = dartDefines.contains("CRM_USE_EMULATORS=true")
+val explicitDebugTasks = gradle.startParameter.taskNames.isNotEmpty() &&
+    gradle.startParameter.taskNames.all { it.contains("Debug", ignoreCase = true) }
+if (devApp != emulatorBackend || (devApp && !explicitDebugTasks)) {
+    throw org.gradle.api.GradleException(
+        "The DEV application identity and CRM_USE_EMULATORS=true must be enabled together, " +
+        "and are restricted to explicit debug tasks. Use tool/dev/run_dev.ps1."
+    )
+}
 
 val missingReleaseInputs = mapOf(
     "CRM_ANDROID_RELEASE_STORE_FILE" to releaseStoreFilePath,

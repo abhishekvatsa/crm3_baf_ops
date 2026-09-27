@@ -4,7 +4,9 @@ const {
   assignPublishedTemplateVersionWithDb,
   computeTemplateVersionContentHash,
   parsePublishedTemplateAssignmentRequest,
+  validatePublishedTemplatePublication,
 } = require("../lib/publishedTemplateAssignment");
+const hashPrecision = require("../../test/fixtures/template_content_hash_precision.json");
 
 const REQUEST_ID = "11111111-1111-4111-8111-111111111111";
 const ANNEALING_CAR_ASSET_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -414,6 +416,83 @@ function closedTransactionError() {
 }
 
 describe("published TemplateVersion server assignment", () => {
+  function preciseVersion(row = hashPrecision.cases[0]) {
+    const snapshot = JSON.parse(hashPrecision.version.jobTemplateSnapshotJson);
+    snapshot.composer.closureReviewConfirmedAt = row.reviewAt;
+    return versionFixture({...hashPrecision.version,
+      jobTemplateSnapshotJson: JSON.stringify(snapshot),
+      contentHash: row.expectedHash});
+  }
+
+  test.each(hashPrecision.cases)("matches Dart precision golden: $name", (row) => {
+    expect(computeTemplateVersionContentHash(preciseVersion(row))).toBe(row.expectedHash);
+  });
+
+  test("phone-precision publication assigns once and preserves its frozen source on replay", async () => {
+    const version = preciseVersion();
+    const memory = fakeAssignmentDb({versionData: version,
+      audits: [auditFixture({afterHash: version.contentHash})],
+      assetClasses: [baseClassFixture({legacyAssetTypeKey: "furnace"})],
+      assetInstances: [baseInstanceFixture({assetNumber: 1})],
+    });
+    const data = requestFixture({assetType: "furnace", assetNumber: 1, expectedContentHash: version.contentHash});
+    const before = JSON.stringify(memory.store.get("template_versions/ver1"));
+    const accepted = await assignPublishedTemplateVersionWithDb({db: memory.db, authUid: "supervisor1", data});
+    expect(accepted.ok).toBe(true);
+    expect(accepted.execution.templateContentHash).toBe(version.contentHash);
+    const count = memory.writes.length;
+    const replay = await assignPublishedTemplateVersionWithDb({db: memory.db, authUid: "supervisor1", data});
+    expect(replay.idempotentReplay).toBe(true);
+    expect(replay.executionId).toBe(accepted.executionId);
+    expect(memory.writes).toHaveLength(count);
+    expect(JSON.stringify(memory.store.get("template_versions/ver1"))).toBe(before);
+  });
+
+  test.each([
+    ["Dart microseconds", hashPrecision.cases[0].expectedHash],
+    ["previous JS millisecond derivation", "tg2-sha256:ae2d53c1ec00051bb25b48fdde9ba8c849d1321561df3eb0ac888e754547c78a"],
+  ])("publication validates exact %s digest without changing frozen evidence", (_name, hash) => {
+    const version = preciseVersion();
+    version.contentHash = hash;
+    const request = requestFixture({expectedContentHash: hash});
+    const audit = auditFixture({afterHash: hash});
+    const before = JSON.stringify({version, request, audit});
+    const accepted = validatePublishedTemplatePublication({
+      request, packageData: packageFixture(), versionData: version,
+    });
+    expect(accepted.requireAudit([{id: "audit1", data: () => audit}]).id).toBe("audit1");
+    expect(JSON.stringify({version, request, audit})).toBe(before);
+    expect(() => accepted.requireAudit([{id: "audit1", data: () => ({...audit, afterHash: "wrong"})}]))
+      .toThrow(expect.objectContaining({details: {reasonCode: "publication-audit-missing", packageId: "pkg1", versionId: "ver1", contentHash: hash}}));
+  });
+
+  test.each([
+    hashPrecision.cases[0].expectedHash,
+    "tg2-sha256:ae2d53c1ec00051bb25b48fdde9ba8c849d1321561df3eb0ac888e754547c78a",
+  ])("both full canonical formats reject submillisecond or field tampering (%s)", (hash) => {
+    for (const change of ["review", "invalid-review", "module"]) {
+      const version = preciseVersion();
+      version.contentHash = hash;
+      if (change === "review") {
+        version.jobTemplateSnapshotJson = version.jobTemplateSnapshotJson.replace(".793151Z", ".793152Z");
+      } else if (change === "invalid-review") {
+        version.jobTemplateSnapshotJson = version.jobTemplateSnapshotJson.replace("2026-09-26T20:56:38.793151Z", "invalid-review-date");
+      } else {
+        version.moduleSnapshotsJson = version.moduleSnapshotsJson.replace("Furnace inspection", "Different work");
+      }
+      expect(() => validatePublishedTemplatePublication({
+        request: requestFixture({expectedContentHash: hash}),
+        packageData: packageFixture(), versionData: version,
+      })).toThrow(expect.objectContaining({details: expect.objectContaining({reasonCode: "version-hash-mismatch"})}));
+    }
+  });
+
+  test("precise computed digest cannot replace a different saved request hash", () => {
+    expect(() => validatePublishedTemplatePublication({
+      request: requestFixture(), packageData: packageFixture(), versionData: preciseVersion(),
+    })).toThrow(expect.objectContaining({details: expect.objectContaining({reasonCode: "version-hash-changed"})}));
+  });
+
   test("matches the Dart tg2 canonical hash fixture", () => {
     expect(computeTemplateVersionContentHash(versionFixture())).toBe(
       "tg2-sha256:10c47efd30febb9c3938de06ae8ceb5089fa5d73c688041df5fdbc5710554ac9",

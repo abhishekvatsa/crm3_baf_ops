@@ -19,6 +19,72 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('unknown component and frequent observation require no invented text', (tester) async {
+    await _pumpForm(tester);
+    await _chooseClass(tester, 'Base');
+    final intake = find.byKey(const ValueKey('maintenance-component-intake-state'));
+    await _scrollTo(tester, intake);
+    expect(find.text('Not yet identified'), findsOneWidget);
+    expect(find.byKey(const ValueKey('maintenance-component-name')), findsNothing);
+    await _scrollTo(tester, find.byTooltip('Choose issue'));
+    await _tap(tester, find.byTooltip('Choose issue'));
+    await _tap(tester, find.text('Hydraulic clamp leakage'));
+    final notes = find.byKey(const ValueKey('maintenance-issue-observations'));
+    await _scrollTo(tester, notes);
+    expect(tester.widget<TextFormField>(notes).controller!.text, isEmpty);
+    expect(tester.state<FormFieldState<String>>(notes).validate(), isTrue);
+    expect(find.text('Clamp is leaking.'), findsOneWidget);
+    expect(find.text('Additional observations (optional)'), findsOneWidget);
+    await _scrollTo(tester, intake, backwards: true);
+    await _tap(tester, intake);
+    await _tap(tester, find.text('Known but not registered').last);
+    final component = find.byKey(const ValueKey('maintenance-component-name'));
+    await _scrollTo(tester, component);
+    expect(tester.state<FormFieldState<String>>(component).validate(), isFalse);
+    await tester.enterText(component, 'Observed unregistered seal');
+    expect(tester.state<FormFieldState<String>>(component).validate(), isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'live class withdrawal keeps the issue popup mounted and rejects its old choice',
+    (tester) async {
+      final classes = StreamController<List<AssetClassRecord>>();
+      addTearDown(classes.close);
+      classes.add([
+        _assetClass('base', 'Base'),
+        _assetClass('furnace', 'Furnace'),
+      ]);
+      await _pumpForm(tester, classes: classes.stream);
+      await tester.pumpAndSettle();
+      await _chooseClass(tester, 'Base');
+      final field = find.byWidgetPredicate(
+        (widget) =>
+            widget is DropdownButtonFormField<String> &&
+            widget.decoration.labelText == 'Asset class',
+      );
+      await _scrollTo(tester, field);
+      await _tap(tester, field);
+      classes.add([_assetClass('furnace', 'Furnace')]);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(MaintenanceForm), findsOneWidget);
+      await _tap(tester, find.text('Base').last);
+      expect(tester.takeException(), isNull);
+      expect(tester.state<FormFieldState<String>>(field).value, isNull);
+
+      await _tap(tester, field);
+      classes.add(const []);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await _tap(tester, find.text('Furnace').last);
+      expect(tester.takeException(), isNull);
+      expect(tester.state<FormFieldState<String>>(field).value, isNull);
+      expect(find.byType(MaintenanceForm), findsOneWidget);
+      expect(find.textContaining('No active asset classes'), findsOneWidget);
+    },
+  );
+
   testWidgets(
     'account failure and account switch retain the issue draft but block submit',
     (tester) async {
@@ -199,7 +265,7 @@ void main() {
       await _tap(tester, find.text('Suspected'));
       await _tap(tester, find.text('Suspected'));
       expect(_assessment(tester).selected, {IssueQualityAssessment.suspected});
-      expect(find.text('Suspected abnormality classification'), findsOneWidget);
+      expect(find.text('Reason abnormality (process / equipment)'), findsOneWidget);
     },
   );
 
@@ -348,7 +414,7 @@ const _note = 'Coil colour needs checking after cooling.';
 final _classification = find.byWidgetPredicate(
   (widget) =>
       widget is DropdownButtonFormField<String> &&
-      widget.decoration.labelText == 'Suspected abnormality classification',
+      widget.decoration.labelText == 'Reason abnormality (process / equipment)',
 );
 final _reason = find.ancestor(
   of: find.text('Suspected quality effect'),
@@ -405,6 +471,7 @@ Future<void> _pumpForm(
   Stream<List<AbnormalityType>>? types,
   bool appShell = false,
   Stream<AppUser?>? actors,
+  Stream<List<AssetClassRecord>>? classes,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 844));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -432,10 +499,12 @@ Future<void> _pumpForm(
           (ref) => Stream.value([_frequentIssue()]),
         ),
         assetClassesProvider.overrideWith(
-          (ref) => Stream.value([
-            _assetClass('base', 'Base'),
-            _assetClass('furnace', 'Furnace'),
-          ]),
+          (ref) =>
+              classes ??
+              Stream.value([
+                _assetClass('base', 'Base'),
+                _assetClass('furnace', 'Furnace'),
+              ]),
         ),
         assetInstancesProvider.overrideWith((ref, classId) => Stream.value([])),
         innerCoverAssignmentsProvider.overrideWith((ref) => Stream.value([])),

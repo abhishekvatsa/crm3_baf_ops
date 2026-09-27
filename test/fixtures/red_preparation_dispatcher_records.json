@@ -1,0 +1,1046 @@
+{
+  "schemaVersion": 1,
+  "producer": "MaintenanceWorkflowCommandService with canonical Firestore persistence; real emulator equality required",
+  "cases": [
+    {
+      "route": "generatedSuccessor",
+      "assetNumber": 7,
+      "created": {
+        "commandId": "red-reader-command-1",
+        "resultKey": "workflow-finalized",
+        "aggregateVersion": 2,
+        "result": {
+          "redAction": "createREDSuccessorAwaitingPreparation",
+          "successorWorkflowId": "red_3b69fb419980ec9a8333c1887c77",
+          "successorExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+          "preparationComplianceId": "red_3b69fb419980ec9a8333c1887c77_preparation",
+          "equipmentState": "awaitingPreparation",
+          "closureAttestationHash": "0b0d09501eba7687059bc370799dffbd94d1225d5adb535ba3bdf38b81266bbd",
+          "validatedModuleCount": 1,
+          "maintenanceCompletionEventId": null
+        },
+        "appliedAt": "2026-09-20T01:00:01.000Z"
+      },
+      "confirmed": {
+        "commandId": "red-reader-command-4",
+        "resultKey": "red-preparation-confirmed",
+        "aggregateVersion": 4,
+        "result": {
+          "complianceId": "red_3b69fb419980ec9a8333c1887c77_preparation",
+          "releasedGate": "job_lanes/red_3b69fb419980ec9a8333c1887c77_red_1",
+          "equipmentState": "underRED"
+        },
+        "appliedAt": "2026-09-20T01:00:04.000Z"
+      },
+      "acknowledged": {
+        "commandId": "red-reader-command-5",
+        "resultKey": "lane-acknowledged",
+        "aggregateVersion": 5,
+        "result": {
+          "laneKey": "red"
+        },
+        "appliedAt": "2026-09-20T01:00:05.000Z"
+      },
+      "raised": {
+        "workflow": {
+          "id": "red_3b69fb419980ec9a8333c1887c77",
+          "data": {
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "parentWorkflowId": "reader-parent",
+            "parentExecutionId": "reader-parent",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "assetClassId": null,
+            "assetInstanceId": null,
+            "status": "awaitingCompliance",
+            "version": 1,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": false,
+            "awaitingPreparation": true,
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866001,
+                "_nanoseconds": 0
+              }
+            },
+            "cancelled": false,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "lane": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_red_1",
+          "data": {
+            "workflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "laneKey": "red",
+            "status": "pending",
+            "activationGeneration": 1,
+            "version": 1,
+            "progressRevision": 0,
+            "displayOrder": 0,
+            "laneSetFinalized": true,
+            "addedDuringExecution": false,
+            "addedByUid": "red-reader-admin",
+            "addedByName": "DEV RED admin",
+            "addedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "gatingComplianceRequestId": "red_3b69fb419980ec9a8333c1887c77_preparation",
+            "redPreparationComplianceId": "red_3b69fb419980ec9a8333c1887c77_preparation",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "compliance": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_preparation",
+          "data": {
+            "linkedWorkflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "linkedExecutionFirestoreId": "red_3b69fb419980ec9a8333c1887c77",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 7 on maintenance stand",
+            "description": "Place equipment on stand and confirm preparation for RED work.",
+            "status": "raised",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "gatesLaneFirestoreId": "job_lanes/red_3b69fb419980ec9a8333c1887c77_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": {
+              "_seconds": 1789880401,
+              "_nanoseconds": 0
+            },
+            "nextEscalationAt": {
+              "_seconds": 1789880401,
+              "_nanoseconds": 0
+            },
+            "version": 1,
+            "attemptCount": 0,
+            "currentAttemptId": null,
+            "correctionCount": 0,
+            "counterDepth": 0,
+            "escalationTier": 0,
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "equipment": {
+          "id": "furnace_7",
+          "data": {
+            "state": "awaitingPreparation",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 0,
+            "awaitingPreparationCount": 1,
+            "version": 2,
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "previousState": "underMaintenance",
+            "transitionTrigger": "finalize:reader-parent",
+            "lastTransitionAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-admin",
+            "lastTransitionByName": "DEV RED admin",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      },
+      "released": {
+        "workflow": {
+          "id": "red_3b69fb419980ec9a8333c1887c77",
+          "data": {
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "parentWorkflowId": "reader-parent",
+            "parentExecutionId": "reader-parent",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "assetClassId": null,
+            "assetInstanceId": null,
+            "status": "assigned",
+            "version": 4,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": true,
+            "awaitingPreparation": false,
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866001,
+                "_nanoseconds": 0
+              }
+            },
+            "cancelled": false,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "lane": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_red_1",
+          "data": {
+            "workflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "laneKey": "red",
+            "status": "pending",
+            "activationGeneration": 1,
+            "version": 2,
+            "progressRevision": 0,
+            "displayOrder": 0,
+            "laneSetFinalized": true,
+            "addedDuringExecution": false,
+            "addedByUid": "red-reader-admin",
+            "addedByName": "DEV RED admin",
+            "addedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "gatingComplianceRequestId": null,
+            "redPreparationComplianceId": null,
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "compliance": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_preparation",
+          "data": {
+            "linkedWorkflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "linkedExecutionFirestoreId": "red_3b69fb419980ec9a8333c1887c77",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 7 on maintenance stand",
+            "description": "Place equipment on stand and confirm preparation for RED work.",
+            "status": "confirmedClosed",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "gatesLaneFirestoreId": "job_lanes/red_3b69fb419980ec9a8333c1887c77_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "version": 4,
+            "attemptCount": 1,
+            "currentAttemptId": "red_3b69fb419980ec9a8333c1887c77_preparation_1",
+            "correctionCount": 0,
+            "counterDepth": 0,
+            "escalationTier": 0,
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "acknowledgedByUid": "red-reader-operations",
+            "acknowledgedByName": "DEV RED operations",
+            "acknowledgedAt": {
+              "_seconds": 1789866002,
+              "_nanoseconds": 0
+            },
+            "complianceDueAt": {
+              "_seconds": 1789894803,
+              "_nanoseconds": 0
+            },
+            "compliedByUid": "red-reader-operations",
+            "compliedByName": "DEV RED operations",
+            "compliedAt": {
+              "_seconds": 1789866003,
+              "_nanoseconds": 0
+            },
+            "complianceNote": "Furnace placed on the maintenance stand.",
+            "confirmedByUid": "red-reader-refractory",
+            "confirmedByName": "DEV RED refractory",
+            "confirmedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "confirmNote": null
+          }
+        },
+        "equipment": {
+          "id": "furnace_7",
+          "data": {
+            "state": "underRED",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 1,
+            "awaitingPreparationCount": 0,
+            "version": 3,
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "previousState": "awaitingPreparation",
+            "transitionTrigger": "preparationConfirmed:red_3b69fb419980ec9a8333c1887c77_preparation",
+            "lastTransitionAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-refractory",
+            "lastTransitionByName": "DEV RED refractory",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      },
+      "readyForWork": {
+        "workflow": {
+          "id": "red_3b69fb419980ec9a8333c1887c77",
+          "data": {
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "parentWorkflowId": "reader-parent",
+            "parentExecutionId": "reader-parent",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "assetClassId": null,
+            "assetInstanceId": null,
+            "status": "fullyAcknowledged",
+            "version": 5,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": true,
+            "awaitingPreparation": false,
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866001,
+                "_nanoseconds": 0
+              }
+            },
+            "cancelled": false,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866005,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "lane": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_red_1",
+          "data": {
+            "workflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "jobExecutionId": "red_3b69fb419980ec9a8333c1887c77",
+            "laneKey": "red",
+            "status": "acknowledged",
+            "activationGeneration": 1,
+            "version": 3,
+            "progressRevision": 0,
+            "displayOrder": 0,
+            "laneSetFinalized": true,
+            "addedDuringExecution": false,
+            "addedByUid": "red-reader-admin",
+            "addedByName": "DEV RED admin",
+            "addedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "gatingComplianceRequestId": null,
+            "redPreparationComplianceId": null,
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "createdByUid": "red-reader-admin",
+            "createdByName": "DEV RED admin",
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866005,
+              "_nanoseconds": 0
+            },
+            "acknowledgedByUid": "red-reader-refractory",
+            "acknowledgedByName": "DEV RED refractory",
+            "acknowledgedAt": {
+              "_seconds": 1789866005,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "compliance": {
+          "id": "red_3b69fb419980ec9a8333c1887c77_preparation",
+          "data": {
+            "linkedWorkflowId": "red_3b69fb419980ec9a8333c1887c77",
+            "linkedExecutionFirestoreId": "red_3b69fb419980ec9a8333c1887c77",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 7 on maintenance stand",
+            "description": "Place equipment on stand and confirm preparation for RED work.",
+            "status": "confirmedClosed",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "gatesLaneFirestoreId": "job_lanes/red_3b69fb419980ec9a8333c1887c77_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "version": 4,
+            "attemptCount": 1,
+            "currentAttemptId": "red_3b69fb419980ec9a8333c1887c77_preparation_1",
+            "correctionCount": 0,
+            "counterDepth": 0,
+            "escalationTier": 0,
+            "createdAt": {
+              "_seconds": 1789866001,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "acknowledgedByUid": "red-reader-operations",
+            "acknowledgedByName": "DEV RED operations",
+            "acknowledgedAt": {
+              "_seconds": 1789866002,
+              "_nanoseconds": 0
+            },
+            "complianceDueAt": {
+              "_seconds": 1789894803,
+              "_nanoseconds": 0
+            },
+            "compliedByUid": "red-reader-operations",
+            "compliedByName": "DEV RED operations",
+            "compliedAt": {
+              "_seconds": 1789866003,
+              "_nanoseconds": 0
+            },
+            "complianceNote": "Furnace placed on the maintenance stand.",
+            "confirmedByUid": "red-reader-refractory",
+            "confirmedByName": "DEV RED refractory",
+            "confirmedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "confirmNote": null
+          }
+        },
+        "equipment": {
+          "id": "furnace_7",
+          "data": {
+            "state": "underRED",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 1,
+            "awaitingPreparationCount": 0,
+            "version": 3,
+            "assetTypeKey": "furnace",
+            "assetNumber": 7,
+            "previousState": "awaitingPreparation",
+            "transitionTrigger": "preparationConfirmed:red_3b69fb419980ec9a8333c1887c77_preparation",
+            "lastTransitionAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-refractory",
+            "lastTransitionByName": "DEV RED refractory",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866004,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "route": "preselectedLane",
+      "assetNumber": 8,
+      "created": {
+        "commandId": "red-reader-command-6",
+        "resultKey": "red-awaiting-preparation",
+        "aggregateVersion": 2,
+        "result": {
+          "preparationRequired": true,
+          "complianceId": "reader-preselected_red_preparation",
+          "equipmentState": "awaitingPreparation"
+        },
+        "appliedAt": "2026-09-20T01:00:06.000Z"
+      },
+      "confirmed": {
+        "commandId": "red-reader-command-9",
+        "resultKey": "red-preparation-confirmed",
+        "aggregateVersion": 5,
+        "result": {
+          "complianceId": "reader-preselected_red_preparation",
+          "releasedGate": "job_lanes/reader-preselected_red_1",
+          "equipmentState": "underRED"
+        },
+        "appliedAt": "2026-09-20T01:00:09.000Z"
+      },
+      "acknowledged": {
+        "commandId": "red-reader-command-10",
+        "resultKey": "lane-acknowledged",
+        "aggregateVersion": 6,
+        "result": {
+          "laneKey": "red"
+        },
+        "appliedAt": "2026-09-20T01:00:10.000Z"
+      },
+      "raised": {
+        "workflow": {
+          "id": "reader-preselected",
+          "data": {
+            "jobExecutionId": "reader-preselected",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "status": "awaitingCompliance",
+            "version": 2,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": false,
+            "awaitingPreparation": true,
+            "cancelled": false,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866006,
+                "_nanoseconds": 0
+              }
+            }
+          }
+        },
+        "lane": {
+          "id": "reader-preselected_red_1",
+          "data": {
+            "workflowId": "reader-preselected",
+            "jobExecutionId": "reader-preselected",
+            "laneKey": "red",
+            "status": "pending",
+            "activationGeneration": 1,
+            "version": 2,
+            "progressRevision": 0,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "gatingComplianceRequestId": "reader-preselected_red_preparation",
+            "redPreparationComplianceId": "reader-preselected_red_preparation"
+          }
+        },
+        "compliance": {
+          "id": "reader-preselected_red_preparation",
+          "data": {
+            "linkedWorkflowId": "reader-preselected",
+            "linkedExecutionFirestoreId": "reader-preselected",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 8 on maintenance stand",
+            "description": "Place the furnace on the maintenance stand and confirm preparation for RED work.",
+            "status": "raised",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "gatesLaneFirestoreId": "job_lanes/reader-preselected_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": {
+              "_seconds": 1789880406,
+              "_nanoseconds": 0
+            },
+            "nextEscalationAt": {
+              "_seconds": 1789880406,
+              "_nanoseconds": 0
+            },
+            "version": 1,
+            "createdAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            }
+          }
+        },
+        "equipment": {
+          "id": "furnace_8",
+          "data": {
+            "state": "awaitingPreparation",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 0,
+            "awaitingPreparationCount": 1,
+            "version": 2,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "previousState": "underMaintenance",
+            "transitionTrigger": "prepareRedLane:reader-preselected",
+            "lastTransitionAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-admin",
+            "lastTransitionByName": "DEV RED admin",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      },
+      "released": {
+        "workflow": {
+          "id": "reader-preselected",
+          "data": {
+            "jobExecutionId": "reader-preselected",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "status": "assigned",
+            "version": 5,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": true,
+            "awaitingPreparation": false,
+            "cancelled": false,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866006,
+                "_nanoseconds": 0
+              }
+            }
+          }
+        },
+        "lane": {
+          "id": "reader-preselected_red_1",
+          "data": {
+            "workflowId": "reader-preselected",
+            "jobExecutionId": "reader-preselected",
+            "laneKey": "red",
+            "status": "pending",
+            "activationGeneration": 1,
+            "version": 3,
+            "progressRevision": 0,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "gatingComplianceRequestId": null,
+            "redPreparationComplianceId": null
+          }
+        },
+        "compliance": {
+          "id": "reader-preselected_red_preparation",
+          "data": {
+            "linkedWorkflowId": "reader-preselected",
+            "linkedExecutionFirestoreId": "reader-preselected",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 8 on maintenance stand",
+            "description": "Place the furnace on the maintenance stand and confirm preparation for RED work.",
+            "status": "confirmedClosed",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "gatesLaneFirestoreId": "job_lanes/reader-preselected_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "version": 4,
+            "createdAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "acknowledgedByUid": "red-reader-operations",
+            "acknowledgedByName": "DEV RED operations",
+            "acknowledgedAt": {
+              "_seconds": 1789866007,
+              "_nanoseconds": 0
+            },
+            "complianceDueAt": {
+              "_seconds": 1789894808,
+              "_nanoseconds": 0
+            },
+            "currentAttemptId": "reader-preselected_red_preparation_1",
+            "attemptCount": 1,
+            "compliedByUid": "red-reader-operations",
+            "compliedByName": "DEV RED operations",
+            "compliedAt": {
+              "_seconds": 1789866008,
+              "_nanoseconds": 0
+            },
+            "complianceNote": "Furnace placed on the maintenance stand.",
+            "confirmedByUid": "red-reader-refractory",
+            "confirmedByName": "DEV RED refractory",
+            "confirmedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "confirmNote": null
+          }
+        },
+        "equipment": {
+          "id": "furnace_8",
+          "data": {
+            "state": "underRED",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 1,
+            "awaitingPreparationCount": 0,
+            "version": 3,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "previousState": "awaitingPreparation",
+            "transitionTrigger": "preparationConfirmed:reader-preselected_red_preparation",
+            "lastTransitionAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-refractory",
+            "lastTransitionByName": "DEV RED refractory",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      },
+      "readyForWork": {
+        "workflow": {
+          "id": "reader-preselected",
+          "data": {
+            "jobExecutionId": "reader-preselected",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "status": "fullyAcknowledged",
+            "version": 6,
+            "workflowSchemaVersion": 1,
+            "laneSetVersion": 1,
+            "laneSetFinalizedAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "laneSetFinalizedByUid": "red-reader-admin",
+            "laneSetFinalizedByName": "DEV RED admin",
+            "activeRedWork": true,
+            "awaitingPreparation": false,
+            "cancelled": false,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866010,
+              "_nanoseconds": 0
+            },
+            "redPreparationDecision": {
+              "preparationRequired": true,
+              "decidedByUid": "red-reader-admin",
+              "decidedByName": "DEV RED admin",
+              "decidedAt": {
+                "_seconds": 1789866006,
+                "_nanoseconds": 0
+              }
+            }
+          }
+        },
+        "lane": {
+          "id": "reader-preselected_red_1",
+          "data": {
+            "workflowId": "reader-preselected",
+            "jobExecutionId": "reader-preselected",
+            "laneKey": "red",
+            "status": "acknowledged",
+            "activationGeneration": 1,
+            "version": 4,
+            "progressRevision": 0,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "createdAt": {
+              "_seconds": 1789862400,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866010,
+              "_nanoseconds": 0
+            },
+            "gatingComplianceRequestId": null,
+            "redPreparationComplianceId": null,
+            "acknowledgedByUid": "red-reader-refractory",
+            "acknowledgedByName": "DEV RED refractory",
+            "acknowledgedAt": {
+              "_seconds": 1789866010,
+              "_nanoseconds": 0
+            },
+            "nextEscalationAt": null
+          }
+        },
+        "compliance": {
+          "id": "reader-preselected_red_preparation",
+          "data": {
+            "linkedWorkflowId": "reader-preselected",
+            "linkedExecutionFirestoreId": "reader-preselected",
+            "targetLaneKey": "oprn",
+            "originLaneKey": "red",
+            "title": "Place furnace 8 on maintenance stand",
+            "description": "Place the furnace on the maintenance stand and confirm preparation for RED work.",
+            "status": "confirmedClosed",
+            "conditionTypeKey": "manual",
+            "priorityKey": "medium",
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "gatesLaneFirestoreId": "job_lanes/reader-preselected_red_1",
+            "raisedByUid": "red-reader-admin",
+            "raisedByName": "DEV RED admin",
+            "raisedAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "becameDueAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "acknowledgementDueAt": null,
+            "nextEscalationAt": null,
+            "version": 4,
+            "createdAt": {
+              "_seconds": 1789866006,
+              "_nanoseconds": 0
+            },
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "acknowledgedByUid": "red-reader-operations",
+            "acknowledgedByName": "DEV RED operations",
+            "acknowledgedAt": {
+              "_seconds": 1789866007,
+              "_nanoseconds": 0
+            },
+            "complianceDueAt": {
+              "_seconds": 1789894808,
+              "_nanoseconds": 0
+            },
+            "currentAttemptId": "reader-preselected_red_preparation_1",
+            "attemptCount": 1,
+            "compliedByUid": "red-reader-operations",
+            "compliedByName": "DEV RED operations",
+            "compliedAt": {
+              "_seconds": 1789866008,
+              "_nanoseconds": 0
+            },
+            "complianceNote": "Furnace placed on the maintenance stand.",
+            "confirmedByUid": "red-reader-refractory",
+            "confirmedByName": "DEV RED refractory",
+            "confirmedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "confirmNote": null
+          }
+        },
+        "equipment": {
+          "id": "furnace_8",
+          "data": {
+            "state": "underRED",
+            "activeNonRedMaintenanceCount": 0,
+            "activeRedWorkCount": 1,
+            "awaitingPreparationCount": 0,
+            "version": 3,
+            "assetTypeKey": "furnace",
+            "assetNumber": 8,
+            "previousState": "awaitingPreparation",
+            "transitionTrigger": "preparationConfirmed:reader-preselected_red_preparation",
+            "lastTransitionAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            },
+            "lastTransitionByUid": "red-reader-refractory",
+            "lastTransitionByName": "DEV RED refractory",
+            "availableSince": null,
+            "inServiceSince": null,
+            "updatedAt": {
+              "_seconds": 1789866009,
+              "_nanoseconds": 0
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart' hide Query;
+import '../../../core/services/sync_run_guard.dart';
 
 import '../../../core/persistence/app_database.dart';
 import '../../../core/serialization/persisted_json_equality.dart';
@@ -748,31 +749,43 @@ class BafKnowledgeRepository {
     return rows.where((row) => !row.isSynced && !row.isDeleted).toList();
   }
 
-  Future<int> syncUnsyncedToCloud() async {
+  Future<int> syncUnsyncedToCloud({SyncRunGuard? runGuard}) async {
+    runGuard?.checkCurrent();
     final records = await getUnsyncedRows();
+    runGuard?.checkCurrent();
     if (records.isEmpty) return 0;
     var pushed = 0;
     for (final row in records) {
+      runGuard?.checkCurrent();
       final snapshot = SyncPushSnapshot(
         id: row.id,
         version: row.version,
         updatedAt: row.updatedAt,
       );
       final receipt = await _pushLocalRow(row);
+      runGuard?.checkCurrent();
       pushed++;
-      await _applyKnowledgePushReceiptIfUnchanged(snapshot, receipt);
+      await _applyKnowledgePushReceiptIfUnchanged(
+        snapshot,
+        receipt,
+        runGuard: runGuard,
+      );
+      runGuard?.checkCurrent();
     }
     return pushed;
   }
 
   Future<void> _applyKnowledgePushReceiptIfUnchanged(
     SyncPushSnapshot snapshot,
-    BafKnowledgeRow receipt,
-  ) async {
+    BafKnowledgeRow receipt, {
+    SyncRunGuard? runGuard,
+  }) async {
     if (_isar == null || _rows == null) return;
 
     await _isar.writeTxn(() async {
+      runGuard?.checkCurrent();
       final current = await _rows!.get(snapshot.id);
+      runGuard?.checkCurrent();
       if (current == null) return;
 
       if (!snapshot.matches(

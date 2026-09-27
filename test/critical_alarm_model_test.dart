@@ -281,7 +281,7 @@ void main() {
         'lib/features/critical_alarm/data/critical_alarm_repository.dart',
       ).readAsStringSync();
       final activeBody = RegExp(
-        r'watchActiveAlarms\(\) async\* \{([\s\S]*?)\n  \}\n\n  Stream<List<CriticalAlarm>> watchAlarms',
+        r'watchActiveAlarms\(\)([\s\S]*?)\n  Stream<List<CriticalAlarm>> watchAlarms',
       ).firstMatch(repository)?.group(1);
       expect(activeBody, isNotNull);
       expect(

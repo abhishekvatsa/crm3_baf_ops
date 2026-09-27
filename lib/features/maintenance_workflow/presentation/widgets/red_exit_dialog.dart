@@ -26,20 +26,20 @@ Future<RedExitAnswers?> showRedExitDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SwitchListTile(
-                value: redRequired ?? false,
-                title: const Text('Is RED work required?'),
+              _ExplicitDecision(
+                keyPrefix: 'planned-red-required',
+                value: redRequired,
+                question: 'Is RED work required?',
                 onChanged: (value) => setState(() {
                   redRequired = value;
                   if (!value) preparationRequired = null;
                 }),
               ),
               if (askPreparation && redRequired == true)
-                SwitchListTile(
-                  value: preparationRequired ?? false,
-                  title: const Text(
-                    'Does the furnace need to be placed on stand?',
-                  ),
+                _ExplicitDecision(
+                  keyPrefix: 'planned-red-preparation',
+                  value: preparationRequired,
+                  question: 'Does the furnace need to be placed on stand?',
                   onChanged: (value) =>
                       setState(() => preparationRequired = value),
                 ),
@@ -71,5 +71,47 @@ Future<RedExitAnswers?> showRedExitDialog(
       );
       return guard?.call(dialog) ?? dialog;
     },
+  );
+}
+
+class _ExplicitDecision extends StatelessWidget {
+  const _ExplicitDecision({
+    required this.keyPrefix,
+    required this.question,
+    required this.value,
+    required this.onChanged,
+  });
+  final String keyPrefix;
+  final String question;
+  final bool? value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(question),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          children: [
+            ChoiceChip(
+              key: ValueKey('$keyPrefix-yes'),
+              label: const Text('Yes'),
+              selected: value == true,
+              onSelected: (_) => onChanged(true),
+            ),
+            ChoiceChip(
+              key: ValueKey('$keyPrefix-no'),
+              label: const Text('No'),
+              selected: value == false,
+              onSelected: (_) => onChanged(false),
+            ),
+          ],
+        ),
+      ],
+    ),
   );
 }

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "06E833A6C74A8CBC75A082FE7AD581C9259735666E2851F79FA413F47361EFC7",
+  "inventoryDigest": "9DCDBFDE91816018F603C1F782AC2AB8273C9027BACEA3013D67D47961E7D9DD",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -79,6 +79,34 @@
     }
   },
   "surfaces": [
+    {
+      "path": "lib/features/abnormalities/services/abnormality_cause_evidence_reader.dart",
+      "profile": "service",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/abnormality_cause_evidence_reader_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/reports/providers/base_inner_cover_register_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/operational_register_reports_test.dart"
+      ]
+    },
     {
       "path": "lib/features/planned_maintenance/providers/job_module_provider.workflow_adoption.dart",
       "profile": "repository-adapter",
@@ -1280,6 +1308,23 @@
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart"
       ]
+    },
+    {
+      "path": "lib/core/services/retained_row_mutations.dart",
+      "profile": "service",
+      "allowedStores": [
+        "isar"
+      ],
+      "allowedModes": [
+        "mutating",
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/retained_row_mutations_test.dart",
+        "integration_test/dev_queue_ownership_journey_test.dart"
+      ],
+      "reviewContract": "The existing durable repository transaction atomically retains original-account/project immutable command bytes with the dirty row. Native local-ID and document-ID checks prevent replacing unrelated rows. Dispatch uses the governed V2 callable and fresh backend authority; acceptance compares the complete saved payload before atomic local adoption. Unknown legacy origin stays review-only. No direct Firestore business write is owned by this service."
     }
   ]
 }

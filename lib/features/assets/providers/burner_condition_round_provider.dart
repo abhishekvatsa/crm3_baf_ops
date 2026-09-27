@@ -9,6 +9,7 @@ import '../../../core/providers/durable_submission_provider.dart';
 import '../../../core/release/command_capability_service.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/services/auth_service.dart';
 import '../data/burner_condition_round.dart';
 import '../services/burner_condition_round_idempotency_store.dart';
 import '../services/burner_condition_round_service.dart';
@@ -88,7 +89,7 @@ final latestBurnerConditionRoundsProvider = StreamProvider.autoDispose
       }
       final cacheTrust = ref.watch(burnerConditionRoundCacheTrustProvider)
         ..observeActor(query.actorUid);
-      final firestore = FirebaseFirestore.instance;
+      final firestore = ref.watch(burnerConditionFirestoreProvider);
       final snapshots = firestore
           .collection('burner_condition_current')
           .snapshots(includeMetadataChanges: true);
@@ -108,10 +109,95 @@ final latestBurnerConditionRoundsProvider = StreamProvider.autoDispose
       );
     });
 
+final burnerConditionFirestoreProvider = Provider<FirebaseFirestore>(
+  (ref) => FirebaseFirestore.instance,
+);
+
+typedef BurnerComplianceCurrentReader =
+    Future<Map<String, BurnerConditionRound>> Function(
+      LatestBurnerConditionRoundsQuery query,
+    );
+
+final burnerComplianceCurrentReaderProvider =
+    Provider<BurnerComplianceCurrentReader>((ref) {
+      ref.watch(
+        currentAppUserProvider.select((value) {
+          if (value.isLoading || value.hasError) return null;
+          final actor = value.value;
+          return actor?.canRecordBurnerConditionRound == true
+              ? actor!.uid
+              : null;
+        }),
+      );
+      ref.watch(signOutInProgressProvider);
+      final firestore = ref.watch(burnerConditionFirestoreProvider);
+      var disposed = false;
+      ref.onDispose(() => disposed = true);
+      return (query) {
+        void requireSameActor() {
+          if (disposed) {
+            throw StateError(
+              'Burner-compliance access changed. Reopen and retry.',
+            );
+          }
+          final actor = ref.read(currentAppUserProvider);
+          if (ref.read(signOutInProgressProvider) ||
+              actor.isLoading ||
+              actor.hasError ||
+              actor.value == null ||
+              !actor.value!.canRecordBurnerConditionRound ||
+              actor.value!.uid != query.actorUid) {
+            throw StateError('Approved burner-compliance access is required.');
+          }
+        }
+
+        return readCurrentBurnerConditionRoundsFromServer(
+          firestore: firestore,
+          query: query,
+          requireSameActor: requireSameActor,
+        );
+      };
+    });
+
+/// Command preparation needs a fresh authoritative baseline. A live UI stream
+/// may correctly surface an untrusted initial cache event before its server
+/// event; taking that stream's first future would incorrectly abort this action.
+Future<Map<String, BurnerConditionRound>>
+readCurrentBurnerConditionRoundsFromServer({
+  required FirebaseFirestore firestore,
+  required LatestBurnerConditionRoundsQuery query,
+  required void Function() requireSameActor,
+  Duration timeout = const Duration(seconds: 20),
+}) async {
+  requireSameActor();
+  return (() async {
+    final pointers = await firestore
+        .collection('burner_condition_current')
+        .get(const GetOptions(source: Source.server));
+    requireSameActor();
+    _requireAuthoritativeBurnerSnapshot(pointers.metadata);
+    final rounds = await _resolveCurrentBurnerConditionRounds(
+      firestore: firestore,
+      pointerSnapshot: pointers,
+      assetInstanceIds: query.assetInstanceIds,
+      requireServer: true,
+    );
+    requireSameActor();
+    return rounds;
+  })().timeout(timeout);
+}
+
+void _requireAuthoritativeBurnerSnapshot(SnapshotMetadata metadata) {
+  if (metadata.isFromCache || metadata.hasPendingWrites) {
+    throw const ActorSessionSnapshotTrustException();
+  }
+}
+
 Future<Map<String, BurnerConditionRound>> _resolveCurrentBurnerConditionRounds({
   required FirebaseFirestore firestore,
   required QuerySnapshot<Map<String, dynamic>> pointerSnapshot,
   required List<String> assetInstanceIds,
+  bool requireServer = false,
 }) async {
   final requestedIds = assetInstanceIds.toSet();
   final pointers = <String, BurnerConditionCurrentPointer>{};
@@ -131,6 +217,9 @@ Future<Map<String, BurnerConditionRound>> _resolveCurrentBurnerConditionRounds({
         final document = await roundsCollection
             .doc(pointer.roundId)
             .get(const GetOptions(source: Source.server));
+        if (requireServer) {
+          _requireAuthoritativeBurnerSnapshot(document.metadata);
+        }
         final data = document.data();
         if (!document.exists || data == null) {
           throw PersistedDataFormatException(
@@ -148,6 +237,9 @@ Future<Map<String, BurnerConditionRound>> _resolveCurrentBurnerConditionRounds({
           .orderBy('observedAt', descending: true)
           .limit(2)
           .get(const GetOptions(source: Source.server));
+      if (requireServer) {
+        _requireAuthoritativeBurnerSnapshot(legacySnapshot.metadata);
+      }
       if (legacySnapshot.docs.isEmpty) {
         return MapEntry<String, BurnerConditionRound?>(assetInstanceId, null);
       }

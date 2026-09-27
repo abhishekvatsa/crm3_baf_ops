@@ -21,6 +21,8 @@ import '../../maintenance/data/maintenance_model.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
+import '../providers/directive_history_provider.dart';
 import 'create_directive_screen.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../auth/presentation/current_actor_gate.dart';
@@ -28,6 +30,9 @@ import '../../admin/presentation/saved_submission_review_screen.dart';
 import '../../../core/persistence/durable_submission_repository.dart';
 
 part 'directives_screen.burner_recovery.dart';
+part 'directives_screen.closure_dialog.dart';
+
+enum _DirectiveListStatus { open, all, closed }
 
 class DirectivesScreen extends ConsumerStatefulWidget {
   const DirectivesScreen({super.key});
@@ -43,6 +48,15 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
   static const _screenIcon = Icons.assignment_late_outlined;
 
   String _query = '';
+  final _searchController = TextEditingController();
+  _DirectiveListStatus _status = _DirectiveListStatus.open;
+  int _visibleLimit = businessListPageSize;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +92,9 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
         message: 'An approved operational role is required to view directives.',
       );
     }
-    final directivesAsync = ref.watch(openDirectivesProvider);
+    final directivesAsync = _status == _DirectiveListStatus.open
+        ? ref.watch(openDirectivesProvider)
+        : ref.watch(directiveHistoryProvider);
 
     return BafScreenScaffold(
       title: _screenTitle,
@@ -94,6 +110,7 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
         data: (allDirectives) {
           final visible = _visibleDirectives(allDirectives, appUser);
           final directives = _filterDirectives(visible, _query);
+          final displayed = directives.take(_visibleLimit).toList();
 
           return Align(
             alignment: Alignment.topCenter,
@@ -111,67 +128,106 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                     const Text(
                       'Some directives are unreadable or not server-confirmed. Valid instructions remain shown; counts are incomplete.',
                     ),
-                  TextButton.icon(
-                    onPressed: () async {
-                      try {
-                        final result = await OrdinaryDirectiveCommands()
-                            .checkAll();
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              '${result.succeeded} saved changes confirmed; ${result.failed} still need attention.',
-                            ),
-                          ),
-                        );
-                      } catch (error) {
-                        if (context.mounted) {
-                          ScaffoldMessenger.maybeOf(
-                            context,
-                          )?.showSnackBar(SnackBar(content: Text('$error')));
-                        }
-                      }
-                    },
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Check saved directive changes'),
-                  ),
-                  if (!kIsWeb && appUser.roles.contains(AppRole.admin))
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SavedSubmissionReviewScreen(),
-                        ),
-                      ),
-                      child: const Text('Review held saved changes'),
-                    ),
-                  if (kIsWeb && appUser.isAdmin)
-                    TextButton(
-                      onPressed: () => _reviewBrowserSaved(appUser),
-                      child: const Text('Review held browser changes'),
-                    ),
                   _DirectivesHeader(
                     qualified: directivesAreQualified(allDirectives),
                     count: directives.length,
                     totalCount: visible.length,
                     query: _query,
-                    onQueryChanged: (value) => setState(() => _query = value),
+                    searchController: _searchController,
+                    status: _status,
+                    onStatusChanged: (value) => setState(() {
+                      _status = value;
+                      _visibleLimit = businessListPageSize;
+                    }),
+                    onQueryChanged: (value) => setState(() {
+                      _query = value;
+                      _visibleLimit = businessListPageSize;
+                    }),
                     onCreate: appUser.canCreateDirective
                         ? _openCreateDirective
                         : null,
                   ),
+                  ExpansionTile(
+                    key: const ValueKey('directive-saved-changes-tools'),
+                    tilePadding: EdgeInsets.zero,
+                    childrenPadding: const EdgeInsets.only(
+                      bottom: BafSpacing.sm,
+                    ),
+                    shape: const Border(),
+                    collapsedShape: const Border(),
+                    leading: const Icon(
+                      Icons.sync,
+                      color: BafColors.textSecondary,
+                    ),
+                    title: const Text('Saved changes'),
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          try {
+                            final result = await OrdinaryDirectiveCommands()
+                                .checkAll();
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '${result.succeeded} saved changes confirmed; ${result.failed} still need attention.',
+                                ),
+                              ),
+                            );
+                          } catch (error) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                                SnackBar(content: Text('$error')),
+                              );
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.sync),
+                        label: const Text('Check saved directive changes'),
+                      ),
+                      if (!kIsWeb && appUser.roles.contains(AppRole.admin))
+                        TextButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) =>
+                                  const SavedSubmissionReviewScreen(),
+                            ),
+                          ),
+                          child: const Text('Review held saved changes'),
+                        ),
+                      if (kIsWeb && appUser.isAdmin)
+                        TextButton(
+                          onPressed: () => _reviewBrowserSaved(appUser),
+                          child: const Text('Review held browser changes'),
+                        ),
+                    ],
+                  ),
                   const SizedBox(height: BafSpacing.md),
                   if (directives.isEmpty &&
                       directivesAreQualified(allDirectives))
-                    _EmptyDirectivesState(hasSearch: _query.trim().isNotEmpty)
+                    _EmptyDirectivesState(
+                      hasSearch: _query.trim().isNotEmpty,
+                      status: _status,
+                    )
                   else
-                    ...directives.map(
+                    ...displayed.map(
                       (directive) => Padding(
                         padding: const EdgeInsets.only(bottom: BafSpacing.md),
                         child: _DirectiveCard(
+                          key: ValueKey(
+                            'directive-card-${directive.firestoreId ?? 'local-${directive.id}'}',
+                          ),
                           directive: directive,
                           appUser: appUser,
                         ),
                       ),
+                    ),
+                  if (directives.isNotEmpty)
+                    IncrementalListFooter(
+                      visibleCount: displayed.length,
+                      totalCount: directives.length,
+                      onShowMore: () =>
+                          setState(() => _visibleLimit += businessListPageSize),
                     ),
                 ],
               ),
@@ -324,9 +380,17 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
     String query,
   ) {
     final needle = query.trim().toLowerCase();
-    if (needle.isEmpty) return directives;
-    return directives
+    final filtered = directives
         .where((directive) {
+          final matchesStatus = switch (_status) {
+            _DirectiveListStatus.open =>
+              directive.status != DirectiveStatus.closed,
+            _DirectiveListStatus.closed =>
+              directive.status == DirectiveStatus.closed,
+            _DirectiveListStatus.all => true,
+          };
+          if (!matchesStatus) return false;
+          if (needle.isEmpty) return true;
           return <String?>[
             directive.title,
             directive.description,
@@ -341,6 +405,15 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
           ].any((value) => value?.toLowerCase().contains(needle) == true);
         })
         .toList(growable: false);
+    filtered.sort((left, right) {
+      final byCreatedAt = right.createdAt.compareTo(left.createdAt);
+      return byCreatedAt != 0
+          ? byCreatedAt
+          : (left.firestoreId ?? 'local-${left.id}').compareTo(
+              right.firestoreId ?? 'local-${right.id}',
+            );
+    });
+    return filtered;
   }
 }
 
@@ -349,6 +422,9 @@ class _DirectivesHeader extends StatelessWidget {
   final int count;
   final int totalCount;
   final String query;
+  final TextEditingController searchController;
+  final _DirectiveListStatus status;
+  final ValueChanged<_DirectiveListStatus> onStatusChanged;
   final ValueChanged<String> onQueryChanged;
   final VoidCallback? onCreate;
 
@@ -357,6 +433,9 @@ class _DirectivesHeader extends StatelessWidget {
     required this.count,
     required this.totalCount,
     required this.query,
+    required this.searchController,
+    required this.status,
+    required this.onStatusChanged,
     required this.onQueryChanged,
     required this.onCreate,
   });
@@ -371,18 +450,9 @@ class _DirectivesHeader extends StatelessWidget {
           subtitle: 'Clear instructions, ownership and closure tracking.',
           icon: Icons.assignment_late_outlined,
           accent: BafColors.directives,
-          trailing: Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              StatusBadge(
-                label: qualified ? '$count active' : 'Count unconfirmed',
-                color: BafColors.directives,
-                icon: Icons.flag_outlined,
-              ),
-              if (onCreate != null)
-                FilledButton.icon(
+          trailing: onCreate == null
+              ? null
+              : FilledButton.icon(
                   onPressed: onCreate,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('New Directive'),
@@ -391,12 +461,29 @@ class _DirectivesHeader extends StatelessWidget {
                     foregroundColor: Colors.white,
                   ),
                 ),
-            ],
-          ),
+        ),
+        const SizedBox(height: BafSpacing.md),
+        Wrap(
+          key: const ValueKey('directives-status-filter'),
+          spacing: BafSpacing.sm,
+          runSpacing: BafSpacing.xs,
+          children: [
+            for (final option in _DirectiveListStatus.values)
+              ChoiceChip(
+                label: Text(switch (option) {
+                  _DirectiveListStatus.open => 'Open',
+                  _DirectiveListStatus.all => 'All',
+                  _DirectiveListStatus.closed => 'Closed',
+                }),
+                selected: option == status,
+                onSelected: (_) => onStatusChanged(option),
+              ),
+          ],
         ),
         const SizedBox(height: BafSpacing.md),
         BafSearchField(
           fieldKey: const ValueKey('directives-search'),
+          controller: searchController,
           hintText: 'Search title, asset or target role',
           onChanged: onQueryChanged,
         ),
@@ -404,7 +491,7 @@ class _DirectivesHeader extends StatelessWidget {
         Text(
           query.trim().isEmpty
               ? (qualified
-                    ? '$totalCount visible to your role'
+                    ? '$totalCount ${status == _DirectiveListStatus.all ? 'directives' : status.name} visible to your role'
                     : 'Partial or unconfirmed list')
               : '$count of $totalCount matching',
           style: const TextStyle(
@@ -420,8 +507,9 @@ class _DirectivesHeader extends StatelessWidget {
 
 class _EmptyDirectivesState extends StatelessWidget {
   final bool hasSearch;
+  final _DirectiveListStatus status;
 
-  const _EmptyDirectivesState({required this.hasSearch});
+  const _EmptyDirectivesState({required this.hasSearch, required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -456,8 +544,10 @@ class _EmptyDirectivesState extends StatelessWidget {
           const SizedBox(height: BafSpacing.xs),
           Text(
             hasSearch
-                ? 'No active directive matches this search.'
-                : 'No pending instructions are currently visible for your role.',
+                ? 'No directive matches this search and status.'
+                : status == _DirectiveListStatus.open
+                ? 'No pending instructions are currently visible for your role.'
+                : 'No ${status.name == 'all' ? '' : 'closed '}directives are currently visible for your role.',
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: BafColors.textSecondary,
@@ -515,7 +605,11 @@ class _DirectiveCard extends ConsumerStatefulWidget {
   final OperationalDirective directive;
   final AppUser? appUser;
 
-  const _DirectiveCard({required this.directive, required this.appUser});
+  const _DirectiveCard({
+    super.key,
+    required this.directive,
+    required this.appUser,
+  });
 
   @override
   ConsumerState<_DirectiveCard> createState() => _DirectiveCardState();
@@ -597,8 +691,8 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                         directive.description,
                         style: const TextStyle(
                           color: BafColors.textPrimary,
-                          fontSize: 13,
-                          height: 1.35,
+                          fontSize: 14,
+                          height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -628,18 +722,6 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                                 : BafColors.directives,
                             icon: Icons.priority_high_rounded,
                           ),
-                          if (directive.component?.trim().isNotEmpty == true)
-                            StatusBadge(
-                              label: directive.component!.trim(),
-                              color: BafColors.assets,
-                              icon: Icons.build_outlined,
-                            ),
-                          if (directive.tag?.trim().isNotEmpty == true)
-                            StatusBadge(
-                              label: 'Tag ${directive.tag!.trim()}',
-                              color: BafColors.assets,
-                              icon: Icons.sell_outlined,
-                            ),
                           if (!isClosed)
                             StatusBadge(
                               label: 'Open ${_formatDuration(elapsed)}',
@@ -649,6 +731,20 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
                         ],
                       ),
 
+                      if (directive.component?.trim().isNotEmpty == true) ...[
+                        const SizedBox(height: BafSpacing.sm),
+                        _MetaLine(
+                          icon: Icons.build_outlined,
+                          text: directive.component!.trim(),
+                        ),
+                      ],
+                      if (directive.tag?.trim().isNotEmpty == true) ...[
+                        const SizedBox(height: BafSpacing.xs),
+                        _MetaLine(
+                          icon: Icons.sell_outlined,
+                          text: 'Tag ${directive.tag!.trim()}',
+                        ),
+                      ],
                       if (directive.hierarchyPath?.isNotEmpty == true) ...[
                         const SizedBox(height: 8),
                         Text(
@@ -824,6 +920,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
           'Acknowledgement saved on this device; synchronization is queued.',
           BafColors.warning,
         ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+          BafColors.warning,
+        ),
         SyncRequestOutcome.failed => (
           'Acknowledgement saved on this device, but cloud synchronization needs attention.',
           BafColors.danger,
@@ -981,6 +1081,10 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
           'Closure saved on this device; synchronization is queued.',
           BafColors.warning,
         ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+          BafColors.warning,
+        ),
         SyncRequestOutcome.failed => (
           'Closure saved on this device, but cloud synchronization needs attention.',
           BafColors.danger,
@@ -1057,13 +1161,11 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
       );
     }
     final furnace = furnaces.single;
-    final latest = await ref.read(
-      latestBurnerConditionRoundsProvider(
-        LatestBurnerConditionRoundsQuery(
-          actorUid: actor.uid,
-          assetInstanceIds: <String>[furnace.id],
-        ),
-      ).future,
+    final latest = await ref.read(burnerComplianceCurrentReaderProvider)(
+      LatestBurnerConditionRoundsQuery(
+        actorUid: actor.uid,
+        assetInstanceIds: <String>[furnace.id],
+      ),
     );
     final current = latest[furnace.id];
     if (current == null) {
@@ -1200,166 +1302,6 @@ class _DirectiveCardState extends ConsumerState<_DirectiveCard> {
   }
 }
 
-class _DirectiveClosureDraft {
-  const _DirectiveClosureDraft({
-    required this.remarks,
-    required this.burnerDispositions,
-  });
-
-  final String remarks;
-  final Map<int, BurnerDirectiveComplianceDisposition> burnerDispositions;
-}
-
-class _CloseDirectiveDialog extends StatefulWidget {
-  const _CloseDirectiveDialog({required this.burnerBinding, this.onSave});
-  final Future<void> Function(_DirectiveClosureDraft)? onSave;
-
-  final BurnerRedHotDirectiveBinding? burnerBinding;
-
-  @override
-  State<_CloseDirectiveDialog> createState() => _CloseDirectiveDialogState();
-}
-
-class _CloseDirectiveDialogState extends State<_CloseDirectiveDialog> {
-  final _formKey = GlobalKey<FormState>();
-  bool _saving = false;
-  String? _saveError;
-  late final TextEditingController _remarksController;
-  final Map<int, BurnerDirectiveComplianceDisposition?> _dispositions = {};
-
-  @override
-  void initState() {
-    super.initState();
-    _remarksController = TextEditingController();
-    for (final position
-        in widget.burnerBinding?.burnerPositions ?? const <int>[]) {
-      _dispositions[position] = null;
-    }
-  }
-
-  @override
-  void dispose() {
-    _remarksController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Close Directive'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 520),
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_saveError != null)
-                  Text(
-                    _saveError!,
-                    style: const TextStyle(color: BafColors.danger),
-                  ),
-                Text(
-                  widget.burnerBinding == null
-                      ? 'Add a short closure note if useful for traceability.'
-                      : 'Record the current UV disposition for every directed burner before closure. This creates a new governed condition round.',
-                  style: const TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                    height: 1.3,
-                  ),
-                ),
-                if (widget.burnerBinding != null) ...[
-                  const SizedBox(height: 12),
-                  for (final position
-                      in widget.burnerBinding!.burnerPositions) ...[
-                    DropdownButtonFormField<
-                      BurnerDirectiveComplianceDisposition
-                    >(
-                      initialValue: _dispositions[position],
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        labelText: 'Burner $position compliance',
-                        prefixIcon: const Icon(Icons.sensors_outlined),
-                      ),
-                      items: [
-                        for (final value
-                            in BurnerDirectiveComplianceDisposition.values)
-                          DropdownMenuItem(
-                            value: value,
-                            child: Text(value.label),
-                          ),
-                      ],
-                      validator: (value) =>
-                          value == null ? 'Select the outcome.' : null,
-                      onChanged: (value) => setState(() {
-                        _dispositions[position] = value;
-                      }),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _remarksController,
-                  minLines: 2,
-                  maxLines: 4,
-                  textInputAction: TextInputAction.newline,
-                  decoration: InputDecoration(
-                    labelText: 'Remarks (optional)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _saving ? null : () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: BafColors.sync,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: _saving
-              ? null
-              : () async {
-                  if (!(_formKey.currentState?.validate() ?? false)) return;
-                  final draft = _DirectiveClosureDraft(
-                    remarks: _remarksController.text,
-                    burnerDispositions: {
-                      for (final entry in _dispositions.entries)
-                        entry.key: entry.value!,
-                    },
-                  );
-                  setState(() => _saving = true);
-                  try {
-                    await widget.onSave?.call(draft);
-                    if (context.mounted) Navigator.pop(context, draft);
-                  } catch (error) {
-                    if (mounted) {
-                      setState(
-                        () => _saveError = '$error Your entries remain here.',
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _saving = false);
-                  }
-                },
-          child: const Text('Close'),
-        ),
-      ],
-    );
-  }
-}
-
 class _DirectiveTopRow extends StatelessWidget {
   final String title;
   final DirectiveStatus status;
@@ -1373,22 +1315,36 @@ class _DirectiveTopRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final heading = Text(
+      title,
+      style: const TextStyle(
+        color: BafColors.textPrimary,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        height: 1.3,
+      ),
+    );
+    final badge = StatusBadge(
+      label: status.name.toUpperCase(),
+      color: statusColor,
+    );
+    if (MediaQuery.sizeOf(context).width < 480 ||
+        MediaQuery.textScalerOf(context).scale(16) > 20) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          heading,
+          const SizedBox(height: BafSpacing.sm),
+          badge,
+        ],
+      );
+    }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              color: BafColors.textPrimary,
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              height: 1.2,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        StatusBadge(label: status.name.toUpperCase(), color: statusColor),
+        Expanded(child: heading),
+        const SizedBox(width: BafSpacing.sm),
+        badge,
       ],
     );
   }
@@ -1403,6 +1359,7 @@ class _MetaLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 15, color: BafColors.textSecondary),
         const SizedBox(width: 5),
@@ -1411,8 +1368,8 @@ class _MetaLine extends StatelessWidget {
             text,
             style: const TextStyle(
               color: BafColors.textSecondary,
-              fontSize: 12,
-              height: 1.25,
+              fontSize: 13,
+              height: 1.35,
             ),
           ),
         ),

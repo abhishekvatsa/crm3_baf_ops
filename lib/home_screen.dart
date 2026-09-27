@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'features/support/public_help_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/maintenance/presentation/ticket_screen.dart';
@@ -60,6 +61,7 @@ import 'features/directives/providers/operational_directive_provider.dart';
 
 import 'core/theme/baf_design_system.dart';
 import 'core/widgets/baf_ui.dart';
+import 'core/widgets/sync_status_indicator.dart';
 import 'core/widgets/baf_home_back_scope.dart';
 import 'core/widgets/brand/brand_widgets.dart';
 import 'core/widgets/dashboard/dashboard_widgets.dart';
@@ -620,7 +622,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       _AppTab(
         label: 'More',
-        screenBuilder: (_) => _MoreScreen(
+        screenBuilder: (_) => HomeMoreScreen(
           appUser: appUser,
           onRaiseIssue: () => _openMaintenanceForm(context),
           onIssues: () => setState(() => _currentIndex = 1),
@@ -685,7 +687,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     // runs and will surface any recoverable in-progress draft for this
     // user. The legacy Template Publisher remains on its own More tile
     // for power users (Admin and SI) who need the JSON-paste/edit
-    // surface — see _MoreScreen below. Home launches the composer as
+    // surface — see HomeMoreScreen below. Home launches the composer as
     // a standalone authoring route, so the legacy Save-to-Publisher
     // handoff is hidden here.
     Navigator.push(
@@ -747,7 +749,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       messenger?.showSnackBar(
         SnackBar(
           content: Text(outcome.manualSyncMessage),
-          backgroundColor: outcome.isFailure
+          backgroundColor: outcome.isPartial
+              ? BafColors.warning
+              : outcome.isFailure
               ? BafColors.danger
               : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
@@ -1353,7 +1357,7 @@ class _WatchTile extends StatelessWidget {
   );
 }
 
-class _MoreScreen extends StatelessWidget {
+class HomeMoreScreen extends StatelessWidget {
   final AppUser appUser;
   final VoidCallback onRaiseIssue;
   final VoidCallback onIssues;
@@ -1385,7 +1389,8 @@ class _MoreScreen extends StatelessWidget {
   final VoidCallback onFrequentIssues;
   final VoidCallback onLocalDiagnostics;
 
-  const _MoreScreen({
+  const HomeMoreScreen({
+    super.key,
     required this.appUser,
     required this.onRaiseIssue,
     required this.onIssues,
@@ -1679,6 +1684,25 @@ class _MoreScreen extends StatelessWidget {
         ),
     ];
     final adminDestinations = <_MoreDestinationSpec>[
+      _MoreDestinationSpec(
+        icon: Icons.help_outline_rounded,
+        color: BafColors.info,
+        title: 'Privacy & support',
+        subtitle: 'Contact, privacy policy and account deletion requests',
+        keywords: 'help support privacy contact account deletion delete',
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PublicHelpScreen()),
+        ),
+      ),
+      if (appUser.isApproved)
+        _MoreDestinationSpec(
+          icon: Icons.sync_problem_outlined,
+          color: BafColors.sync,
+          title: 'Sync health',
+          subtitle: 'Check pending work and recheck held changes',
+          keywords: 'sync health recovery pending rejected recheck',
+          onTap: () => SyncStatusIndicator.showHealthPanel(context),
+        ),
       if (appUser.isAdmin)
         _MoreDestinationSpec(
           icon: Icons.save_as_outlined,
@@ -1782,9 +1806,7 @@ class _MoreScreen extends StatelessWidget {
                   destinations: governanceDestinations,
                 ),
               ],
-              if (appUser.canOpenAdminDataBrowser ||
-                  appUser.canViewAuditLogs ||
-                  appUser.canViewMaintenanceWorkflowDiagnostics) ...[
+              if (adminDestinations.isNotEmpty) ...[
                 const SizedBox(height: BafSpacing.xl),
                 _MoreSection(
                   title: 'Administration and support',
@@ -2450,6 +2472,11 @@ class _CompactSyncPill extends ConsumerWidget {
         color = BafColors.sync;
         icon = Icons.cloud_done_rounded;
         break;
+      case SyncStatus.partial:
+        label = 'Partly synced';
+        color = BafColors.warning;
+        icon = Icons.sync_problem_rounded;
+        break;
       case SyncStatus.failed:
         label = 'Retry sync';
         color = BafColors.danger;
@@ -2466,7 +2493,11 @@ class _CompactSyncPill extends ConsumerWidget {
     final foreground = Color.lerp(color, Colors.white, 0.48)!;
 
     return Tooltip(
-      message: disabled ? 'Sync already running' : 'Manual sync now',
+      message: disabled
+          ? 'Sync already running'
+          : status.isPartial
+          ? 'Some changes still need attention. Open Sync health for details.'
+          : 'Manual sync now',
       child: InkWell(
         onTap: disabled ? null : onManualSync,
         borderRadius: BorderRadius.circular(BafRadius.medium),

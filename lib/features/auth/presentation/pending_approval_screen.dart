@@ -9,6 +9,7 @@ import '../../../core/persistence/durable_submission.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../admin/providers/user_authority_durable_command_provider.dart';
+import '../../support/public_help_screen.dart';
 import '../providers/auth_provider.dart';
 
 class PendingApprovalScreen extends ConsumerStatefulWidget {
@@ -102,8 +103,10 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                       _PendingErrorCard(message: _refreshError!),
                     ],
                     const SizedBox(height: BafSpacing.xl),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: BafSpacing.md,
+                      runSpacing: BafSpacing.sm,
                       children: [
                         OutlinedButton.icon(
                           onPressed: _isRefreshingProfile
@@ -130,7 +133,6 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: BafSpacing.md),
                         FilledButton.icon(
                           onPressed: _isRefreshingProfile || _isSigningOut
                               ? null
@@ -158,6 +160,8 @@ class _PendingApprovalScreenState extends ConsumerState<PendingApprovalScreen> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: BafSpacing.md),
+                    const PublicHelpAccess(),
                   ],
                 ),
               ),

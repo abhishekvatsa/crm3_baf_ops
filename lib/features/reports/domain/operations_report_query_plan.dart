@@ -34,6 +34,9 @@ class OperationsReportQueryPlan {
       switch (section) {
         case OperationsReportSection.executiveSummary:
           return const OperationsReportQueryPlan.all();
+        case OperationsReportSection.baseInnerCoverRegister:
+          // Loaded as a fresh, complete server snapshot during preparation.
+          break;
         case OperationsReportSection.assetCondition:
           add(OperationsReportSource.plantCondition);
           add(OperationsReportSource.issues);

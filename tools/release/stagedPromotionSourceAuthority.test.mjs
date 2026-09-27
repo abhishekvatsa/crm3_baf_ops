@@ -208,12 +208,12 @@ function delegatedCurrentFixture(t) {
 // collector adjudicator. No record here describes a production deployment.
 function successorDelegatedFixture(t, {
   delegationBuild = 28,
-  sourceCommit = delegationBuild === 29
+  sourceCommit = delegationBuild === 30 ? 'c76cfa38ffdf6ca323613af0270ffe00a40afc7c' : delegationBuild === 29
     ? 'a2464d63c797e2e0b511ba3be789e7f5a522c5a4' : 'f3d299d03ac9d034272519e7ac52ac4b4a216a9b',
   childDirectory = 'release',
   approvalFile = `release/approvals/build${delegationBuild}-current-source-backend-deployment-approval.json`,
   ciFile = `release/evidence/build${delegationBuild}-current-source-backend-ci.json`,
-  delegationPolicyId = delegationBuild === 29 ? 'BUILD29-OWNER-DELEGATION-20260921' : 'BUILD28-OWNER-DELEGATION-20260913',
+  delegationPolicyId = delegationBuild === 30 ? 'BUILD30-EXACT-SOURCE-OWNER-DELEGATION' : delegationBuild === 29 ? 'BUILD29-OWNER-DELEGATION-20260921' : 'BUILD28-OWNER-DELEGATION-20260913',
   deriveSourceChild = false,
   sourceGeneration,
 } = {}) {
@@ -259,7 +259,7 @@ function successorDelegatedFixture(t, {
   const approval = f.currentApproval, receipt = f.currentReceipt;
   const runId = 99990001, prNumber = 9999;
   approval.approverName = 'Codex acting under project-owner delegation';
-  if (delegationBuild === 29) approval.intendedBuildNumber = 29;
+  if (delegationBuild >= 29) approval.intendedBuildNumber = delegationBuild;
   approval.approvedAtUtc = at(60);
   approval.approvalEvidence = {authorityType: 'owner-delegated agent decision',
     delegationPolicyId, delegatedDecisionAtUtc: at(60), recordedAtUtc: at(61),
@@ -271,6 +271,19 @@ function successorDelegatedFixture(t, {
   for (const field of ['functionCount','callableCount','eventAndProtocolTriggerCount','schedulerCount']) {
     approval.approvedDeployment[field] = receipt.deployment[field] = fleet[field];
   }
+  const ownerFile = 'release/approvals/build30-backend-owner-authorization.json';
+  const owner = delegationBuild === 30 ? {
+    schemaVersion: 1, documentType: 'source-specific-backend-owner-authorization',
+    approved: true, intendedBuildNumber: 30, firebaseProjectId: PROJECT, region: 'asia-south1',
+    sourceCommit, sourceTree, functionsGitObjectId: functionTree,
+    ownerInstruction: 'Synthetic fixture: authorize only this exact Build30 source and stated backend scope.',
+    ownerReference: 'SYNTHETIC-OWNER-30', recordedBy: 'Synthetic fixture',
+    authorizedAtUtc: at(51), recordedAtUtc: at(52), approvedDeployment: structuredClone(approval.approvedDeployment),
+  } : null;
+  if (owner) {
+    approval.approvalEvidence.instructionExcerpts = [owner.ownerInstruction];
+    approval.approvalEvidence.ownerReference = owner.ownerReference;
+  }
   Object.assign(receipt.sourceAuthority, {commit: sourceCommit, tree: sourceTree, functionsGitObjectId: functionTree,
     pullRequestNumber: prNumber, postMergeReleaseGateRunId: runId});
   Object.assign(receipt.authorityChronology, {delegatedDecisionAtUtc: at(60), earliestFunctionUpdateTime: at(120), latestFunctionUpdateTime: at(121)});
@@ -278,10 +291,18 @@ function successorDelegatedFixture(t, {
   receipt.approvalAuthority.file = approvalFile;
   f.deployed.deploymentApprovalFile = approvalFile;
   f.deployed.functionFleetSourceCommit = sourceCommit;
-  const jobNames = ['Flutter host analysis + tests + no-loss contracts',
-    'Android release package + cold-start proof (non-production)',
-    'Android emulator app-shell integration (not physical-device evidence)',
-    'Firestore Rules + governed callable emulator','Cloud Functions host build + non-emulator tests'];
+  // Bind synthesized CI evidence to this fixture's exact Git source, including
+  // successors that expand the Android gate; historical receipts stay unchanged.
+  // This fixture also runs in the Functions-only CI installation. Extract the
+  // five literal job headlines from the pinned workflow, without requiring the
+  // root package's YAML dependency. Actual authority validation is unchanged.
+  const workflow = getSource('.github/workflows/release-gate.yml');
+  const jobs = workflow.split(/^jobs:\s*$/m);
+  assert.equal(jobs.length, 2);
+  const jobNames = [...jobs[1].matchAll(/^ {4}name: ([^\r\n]+)\r?$/gm)]
+    .map((match) => match[1]);
+  assert.equal(jobNames.length, 5);
+  assert.equal(new Set(jobNames).size, 5);
   const ci = {schemaVersion:1,evidenceType:'github-exact-main-release-gate',repository:'abhishekvatsa/crm3_baf_ops',
     sourceCommit,sourceTree,capturedAtUtc:at(50),
     pullRequest:{number:prNumber,merged:true,merge_commit_sha:sourceCommit,merged_at:at(0),
@@ -354,10 +375,15 @@ function successorDelegatedFixture(t, {
     Object.assign(child,result.evidence);
   }
   function commitCustody() {
+    if (owner) {
+      // Readback fixture preparation fills in the final exact Rules/index scope.
+      if (!approval.approvalEvidence.ownerAuthorization) owner.approvedDeployment = structuredClone(approval.approvedDeployment);
+      approval.approvalEvidence.ownerAuthorization = {file: ownerFile, sha256: f.write(ownerFile, owner)};
+    }
     approval.sourceAuthority.requiredPostMergeReleaseGateEvidence={file:ciFile,sha256:f.write(ciFile,ci)};
     f.write(approvalFile,approval);
     f.git('read-tree',sourceCommit);
-    for(const file of [ciFile,approvalFile]) {
+    for(const file of [ciFile,approvalFile,...(owner ? [ownerFile] : [])]) {
       const blob=f.git('hash-object','-w',file);
       f.git('update-index','--add','--cacheinfo',`100644,${blob},${file}`);
     }
@@ -381,9 +407,9 @@ function successorDelegatedFixture(t, {
     f.write('release/current-successor-state.json',f.state);
   };
   commitCustody();
-  const result = {...f, ci, commitCustody, expectedBuildNumber: delegationBuild};
-  if (delegationBuild !== 29) return result;
-  const candidate = rolloverFixture(t, () => result, 29);
+  const result = {...f, ci, owner, commitCustody, expectedBuildNumber: delegationBuild};
+  if (delegationBuild < 29) return result;
+  const candidate = rolloverFixture(t, () => result, delegationBuild);
   candidate.commitCustody = () => {commitCustody(); candidate.persistCandidate();};
   return candidate;
 }
@@ -391,6 +417,142 @@ function successorDelegatedFixture(t, {
 test('Build29 generation rejects a coherent future Build30 candidate using the entire valid Build29 tuple', (t) => {
   const f = rolloverFixture(t, (context) => successorDelegatedFixture(context, {delegationBuild: 29}), 30);
   assert.equal(f.verify().ok, false, 'A valid Build29 decision cannot authorize a Build30 candidate');
+});
+
+test('Build30 requires its fresh owner custody and current exact-main CI, retaining the historical pilot', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const proof = verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 30});
+  assert.equal(proof.buildNumber, 30);
+  assert.ok(f.ci.jobs.jobs.some((job) => job.name === 'Android emulator shell + business integration (not physical-device evidence)'));
+  const verified = f.verify();
+  assert.equal(verified.ok, true, verified.reasons.join('; '));
+  assert.equal(verified.historicalBackendReceiptSha256, f.history.sha256);
+  const future = rolloverFixture(t, () => f, 31);
+  assert.equal(future.verify().ok, false, 'Build30 protocol never admits a future allocation');
+});
+
+test('Build30 refuses formatting-equivalent historical owner instructions in committed custody', async (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const historical = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward';
+  const fullWidth = historical.replace(/[!-~]/g, character => String.fromCodePoint(character.codePointAt(0) + 0xfee0));
+  for (const [label, instruction] of [
+    ['leading and trailing spaces', `  ${historical}  `],
+    ['line breaks and tabs', historical.replaceAll(' ', '\r\n\t')],
+    ['repeated internal spaces', historical.replaceAll(' ', '   ')],
+    ['Unicode whitespace', `\u3000${historical.replaceAll(' ', '\u00a0\u2003')}\u2028`],
+    ['Unicode compatibility characters', fullWidth],
+    ['combined Unicode and spacing', `\t${fullWidth.replaceAll(' ', '\u3000\n')}\u00a0`],
+    ['case-only change', historical.toUpperCase()],
+    ['zero-width spacing', historical.replace(/([a-z])/g, '$1\u200b')],
+    ['default-ignorable formatting', historical.replace(/([a-z])/g, '$1\u00ad\u200d\u2060\ufe0f')],
+    ['no visible instruction', '\u200b\u200d\u2060\ufe0f'],
+  ]) {
+    await t.test(label, () => {
+      f.owner.ownerInstruction = instruction;
+      f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+      f.commitCustody();
+      const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+      const originalBytes = fs.readFileSync(ownerFile);
+      assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+        approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+        expectedBuildNumber: 30}), /fresh owner instruction/);
+      assert.equal(f.verify().ok, false);
+      assert.deepEqual(fs.readFileSync(ownerFile), originalBytes, 'Refusal must not rewrite committed owner evidence');
+    });
+  }
+});
+
+test('Build30 refuses punctuation-equivalent historical owner instructions in committed custody', async (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const historical = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward';
+  for (const [label, instruction] of [
+    ['em dash separators', historical.replaceAll(' - ', ' \u2014 ')],
+    ['other Unicode dash separators', historical.replace(' - ', '\u2013').replace(' - ', '\u2011')],
+    ['quoted instruction and words', `\u201c${historical.replace('audit yourself', '\u2018audit yourself\u2019').replace('phone is connected', '"phone is connected"')}\u201d`],
+    ['Markdown heading emphasis and code', `# **${historical.replace('phone is connected', '`phone is connected`')}**`],
+    ['symbol separators', historical.replaceAll(' - ', ' + \u2192 \u2022 ')],
+    ['combined punctuation case and invisible formatting', `> [${historical.toUpperCase().replaceAll(' - ', '\u200b\u2014\u2060')}]`],
+    ['no substantive instruction', '# **\u2014\u201c\u201d** + \u2192 \u200b'],
+  ]) {
+    await t.test(label, () => {
+      f.owner.ownerInstruction = instruction;
+      f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+      f.commitCustody();
+      const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+      const originalBytes = fs.readFileSync(ownerFile);
+      const committedDigest = f.currentApproval.approvalEvidence.ownerAuthorization.sha256;
+      assert.equal(sha(originalBytes), committedDigest, 'The refusal fixture must have coherent raw evidence custody');
+      assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+        approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+        expectedBuildNumber: 30}), /fresh owner instruction/);
+      assert.equal(f.verify().ok, false);
+      assert.deepEqual(fs.readFileSync(ownerFile), originalBytes, 'Refusal must preserve the exact committed owner evidence');
+      assert.equal(f.currentApproval.approvalEvidence.ownerAuthorization.sha256, committedDigest);
+    });
+  }
+});
+
+test('Build30 preserves distinct fresh instruction content and exact excerpt custody', (t) => {
+  const f = successorDelegatedFixture(t, {delegationBuild: 30});
+  const instruction = '  **New owner decision:** authorise only this exact Build30 backend\u2014\u201capproved scope\u201d.\nRe\u0301view its separately stated scope.  ';
+  f.owner.ownerInstruction = instruction;
+  f.currentApproval.approvalEvidence.instructionExcerpts = [instruction];
+  f.commitCustody();
+  const ownerFile = path.join(f.root, 'release/approvals/build30-backend-owner-authorization.json');
+  const originalBytes = fs.readFileSync(ownerFile);
+  const committedDigest = f.currentApproval.approvalEvidence.ownerAuthorization.sha256;
+  assert.equal(sha(originalBytes), committedDigest);
+  const verified = f.verify();
+  assert.equal(verified.ok, true, verified.reasons?.join('; '));
+  assert.deepEqual(fs.readFileSync(ownerFile), originalBytes);
+  assert.equal(f.currentApproval.approvalEvidence.ownerAuthorization.sha256, committedDigest);
+  assert.equal(JSON.parse(originalBytes).ownerInstruction, instruction);
+  // Normalization detects reused wording only. It must not loosen the exact
+  // original instruction/excerpt match or rewrite either immutable record.
+  f.currentApproval.approvalEvidence.instructionExcerpts = [instruction.normalize('NFKC').replace(/\s+/gu, ' ').trim()];
+  f.commitCustody();
+  assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 30}), /fresh owner instruction/);
+  assert.equal(f.verify().ok, false);
+});
+
+for (const [label, change] of [
+  ['historical owner instruction', (f) => { f.owner.ownerInstruction = 'you do an audit yourself and go to make a build - phone is connected - you are explicitly authorized to use authorization wording of a choice necessary to go forward'; f.currentApproval.approvalEvidence.instructionExcerpts = [f.owner.ownerInstruction]; }],
+  ['wrong build', (f) => { f.owner.intendedBuildNumber = 29; }],
+  ['wrong source', (f) => { f.owner.sourceCommit = '0'.repeat(40); }],
+  ['wrong tree', (f) => { f.owner.sourceTree = '0'.repeat(40); }],
+  ['wrong project', (f) => { f.owner.firebaseProjectId = 'another-project'; }],
+  ['unapproved owner record', (f) => { f.owner.approved = false; }],
+  ['missing owner reference', (f) => { delete f.owner.ownerReference; }],
+  ['broader deployment scope', (f) => { f.currentApproval.approvedDeployment.appCheckEnforcement = true; }],
+  ['postdecision authorization', (f) => { f.owner.recordedAtUtc = f.currentReceipt.recordedAtUtc; }],
+  ['historical Android-only job', (f) => { f.ci.jobs.jobs.find((job) => job.name.startsWith('Android emulator')).name = 'Android emulator app-shell integration (not physical-device evidence)'; }],
+  ['missing successful business job', (f) => { f.ci.jobs.jobs.find((job) => job.name.startsWith('Android emulator')).conclusion = 'skipped'; }],
+]) {
+  test(`Build30 refuses ${label} even in newly committed approval bytes`, (t) => {
+    const f = successorDelegatedFixture(t, {delegationBuild: 30});
+    change(f); f.commitCustody();
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber: 30}));
+    assert.equal(f.verify().ok, false);
+  });
+}
+
+test('Build30 does not infer the candidate from owner intent or admit source generation31', (t) => {
+  for (const expectedBuildNumber of [undefined, 29, 31, '30']) {
+    const f = successorDelegatedFixture(t, {delegationBuild: 30});
+    assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+      approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+      expectedBuildNumber}), /intended build number/);
+  }
+  const f = successorDelegatedFixture(t, {delegationBuild: 30, sourceGeneration: {policy: 31, pubspec: 31, ledger: 31}});
+  assert.throws(() => verifySuccessorDelegatedDecision({repoRoot: f.root, approval: f.currentApproval,
+    approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
+    expectedBuildNumber: 30}), /source generation/);
 });
 
 test('Build29 generation rejects actual future source Git even when caller and immutable approval claim29', (t) => {

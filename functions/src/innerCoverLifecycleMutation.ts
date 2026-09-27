@@ -1248,6 +1248,7 @@ function requireAssignment(
 ): JsonMap {
   requireVersion(data, expectedVersion, "Base-to-Inner-Cover assignment");
   if (data.schemaVersion !== 1 || data.baseAssetInstanceId !== baseId ||
+      cover.currentBaseAssetInstanceId !== baseId ||
       data.innerCoverId !== cover.innerCoverId ||
       data.innerCoverSerialNumber !== cover.serialNumber ||
       data.linkageId !== cover.currentLinkageId) {

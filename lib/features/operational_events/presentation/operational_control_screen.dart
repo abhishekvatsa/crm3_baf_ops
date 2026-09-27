@@ -108,8 +108,9 @@ class OperationalControlScreen extends StatelessWidget {
           icon: Icons.monitor_heart_outlined,
           color: BafColors.instrument,
           title: 'Cycle monitoring',
-          value:
-              qualityMonitoringUnavailable ? '--' : '$qualityMonitoringCount',
+          value: qualityMonitoringUnavailable
+              ? '--'
+              : '$qualityMonitoringCount',
           detail: 'Active Base, Grade and charge surveillance',
           onTap: onQualityMonitoring,
         ),
@@ -126,7 +127,7 @@ class OperationalControlScreen extends StatelessWidget {
         color: BafColors.maintenance,
         title: 'Inspection findings',
         value: inspectionFindingsUnavailable ? '--' : '$inspectionFindingCount',
-        detail: 'Open findings, corrective action and verification',
+        detail: 'Programmes, surveys and findings needing follow-up',
         onTap: onInspections,
       ),
     ];
@@ -159,7 +160,7 @@ class OperationalControlScreen extends StatelessWidget {
                 const SizedBox(height: BafSpacing.xl),
                 const _ControlSectionTitle(
                   title: 'Control queues',
-                  subtitle: 'Open a queue to review evidence and act',
+                  subtitle: 'Review records and act within each section',
                 ),
                 const SizedBox(height: BafSpacing.sm),
                 LayoutBuilder(
@@ -180,50 +181,6 @@ class OperationalControlScreen extends StatelessWidget {
                       ],
                     );
                   },
-                ),
-                const SizedBox(height: BafSpacing.xl),
-                const _ControlSectionTitle(
-                  title: 'Common actions',
-                  subtitle: 'Start from the business event you are recording',
-                ),
-                const SizedBox(height: BafSpacing.sm),
-                Wrap(
-                  spacing: BafSpacing.sm,
-                  runSpacing: BafSpacing.sm,
-                  children: [
-                    FilledButton.icon(
-                      style: FilledButton.styleFrom(
-                        backgroundColor: BafColors.danger,
-                        foregroundColor: Colors.white,
-                      ),
-                      onPressed: onCriticalAlarms,
-                      icon: const Icon(Icons.notification_important_outlined),
-                      label: const Text('Safety alarm'),
-                    ),
-                    if (appUser.canRecordOperationalEvent)
-                      FilledButton.icon(
-                        onPressed: onOperationalEvents,
-                        icon: const Icon(Icons.add_alert_outlined),
-                        label: const Text('Record disruption'),
-                      ),
-                    if (appUser.canLogChargeAbnormality)
-                      OutlinedButton.icon(
-                        onPressed: onAbnormalities,
-                        icon: const Icon(Icons.monitor_heart_outlined),
-                        label: const Text('Record abnormality'),
-                      ),
-                    if (appUser.canManageQualityMonitoring)
-                      OutlinedButton.icon(
-                        onPressed: onQualityMonitoring,
-                        icon: const Icon(Icons.visibility_outlined),
-                        label: const Text('Monitor cycles'),
-                      ),
-                    OutlinedButton.icon(
-                      onPressed: onInspections,
-                      icon: const Icon(Icons.playlist_add_check_rounded),
-                      label: const Text('Inspection programmes'),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -253,10 +210,9 @@ class OperationalControlScreen extends StatelessWidget {
         icon: Icons.sync_problem_outlined,
         color: BafColors.danger,
         eyebrow: 'DATA CHECK REQUIRED',
-        title:
-            unavailableQueues.length == 1
-                ? '${unavailableQueues.first.label} data is unavailable'
-                : '${unavailableQueues.length} live control queues are unavailable',
+        title: unavailableQueues.length == 1
+            ? '${unavailableQueues.first.label} data is unavailable'
+            : '${unavailableQueues.length} live control queues are unavailable',
         detail:
             'Refresh or open the affected queue before treating the control picture as complete.',
         actionLabel: 'Open affected queue',

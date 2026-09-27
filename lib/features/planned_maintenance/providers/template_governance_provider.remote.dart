@@ -2,11 +2,13 @@ part of 'template_governance_provider.dart';
 
 class FirestoreTemplateGovernanceRepository
     implements TemplateGovernanceRepository {
-  final _packages = FirebaseFirestore.instance.collection('template_packages');
-  final _versions = FirebaseFirestore.instance.collection('template_versions');
-  final _audits = FirebaseFirestore.instance.collection(
-    'template_publish_audits',
-  );
+  FirestoreTemplateGovernanceRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
+
+  final FirebaseFirestore _firestore;
+  late final _packages = _firestore.collection('template_packages');
+  late final _versions = _firestore.collection('template_versions');
+  late final _audits = _firestore.collection('template_publish_audits');
 
   @override
   Future<void> savePackage(
@@ -15,9 +17,11 @@ class FirestoreTemplateGovernanceRepository
   }) async {
     _requireTemplateGovernor(actor, 'save template packages');
     _normalizePackageForUserSave(record, actor: actor, markUnsynced: false);
-    await _packages
+    final snapshot = await _packages
         .doc(record.firestoreId)
-        .set(record.toMap(), SetOptions(merge: true));
+        .get(const GetOptions(source: Source.server));
+    final data = _packageWriteDataPreservingCreation(record, snapshot);
+    await _packages.doc(record.firestoreId).set(data, SetOptions(merge: true));
   }
 
   @override
@@ -41,7 +45,7 @@ class FirestoreTemplateGovernanceRepository
     final expectedVersion = record.version;
     _normalizeVersionForUserSave(record, actor: actor, markUnsynced: false);
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final versionRef = _versions.doc(initialFirestoreId);
       final snapshot = await txn.get(versionRef);
       if (!snapshot.exists) {
@@ -61,7 +65,11 @@ class FirestoreTemplateGovernanceRepository
         );
       }
 
-      txn.set(versionRef, record.toMap(), SetOptions(merge: true));
+      txn.set(
+        versionRef,
+        _versionWriteDataPreservingCreation(record, snapshot),
+        SetOptions(merge: true),
+      );
     });
     record.isSynced = true;
   }
@@ -88,7 +96,7 @@ class FirestoreTemplateGovernanceRepository
 
     final beforeHash = candidate.contentHash;
     final now = DateTime.now();
-    record
+    candidate
       ..status = TemplateVersionStatus.published
       ..publishedByUid = actor.uid
       ..publishedByName = actor.name
@@ -99,6 +107,7 @@ class FirestoreTemplateGovernanceRepository
 
     final audit = _newAudit(
       action: TemplatePublishAuditAction.published,
+      firestoreId: _audits.doc().id,
       actor: actor,
       version: candidate,
       reason: reason,
@@ -106,14 +115,23 @@ class FirestoreTemplateGovernanceRepository
       afterHash: candidate.contentHash,
     )..isSynced = true;
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final saved = await txn.get(_versions.doc(candidate.firestoreId));
-      if (!saved.exists) throw StateError('The reviewed draft is missing. Reload before publishing.');
+      if (!saved.exists) {
+        throw StateError(
+          'The reviewed draft is missing. Reload before publishing.',
+        );
+      }
       final current = TemplateVersion.fromMap(saved.data()!, saved.id);
-      if (current.version != reviewed.version || current.versionNumber != reviewed.versionNumber ||
+      if (current.version != reviewed.version ||
+          current.versionNumber != reviewed.versionNumber ||
           current.computeContentHash() != reviewed.computeContentHash() ||
-          current.updatedAt.toUtc() != reviewed.updatedAt.toUtc() || current.isDeleted || !current.isDraft) {
-        throw StateError('The reviewed draft changed. Newer content is preserved; reload before publishing.');
+          current.updatedAt.toUtc() != reviewed.updatedAt.toUtc() ||
+          current.isDeleted ||
+          !current.isDraft) {
+        throw StateError(
+          'The reviewed draft changed. Newer content is preserved; reload before publishing.',
+        );
       }
       final packageId = candidate.packageFirestoreId;
       DocumentReference<Map<String, dynamic>>? packageRef;
@@ -124,13 +142,15 @@ class FirestoreTemplateGovernanceRepository
         packageSnap = await txn.get(packageRef);
         final latest = packageSnap.data()?['latestVersionNumber'];
         if (latest is! int || candidate.versionNumber <= latest) {
-          throw StateError('Publish this older draft as a new linked version; its saved number cannot be changed.');
+          throw StateError(
+            'Publish this older draft as a new linked version; its saved number cannot be changed.',
+          );
         }
       }
 
       txn.set(
         _versions.doc(candidate.firestoreId),
-        candidate.toMap(),
+        _versionWriteDataPreservingCreation(candidate, saved),
         SetOptions(merge: true),
       );
       txn.set(
@@ -157,7 +177,9 @@ class FirestoreTemplateGovernanceRepository
       }
     });
     _copyTemplateVersionLifecycleState(record, candidate, isSynced: true);
-    record..publishedByUid = candidate.publishedByUid..publishedByName = candidate.publishedByName
+    record
+      ..publishedByUid = candidate.publishedByUid
+      ..publishedByName = candidate.publishedByName
       ..publishedAt = candidate.publishedAt;
   }
 
@@ -192,7 +214,11 @@ class FirestoreTemplateGovernanceRepository
       afterHash: record.contentHash,
     )..isSynced = true;
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
+      final versionSnapshot = await txn.get(_versions.doc(record.firestoreId));
+      if (!versionSnapshot.exists) {
+        throw StateError('The published template version no longer exists.');
+      }
       final packageId = record.packageFirestoreId;
       DocumentReference<Map<String, dynamic>>? packageRef;
       DocumentSnapshot<Map<String, dynamic>>? packageSnap;
@@ -204,7 +230,7 @@ class FirestoreTemplateGovernanceRepository
 
       txn.set(
         _versions.doc(record.firestoreId),
-        record.toMap(),
+        _versionWriteDataPreservingCreation(record, versionSnapshot),
         SetOptions(merge: true),
       );
       txn.set(
@@ -246,7 +272,7 @@ class FirestoreTemplateGovernanceRepository
     }
 
     late TemplateVersion archived;
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final versionRef = _versions.doc(firestoreId);
       final versionSnap = await txn.get(versionRef);
       if (!versionSnap.exists) {
@@ -309,7 +335,7 @@ class FirestoreTemplateGovernanceRepository
     }
 
     late TemplateVersion restored;
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final versionRef = _versions.doc(firestoreId);
       final versionSnap = await txn.get(versionRef);
       if (!versionSnap.exists) {
@@ -370,7 +396,8 @@ class FirestoreTemplateGovernanceRepository
   @override
   Future<List<TemplatePackage>> getAllPackages() async {
     final snap = await _packages.where('isDeleted', isEqualTo: false).get();
-    final records = snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+    final records = snap.docs
+        .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
         .toList();
     records.sort((a, b) => a.title.compareTo(b.title));
     return records;
@@ -383,8 +410,11 @@ class FirestoreTemplateGovernanceRepository
         .orderBy('title');
     if (limit != null) query = query.limit(limit);
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, TemplatePackage.fromMap, source: 'TemplatePackage')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        TemplatePackage.fromMap,
+        source: 'TemplatePackage',
+      ).toList(),
     );
   }
 
@@ -410,7 +440,8 @@ class FirestoreTemplateGovernanceRepository
         .where('packageFirestoreId', isEqualTo: packageFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    final records = snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+    final records = snap.docs
+        .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
         .toList();
     records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
     return records;
@@ -425,8 +456,11 @@ class FirestoreTemplateGovernanceRepository
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map((snap) {
-          final records = decodeSnapshotDocuments(snap, TemplateVersion.fromMap, source: 'TemplateVersion')
-              .toList();
+          final records = decodeSnapshotDocuments(
+            snap,
+            TemplateVersion.fromMap,
+            source: 'TemplateVersion',
+          ).toList();
           records.sort((a, b) => b.versionNumber.compareTo(a.versionNumber));
           return records;
         });
@@ -453,7 +487,8 @@ class FirestoreTemplateGovernanceRepository
     final snap = await _audits
         .where('versionFirestoreId', isEqualTo: versionFirestoreId)
         .get();
-    final records = snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+    final records = snap.docs
+        .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
         .where((record) => !record.isDeleted)
         .toList();
     records.sort((a, b) => b.performedAt.compareTo(a.performedAt));
@@ -591,7 +626,8 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplatePackageResult(
-      records: snap.docs.map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
+      records: snap.docs
+          .map((doc) => TemplatePackage.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -620,7 +656,8 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateVersionResult(
-      records: snap.docs.map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
+      records: snap.docs
+          .map((doc) => TemplateVersion.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -649,7 +686,8 @@ class FirestoreTemplateGovernanceRepository
         .limit(limit)
         .get(authoritativeGlobalPullReadOptions);
     return PaginatedTemplateAuditResult(
-      records: snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
+      records: snap.docs
+          .map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id))
           .toList(),
       lastDoc: snap.docs.isNotEmpty ? snap.docs.last : null,
     );
@@ -675,13 +713,17 @@ class FirestoreTemplateGovernanceRepository
 
   @override
   Future<void> batchUpsertPackages(List<TemplatePackage> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final record in records) {
       if (record.firestoreId != null) {
         _validatePackageForPersistence(record);
+        final snapshot = await _packages
+            .doc(record.firestoreId)
+            .get(const GetOptions(source: Source.server));
+        final data = _packageWriteDataPreservingCreation(record, snapshot);
         batch.set(
           _packages.doc(record.firestoreId),
-          record.toMap(),
+          data,
           SetOptions(merge: true),
         );
       }
@@ -709,12 +751,15 @@ class FirestoreTemplateGovernanceRepository
 
   @override
   Future<void> batchUpsertVersions(List<TemplateVersion> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final record in records) {
       if (record.firestoreId != null) {
+        final snapshot = await _versions
+            .doc(record.firestoreId)
+            .get(const GetOptions(source: Source.server));
         batch.set(
           _versions.doc(record.firestoreId),
-          record.toMap(),
+          _versionWriteDataPreservingCreation(record, snapshot),
           SetOptions(merge: true),
         );
       }
@@ -734,7 +779,7 @@ class FirestoreTemplateGovernanceRepository
       );
     }
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final ref = _versions.doc(id);
       final snap = await txn.get(ref);
       if (snap.exists) {
@@ -759,7 +804,7 @@ class FirestoreTemplateGovernanceRepository
       );
     }
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final ref = _versions.doc(id);
       final snap = await txn.get(ref);
       if (!snap.exists) {
@@ -778,7 +823,12 @@ class FirestoreTemplateGovernanceRepository
           'TemplateVersion draft update replay detected a concurrent remote change. Reload and retry: $id',
         );
       }
-      txn.set(ref, draftData, SetOptions(merge: true));
+      final candidate = TemplateVersion.fromMap(draftData, id);
+      txn.set(
+        ref,
+        _versionWriteDataPreservingCreation(candidate, snap),
+        SetOptions(merge: true),
+      );
     });
   }
 
@@ -810,7 +860,7 @@ class FirestoreTemplateGovernanceRepository
       );
     }
 
-    await FirebaseFirestore.instance.runTransaction((txn) async {
+    await _firestore.runTransaction((txn) async {
       final ref = _versions.doc(id);
       final snapshot = await txn.get(ref);
       if (!snapshot.exists) {
@@ -845,7 +895,9 @@ class FirestoreTemplateGovernanceRepository
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
       results.addAll(
-        snap.docs.map((doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id)),
+        snap.docs.map(
+          (doc) => TemplatePublishAudit.fromMap(doc.data(), doc.id),
+        ),
       );
     }
     return results;
@@ -853,7 +905,7 @@ class FirestoreTemplateGovernanceRepository
 
   @override
   Future<void> batchUpsertAudits(List<TemplatePublishAudit> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final record in records) {
       if (record.firestoreId != null) {
         batch.set(

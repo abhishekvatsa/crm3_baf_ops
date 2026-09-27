@@ -5,6 +5,34 @@ import 'operational_directive_model.dart';
 bool isGovernedBurnerRoundDirectiveId(String? id) =>
     id != null && RegExp(r'^burner_round_red_hot_[A-Za-z0-9_-]+$').hasMatch(id);
 
+DateTime governedAcknowledgementNow(OperationalDirective current) {
+  final acknowledgedAt = DateTime.now().toUtc();
+  requireGovernedDirectiveAcknowledgementTime(
+    current: current,
+    acknowledgedAt: acknowledgedAt,
+  );
+  return acknowledgedAt;
+}
+
+/// Refuse an impossible device-clock event without changing its occurrence time.
+void requireGovernedDirectiveAcknowledgementTime({
+  required OperationalDirective current,
+  required DateTime acknowledgedAt,
+}) {
+  for (final prior in [
+    current.createdAt,
+    current.issuedAt,
+    current.updatedAt,
+  ]) {
+    if (prior != null && acknowledgedAt.isBefore(prior)) {
+      throw StateError(
+        'The device clock precedes the current directive. Check the device '
+        'date and time, then retry acknowledgement. No time was changed.',
+      );
+    }
+  }
+}
+
 const _acknowledgementFields = {
   'status',
   'isActive',
@@ -57,6 +85,15 @@ Map<String, dynamic> governedDirectiveAcknowledgementPatch({
       local.closedWithoutAcknowledgement) {
     throw StateError('Invalid governed burner directive acknowledgement.');
   }
+  if (local.acknowledgedAt!.isBefore(local.createdAt) ||
+      (local.issuedAt != null &&
+          local.acknowledgedAt!.isBefore(local.issuedAt!)) ||
+      local.updatedAt.isBefore(local.acknowledgedAt!)) {
+    throw StateError(
+      'The saved acknowledgement has inconsistent dates. Review the saved '
+      'evidence before retrying; no time was changed.',
+    );
+  }
   final localMap = _comparable(local.toMap());
   final remoteMap = _comparable(remote.toMap());
   // Both maps come from the same typed model serializer with stable key order.
@@ -77,6 +114,10 @@ Map<String, dynamic> governedDirectiveAcknowledgementPatch({
       'The directive source changed. Refresh before acknowledging.',
     );
   }
-  return Map<String, dynamic>.from(local.toMap())
+  requireGovernedDirectiveAcknowledgementTime(
+    current: remote,
+    acknowledgedAt: local.acknowledgedAt!,
+  );
+  return Map<String, dynamic>.from(localMap)
     ..removeWhere((key, _) => !_acknowledgementFields.contains(key));
 }

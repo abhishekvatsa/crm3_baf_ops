@@ -134,8 +134,32 @@ def main() -> None:
     if len(emulator_job) != 2:
         fail("Android emulator CI job is absent")
     emulator_job = emulator_job[1].split("\n  firestore-rules:\n", 1)[0]
-    if "timeout-minutes: 30" not in emulator_job:
-        fail("Android emulator CI job is not bounded to 30 minutes")
+    if "timeout-minutes: 60" not in emulator_job:
+        fail("Android emulator CI job is not bounded to 60 minutes")
+
+    business_manifest = device.get("businessJourneyManifest")
+    if business_manifest != "governance/ci-business-journeys.json":
+        fail("Android business journey manifest is absent")
+    business = json.loads((ROOT / business_manifest).read_text(encoding="utf-8"))
+    if business.get("projectId") != "demo-crm3-ci-journeys":
+        fail("Business journeys must use the isolated CI demo project")
+    for key in ("productionCredentialsUsed", "productionBackendUsed", "physicalDeviceEvidence"):
+        if business.get(key) is not False:
+            fail(f"Business journey evidence boundary is not false: {key}")
+    for key in ("runner", "fixture", "firebaseConfig"):
+        if not (ROOT / business[key]).is_file():
+            fail(f"Business journey dependency is missing: {key}")
+    if business["runner"] not in emulator_job:
+        fail("Android business journeys are not executed by CI")
+    selected = business.get("journeys", [])
+    excluded = business.get("excluded", [])
+    declared_paths = [item["path"] for item in selected + excluded]
+    actual_paths = {path.relative_to(ROOT).as_posix()
+                    for path in (ROOT / "integration_test").glob("dev_*_test.dart")}
+    if set(declared_paths) != actual_paths or len(set(declared_paths)) != len(declared_paths):
+        fail("Every DEV integration test must be selected or explicitly excluded once")
+    if not selected or any(not row.get("reason") for row in excluded):
+        fail("Business journey selection/exclusions lack scope")
 
     lines = [
         "## Test evidence taxonomy",
@@ -159,6 +183,7 @@ def main() -> None:
         [
             "",
             "Android emulator evidence is not physical-device evidence and does not use production credentials or backend state.",
+            f"The business journey gate selects {len(selected)} DEV suites; {len(excluded)} diagnostic or fixture-dependent suites remain explicitly excluded. CI configuration is not a claim that an unexecuted run passed.",
         ]
     )
     summary = "\n".join(lines) + "\n"

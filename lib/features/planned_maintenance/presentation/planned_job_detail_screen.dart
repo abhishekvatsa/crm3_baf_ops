@@ -23,7 +23,7 @@ import '../../maintenance_workflow/presentation/widgets/planned_job_workflow_pan
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
-import '../../reports/domain/planned_job_dossier.dart';
+import '../../reports/services/planned_job_report_loader.dart';
 import '../../reports/presentation/report_provenance_builder.dart';
 import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/baf_module_catalogue_seed.dart';

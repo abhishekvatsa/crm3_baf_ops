@@ -579,6 +579,13 @@ class SharedPreferencesGlobalPullCursorStore {
     );
     final encoded = envelope.encode();
     final written = await preferences.setString(key, encoded);
+    if (written) {
+      // setString changes the singleton cache before the native write finishes.
+      // An unrelated journal reload can replace that cache while we await it;
+      // conversely, the optimistic cache alone cannot prove persistence. Reload
+      // only after native acknowledgement before enforcing exact readback.
+      await preferences.reload();
+    }
     if (!written || preferences.getString(key) != encoded) {
       throw const GlobalPullCursorException(
         'The global pull cursor could not be written and read back exactly.',

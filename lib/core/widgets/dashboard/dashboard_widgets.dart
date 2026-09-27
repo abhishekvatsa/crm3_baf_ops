@@ -80,7 +80,7 @@ class BafSectionSurface extends StatelessWidget {
         ),
         boxShadow: BafShadows.subtle,
       ),
-      child: child,
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }
@@ -90,14 +90,12 @@ class _IndustrialHeaderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final line =
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.045)
-          ..strokeWidth = 1;
-    final strongLine =
-        Paint()
-          ..color = BafColors.teal.withValues(alpha: 0.16)
-          ..strokeWidth = 1.2;
+    final line = Paint()
+      ..color = Colors.white.withValues(alpha: 0.045)
+      ..strokeWidth = 1;
+    final strongLine = Paint()
+      ..color = BafColors.teal.withValues(alpha: 0.16)
+      ..strokeWidth = 1.2;
     final start = size.width * 0.60;
     for (var index = 0; index < 5; index++) {
       final x = start + index * 34;
@@ -143,13 +141,12 @@ class DashboardCard extends StatelessWidget {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color:
-            backgroundColor == BafColors.card
-                ? BafColors.surfaceRaised
-                : backgroundColor,
+        color: backgroundColor == BafColors.card
+            ? BafColors.surfaceRaised
+            : backgroundColor,
         borderRadius: BorderRadius.circular(BafRadius.large),
         border: Border.all(color: borderColor ?? BafColors.border),
-        boxShadow: BafShadows.soft,
+        boxShadow: BafShadows.subtle,
       ),
       child: child,
     );
@@ -172,10 +169,9 @@ class DashboardHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firstName =
-        userName.trim().isEmpty
-            ? 'there'
-            : userName.trim().split(RegExp(r'\s+')).first;
+    final firstName = userName.trim().isEmpty
+        ? 'there'
+        : userName.trim().split(RegExp(r'\s+')).first;
 
     return BafDarkHeaderSurface(
       child: Column(
@@ -207,36 +203,44 @@ class DashboardHeader extends StatelessWidget {
             ],
           ),
           const SizedBox(height: BafSpacing.md),
-          Row(
-            children: [
-              const Expanded(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Shift overview',
-                      key: ValueKey('dashboard-shift-title'),
-                      maxLines: 1,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                      ),
-                    ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const title = Text(
+                'Shift overview',
+                key: ValueKey('dashboard-shift-title'),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.2,
+                ),
+              );
+              final sync = KeyedSubtree(
+                key: const ValueKey('dashboard-sync-action'),
+                child: syncIndicator,
+              );
+              if (constraints.maxWidth < 300 ||
+                  MediaQuery.textScalerOf(context).scale(1) > 1.3) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    title,
+                    const SizedBox(height: BafSpacing.sm),
+                    sync,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  const Expanded(child: title),
+                  const SizedBox(width: BafSpacing.md),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 132),
+                    child: sync,
                   ),
-                ),
-              ),
-              const SizedBox(width: BafSpacing.md),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 132),
-                child: KeyedSubtree(
-                  key: const ValueKey('dashboard-sync-action'),
-                  child: syncIndicator,
-                ),
-              ),
-            ],
+                ],
+              );
+            },
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(

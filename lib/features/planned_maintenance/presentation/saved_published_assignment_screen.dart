@@ -20,8 +20,13 @@ String publishedAssignmentSubmissionMessage(Object error) => switch (error) {
 };
 
 class SavedPublishedAssignmentScreen extends ConsumerStatefulWidget {
-  const SavedPublishedAssignmentScreen({super.key, required this.submission});
+  const SavedPublishedAssignmentScreen({
+    super.key,
+    required this.submission,
+    this.refreshing = false,
+  });
   final DurableSubmission submission;
+  final bool refreshing;
   @override
   ConsumerState<SavedPublishedAssignmentScreen> createState() =>
       _SavedPublishedAssignmentScreenState();
@@ -75,6 +80,10 @@ class _SavedPublishedAssignmentScreenState
         ),
       );
     }
+    final busy = _busy || widget.refreshing;
+    final message = busy
+        ? null
+        : (_message ?? widget.submission.lastErrorMessage);
     return BafScreenScaffold(
       title: 'Saved assignment',
       subtitle: 'Confirm the original planned-work request',
@@ -100,29 +109,47 @@ class _SavedPublishedAssignmentScreenState
             Text(
               'Source plan: ${request.sourcePlanId} · revision ${request.sourcePlanExpectedVersion}',
             ),
-          if (_message != null)
+          if (message != null)
             Padding(
               padding: const EdgeInsets.only(top: 20),
-              child: Text(_message!),
+              child: Text(
+                message,
+                key: const ValueKey('published-assignment-recovery-message'),
+              ),
             ),
           const SizedBox(height: 24),
-          if (_busy) const LinearProgressIndicator(),
+          if (busy) const LinearProgressIndicator(),
           FilledButton(
-            onPressed: _busy ? null : () => _run(),
+            onPressed: busy ? null : () => _run(),
             child: const Text('Check saved assignment'),
           ),
           if (widget.submission.attemptCount > 0) ...[
-            const Text('If this request keeps being refused, an administrator can review its server outcome and close the original request safely before you choose another publication.'),
+            const Text(
+              'If this request keeps being refused, an administrator can review its server outcome and close the original request safely before you choose another publication.',
+            ),
             if (access.actor!.isAdmin)
-              TextButton(onPressed: _busy ? null : () async {
-                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const SavedSubmissionReviewScreen()));
-                if (mounted) ref.invalidate(pendingPublishedTemplateAssignmentProvider);
-              }, child: const Text('Review saved request')),
+              TextButton(
+                onPressed: busy
+                    ? null
+                    : () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const SavedSubmissionReviewScreen(),
+                          ),
+                        );
+                        if (mounted) {
+                          ref.invalidate(
+                            pendingPublishedTemplateAssignmentProvider,
+                          );
+                        }
+                      },
+                child: const Text('Review saved request'),
+              ),
           ],
           if (widget.submission.state == DurableSubmissionState.intent &&
               widget.submission.attemptCount == 0)
             TextButton(
-              onPressed: _busy ? null : () => _run(cancel: true),
+              onPressed: busy ? null : () => _run(cancel: true),
               child: const Text('Cancel unsent assignment'),
             ),
         ],
@@ -131,6 +158,7 @@ class _SavedPublishedAssignmentScreenState
   }
 
   Future<void> _run({bool cancel = false}) async {
+    if (_busy || widget.refreshing) return;
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() {
       _busy = true;

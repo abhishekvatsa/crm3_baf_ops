@@ -204,6 +204,53 @@ describeWithEmulator('Inner Cover lifecycle transaction', () => {
     };
   }
 
+  test.each(['DELINK_INNER_COVER', 'TRANSFER_INNER_COVER'])(
+    '%s refuses a copied source assignment and preserves all custody and receipts',
+    async (operation) => {
+      await db.collection('inner_cover_profiles').doc(IDS.cover)
+        .set(acceptedProfile(IDS.cover, 'GR79'));
+      await invoke(linkRequest());
+      const wrongBaseId = 'aaaaaaaa-1234-4234-8234-123456789abc';
+      const targetBaseId = 'bbbbbbbb-1234-4234-8234-123456789abc';
+      const baseData = (await db.collection('asset_instances').doc(IDS.base).get()).data();
+      const assignment = (await db.collection('base_inner_cover_assignments').doc(IDS.base).get()).data();
+      const batch = db.batch();
+      for (const [id, number] of [[wrongBaseId, 202], [targetBaseId, 203]]) {
+        batch.set(db.collection('asset_instances').doc(id), {
+          ...baseData, assetInstanceId: id, assetNumber: number, name: `Base ${number}`,
+        });
+      }
+      batch.set(db.collection('base_inner_cover_assignments').doc(wrongBaseId), {
+        ...assignment, baseAssetInstanceId: wrongBaseId,
+        baseAssetNumber: 202, baseAssetName: 'Base 202',
+      });
+      await batch.commit();
+      const collections = [
+        'asset_instances', 'inner_cover_profiles', 'base_inner_cover_assignments',
+        'inner_cover_linkages', 'inner_cover_lifecycle_audits', 'inner_cover_lifecycle_receipts',
+      ];
+      const snapshot = async () => Object.fromEntries(await Promise.all(collections.map(async (name) => {
+        const result = await db.collection(name).get();
+        return [name, result.docs.map((document) => ({
+          id: document.id, data: document.data(), updateTime: document.updateTime,
+        })).sort((left, right) => left.id.localeCompare(right.id))];
+      })));
+      const before = await snapshot();
+      await expect(invoke({
+        requestId: IDS.delink, operation, innerCoverId: IDS.cover,
+        expectedVersion: 3, sourceBaseAssetInstanceId: wrongBaseId,
+        expectedSourceAssignmentVersion: 1,
+        ...(operation === 'DELINK_INNER_COVER' ? {
+          targetState: 'awaitingInspection', physicalEventAt: '2026-08-15T12:00:00.000Z',
+        } : {targetBaseAssetInstanceId: targetBaseId}),
+        reason: 'A copied assignment is not the installed cover source Base.',
+      })).rejects.toMatchObject({
+        code: 'failed-precondition', details: {reasonCode: 'inner-cover-assignment-drift'},
+      });
+      expect(await snapshot()).toEqual(before);
+    },
+  );
+
   test.each(['active linkage', 'installed profile', 'malformed active flag'])(
     'missing assignment cannot hide a surviving %s behind 25 closed histories',
     async (evidence) => {

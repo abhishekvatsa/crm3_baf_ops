@@ -165,12 +165,16 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
               : 'Draft archived and synchronized.',
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
           'Draft archived on this device; governed synchronization is queued.',
+        SyncRequestOutcome.partial =>
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
         SyncRequestOutcome.failed =>
           'Draft archived on this device, but governed cloud synchronization needs attention.',
       };
       _showSnack(
         archiveMessage,
-        syncOutcome == SyncRequestOutcome.failed
+        syncOutcome.isPartial
+            ? BafColors.warning
+            : syncOutcome == SyncRequestOutcome.failed
             ? BafColors.danger
             : BafColors.audit,
       );
@@ -233,12 +237,16 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
           'Archived draft restored and synchronized. It is available to resume.',
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled =>
           'Archived draft restored on this device; governed synchronization is queued.',
+        SyncRequestOutcome.partial =>
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
         SyncRequestOutcome.failed =>
           'Archived draft restored on this device, but governed cloud synchronization needs attention.',
       };
       _showSnack(
         restoreMessage,
-        syncOutcome == SyncRequestOutcome.failed
+        syncOutcome.isPartial
+            ? BafColors.warning
+            : syncOutcome == SyncRequestOutcome.failed
             ? BafColors.danger
             : BafColors.audit,
       );
@@ -289,6 +297,10 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
           'Draft version saved on this device; governed synchronization is queued.',
           BafColors.warning,
         ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+          BafColors.warning,
+        ),
         SyncRequestOutcome.failed => (
           'Draft version saved on this device, but governed cloud synchronization needs attention.',
           BafColors.danger,
@@ -315,7 +327,7 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
     try {
       final repo = ref.read(templateGovernanceRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
-      final package = await _ensurePackageSaved(repo, actor);
+      final package = _buildPackage();
       final nextVersionNumber = await _nextAvailableVersionNumber(
         repo,
         package,
@@ -325,6 +337,18 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         versionNumberOverride: nextVersionNumber,
         forkResumedForPublication: true,
       );
+      if (!mounted) return;
+      final reviewed = await reviewTemplateClosureBeforePublication(
+        context,
+        version,
+        actor,
+      );
+      if (!mounted || !reviewed) return;
+      requireCurrentTemplateReviewer(context, actor.uid);
+      await _ensurePackageSaved(repo, actor, prepared: package);
+      if (!mounted) return;
+      requireCurrentTemplateReviewer(context, actor.uid);
+      version.packageFirestoreId = package.firestoreId;
       await repo.saveVersion(version, actor: actor);
       var syncOutcome = version.isSynced
           ? SyncRequestOutcome.succeeded
@@ -337,7 +361,9 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         if (!mounted) return;
         _showSnack(
           'Draft v${version.versionNumber} is saved, but it must synchronize before it can be published.',
-          syncOutcome == SyncRequestOutcome.failed
+          syncOutcome.isPartial
+              ? BafColors.warning
+              : syncOutcome == SyncRequestOutcome.failed
               ? BafColors.danger
               : BafColors.warning,
         );
@@ -355,6 +381,8 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         );
       }
 
+      if (!mounted) return;
+      requireCurrentTemplateReviewer(context, actor.uid);
       await repo.publishVersion(
         publishable,
         actor: actor,
@@ -385,6 +413,10 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
               'queued.',
           BafColors.warning,
         ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+          BafColors.warning,
+        ),
         SyncRequestOutcome.failed => (
           '${package.packageCode} v${publishable.versionNumber} is saved as '
               'published on this device, but governed cloud synchronization '
@@ -405,8 +437,23 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
 
   Future<TemplatePackage> _ensurePackageSaved(
     TemplateGovernanceRepository repo,
-    AppUser actor,
-  ) async {
+    AppUser actor, {
+    TemplatePackage? prepared,
+  }) async {
+    final package = prepared ?? _buildPackage();
+
+    final shouldSavePackage =
+        _selectedPackage == null || _packageDetailsChanged(_selectedPackage!);
+    if (shouldSavePackage || package.firestoreId == null) {
+      await repo.savePackage(package, actor: actor);
+      _selectedPackage = package;
+      _selectedPackageId = package.firestoreId;
+    }
+
+    return package;
+  }
+
+  TemplatePackage _buildPackage() {
     final package = _selectedPackage == null
         ? TemplatePackage()
         : _clonePackage(_selectedPackage!);
@@ -419,14 +466,6 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       ..assetNumberScope = _cleanOptional(_assetScopeController.text)
       ..disciplineScope = _currentDisciplineScope()
       ..lifecycleStatus = TemplatePackageLifecycleStatus.active;
-
-    final shouldSavePackage =
-        _selectedPackage == null || _packageDetailsChanged(_selectedPackage!);
-    if (shouldSavePackage || package.firestoreId == null) {
-      await repo.savePackage(package, actor: actor);
-      _selectedPackage = package;
-      _selectedPackageId = package.firestoreId;
-    }
 
     return package;
   }
@@ -458,7 +497,9 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
         versionNumberOverride ?? _nextVersionNumber(packageOverride: package);
     final resumedDraft = _workingDraft;
     final version = resumedDraft == null
-        ? TemplateVersion()
+        ? (TemplateVersion()
+            ..createdAt = DateTime.now()
+            ..updatedAt = DateTime.now())
         : forkResumedForPublication &&
               resumedDraft.firestoreId?.trim().isNotEmpty == true &&
               resumedDraft.versionNumber < nextNumber
@@ -490,12 +531,14 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       ..minAppVersion = _cleanOptional(_minAppVersionController.text)
       ..metadataJson = _buildVersionMetadataJson();
     version.refreshClosureReviewStateFromSnapshots();
+    if (version.firestoreId == null) clearTemplateClosureReview(version);
     return version;
   }
 
   String _buildVersionMetadataJson() {
-    final maintenanceClassBatch =
-        ref.read(maintenanceClassDefinitionsProvider).value;
+    final maintenanceClassBatch = ref
+        .read(maintenanceClassDefinitionsProvider)
+        .value;
     if (_selectedMaintenanceClassId != null &&
         (maintenanceClassBatch?.isComplete != true ||
             maintenanceClassBatch?.isServerConfirmed != true)) {
@@ -504,8 +547,7 @@ extension _TemplatePublisherActions on _TemplatePublisherScreenState {
       );
     }
     final definitions =
-        maintenanceClassBatch?.records ??
-        const <MaintenanceClassDefinition>[];
+        maintenanceClassBatch?.records ?? const <MaintenanceClassDefinition>[];
     MaintenanceClassDefinition? selected;
     for (final definition in definitions) {
       if (definition.id == _selectedMaintenanceClassId) {

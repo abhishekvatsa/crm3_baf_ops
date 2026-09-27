@@ -75,24 +75,21 @@ class AutoSyncHealth {
       automaticSyncRunning: automaticSyncRunning ?? this.automaticSyncRunning,
       normalIssueSyncPending:
           normalIssueSyncPending ?? this.normalIssueSyncPending,
-      nextNormalIssueSyncAt:
-          clearNextNormalIssueSyncAt
-              ? null
-              : (nextNormalIssueSyncAt ?? this.nextNormalIssueSyncAt),
-      nextGeneralSyncAt:
-          clearNextGeneralSyncAt
-              ? null
-              : (nextGeneralSyncAt ?? this.nextGeneralSyncAt),
+      nextNormalIssueSyncAt: clearNextNormalIssueSyncAt
+          ? null
+          : (nextNormalIssueSyncAt ?? this.nextNormalIssueSyncAt),
+      nextGeneralSyncAt: clearNextGeneralSyncAt
+          ? null
+          : (nextGeneralSyncAt ?? this.nextGeneralSyncAt),
       lastAutomaticAttemptAt:
           lastAutomaticAttemptAt ?? this.lastAutomaticAttemptAt,
       lastAutomaticCompletedAt:
           lastAutomaticCompletedAt ?? this.lastAutomaticCompletedAt,
       lastAutomaticReason: lastAutomaticReason ?? this.lastAutomaticReason,
       lastAutomaticOutcome: lastAutomaticOutcome ?? this.lastAutomaticOutcome,
-      lastTicketQueueReason:
-          clearLastTicketQueueReason
-              ? null
-              : (lastTicketQueueReason ?? this.lastTicketQueueReason),
+      lastTicketQueueReason: clearLastTicketQueueReason
+          ? null
+          : (lastTicketQueueReason ?? this.lastTicketQueueReason),
     );
   }
 }
@@ -112,30 +109,24 @@ class AutoSyncService with WidgetsBindingObserver {
   bool _pendingWakeScheduled = false;
   Timer? _failureRetryTimer;
   int _consecutiveTransientFailures = 0;
+  int _lifecycleGeneration = 0;
 
   AutoSyncService(this._ref);
 
   void start() {
     if (_started) return;
     _started = true;
+    _lifecycleGeneration++;
 
     WidgetsBinding.instance.addObserver(this);
 
-    _setHealth(_health.copyWith(isStarted: true, clearNextGeneralSyncAt: true));
+    _setHealth(const AutoSyncHealth(isStarted: true));
     _startPendingWriteListeners();
   }
 
   void stop() {
     if (!_started) return;
-
-    _started = false;
-    WidgetsBinding.instance.removeObserver(this);
-    for (final subscription in _pendingWriteSubscriptions) {
-      unawaited(subscription.cancel());
-    }
-    _pendingWriteSubscriptions.clear();
-    _pendingWakeScheduled = false;
-    _clearFailureRetry();
+    detach();
 
     _setHealth(
       _health.copyWith(
@@ -148,6 +139,24 @@ class AutoSyncService with WidgetsBindingObserver {
       ),
     );
   }
+
+  /// Releases the current widget owner without publishing during unmount.
+  /// The provider retains this service for the next approved account.
+  void detach() {
+    _started = false;
+    _lifecycleGeneration++;
+    WidgetsBinding.instance.removeObserver(this);
+    for (final subscription in _pendingWriteSubscriptions) {
+      unawaited(subscription.cancel());
+    }
+    _pendingWriteSubscriptions.clear();
+    _pendingWakeScheduled = false;
+    _resumeSyncRunning = false;
+    _clearFailureRetry();
+  }
+
+  bool _isCurrent(int generation) =>
+      _started && generation == _lifecycleGeneration;
 
   void markImmediateTicketSyncRequested({String reason = 'ticket_changed'}) {
     _setHealth(
@@ -176,6 +185,7 @@ class AutoSyncService with WidgetsBindingObserver {
     if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) {
       return;
     }
+    final generation = _lifecycleGeneration;
     if (!continuingFailureRetry) {
       _clearFailureRetry();
     }
@@ -193,6 +203,8 @@ class AutoSyncService with WidgetsBindingObserver {
         .read(syncCoordinatorProvider)
         .runFullSyncWithResult(reason: reason, force: true);
 
+    if (!_isCurrent(generation)) return;
+
     final finishedAt = DateTime.now();
     _setHealth(
       _health.copyWith(
@@ -200,8 +212,9 @@ class AutoSyncService with WidgetsBindingObserver {
         lastAutomaticCompletedAt: outcome.isDeferred ? null : finishedAt,
         lastAutomaticReason: reason,
         lastAutomaticOutcome: outcome,
-        normalIssueSyncPending:
-            outcome.isSuccessful ? false : _health.normalIssueSyncPending,
+        normalIssueSyncPending: outcome.isSuccessful
+            ? false
+            : _health.normalIssueSyncPending,
         clearNextGeneralSyncAt: true,
         clearNextNormalIssueSyncAt: true,
       ),
@@ -264,9 +277,10 @@ class AutoSyncService with WidgetsBindingObserver {
     if (_resumeSyncRunning) return;
 
     _resumeSyncRunning = true;
+    final generation = _lifecycleGeneration;
     unawaited(
       _runAutomaticSync(reason: 'app_resumed').whenComplete(() {
-        _resumeSyncRunning = false;
+        if (_isCurrent(generation)) _resumeSyncRunning = false;
       }),
     );
   }
@@ -330,25 +344,42 @@ class AutoSyncService with WidgetsBindingObserver {
     String entityType,
     QueryBuilder<T, T, QAfterFilterCondition> query,
   ) {
+    watchPendingChanges(
+      entityType: entityType,
+      changes: query.watchLazy(),
+      countPending: query.count,
+    );
+  }
+
+  @visibleForTesting
+  void watchPendingChanges({
+    required String entityType,
+    required Stream<void> changes,
+    required Future<int> Function() countPending,
+  }) {
+    final generation = _lifecycleGeneration;
     _pendingWriteSubscriptions.add(
-      query.watchLazy().listen((_) {
-        unawaited(_wakeIfPending(entityType, query));
+      changes.listen((_) {
+        unawaited(_wakeIfPending(entityType, countPending, generation));
       }),
     );
   }
 
-  Future<void> _wakeIfPending<T>(
+  Future<void> _wakeIfPending(
     String entityType,
-    QueryBuilder<T, T, QAfterFilterCondition> query,
+    Future<int> Function() countPending,
+    int generation,
   ) async {
-    if (!_started ||
+    if (!_isCurrent(generation) ||
         _pendingWakeScheduled ||
         _ref.read(syncLocalRecoveryActiveProvider) ||
-        await query.count() == 0) {
+        await countPending() == 0) {
       return;
     }
+    if (!_isCurrent(generation)) return;
     _pendingWakeScheduled = true;
     scheduleMicrotask(() {
+      if (!_isCurrent(generation)) return;
       _pendingWakeScheduled = false;
       if (!_started || _ref.read(syncLocalRecoveryActiveProvider)) return;
       unawaited(_runAutomaticSync(reason: 'local_${entityType}_changed'));
@@ -361,7 +392,7 @@ class AutoSyncService with WidgetsBindingObserver {
     _ref.read(autoSyncHealthProvider.notifier).state = health;
   }
 
-  void dispose() => stop();
+  void dispose() => detach();
 }
 
 final autoSyncServiceProvider = Provider<AutoSyncService>((ref) {

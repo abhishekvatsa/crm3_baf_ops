@@ -5,6 +5,146 @@ const {
 } = require('../lib/chargeAbnormalityMutation');
 const {mutateQualityWithDb} = require('../lib/qualityMutation');
 
+describe('structured abnormality assessment compatibility and evidence', () => {
+  const assessment = (overrides = {}) => ({schemaVersion: 1,
+    observationKind: 'resultFinding', candidateCauses: [], raPerformedAt: null,
+    postRaResult: 'notAssessed', postRaObservation: null, ...overrides});
+  const cause = (overrides = {}) => ({id: 'cause-1', description: 'Possible burner imbalance',
+    assessment: 'suspected', evidence: null, maintenanceTicketId: null,
+    processAbnormalityId: null, ...overrides});
+  const state = (record = abnormality(), extra = {}) => fakeDb({
+    'users/admin-1': admin(), 'abnormality_types/TYPE_NEW': abnormalityType({category: 'resultQuality'}),
+    ...standaloneCase(record), ...extra,
+  });
+
+  test('separate result findings on the same charge keep original IDs and independent warnings', async () => {
+    const memory = fakeDb({'users/admin-1': admin(),
+      'abnormality_types/TYPE_NEW': abnormalityType({category: 'resultQuality'})});
+    for (const [id, requestId] of [['result-1', '11111111-1111-4111-8111-111111111111'],
+      ['result-2', '22222222-2222-4222-8222-222222222222']]) {
+      const saved = abnormality({firestoreId: id, abnormalityTypeId: 'TYPE_NEW', category: 'resultQuality',
+        version: 1, reannealingStatus: 'pendingDecision', loggedByUid: 'admin-1', updatedByUid: 'admin-1',
+        assessment: assessment()});
+      const request = {requestId, abnormalityId: id, operation: 'CREATE', expectedVersion: 0,
+        reason: 'Record independent result finding', abnormality: saved};
+      const first = await invoke(memory.db, request);
+      expect(await invoke(memory.db, request)).toEqual({...first, idempotentReplay: true});
+      expect(memory.store.get(`charge_abnormalities/${id}`)).toMatchObject({firestoreId: id,
+        sourceChargeNo: 12001, reannealingStatus: 'pendingDecision', assessment: assessment()});
+      expect(memory.store.has(`quality_warnings/abnormality_${id}`)).toBe(true);
+    }
+  });
+
+  test('creation refuses a result type relabelled as process', async () => {
+    const memory = fakeDb({'users/admin-1': admin(),
+      'abnormality_types/TYPE_NEW': abnormalityType({category: 'resultQuality'})});
+    await expect(invoke(memory.db, {requestId: '11111111-1111-4111-8111-111111111111',
+      abnormalityId: 'abn-1', operation: 'CREATE', expectedVersion: 0, reason: 'Record observation',
+      abnormality: abnormality({abnormalityTypeId: 'TYPE_NEW', version: 1,
+        loggedByUid: 'admin-1', updatedByUid: 'admin-1',
+        assessment: assessment({observationKind: 'processEquipment'})}),
+    })).rejects.toMatchObject({code: 'failed-precondition', details: {reasonCode: 'abnormality-assessment-classification-mismatch'}});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('legacy correction preserves assessment and replay makes no duplicate writes', async () => {
+    const evidence = assessment({candidateCauses: [cause()]});
+    const memory = state(abnormality({assessment: evidence}));
+    const request = updateRequest();
+    const first = await invoke(memory.db, request);
+    const writes = memory.writes.length;
+    expect(memory.store.get('charge_abnormalities/abn-1').assessment).toEqual(evidence);
+    expect(await invoke(memory.db, request)).toEqual({...first, idempotentReplay: true});
+    expect(memory.writes).toHaveLength(writes);
+  });
+
+  test('multiple same-charge links remain hypotheses; explicit RA occurrence and result persist', async () => {
+    const memory = state(abnormality(), {
+      'maintenance_records/ticket-cause': {chargeNoAtEvent: 12001, isDeleted: false},
+      'charge_abnormalities/process-cause': abnormality({firestoreId: 'process-cause',
+        assessment: assessment({observationKind: 'processEquipment'})}),
+    });
+    const evidence = assessment({candidateCauses: [cause({maintenanceTicketId: 'ticket-cause'}),
+      cause({id: 'cause-2', processAbnormalityId: 'process-cause', assessment: 'ruledOut',
+        evidence: 'Independent temperature readings were normal'})],
+      raPerformedAt: '2026-07-25T07:00:00.000Z',
+      postRaResult: 'acceptable', postRaObservation: 'Coil inspection satisfactory'});
+    const request = updateRequest({assessment: evidence});
+    const first = await invoke(memory.db, request);
+    expect(memory.store.get('charge_abnormalities/abn-1').assessment).toEqual(evidence);
+    expect(memory.store.get('charge_abnormalities/process-cause').version).toBe(4);
+    expect(await invoke(memory.db, request)).toEqual({...first, idempotentReplay: true});
+  });
+
+  test.each([
+    ['foreign maintenance charge', {maintenanceTicketId: 'bad'}, 'maintenance_records/bad', {chargeNoAtEvent: 13001}],
+    ['deleted maintenance', {maintenanceTicketId: 'bad'}, 'maintenance_records/bad', {chargeNoAtEvent: 12001, isDeleted: true}],
+    ['foreign process charge', {processAbnormalityId: 'bad'}, 'charge_abnormalities/bad', abnormality({sourceChargeNo: 13001})],
+    ['result-only record', {processAbnormalityId: 'bad'}, 'charge_abnormalities/bad', abnormality({assessment: assessment()})],
+    ['result relabelled process', {processAbnormalityId: 'bad'}, 'charge_abnormalities/bad', abnormality({category: 'resultQuality', assessment: assessment({observationKind: 'processEquipment'})})],
+    ['malformed process category', {processAbnormalityId: 'bad'}, 'charge_abnormalities/bad', abnormality({category: ['process'], assessment: assessment({observationKind: 'processEquipment'})})],
+    ['deleted process record', {processAbnormalityId: 'bad'}, 'charge_abnormalities/bad', abnormality({isDeleted: true})],
+    ['missing process record', {processAbnormalityId: 'bad'}, 'unrelated/none', {}],
+  ])('rejects %s without writes', async (_, link, path, linked) => {
+    const memory = state(abnormality(), {[path]: linked});
+    await expect(invoke(memory.db, updateRequest({assessment: assessment({candidateCauses: [cause(link)]})})))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each(['confirmed', 'ruledOut'])('%s needs evidence, never just a link', async (status) => {
+    const memory = state();
+    await expect(invoke(memory.db, updateRequest({assessment: assessment({candidateCauses: [cause({assessment: status})]})})))
+      .rejects.toMatchObject({code: 'invalid-argument'});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each([
+    ['observation kind', {observationKind: ['processEquipment']}],
+    ['cause assessment', {candidateCauses: [cause({assessment: ['confirmed'], evidence: 'Inspection evidence'})]}],
+    ['post-RA result', {postRaResult: ['acceptable'], postRaObservation: 'Inspected result'}],
+  ])('rejects an array masquerading as the %s enum before any writes', async (_, malformed) => {
+    const memory = state(abnormality(), {
+      'abnormality_types/TYPE_NEW': abnormalityType({category: 'process'}),
+    });
+    const before = clone(memory.store.get('charge_abnormalities/abn-1'));
+    await expect(invoke(memory.db, updateRequest({assessment: assessment({
+      observationKind: 'processEquipment', ...malformed,
+    })}))).rejects.toMatchObject({code: 'invalid-argument'});
+    expect(memory.writes).toHaveLength(0);
+    expect(memory.store.get('charge_abnormalities/abn-1')).toEqual(before);
+  });
+
+  test('historical completed RA permits later inspected result with unknown occurrence date', async () => {
+    const memory = state(abnormality({reannealingStatus: 'completed', reannealedToChargeNo: 12002}));
+    await invoke(memory.db, updateRequest({assessment: assessment({postRaResult: 'abnormal', postRaObservation: 'Discolouration remains'})}));
+    expect(memory.store.get('charge_abnormalities/abn-1').assessment).toMatchObject({raPerformedAt: null, postRaResult: 'abnormal'});
+  });
+
+  test('future RA occurrence is refused atomically', async () => {
+    const memory = state();
+    await expect(invoke(memory.db, updateRequest({assessment: assessment({raPerformedAt: '2027-01-01T00:00:00Z'})})))
+      .rejects.toMatchObject({code: 'failed-precondition'});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test.each([
+    ['resultQuality', 'processEquipment'], ['process', 'resultFinding'],
+  ])('newly authored %s classification cannot claim %s', async (category, kind) => {
+    const memory = state(abnormality(), {'abnormality_types/TYPE_NEW': abnormalityType({category})});
+    await expect(invoke(memory.db, updateRequest({assessment: assessment({observationKind: kind})})))
+      .rejects.toMatchObject({code: 'failed-precondition', details: {reasonCode: 'abnormality-assessment-classification-mismatch'}});
+    expect(memory.writes).toHaveLength(0);
+  });
+
+  test('unchanged legacy unknown remains editable without inferring result or cause', async () => {
+    const evidence = assessment({observationKind: 'legacyUnknown'});
+    const memory = state(abnormality({assessment: evidence}));
+    await invoke(memory.db, updateRequest({assessment: evidence}));
+    expect(memory.store.get('charge_abnormalities/abn-1').assessment.observationKind).toBe('legacyUnknown');
+  });
+});
+
 function clone(value) {
   return value == null ? value : structuredClone(value);
 }

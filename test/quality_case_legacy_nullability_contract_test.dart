@@ -16,14 +16,15 @@ String _read(String path) {
 
 /// The quoted entries of a `new Set([...])` constant in a TypeScript source.
 Set<String> _backendNullableFields(String source, String constant) {
-  final declaration = RegExp('const $constant = new Set\\(\\[(.*?)\\]\\);',
-      dotAll: true);
+  final declaration = RegExp(
+    'const $constant = new Set\\(\\[(.*?)\\]\\);',
+    dotAll: true,
+  );
   final match = declaration.firstMatch(source);
   expect(match, isNotNull, reason: 'no declaration of $constant');
-  return RegExp("\"(\\w+)\"")
-      .allMatches(match!.group(1)!)
-      .map((entry) => entry.group(1)!)
-      .toSet();
+  return RegExp(
+    "\"(\\w+)\"",
+  ).allMatches(match!.group(1)!).map((entry) => entry.group(1)!).toSet();
 }
 
 /// The body of one function or factory, from its signature to the closing brace
@@ -41,19 +42,22 @@ String _body(String source, String signature, {String closing = '\n}\n'}) {
 /// The record keys a reader accepts as absent: every `map['x']` handed to an
 /// optional accessor.
 Set<String> _clientOptionalFields(String body) {
-  return RegExp(r"_?readOptional\w*\(\s*(?:[\w.]+,\s*)?map\['(\w+)'\]")
-      .allMatches(body)
-      .map((entry) => entry.group(1)!)
-      .toSet();
+  return RegExp(
+    r"_?readOptional\w*\(\s*(?:[\w.]+,\s*)?map\['(\w+)'\]",
+  ).allMatches(body).map((entry) => entry.group(1)!).toSet();
 }
 
 void main() {
-  final abnormalityMutation = _read('functions/src/chargeAbnormalityMutation.ts');
+  final abnormalityMutation = _read(
+    'functions/src/chargeAbnormalityMutation.ts',
+  );
   final qualityMutation = _read('functions/src/qualityMutation.ts');
-  final abnormalityReader =
-      _read('lib/features/abnormalities/data/remote_abnormality_reader.dart');
-  final abnormalityTimestamps =
-      _read('lib/features/abnormalities/data/remote_abnormality_timestamps.dart');
+  final abnormalityReader = _read(
+    'lib/features/abnormalities/data/remote_abnormality_reader.dart',
+  );
+  final abnormalityTimestamps = _read(
+    'lib/features/abnormalities/data/remote_abnormality_timestamps.dart',
+  );
   final warningReader = _read('lib/features/quality/data/quality_warning.dart');
 
   test('both backend modules read one charge-abnormality record', () {
@@ -67,13 +71,25 @@ void main() {
   });
 
   test('a charge abnormality tolerates the keys the shipped reader does', () {
-    final client = _clientOptionalFields(
-      _body(abnormalityReader, 'ChargeAbnormality readRemoteChargeAbnormality('),
-    )
-      ..addAll(_clientOptionalFields(_body(
-        abnormalityTimestamps,
-        'RemoteChargeAbnormalityTimestamps readRemoteChargeAbnormalityTimestamps(',
-      )));
+    final client =
+        _clientOptionalFields(
+          _body(
+            abnormalityReader,
+            'ChargeAbnormality readRemoteChargeAbnormality(',
+          ),
+        )..addAll(
+          _clientOptionalFields(
+            _body(
+              abnormalityTimestamps,
+              'RemoteChargeAbnormalityTimestamps readRemoteChargeAbnormalityTimestamps(',
+            ),
+          ),
+        );
+
+    // This versioned envelope is new optional evidence, not a missing historical
+    // scalar that the backend normalizes into the old record shape.
+    expect(client.remove('assessment'), isTrue);
+    expect(abnormalityMutation, contains('field !== "assessment"'));
 
     expect(
       _backendNullableFields(
@@ -87,11 +103,13 @@ void main() {
   test('a quality warning tolerates the keys the shipped reader does', () {
     expect(
       _backendNullableFields(qualityMutation, 'LEGACY_NULLABLE_WARNING_FIELDS'),
-      _clientOptionalFields(_body(
-        warningReader,
-        'factory QualityWarning.fromMap(',
-        closing: '\n  }\n',
-      )),
+      _clientOptionalFields(
+        _body(
+          warningReader,
+          'factory QualityWarning.fromMap(',
+          closing: '\n  }\n',
+        ),
+      ),
     );
   });
 
@@ -101,17 +119,33 @@ void main() {
       'LEGACY_NULLABLE_CASE_FIELDS',
       'LEGACY_NULLABLE_WARNING_FIELDS',
     ]) {
-      final source =
-          constant == 'LEGACY_NULLABLE_ABNORMALITY_FIELDS' ?
-              abnormalityMutation : qualityMutation;
+      final source = constant == 'LEGACY_NULLABLE_ABNORMALITY_FIELDS'
+          ? abnormalityMutation
+          : qualityMutation;
       expect(
         _backendNullableFields(source, constant).intersection(const <String>{
-          'firestoreId', 'warningId', 'sourceChargeNo', 'sourceId',
-          'sourceType', 'severity', 'sourceSeverity', 'status',
-          'abnormalityTypeId', 'observedReason', 'warningReason',
-          'affectedAssets', 'reannealingStatus', 'loggedAt', 'loggedByUid',
-          'createdAt', 'createdByUid', 'updatedAt', 'updatedByUid',
-          'isDeleted', 'version', 'schemaVersion',
+          'firestoreId',
+          'warningId',
+          'sourceChargeNo',
+          'sourceId',
+          'sourceType',
+          'severity',
+          'sourceSeverity',
+          'status',
+          'abnormalityTypeId',
+          'observedReason',
+          'warningReason',
+          'affectedAssets',
+          'reannealingStatus',
+          'loggedAt',
+          'loggedByUid',
+          'createdAt',
+          'createdByUid',
+          'updatedAt',
+          'updatedByUid',
+          'isDeleted',
+          'version',
+          'schemaVersion',
         }),
         isEmpty,
         reason: '$constant must not make required evidence optional',

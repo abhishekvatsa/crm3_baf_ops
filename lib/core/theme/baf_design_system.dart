@@ -41,7 +41,7 @@ class BafColors {
   static const borderStrong = Color(0xFFB8C6CC);
   static const textPrimary = Color(0xFF142129);
   static const textSecondary = Color(0xFF55676F);
-  static const textTertiary = Color(0xFF778890);
+  static const textTertiary = Color(0xFF5D7078);
 
   static const maintenance = Color(0xFFB74632);
   static const planned = cobalt;
@@ -382,6 +382,7 @@ class BafAppTheme {
       chipTheme: ChipThemeData(
         backgroundColor: BafColors.surfaceMuted,
         selectedColor: BafColors.teal.withValues(alpha: 0.12),
+        checkmarkColor: BafColors.teal,
         side: const BorderSide(color: BafColors.border),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(BafRadius.small),

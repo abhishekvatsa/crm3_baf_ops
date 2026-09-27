@@ -529,7 +529,12 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
           ? () => widget.onAddNode(null)
           : null,
     );
-    final tabs = _hierarchyTabs(compact);
+    final tabHeight =
+        ((compact ? 24.0 : 52.0) +
+                MediaQuery.textScalerOf(context).scale(14) * 1.5)
+            .clamp(48.0, double.infinity)
+            .toDouble();
+    final tabs = _hierarchyTabs(compact, tabHeight);
     final tabView = TabBarView(
       children: [
         _definitionTab(nodesAsync),
@@ -550,7 +555,10 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                 SliverToBoxAdapter(child: summary),
                 SliverPersistentHeader(
                   pinned: true,
-                  delegate: _HierarchyTabHeaderDelegate(child: tabs),
+                  delegate: _HierarchyTabHeaderDelegate(
+                    child: tabs,
+                    height: tabHeight + 2,
+                  ),
                 ),
               ],
               body: tabView,
@@ -566,16 +574,20 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
     );
   }
 
-  Widget _hierarchyTabs(bool compact) {
+  Widget _hierarchyTabs(bool compact, double height) {
     return Material(
       color: Colors.white,
       child: TabBar(
+        isScrollable: compact,
+        tabAlignment: compact ? TabAlignment.center : TabAlignment.fill,
         tabs: [
           Tab(
+            height: height,
             icon: compact ? null : const Icon(Icons.account_tree_outlined),
             text: 'Definition',
           ),
           Tab(
+            height: height,
             icon: compact ? null : const Icon(Icons.factory_outlined),
             text: 'Physical assets',
           ),
@@ -606,7 +618,11 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                 horizontal: BafSpacing.md,
                 vertical: BafSpacing.xs,
               ),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: BafSpacing.md,
+                runSpacing: BafSpacing.xs,
                 children: [
                   Text(
                     '${visibleNodes.length} items',
@@ -615,7 +631,6 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
                       color: BafColors.textSecondary,
                     ),
                   ),
-                  const Spacer(),
                   FilterChip(
                     selected: _showRetiredNodes,
                     onSelected: (value) =>
@@ -663,14 +678,18 @@ class _AssetClassDetailState extends ConsumerState<_AssetClassDetail> {
 
 class _HierarchyTabHeaderDelegate extends SliverPersistentHeaderDelegate {
   final Widget child;
+  final double height;
 
-  const _HierarchyTabHeaderDelegate({required this.child});
+  const _HierarchyTabHeaderDelegate({
+    required this.child,
+    required this.height,
+  });
 
   @override
-  double get minExtent => 48;
+  double get minExtent => height;
 
   @override
-  double get maxExtent => 48;
+  double get maxExtent => height;
 
   @override
   Widget build(
@@ -681,7 +700,7 @@ class _HierarchyTabHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _HierarchyTabHeaderDelegate oldDelegate) =>
-      oldDelegate.child != child;
+      oldDelegate.child != child || oldDelegate.height != height;
 }
 
 class _ClassSummary extends StatelessWidget {

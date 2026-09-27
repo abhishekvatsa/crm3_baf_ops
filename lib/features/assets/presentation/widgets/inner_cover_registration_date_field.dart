@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../domain/inner_cover_date_format.dart';
+
 class InnerCoverRegistrationDateField extends StatelessWidget {
   final String label;
   final String helperText;
@@ -36,7 +38,7 @@ class InnerCoverRegistrationDateField extends StatelessWidget {
           child: Text(
             value == null
                 ? 'Not recorded'
-                : DateFormat('dd MMM yyyy').format(value!.toLocal()),
+                : DateFormat(innerCoverDatePattern).format(value!.toLocal()),
           ),
         ),
         if (value != null)

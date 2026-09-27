@@ -1,10 +1,17 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
+import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/governed_directive_acknowledgement.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/remote_operational_directive_reader.dart';
 import 'package:crm3_baf_ops/features/directives/providers/operational_directive_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:isar_community/isar.dart';
+
+import '../tool/test_support/test_isar_core.dart';
 
 OperationalDirective serverRecord() {
   final at = DateTime.utc(2026, 9, 4, 9, 13, 45, 818);
@@ -48,6 +55,150 @@ OperationalDirective acknowledge(OperationalDirective remote) =>
       ..isSynced = false;
 
 void main() {
+  setUpAll(initializeTestIsarCore);
+
+  for (final boundary in ['createdAt', 'issuedAt', 'updatedAt']) {
+    test('clock-behind acknowledgement refuses canonical $boundary', () {
+      final remote = serverRecord();
+      final boundaryAt = remote.createdAt.add(const Duration(minutes: 2));
+      if (boundary == 'createdAt') remote.createdAt = boundaryAt;
+      if (boundary == 'issuedAt') remote.issuedAt = boundaryAt;
+      remote.updatedAt = boundaryAt;
+      final local = acknowledge(remote)
+        ..acknowledgedAt = boundaryAt.subtract(const Duration(microseconds: 1))
+        ..updatedAt = boundaryAt.subtract(const Duration(microseconds: 1));
+      final original = local.toMap();
+      expect(
+        () =>
+            governedDirectiveAcknowledgementPatch(local: local, remote: remote),
+        throwsStateError,
+      );
+      expect(
+        local.toMap(),
+        original,
+        reason: 'Never clamp retained event time.',
+      );
+    });
+  }
+
+  test('malformed pending acknowledgement is not accepted as exact replay', () {
+    final local = acknowledge(serverRecord());
+    local
+      ..acknowledgedAt = local.createdAt.subtract(const Duration(seconds: 1))
+      ..updatedAt = local.acknowledgedAt!;
+    final remote = copyOperationalDirective(local);
+    expect(
+      () => governedDirectiveAcknowledgementPatch(local: local, remote: remote),
+      throwsStateError,
+    );
+  });
+
+  test(
+    'valid exact replay permits an update recorded after acknowledgement',
+    () {
+      final local = acknowledge(serverRecord());
+      local.updatedAt = local.acknowledgedAt!.add(const Duration(minutes: 1));
+      final remote = readRemoteOperationalDirective(
+        local.toMap(),
+        documentId: local.firestoreId!,
+      );
+      expect(
+        governedDirectiveAcknowledgementPatch(local: local, remote: remote),
+        isEmpty,
+      );
+    },
+  );
+
+  test('acknowledgement after its own updatedAt is refused', () {
+    final remote = serverRecord();
+    final local = acknowledge(remote)..updatedAt = remote.updatedAt;
+    expect(
+      () => governedDirectiveAcknowledgementPatch(local: local, remote: remote),
+      throwsStateError,
+    );
+  });
+
+  for (final delay in [Duration.zero, const Duration(minutes: 2)]) {
+    test('valid $delay acknowledgement writes UTC and round-trips exactly', () {
+      final remote = serverRecord();
+      final at = remote.updatedAt.add(delay).toLocal();
+      final local = acknowledge(remote)
+        ..acknowledgedAt = at
+        ..updatedAt = at;
+      final patch = governedDirectiveAcknowledgementPatch(
+        local: local,
+        remote: remote,
+      );
+      expect(patch['acknowledgedAt'], at.toUtc().toIso8601String());
+      expect(patch['updatedAt'], at.toUtc().toIso8601String());
+      final accepted = readRemoteOperationalDirective({
+        ...remote.toMap(),
+        ...patch,
+      }, documentId: remote.firestoreId!);
+      expect(accepted.acknowledgedAt!.isAtSameMomentAs(at), isTrue);
+      expect(
+        governedDirectiveAcknowledgementPatch(local: local, remote: accepted),
+        isEmpty,
+      );
+    });
+  }
+
+  test(
+    'native clock-behind attempt leaves the stored directive unchanged',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'governed_ack_clock_',
+      );
+      final database = await Isar.open(
+        [OperationalDirectiveSchema],
+        directory: directory.path,
+        name: 'governed_ack_clock_test',
+      );
+      app.isar = database;
+      try {
+        final future = DateTime.now().toUtc().add(const Duration(minutes: 5));
+        final record = serverRecord()
+          ..createdAt = future
+          ..issuedAt = future
+          ..updatedAt = future;
+        await database.writeTxn(
+          () => database.operationalDirectives.put(record),
+        );
+        final before = (await database.operationalDirectives.get(
+          record.id,
+        ))!.toMap();
+        await expectLater(
+          IsarDirectiveRepository().acknowledgeDirective(
+            record.id,
+            actor: AppUser(
+              uid: 'ia',
+              name: 'Instrumentation',
+              email: 'ia@example.invalid',
+              roles: const [AppRole.seniorInstrumentation],
+              isApproved: true,
+              createdAt: DateTime.utc(2026),
+            ),
+            expectedVersion: record.version,
+          ),
+          throwsA(
+            isA<StateError>().having(
+              (e) => e.message,
+              'message',
+              contains('clock'),
+            ),
+          ),
+        );
+        expect(
+          (await database.operationalDirectives.get(record.id))!.toMap(),
+          before,
+        );
+      } finally {
+        await database.close(deleteFromDisk: true);
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
   test(
     'native server timestamps are not included in the acknowledgement write',
     () {
@@ -92,10 +243,9 @@ void main() {
   });
   test('equal instants in local and UTC formats preserve source identity', () {
     final remote = serverRecord();
-    final local =
-        acknowledge(remote)
-          ..createdAt = remote.createdAt.toLocal()
-          ..issuedAt = remote.issuedAt!.toLocal();
+    final local = acknowledge(remote)
+      ..createdAt = remote.createdAt.toLocal()
+      ..issuedAt = remote.issuedAt!.toLocal();
     expect(
       governedDirectiveAcknowledgementPatch(local: local, remote: remote),
       isNotEmpty,

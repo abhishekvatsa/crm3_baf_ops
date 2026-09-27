@@ -1,4 +1,5 @@
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/job_module_model.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governance_model.dart';
@@ -8,9 +9,76 @@ import 'package:crm3_baf_ops/features/planned_maintenance/domain/module_workshop
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/publish_metadata_builder.dart';
 import 'package:crm3_baf_ops/features/planned_maintenance/presentation/widgets/publish_metadata_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final confirm in [true, false]) {
+    testWidgets('new Composer publication fresh review confirm=$confirm', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final draft = _draft();
+      draft.modules.single.requiredForClosure = true;
+      final writes = <String>[];
+      TemplateVersion? saved;
+      await _pumpDialog(
+        tester,
+        actor: _admin(),
+        draft: draft,
+        packages: const [],
+        actions: PublishMetadataDialogActions(
+          savePackage: (package, actor) async {
+            writes.add('package');
+            package.firestoreId = 'new-package';
+          },
+          saveVersionDraft: (version, actor) async {
+            writes.add('version');
+            version.firestoreId = 'new-version';
+            saved = TemplateVersion.fromMap(version.toMap(), 'new-version');
+            return version;
+          },
+          publishVersion: (version, actor, reason) async {
+            writes.add('publish');
+            return version;
+          },
+          nextVersionNumberFor: (package) async => 1,
+        ),
+      );
+      await tester.enterText(
+        find.byKey(const Key('publish-new-package-code')),
+        'NEW.REVIEW',
+      );
+      await tester.enterText(
+        find.byKey(const Key('publish-reason')),
+        'Explicitly reviewed work',
+      );
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('publish-publish')));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('Review closure requirements'), findsOneWidget);
+      expect(writes, isEmpty);
+      await tester.tap(
+        confirm
+            ? find.byKey(const Key('confirm-template-closure-review'))
+            : find.text('Cancel').last,
+      );
+      await tester.pumpAndSettle();
+      if (confirm) {
+        expect(writes, ['package', 'version', 'publish']);
+        expect(saved!.closureReviewConfirmedByUid, _admin().uid);
+        expect(
+          saved!.closureReviewConfirmedAt!.isBefore(saved!.createdAt),
+          false,
+        );
+      } else {
+        expect(writes, isEmpty);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test(
     'composer semantic fingerprint ignores generatedAt but detects edits',
     () {
@@ -560,24 +628,32 @@ Future<void> _pumpDialog(
   bool hasUnsavedComposerChanges = false,
 }) async {
   await tester.pumpWidget(
-    MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: FilledButton(
-              onPressed: () => PublishMetadataDialog.show(
-                context,
-                actor: actor,
-                draft: draft,
-                existingPackages: packages,
-                actions: actions,
-                initialPackageFirestoreId: initialPackageFirestoreId,
-                initialVersion: initialVersion,
-                hasUnsavedComposerChanges: hasUnsavedComposerChanges,
+    ProviderScope(
+      overrides: [
+        currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+      ],
+      child: MaterialApp(
+        home: Consumer(
+          builder: (context, ref, _) {
+            ref.watch(currentAppUserProvider);
+            return Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => PublishMetadataDialog.show(
+                    context,
+                    actor: actor,
+                    draft: draft,
+                    existingPackages: packages,
+                    actions: actions,
+                    initialPackageFirestoreId: initialPackageFirestoreId,
+                    initialVersion: initialVersion,
+                    hasUnsavedComposerChanges: hasUnsavedComposerChanges,
+                  ),
+                  child: const Text('Open'),
+                ),
               ),
-              child: const Text('Open'),
-            ),
-          ),
+            );
+          },
         ),
       ),
     ),

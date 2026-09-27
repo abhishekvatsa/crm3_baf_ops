@@ -8,6 +8,10 @@ void main() {
     test('main isolates CI proof and preserves production startup order', () {
       final source = _readText('lib/main.dart');
       final mainBlock = _blockStartingAt(source, 'void main()');
+      final startupBlock = _blockStartingAt(
+        source,
+        'Future<void> startCrmBafApp()',
+      );
       final firebaseBlock = _blockStartingAt(
         source,
         'Future<StartupFailure?> _initializeFirebaseAndCrashReporting()',
@@ -18,18 +22,30 @@ void main() {
         'WidgetsFlutterBinding.ensureInitialized();',
         'runApp(const _CiPackageProofApp());',
         'return;',
-        'runCrashReportingZoned(() async {',
+        'runCrashReportingZoned(startCrmBafApp);',
+      ]);
+      _expectOrder(startupBlock, const [
         'WidgetsFlutterBinding.ensureInitialized();',
         'var startupFailure = await _initializeFirebaseAndCrashReporting();',
+        'if (startupFailure == null) {',
         'await _requestStartupNotificationPermission();',
         'startupFailure = await _initializeLocalDatabase();',
         'runApp(ProviderScope(child: CrmBafApp(startupFailure: startupFailure)));',
       ]);
       expect(mainBlock, isNot(contains('Firebase.initializeApp')));
       expect(mainBlock, isNot(contains('Isar.open')));
+      expect(startupBlock, isNot(contains('Firebase.initializeApp')));
+      expect(startupBlock, isNot(contains('Isar.open')));
       expect(
         _occurrences(mainBlock, 'WidgetsFlutterBinding.ensureInitialized();'),
-        2,
+        1,
+      );
+      expect(
+        _occurrences(
+          startupBlock,
+          'WidgetsFlutterBinding.ensureInitialized();',
+        ),
+        1,
       );
       expect(
         mainBlock.indexOf('if (_ciPackageProof) {'),
@@ -48,7 +64,8 @@ void main() {
       expect(
         _occurrences(firebaseBlock, 'return _captureStartupFailure('),
         2,
-        reason: 'Firebase and App Check remain required; telemetry is optional.',
+        reason:
+            'Firebase and App Check remain required; telemetry is optional.',
       );
       expect(firebaseBlock, contains("'app_check_enabled'"));
       expect(firebaseBlock, contains("'app_check_provider'"));
@@ -197,7 +214,7 @@ void main() {
           disposeBlock,
           contains('WidgetsBinding.instance.removeObserver(this);'),
         );
-        expect(disposeBlock, contains('_autoSyncService.stop();'));
+        expect(disposeBlock, contains('_autoSyncService.detach();'));
         expect(disposeBlock, isNot(contains('ref.read(')));
         expect(disposeBlock, contains('_liveRemoteSyncService?.dispose();'));
       },

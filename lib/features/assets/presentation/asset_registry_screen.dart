@@ -87,11 +87,10 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
       ),
       body: assetsAsync.when(
         loading: () => const BafLoadingPanel(label: 'Loading asset registry'),
-        error:
-            (error, _) => _RegistryError(
-              message: 'Could not load the asset registry.',
-              onRetry: () => ref.invalidate(allAssetInstancesProvider),
-            ),
+        error: (error, _) => _RegistryError(
+          message: 'Could not load the asset registry.',
+          onRetry: () => ref.invalidate(allAssetInstancesProvider),
+        ),
         data: (assets) {
           if (conditionsAsync.isLoading && !conditionsAsync.hasValue) {
             return const BafLoadingPanel(
@@ -122,32 +121,31 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
     for (final asset in assets) {
       classNames[asset.assetClassId] = asset.assetClassName;
     }
-    final classIds =
-        classNames.keys.toList()..sort(
-          (left, right) => classNames[left]!.toLowerCase().compareTo(
-            classNames[right]!.toLowerCase(),
-          ),
-        );
+    final classIds = classNames.keys.toList()
+      ..sort(
+        (left, right) => classNames[left]!.toLowerCase().compareTo(
+          classNames[right]!.toLowerCase(),
+        ),
+      );
     final normalizedQuery = _query.trim().toLowerCase();
-    final visible =
-        assets.where((asset) {
-          if (!_showRetired && !asset.isActive) return false;
-          if (_assetClassId != null && asset.assetClassId != _assetClassId) {
-            return false;
-          }
-          if (normalizedQuery.isEmpty) return true;
-          return <String?>[
-            asset.name,
-            asset.assetClassName,
-            asset.assetClassCode,
-            asset.assetNumber.toString(),
-            asset.plantTag,
-            asset.location,
-            asset.serialNumber,
-          ].whereType<String>().any(
-            (value) => value.toLowerCase().contains(normalizedQuery),
-          );
-        }).toList();
+    final visible = assets.where((asset) {
+      if (!_showRetired && !asset.isActive) return false;
+      if (_assetClassId != null && asset.assetClassId != _assetClassId) {
+        return false;
+      }
+      if (normalizedQuery.isEmpty) return true;
+      return <String?>[
+        asset.name,
+        asset.assetClassName,
+        asset.assetClassCode,
+        asset.assetNumber.toString(),
+        asset.plantTag,
+        asset.location,
+        asset.serialNumber,
+      ].whereType<String>().any(
+        (value) => value.toLowerCase().contains(normalizedQuery),
+      );
+    }).toList();
     final conditionByAsset = <String, AssetOperationalConditionRecord>{
       for (final condition in conditions) condition.assetInstanceId: condition,
     };
@@ -169,8 +167,8 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
               showRetired: _showRetired,
               onQueryChanged: (value) => setState(() => _query = value),
               onClassChanged: (value) => setState(() => _assetClassId = value),
-              onShowRetiredChanged:
-                  (value) => setState(() => _showRetired = value),
+              onShowRetiredChanged: (value) =>
+                  setState(() => _showRetired = value),
               onClear: () {
                 _searchController.clear();
                 setState(() => _query = '');
@@ -184,42 +182,51 @@ class _AssetRegistryBodyState extends ConsumerState<_AssetRegistryBody> {
               BafSpacing.lg,
               BafSpacing.xl,
             ),
-            sliver:
-                visible.isEmpty
-                    ? const SliverToBoxAdapter(child: _EmptyRegistry())
-                    : SliverList.separated(
-                      itemCount: visible.length + 1,
-                      separatorBuilder:
-                          (_, _) => const SizedBox(height: BafSpacing.sm),
-                      itemBuilder: (context, index) {
-                        if (index == 0) {
-                          return Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: BafSpacing.xs,
-                            ),
-                            child: StatusBadge(
-                              label: '${visible.length} assets',
-                              color: BafColors.assets,
-                              icon: Icons.inventory_2_outlined,
-                            ),
-                          );
-                        }
-                        final asset = visible[index - 1];
-                        return _AssetRegistryCard(
-                          asset: asset,
-                          condition: conditionByAsset[asset.id],
-                          onTap:
-                              () => Navigator.of(context).push(
-                                MaterialPageRoute<void>(
-                                  builder:
-                                      (_) => _AssetRegistryDetailScreen(
-                                        assetInstanceId: asset.id,
-                                      ),
+            sliver: visible.isEmpty
+                ? const SliverToBoxAdapter(child: _EmptyRegistry())
+                : SliverList.separated(
+                    itemCount: visible.length + 1,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: BafSpacing.sm),
+                    itemBuilder: (context, index) {
+                      if (index == 0) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: BafSpacing.xs),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              StatusBadge(
+                                label:
+                                    '${visible.length} numbered register entries',
+                                color: BafColors.assets,
+                                icon: Icons.inventory_2_outlined,
+                              ),
+                              const SizedBox(height: BafSpacing.xs),
+                              const Text(
+                                'This register lists numbered identities and their components. Plant condition also counts serial Inner Covers; legacy cover positions are not additional physical covers.',
+                                style: TextStyle(
+                                  color: BafColors.textSecondary,
+                                  fontSize: 12,
                                 ),
                               ),
+                            ],
+                          ),
                         );
-                      },
-                    ),
+                      }
+                      final asset = visible[index - 1];
+                      return _AssetRegistryCard(
+                        asset: asset,
+                        condition: conditionByAsset[asset.id],
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => _AssetRegistryDetailScreen(
+                              assetInstanceId: asset.id,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -268,14 +275,13 @@ class _RegistryFilters extends StatelessWidget {
             decoration: InputDecoration(
               hintText: 'Search number, tag, location or serial',
               prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon:
-                  controller.text.isEmpty
-                      ? null
-                      : IconButton(
-                        tooltip: 'Clear search',
-                        onPressed: onClear,
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
+              suffixIcon: controller.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'Clear search',
+                      onPressed: onClear,
+                      icon: const Icon(Icons.clear_rounded),
+                    ),
               filled: true,
               fillColor: BafColors.card,
             ),
@@ -538,19 +544,15 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
         ),
       ),
       body: componentsAsync.when(
-        loading:
-            () => const BafLoadingPanel(
-              label: 'Loading installed components',
-              color: BafColors.assets,
-            ),
-        error:
-            (_, _) => _RegistryError(
-              message: 'Could not load installed components.',
-              onRetry:
-                  () => ref.invalidate(
-                    installedComponentsProvider(assetInstanceId),
-                  ),
-            ),
+        loading: () => const BafLoadingPanel(
+          label: 'Loading installed components',
+          color: BafColors.assets,
+        ),
+        error: (_, _) => _RegistryError(
+          message: 'Could not load installed components.',
+          onRetry: () =>
+              ref.invalidate(installedComponentsProvider(assetInstanceId)),
+        ),
         data: (components) {
           final current = components.where((item) => item.isActive).toList();
           final retired = components.where((item) => !item.isActive).toList();
@@ -575,10 +577,9 @@ class _AssetRegistryDetailScreen extends ConsumerWidget {
                 _AssetHierarchyOverview(
                   asset: asset,
                   hierarchy: hierarchyAsync,
-                  onRetry:
-                      () => ref.invalidate(
-                        assetHierarchyNodesProvider(asset.assetClassId),
-                      ),
+                  onRetry: () => ref.invalidate(
+                    assetHierarchyNodesProvider(asset.assetClassId),
+                  ),
                 ),
                 const SizedBox(height: BafSpacing.xl),
                 _SectionHeader(
@@ -638,32 +639,28 @@ class _AssetHierarchyOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return hierarchy.when(
-      loading:
-          () => const BafLoadingPanel(
-            label: 'Loading component hierarchy',
-            color: BafColors.assets,
-          ),
-      error:
-          (_, _) => Container(
-            padding: const EdgeInsets.all(BafSpacing.lg),
-            decoration: BoxDecoration(
-              color: BafColors.card,
-              borderRadius: BorderRadius.circular(BafRadius.medium),
-              border: Border.all(color: BafColors.border),
+      loading: () => const BafLoadingPanel(
+        label: 'Loading component hierarchy',
+        color: BafColors.assets,
+      ),
+      error: (_, _) => Container(
+        padding: const EdgeInsets.all(BafSpacing.lg),
+        decoration: BoxDecoration(
+          color: BafColors.card,
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          border: Border.all(color: BafColors.border),
+        ),
+        child: Row(
+          children: [
+            const Expanded(child: Text('Component hierarchy is unavailable.')),
+            IconButton(
+              tooltip: 'Retry hierarchy',
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
             ),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Text('Component hierarchy is unavailable.'),
-                ),
-                IconButton(
-                  tooltip: 'Retry hierarchy',
-                  onPressed: onRetry,
-                  icon: const Icon(Icons.refresh_rounded),
-                ),
-              ],
-            ),
-          ),
+          ],
+        ),
+      ),
       data: (nodes) {
         final active = nodes.where((node) => node.isActive).toList();
         return Container(
@@ -709,18 +706,16 @@ class _AssetHierarchyOverview extends StatelessWidget {
               ),
               IconButton(
                 tooltip: 'Browse component hierarchy',
-                onPressed:
-                    active.isEmpty
-                        ? null
-                        : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder:
-                                (_) => _AssetHierarchyBrowserScreen(
-                                  asset: asset,
-                                  nodes: active,
-                                ),
+                onPressed: active.isEmpty
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => _AssetHierarchyBrowserScreen(
+                            asset: asset,
+                            nodes: active,
                           ),
                         ),
+                      ),
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
             ],
@@ -761,24 +756,23 @@ class _AssetHierarchyBrowserScreenState
     final query = _query.trim().toLowerCase();
     final visible =
         widget.nodes.where((node) {
-            if (query.isEmpty) return true;
-            return <String?>[
-              node.name,
-              node.componentTag,
-              node.discipline,
-              node.operatingType,
-              node.shortDescription,
-              ...node.hierarchyPath,
-            ].whereType<String>().any(
-              (value) => value.toLowerCase().contains(query),
-            );
-          }).toList()
-          ..sort((left, right) {
-            final path = left.hierarchyPath
-                .join('/')
-                .compareTo(right.hierarchyPath.join('/'));
-            return path != 0 ? path : left.sortOrder.compareTo(right.sortOrder);
-          });
+          if (query.isEmpty) return true;
+          return <String?>[
+            node.name,
+            node.componentTag,
+            node.discipline,
+            node.operatingType,
+            node.shortDescription,
+            ...node.hierarchyPath,
+          ].whereType<String>().any(
+            (value) => value.toLowerCase().contains(query),
+          );
+        }).toList()..sort((left, right) {
+          final path = left.hierarchyPath
+              .join('/')
+              .compareTo(right.hierarchyPath.join('/'));
+          return path != 0 ? path : left.sortOrder.compareTo(right.sortOrder);
+        });
 
     return Scaffold(
       backgroundColor: BafColors.background,
@@ -800,93 +794,89 @@ class _AssetHierarchyBrowserScreenState
               decoration: InputDecoration(
                 hintText: 'Search component, tag or discipline',
                 prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon:
-                    _query.isEmpty
-                        ? null
-                        : IconButton(
-                          tooltip: 'Clear search',
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                          icon: const Icon(Icons.close_rounded),
-                        ),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Clear search',
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                        icon: const Icon(Icons.close_rounded),
+                      ),
               ),
             ),
           ),
           Expanded(
-            child:
-                visible.isEmpty
-                    ? const Center(
-                      child: Text('No hierarchy entries match this search.'),
-                    )
-                    : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(
-                        BafSpacing.lg,
-                        0,
-                        BafSpacing.lg,
-                        BafSpacing.xl,
-                      ),
-                      itemCount: visible.length,
-                      separatorBuilder:
-                          (_, _) => const SizedBox(height: BafSpacing.sm),
-                      itemBuilder: (context, index) {
-                        final node = visible[index];
-                        return Container(
-                          padding: const EdgeInsets.all(BafSpacing.md),
-                          decoration: BoxDecoration(
-                            color: BafColors.card,
-                            borderRadius: BorderRadius.circular(
-                              BafRadius.small,
-                            ),
-                            border: Border.all(color: BafColors.border),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                node.name,
-                                style: const TextStyle(
-                                  color: BafColors.textPrimary,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                node.hierarchyPath.join(' › '),
-                                style: const TextStyle(
-                                  color: BafColors.textSecondary,
-                                ),
-                              ),
-                              if (node.shortDescription != null) ...[
-                                const SizedBox(height: BafSpacing.xs),
-                                Text(node.shortDescription!),
-                              ],
-                              if (node.componentTag != null ||
-                                  node.discipline != null) ...[
-                                const SizedBox(height: BafSpacing.sm),
-                                Wrap(
-                                  spacing: BafSpacing.xs,
-                                  runSpacing: BafSpacing.xs,
-                                  children: [
-                                    if (node.componentTag != null)
-                                      StatusBadge(
-                                        label: node.componentTag!,
-                                        color: BafColors.assets,
-                                      ),
-                                    if (node.discipline != null)
-                                      StatusBadge(
-                                        label: node.discipline!,
-                                        color: BafColors.planned,
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
+            child: visible.isEmpty
+                ? const Center(
+                    child: Text('No hierarchy entries match this search.'),
+                  )
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(
+                      BafSpacing.lg,
+                      0,
+                      BafSpacing.lg,
+                      BafSpacing.xl,
                     ),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(height: BafSpacing.sm),
+                    itemBuilder: (context, index) {
+                      final node = visible[index];
+                      return Container(
+                        padding: const EdgeInsets.all(BafSpacing.md),
+                        decoration: BoxDecoration(
+                          color: BafColors.card,
+                          borderRadius: BorderRadius.circular(BafRadius.small),
+                          border: Border.all(color: BafColors.border),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              node.name,
+                              style: const TextStyle(
+                                color: BafColors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              node.hierarchyPath.join(' › '),
+                              style: const TextStyle(
+                                color: BafColors.textSecondary,
+                              ),
+                            ),
+                            if (node.shortDescription != null) ...[
+                              const SizedBox(height: BafSpacing.xs),
+                              Text(node.shortDescription!),
+                            ],
+                            if (node.componentTag != null ||
+                                node.discipline != null) ...[
+                              const SizedBox(height: BafSpacing.sm),
+                              Wrap(
+                                spacing: BafSpacing.xs,
+                                runSpacing: BafSpacing.xs,
+                                children: [
+                                  if (node.componentTag != null)
+                                    StatusBadge(
+                                      label: node.componentTag!,
+                                      color: BafColors.assets,
+                                    ),
+                                  if (node.discipline != null)
+                                    StatusBadge(
+                                      label: node.discipline!,
+                                      color: BafColors.planned,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -989,10 +979,9 @@ class _ComponentCard extends StatelessWidget {
               ),
               StatusBadge(
                 label: component.isActive ? 'Installed' : 'Retired',
-                color:
-                    component.isActive
-                        ? BafColors.success
-                        : BafColors.textSecondary,
+                color: component.isActive
+                    ? BafColors.success
+                    : BafColors.textSecondary,
               ),
             ],
           ),
@@ -1043,12 +1032,11 @@ class _ComponentCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed:
-                    () => _showComponentLineage(
-                      context,
-                      component.definitionName,
-                      lineage,
-                    ),
+                onPressed: () => _showComponentLineage(
+                  context,
+                  component.definitionName,
+                  lineage,
+                ),
                 icon: const Icon(Icons.timeline_rounded),
                 label: Text('Replacement lineage (${lineage.length})'),
               ),
@@ -1223,10 +1211,9 @@ AssetOperationalConditionRecord? _findCondition(
 
 AssetOperationalCondition _effectiveCondition(
   AssetOperationalConditionRecord? record,
-) =>
-    record?.active == true
-        ? record!.condition
-        : AssetOperationalCondition.available;
+) => record?.active == true
+    ? record!.condition
+    : AssetOperationalCondition.available;
 
 Color _conditionColor(AssetOperationalCondition condition) =>
     switch (condition) {
@@ -1268,61 +1255,58 @@ Future<void> _showComponentLineage(
     useSafeArea: true,
     showDragHandle: true,
     isScrollControlled: true,
-    builder:
-        (context) => SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * 0.76,
-            ),
-            child: ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                BafSpacing.lg,
-                0,
-                BafSpacing.lg,
-                BafSpacing.xl,
-              ),
-              itemCount: lineage.length + 1,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: BafSpacing.lg),
-                    child: Text(
-                      '$definitionName replacement lineage',
-                      style: const TextStyle(
-                        color: BafColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  );
-                }
-                final item = lineage[index - 1];
-                final installedAt = item.installedOn ?? item.createdAt;
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: Icon(
-                    item.isActive
-                        ? Icons.check_circle_rounded
-                        : Icons.history_rounded,
-                    color:
-                        item.isActive
-                            ? BafColors.success
-                            : BafColors.textSecondary,
-                  ),
-                  title: Text(item.componentTag ?? item.definitionName),
-                  subtitle: Text(
-                    [
-                      if (item.serialNumber != null)
-                        'Serial ${item.serialNumber}',
-                      'Installed ${DateFormat('dd MMM yyyy').format(installedAt)}',
-                    ].join(' | '),
-                  ),
-                  trailing: Text(item.isActive ? 'Current' : 'Replaced'),
-                );
-              },
-            ),
-          ),
+    builder: (context) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.76,
         ),
+        child: ListView.separated(
+          padding: const EdgeInsets.fromLTRB(
+            BafSpacing.lg,
+            0,
+            BafSpacing.lg,
+            BafSpacing.xl,
+          ),
+          itemCount: lineage.length + 1,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: BafSpacing.lg),
+                child: Text(
+                  '$definitionName replacement lineage',
+                  style: const TextStyle(
+                    color: BafColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              );
+            }
+            final item = lineage[index - 1];
+            final installedAt = item.installedOn ?? item.createdAt;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                item.isActive
+                    ? Icons.check_circle_rounded
+                    : Icons.history_rounded,
+                color: item.isActive
+                    ? BafColors.success
+                    : BafColors.textSecondary,
+              ),
+              title: Text(item.componentTag ?? item.definitionName),
+              subtitle: Text(
+                [
+                  if (item.serialNumber != null) 'Serial ${item.serialNumber}',
+                  'Installed ${DateFormat('dd MMM yyyy').format(installedAt)}',
+                ].join(' | '),
+              ),
+              trailing: Text(item.isActive ? 'Current' : 'Replaced'),
+            );
+          },
+        ),
+      ),
+    ),
   );
 }

@@ -11,6 +11,7 @@ import {
 } from "./types";
 import {payloadFingerprint} from "./utils";
 import {WorkflowError} from "./errors";
+import {canonicalUvCorrectionInstant} from "./uvDetectorCorrection";
 
 export const receiptPath = (commandId: string): string => `maintenance_workflow_command_receipts/${commandId}`;
 
@@ -131,11 +132,33 @@ export const readExistingReceipt = async (
       },
     );
   }
+  let result = data.result as JsonMap;
+  if (command.commandType === "correctBurnerBlockInstallation" ||
+      command.commandType === "correctUvDetectorInstallation") {
+    // Native Firestore storage converts these result dates into Timestamp.
+    // Preserve the original callable wire contract on receipt recovery; do
+    // not modify the retained receipt or round away finer-grained evidence.
+    const normalized: {[field: string]: JsonMap[string]} = {...result};
+    const fields = ["recordedActionPerformedAt", "correctedActionPerformedAt",
+      "currentActionPerformedAt", ...(command.commandType ===
+        "correctUvDetectorInstallation" ? ["expectedCurrentActionPerformedAt"] : [])];
+    for (const field of fields) {
+      const instant = canonicalUvCorrectionInstant(normalized[field]);
+      if (instant == null) {
+        throw new WorkflowError("failed-precondition",
+          "The installation correction receipt time is malformed.",
+          {reasonCode: "workflow-receipt-result-malformed", field,
+            commandId: command.commandId});
+      }
+      normalized[field] = instant;
+    }
+    result = normalized;
+  }
   return {
     commandId: command.commandId,
     resultKey: data.resultKey,
     aggregateVersion: data.aggregateVersion,
-    result: data.result as JsonMap,
+    result,
     appliedAt: data.appliedAt,
   };
 };

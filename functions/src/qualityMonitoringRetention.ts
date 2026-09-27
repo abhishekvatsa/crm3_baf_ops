@@ -1,4 +1,5 @@
 import * as admin from "firebase-admin";
+import {FieldPath, Timestamp} from "firebase-admin/firestore";
 import * as logger from "firebase-functions/logger";
 
 import {
@@ -70,7 +71,7 @@ const checkpointPath = "quality-monitoring-archive-v1";
 
 const fetchDue = async (
   db: admin.firestore.Firestore,
-  now: admin.firestore.Timestamp,
+  now: Timestamp,
 ): Promise<{refs: admin.firestore.DocumentReference[]; capped: boolean;
   generation: number; cursors: {due: ArchiveCursor; legacy: ArchiveCursor}}> => {
   const checkpoint = (await db.collection("_maintenance_cursors").doc(checkpointPath).get()).data();
@@ -96,9 +97,9 @@ const fetchDue = async (
       const count = Math.min(PAGE_SIZE, scanBudget - scanned, writeBudget - eligible);
       let query: admin.firestore.Query = lane === "due" ?
         db.collection("quality_monitoring_requests").where("visibleUntil", "<=", now)
-          .orderBy("visibleUntil").orderBy(admin.firestore.FieldPath.documentId()) :
+          .orderBy("visibleUntil").orderBy(FieldPath.documentId()) :
         db.collection("quality_monitoring_requests").where("schemaVersion", "==", 1)
-          .orderBy(admin.firestore.FieldPath.documentId());
+          .orderBy(FieldPath.documentId());
       if (cursor != null) query = lane === "due" ?
         query.startAfter(cursor.value, cursor.id) : query.startAfter(cursor.id);
       const page = await query.limit(count).get();
@@ -130,7 +131,7 @@ const fetchDue = async (
 const processCandidate = async (
   db: admin.firestore.Firestore,
   ref: admin.firestore.DocumentReference,
-  now: admin.firestore.Timestamp,
+  now: Timestamp,
 ): Promise<"archived" | "unchanged" | "rejected"> => {
   try {
     return await db.runTransaction(async (tx) => {
@@ -140,7 +141,7 @@ const processCandidate = async (
         data: snapshot.data() ?? {},
         requestId: snapshot.id,
         now: now.toDate(),
-        timestampFromDate: admin.firestore.Timestamp.fromDate,
+        timestampFromDate: Timestamp.fromDate,
       });
       if (patch == null) return "unchanged";
       tx.update(ref, patch);
@@ -157,7 +158,7 @@ const processCandidate = async (
 
 export const archiveDueQualityMonitoringRequests = async (args: {
   readonly db: admin.firestore.Firestore;
-  readonly now: admin.firestore.Timestamp;
+  readonly now: Timestamp;
 }): Promise<QualityMonitoringRetentionResult> => {
   const fetched = await fetchDue(args.db, args.now);
   const refs = fetched.refs;

@@ -101,6 +101,8 @@ Future<TemplateVersion> saveAndRefreshComposerTemplateVersionDraft({
     final syncDetail = switch (syncOutcome) {
       SyncRequestOutcome.succeeded =>
         'Sync completed without a confirmed draft acknowledgement.',
+      SyncRequestOutcome.partial =>
+        'Partly synced: server data was refreshed, but some saved changes still need attention.',
       SyncRequestOutcome.failed => 'Sync failed before confirmation.',
       SyncRequestOutcome.queued =>
         'Sync is queued behind the run already in progress.',
@@ -162,6 +164,8 @@ Future<TemplateVersion> publishAndRefreshComposerTemplateVersion({
     final syncDetail = switch (syncOutcome) {
       SyncRequestOutcome.succeeded =>
         'The publication record has not received Firestore confirmation.',
+      SyncRequestOutcome.partial =>
+        'Partly synced: server data was refreshed, but some saved changes still need attention.',
       SyncRequestOutcome.failed =>
         'Firestore did not confirm the complete publication transaction.',
       SyncRequestOutcome.queued =>

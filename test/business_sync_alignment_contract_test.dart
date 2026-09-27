@@ -68,10 +68,10 @@ void main() {
       'every ordinary offline queue has an uncertain-write convergence path',
       () {
         final expectedGenericCoverage = <String, int>{
-          'lib/core/services/sync_service.tickets_templates.dart': 1,
+          'lib/core/services/sync_service.tickets_templates.dart': 0,
           'lib/core/services/sync_service.executions.dart': 1,
           'lib/core/services/sync_service.job_diary.dart': 1,
-          'lib/core/services/sync_service.directives_abnormalities.dart': 2,
+          'lib/core/services/sync_service.directives_abnormalities.dart': 1,
           'lib/core/services/sync_service.template_governance.dart': 2,
         };
 
@@ -85,6 +85,35 @@ void main() {
             reason: '${entry.key} lost-response coverage changed',
           );
         }
+
+        // These queues now retry their exact actor-bound request instead of
+        // inferring acceptance from an unrelated identical remote row.
+        final retainedRoutes = <String, String>{
+          'lib/core/services/sync_service.tickets_templates.dart':
+              'RetainedRowKind.legacyTemplate',
+          'lib/core/services/sync_service.directives_abnormalities.dart':
+              'RetainedRowKind.abnormalityType',
+          'lib/core/services/sync_service.executions.dart':
+              'RetainedRowKind.executionWork',
+        };
+        for (final entry in retainedRoutes.entries) {
+          final source = File(entry.key).readAsStringSync();
+          expect(source, contains(entry.value));
+          expect(source, contains('_syncRetainedRow'));
+        }
+        final retained = File(
+          'lib/core/services/retained_row_mutations.dart',
+        ).readAsStringSync();
+        expect(retained, contains('executeOriginBoundEnvelope('));
+        expect(retained, contains('row.envelopeJson'));
+        expect(
+          retained,
+          contains("value.resultKey != 'retained-queue-mutation-applied'"),
+        );
+        expect(retained, contains('value.commandId != saved.requestId'));
+        expect(retained, contains('!_same(wire(accepted), intended)'));
+        expect(retained, contains('!_same(wire(current), intended)'));
+        expect(retained, contains('store.markReconciled('));
 
         final maintenance = File(
           'lib/core/services/sync_service.tickets_templates.dart',
@@ -356,10 +385,10 @@ void main() {
         expect(tombstoneHold, contains('isLikelyPermanent: true'));
         expect(tombstoneHold, contains('failClosed: true'));
         final tombstoneCallCounts = <String, int>{
-          'lib/core/services/sync_service.directives_abnormalities.dart': 3,
+          'lib/core/services/sync_service.directives_abnormalities.dart': 2,
           'lib/core/services/sync_service.executions.dart': 2,
           'lib/core/services/sync_service.job_diary.dart': 1,
-          'lib/core/services/sync_service.tickets_templates.dart': 2,
+          'lib/core/services/sync_service.tickets_templates.dart': 1,
           'lib/core/services/sync_service.template_governance.dart': 2,
         };
         for (final entry in tombstoneCallCounts.entries) {
@@ -373,6 +402,18 @@ void main() {
                 '${entry.key} must retain holds whenever tombstone adoption preserves dirty local evidence.',
           );
         }
+        final retained = File(
+          'lib/core/services/retained_row_mutations.dart',
+        ).readAsStringSync();
+        final retainedSync = _functionBody(
+          retained,
+          'Future<void> synchronize(',
+        );
+        expect(retainedSync, contains('store.importLegacyNeedsReview('));
+        expect(retainedSync, contains('sourceBytes: Uint8List.fromList(raw)'));
+        expect(retainedSync, contains("'legacy-origin-unknown'"));
+        expect(retainedSync, isNot(contains('isSynced = true')));
+        expect(retainedSync, isNot(contains('markReconciled(')));
         expect(
           _functionBody(
             knowledge,

@@ -4,20 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // SYNC STATUS ENUM
 // ─────────────────────────────────────────────────────────────
 
-enum SyncStatus {
-  idle,
-  syncing,
-  success,
-  failed,
-}
+enum SyncStatus { idle, syncing, success, partial, failed }
 
 // ─────────────────────────────────────────────────────────────
 // PROVIDER
 // ─────────────────────────────────────────────────────────────
 
 // 🔥 Centralized, single source of truth for sync UI state
-final syncStatusProvider =
-StateProvider<SyncStatus>((ref) => SyncStatus.idle);
+final syncStatusProvider = StateProvider<SyncStatus>((ref) => SyncStatus.idle);
 
 // ─────────────────────────────────────────────────────────────
 // OPTIONAL HELPERS (NON-BREAKING, FUTURE-SAFE)
@@ -31,7 +25,9 @@ extension SyncStatusX on SyncStatus {
 
   bool get isSuccess => this == SyncStatus.success;
 
-  bool get isFailure => this == SyncStatus.failed;
+  bool get isPartial => this == SyncStatus.partial;
+
+  bool get isFailure => this == SyncStatus.failed || isPartial;
 
   bool get isIdle => this == SyncStatus.idle;
 }

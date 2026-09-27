@@ -297,7 +297,7 @@ class IsarDirectiveRepository implements DirectiveRepository {
             'The directive changed while acknowledgement was being reviewed. Refresh before acknowledging.',
           );
         }
-        final now = DateTime.now();
+        final now = governedAcknowledgementNow(d);
         d.status = DirectiveStatus.acknowledged;
         d.acknowledgedByUid = actor.uid;
         d.acknowledgedByName = actor.name;

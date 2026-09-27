@@ -120,6 +120,17 @@ export function isAssetRegistryOperation(value: unknown): value is RegistryOpera
   return typeof value === "string" && OPERATIONS.has(value as RegistryOperation);
 }
 
+export function userCanMutateAssetRegistry(
+  data: JsonMap,
+  operation: unknown,
+  status: unknown,
+): boolean {
+  const authority = canonicalApprovedUserAuthority(data);
+  const isRetirement = operation === "SET_ASSET_INSTANCE_STATUS" && status === "retired";
+  return authority != null &&
+    (authority.roles.has("admin") || (isRetirement && authority.roles.has("si")));
+}
+
 function invalid(field: string, detail: string): never {
   throw new AssetHierarchyMutationError(
     "invalid-argument", `${field} ${detail}.`,
@@ -1163,13 +1174,13 @@ export async function mutateAssetRegistryWithDb(args: {
       maintenanceIssues : plannedJobs).doc(request.evidenceReference.sourceId);
 
   const preflight = record(await actorRef.get(), "Registry actor");
-  const preflightAuthority = canonicalApprovedUserAuthority(preflight);
   const isRetirement = request.operation === "SET_ASSET_INSTANCE_STATUS" && request.status === "retired";
-  const permitted = (authority: ReturnType<typeof canonicalApprovedUserAuthority>): boolean =>
-    authority != null && (authority.roles.has("admin") || (isRetirement && authority.roles.has("si")));
-  if (!permitted(preflightAuthority)) {
+  const permissionMessage = isRetirement ?
+    "Only an approved Admin or SI can retire an asset instance." :
+    "Only an approved Admin can change the asset registry.";
+  if (!userCanMutateAssetRegistry(preflight, request.operation, request.status)) {
     throw new AssetHierarchyMutationError(
-      "permission-denied", "Only an approved Admin can change the asset registry.",
+      "permission-denied", permissionMessage,
     );
   }
 
@@ -1182,10 +1193,9 @@ export async function mutateAssetRegistryWithDb(args: {
       asSnapshot(await transaction.get(actorRef), "Registry actor lookup"),
       "Registry actor",
     );
-    const authority = canonicalApprovedUserAuthority(actor);
-    if (!permitted(authority)) {
+    if (!userCanMutateAssetRegistry(actor, request.operation, request.status)) {
       throw new AssetHierarchyMutationError(
-        "permission-denied", "Only an approved Admin can change the asset registry.",
+        "permission-denied", permissionMessage,
       );
     }
     if (receiptSnapshot.exists) {

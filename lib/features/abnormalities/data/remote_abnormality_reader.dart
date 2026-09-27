@@ -86,67 +86,66 @@ AbnormalityType readRemoteAbnormalityType(
     source: source,
   );
 
-  final type =
-      AbnormalityType()
-        ..firestoreId = firestoreId
-        ..code = _readRequiredBoundedString(
-          map['code'],
-          field: 'code',
-          source: source,
-          maximum: 160,
-        )
-        ..title = _readRequiredBoundedString(
-          map['title'],
-          field: 'title',
-          source: source,
-          maximum: 500,
-        )
-        ..description = _readOptionalBoundedString(
-          map['description'],
-          field: 'description',
-          source: source,
-          maximum: 4000,
-        )
-        ..category = readRequiredPersistedEnum(
-          AbnormalityCategory.values,
-          map['category'],
-          field: 'category',
-          source: source,
-        )
-        ..severity = readRequiredPersistedEnum(
-          AbnormalitySeverity.values,
-          map['severity'],
-          field: 'severity',
-          source: source,
-        )
-        ..applicableAssetTypes = _readApplicableAssetTypes(
-          map['applicableAssetTypes'],
-          source: source,
-        )
-        ..suggestsReannealing = readRequiredPersistedBool(
-          map['suggestsReannealing'],
-          field: 'suggestsReannealing',
-          source: source,
-        )
-        ..isActive = isActive
-        ..isDeleted = isDeleted
-        ..deletedAt = timestamps.deletedAt
-        ..deletedByUid = deletedByUid
-        ..deletedByName = deletedByName
-        ..deleteReason = deleteReason
-        ..version = readRequiredPersistedInt(
-          map['version'],
-          field: 'version',
-          source: source,
-          minimum: 1,
-        )
-        ..isSynced = true
-        ..createdAt = timestamps.createdAt
-        ..updatedAt = timestamps.updatedAt
-        ..createdByUid = createdByUid
-        ..createdByName = createdByName
-        ..lastEditedByUid = lastEditedByUid
-        ..lastEditedByName = lastEditedByName;
+  final type = AbnormalityType()
+    ..firestoreId = firestoreId
+    ..code = _readRequiredBoundedString(
+      map['code'],
+      field: 'code',
+      source: source,
+      maximum: 160,
+    )
+    ..title = _readRequiredBoundedString(
+      map['title'],
+      field: 'title',
+      source: source,
+      maximum: 500,
+    )
+    ..description = _readOptionalBoundedString(
+      map['description'],
+      field: 'description',
+      source: source,
+      maximum: 4000,
+    )
+    ..category = readRequiredPersistedEnum(
+      AbnormalityCategory.values,
+      map['category'],
+      field: 'category',
+      source: source,
+    )
+    ..severity = readRequiredPersistedEnum(
+      AbnormalitySeverity.values,
+      map['severity'],
+      field: 'severity',
+      source: source,
+    )
+    ..applicableAssetTypes = _readApplicableAssetTypes(
+      map['applicableAssetTypes'],
+      source: source,
+    )
+    ..suggestsReannealing = readRequiredPersistedBool(
+      map['suggestsReannealing'],
+      field: 'suggestsReannealing',
+      source: source,
+    )
+    ..isActive = isActive
+    ..isDeleted = isDeleted
+    ..deletedAt = timestamps.deletedAt
+    ..deletedByUid = deletedByUid
+    ..deletedByName = deletedByName
+    ..deleteReason = deleteReason
+    ..version = readRequiredPersistedInt(
+      map['version'],
+      field: 'version',
+      source: source,
+      minimum: 1,
+    )
+    ..isSynced = true
+    ..createdAt = timestamps.createdAt
+    ..updatedAt = timestamps.updatedAt
+    ..createdByUid = createdByUid
+    ..createdByName = createdByName
+    ..lastEditedByUid = lastEditedByUid
+    ..lastEditedByName = lastEditedByName;
 
   return type;
 }
@@ -265,7 +264,7 @@ ChargeAbnormality readRemoteChargeAbnormality(
     source: source,
   );
 
-  return ChargeAbnormality()
+  final abnormality = ChargeAbnormality()
     ..firestoreId = firestoreId
     ..sourceChargeNo = sourceChargeNo
     ..abnormalityTypeId = _readRequiredBoundedString(
@@ -299,6 +298,15 @@ ChargeAbnormality readRemoteChargeAbnormality(
       source: source,
     )
     ..affectedAssets = affectedAssetsWithHierarchy
+    ..assessment = map['assessment'] == null
+        ? null
+        : AbnormalityAssessment.fromMap(
+            readOptionalJsonObject(
+              map['assessment'],
+              field: 'assessment',
+              source: source,
+            )!,
+          )
     ..component = _readOptionalBoundedString(
       map['component'],
       field: 'component',
@@ -361,6 +369,8 @@ ChargeAbnormality readRemoteChargeAbnormality(
     ..deletedByUid = deletedByUid
     ..deletedByName = deletedByName
     ..deleteReason = deleteReason;
+  abnormality.validateAssessmentLifecycle();
+  return abnormality;
 }
 
 String _readDocumentIdentity(
@@ -412,13 +422,12 @@ String? _readOptionalBoundedString(
   required int maximum,
 }) {
   if (value == null) return null;
-  final result =
-      readOptionalPersistedString(
-        value,
-        field: field,
-        source: source,
-        emptyAsNull: false,
-      )!;
+  final result = readOptionalPersistedString(
+    value,
+    field: field,
+    source: source,
+    emptyAsNull: false,
+  )!;
   if (result.isEmpty || result.length > maximum) {
     throw PersistedDataFormatException(
       field: field,

@@ -140,8 +140,8 @@ void main() {
       for (final entry in cases.entries) {
         final expectedField =
             entry.key == 'isDeleted-state' || entry.key == 'deletedByName-state'
-                ? 'isDeleted'
-                : entry.key;
+            ? 'isDeleted'
+            : entry.key;
         expect(
           () => AbnormalityType.fromMap(entry.value, 'type-1'),
           _invalidField(expectedField),
@@ -286,10 +286,9 @@ void main() {
     });
 
     test('upgraded legacy empty draft retains the old create wire shape', () {
-      final persisted =
-          _validCharge()
-            ..['affectedAssets'] = <Map<String, dynamic>>[]
-            ..remove('affectedAssetHierarchyRefs');
+      final persisted = _validCharge()
+        ..['affectedAssets'] = <Map<String, dynamic>>[]
+        ..remove('affectedAssetHierarchyRefs');
       final abnormality = ChargeAbnormality.fromMap(persisted, 'abn-1');
 
       final outgoing = abnormality.toMap();
@@ -424,10 +423,9 @@ void main() {
       };
 
       for (final entry in cases.entries) {
-        final expectedField =
-            entry.key == 'target-without-completion'
-                ? 'reannealingStatus'
-                : entry.key;
+        final expectedField = entry.key == 'target-without-completion'
+            ? 'reannealingStatus'
+            : entry.key;
         expect(
           () => ChargeAbnormality.fromMap(entry.value, 'abn-1'),
           _invalidField(expectedField),
@@ -503,14 +501,12 @@ void main() {
     });
 
     test('factories delegate and global-pull pages decode before return', () {
-      final model =
-          File(
-            'lib/features/abnormalities/data/abnormality_model.dart',
-          ).readAsStringSync();
-      final reader =
-          File(
-            'lib/features/abnormalities/data/remote_abnormality_reader.dart',
-          ).readAsStringSync();
+      final model = File(
+        'lib/features/abnormalities/data/abnormality_model.dart',
+      ).readAsStringSync();
+      final reader = File(
+        'lib/features/abnormalities/data/remote_abnormality_reader.dart',
+      ).readAsStringSync();
       final provider = readDartLibrarySource(
         'lib/features/abnormalities/providers/abnormality_provider.dart',
       );
@@ -528,7 +524,18 @@ void main() {
       expect(provider, contains('decodeSnapshotDocuments('));
       expect(provider, contains('AbnormalityType.fromMap'));
       expect(provider, contains('ChargeAbnormality.fromMap'));
-      expect(provider, contains('_validateTypeForSave(type)'));
+      expect(
+        provider,
+        contains(
+          '_validateTypeForSave(type, existing: baseline as AbnormalityType?)',
+        ),
+      );
+      expect(
+        provider,
+        contains(
+          '_validateTypeForSave(type, existing: existing as AbnormalityType?)',
+        ),
+      );
       expect(provider, contains('_validateAbnormalityForSave(abnormality)'));
       expect(provider, isNot(contains('_ensureTypeDefaults')));
       expect(provider, isNot(contains('_ensureAbnormalityDefaults')));

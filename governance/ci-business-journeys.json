@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "projectId": "demo-crm3-ci-journeys",
+  "runner": "tools/testing/run_ci_business_journeys.py",
+  "fixture": "tools/testing/seed_ci_business_journeys.py",
+  "firebaseConfig": "firebase.ci-journeys.json",
+  "journeys": [
+    {
+      "path": "integration_test/dev_abnormality_journey_test.dart",
+      "actorEmail": "dev.operations@example.invalid",
+      "actorName": "Dev Operations",
+      "successMarker": "DEV_JOURNEY_PASS",
+      "preserveAppData": false,
+      "timeoutSeconds": 720,
+      "coverage": "Real form, callable acceptance, canonical abnormality and linked warning, Quality visibility, reopening"
+    },
+    {
+      "path": "integration_test/dev_restart_recovery_test.dart",
+      "actorEmail": "dev.operations@example.invalid",
+      "actorName": "Dev Operations",
+      "successMarker": "DEV_RESTART_PASS",
+      "preserveAppData": true,
+      "timeoutSeconds": 480,
+      "coverage": "Separate application process retains the preceding accepted Isar record and session without duplicate server writes"
+    },
+    {
+      "path": "integration_test/dev_planned_work_journey_test.dart",
+      "actorEmail": "dev.usability-si@example.invalid",
+      "actorName": "DEV Usability si",
+      "successMarker": "DEV_PLANNED_WORK_PASS",
+      "preserveAppData": false,
+      "timeoutSeconds": 1320,
+      "coverage": "Fresh reviewed publication, assignment, worker responses/submission, separate SI acceptance, diary, lane and governed final closure"
+    },
+    {
+      "path": "integration_test/dev_issue_quality_journey_test.dart",
+      "actorEmail": "dev.operations@example.invalid",
+      "actorName": "Dev Operations",
+      "successMarker": "DEV_ISSUE_QUALITY_PASS",
+      "preserveAppData": false,
+      "timeoutSeconds": 1320,
+      "coverage": "Two maintenance-origin Quality cases on one charge, separate SI adjudication with and without RA, and two distinct direct abnormalities with and without completed RA; actual form submissions and canonical readbacks"
+    },
+    {
+      "path": "integration_test/dev_burner_plant_journey_test.dart",
+      "actorEmail": "dev.operations@example.invalid",
+      "actorName": "Dev Operations",
+      "successMarker": "DEV_BURNER_PLANT_PASS",
+      "preserveAppData": false,
+      "timeoutSeconds": 960,
+      "coverage": "Operations submits a fresh eight-position condition round, I&A completes one directive with attributed partial inheritance, unresolved UV evidence persists, and plant totals agree with canonical assets"
+    },
+    {
+      "path": "integration_test/dev_queue_ownership_journey_test.dart",
+      "actorEmail": "dev.cf01-a@example.invalid",
+      "actorName": "DEV CF01 Admin A",
+      "successMarker": "DEV_QUEUE_OWNERSHIP_PREPARED",
+      "preserveAppData": false,
+      "timeoutSeconds": 600,
+      "coverage": "Native Isar offline save in three domains, authenticated same-role account switch, blocked overwrite/send/adoption, and pending original-account commands retained with account B signed in before process exit"
+    },
+    {
+      "path": "integration_test/dev_queue_ownership_resume_journey_test.dart",
+      "actorEmail": "dev.cf01-b@example.invalid",
+      "actorName": "DEV CF01 Admin B",
+      "successMarker": "DEV_QUEUE_OWNERSHIP_PASS",
+      "preserveAppData": true,
+      "timeoutSeconds": 600,
+      "coverage": "Separate Android process starts as B with the retained pending rows, proves same-role refusal persists, then returns to A for original-command acceptance and exact receipt replay after interrupted local acknowledgement"
+    }
+  ],
+  "excluded": [
+    {"path": "integration_test/dev_account_switch_probe_test.dart", "reason": "Diagnostic error-identity probe; account transition is exercised by planned work."},
+    {"path": "integration_test/dev_list_paging_test.dart", "reason": "Requires a deliberate greater-than-15 population across several live feeds; separate host behavior coverage exists."},
+    {"path": "integration_test/dev_operational_usability_test.dart", "reason": "Requires additional frequent-issue, component and serial-cover fixtures plus PDF inspection; not claimed by this gate."},
+    {"path": "integration_test/dev_quality_adjudication_test.dart", "reason": "Consumes persisted prior issue-quality probe identifiers, rather than creating its own fresh cases."},
+    {"path": "integration_test/dev_visual_review_test.dart", "reason": "Captures screenshots for human visual judgment; a successful process is not visual acceptance."}
+  ],
+  "productionCredentialsUsed": false,
+  "productionBackendUsed": false,
+  "physicalDeviceEvidence": false
+}
