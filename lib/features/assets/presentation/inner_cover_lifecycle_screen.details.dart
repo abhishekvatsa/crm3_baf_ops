@@ -37,7 +37,7 @@ class _CoverDetailsSheet extends ConsumerWidget {
     final pendingLifecycle = canManage
         ? ref.watch(innerCoverLifecyclePendingProvider(cover.id))
         : const AsyncData<DurableSubmission?>(null);
-    final date = DateFormat('dd MMM yyyy, HH:mm');
+    final date = DateFormat(innerCoverDateTimePattern);
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -299,44 +299,12 @@ class _CoverDetailsSheet extends ConsumerWidget {
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: BafSpacing.sm),
-            history.when(
-              loading: () => const LinearProgressIndicator(),
-              error: (error, _) => _InlineError(message: '$error'),
-              data: (items) => items.isEmpty
-                  ? const Text(
-                      'This cover has not yet been linked to a Base.',
-                      style: TextStyle(color: BafColors.textSecondary),
-                    )
-                  : Column(
-                      children: items
-                          .map(
-                            (item) => ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                item.active
-                                    ? Icons.link_rounded
-                                    : Icons.history_rounded,
-                                color: item.active
-                                    ? BafColors.success
-                                    : BafColors.textSecondary,
-                              ),
-                              title: Text(
-                                'Base ${item.baseAssetNumber}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              subtitle: Text(
-                                item.active
-                                    ? 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}'
-                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\n'
-                                          'Removed physically ${item.removedPhysicalAt == null ? 'not recorded' : date.format(item.removedPhysicalAt!.toLocal())}; '
-                                          'recorded ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+            InnerCoverHistory(
+              subjectId: cover.id,
+              showBase: true,
+              history: history,
+              onRetry: () =>
+                  ref.invalidate(innerCoverHistoryProvider(cover.id)),
             ),
           ],
         ),
@@ -353,7 +321,6 @@ class _BaseHistorySheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final history = ref.watch(baseInnerCoverHistoryProvider(base.id));
-    final date = DateFormat('dd MMM yyyy, HH:mm');
     return SafeArea(
       child: ConstrainedBox(
         constraints: BoxConstraints(
@@ -383,47 +350,14 @@ class _BaseHistorySheet extends ConsumerWidget {
               ),
               const SizedBox(height: BafSpacing.lg),
               Expanded(
-                child: history.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => _InlineError(message: '$error'),
-                  data: (items) => items.isEmpty
-                      ? const _EmptyState(
-                          icon: Icons.history_rounded,
-                          message:
-                              'No Inner Cover assignment has been recorded for this Base.',
-                        )
-                      : ListView.separated(
-                          itemCount: items.length,
-                          separatorBuilder: (_, _) => const Divider(height: 1),
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            return ListTile(
-                              contentPadding: EdgeInsets.zero,
-                              leading: Icon(
-                                item.active
-                                    ? Icons.link_rounded
-                                    : Icons.history_rounded,
-                                color: item.active
-                                    ? BafColors.success
-                                    : BafColors.textSecondary,
-                              ),
-                              title: Text(
-                                'Inner Cover ${item.innerCoverSerialNumber}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              subtitle: Text(
-                                item.active
-                                    ? 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}'
-                                    : 'Paired ${date.format(item.installedAt.toLocal())} by ${item.installedByName}\n'
-                                          'Removed physically ${item.removedPhysicalAt == null ? 'not recorded' : date.format(item.removedPhysicalAt!.toLocal())}; '
-                                          'recorded ${date.format(item.removedAt!.toLocal())} by ${item.removedByName}: ${item.removalReason}',
-                              ),
-                            );
-                          },
-                        ),
+                child: SingleChildScrollView(
+                  child: InnerCoverHistory(
+                    subjectId: base.id,
+                    showBase: false,
+                    history: history,
+                    onRetry: () =>
+                        ref.invalidate(baseInnerCoverHistoryProvider(base.id)),
+                  ),
                 ),
               ),
             ],
@@ -442,24 +376,37 @@ class _DetailRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 130,
-          child: Text(
-            label,
-            style: const TextStyle(color: BafColors.textSecondary),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-        ),
-      ],
+    padding: const EdgeInsets.only(bottom: BafSpacing.md),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final caption = Text(
+          label,
+          style: const TextStyle(color: BafColors.textSecondary),
+        );
+        final content = Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        );
+        if (constraints.maxWidth < 420 ||
+            MediaQuery.textScalerOf(context).scale(14) > 19) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              caption,
+              const SizedBox(height: BafSpacing.xs),
+              content,
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 160, child: caption),
+            const SizedBox(width: BafSpacing.md),
+            Expanded(child: content),
+          ],
+        );
+      },
     ),
   );
 }
@@ -510,5 +457,47 @@ class _InlineError extends StatelessWidget {
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: BafSpacing.md),
     child: Text(message, style: const TextStyle(color: BafColors.danger)),
+  );
+}
+
+class _SummaryFilterBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  const _SummaryFilterBadge({
+    required this.label,
+    required this.color,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: tooltip,
+    child: Tooltip(
+      message: tooltip,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(BafRadius.medium),
+              border: Border.all(color: color.withValues(alpha: 0.22)),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(color: color, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+      ),
+    ),
   );
 }

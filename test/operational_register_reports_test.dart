@@ -220,6 +220,8 @@ void main() {
       ]);
       final rows = OperationsReportPdfService.baseCoverRegisterRows(register);
       expect(rows.first[1], 'In service');
+      expect(rows.first[4], startsWith('25-09-2026 10:30'));
+      expect(rows.first[5], contains('updated 25-09-2026 10:30'));
       expect(rows.first.join(' '), contains('Demo Supervisor'));
       expect(rows.first.join(' '), contains('GR-REPORT'));
       expect(

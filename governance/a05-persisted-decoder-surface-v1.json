@@ -3562,6 +3562,19 @@
       "malformedDisposition": "Malformed opaque pre-feature metadata is retained verbatim under legacyMetadata when adding the new context; never discarded or substituted with fresh business evidence.",
       "regression": "test/maintenance_component_identification_test.dart; test/maintenance_metadata_preservation_test.dart",
       "reArmCondition": "Structured evidence errors are swallowed, original bytes disappear, or opaque metadata is treated as proof of identification."
+    },
+    {
+      "id": "inner-cover-day-first-user-input",
+      "file": "lib/features/assets/presentation/widgets/inner_cover_date_picker.dart",
+      "siteFingerprint": "6466943d5412c5409aa60848c1c950a0296100c65442be551ffc6dc653598772",
+      "classification": "PRE_MUTATION_VALIDATION_RESULT",
+      "purpose": "Reject malformed or impossible dd-MM-yyyy calendar text without reinterpreting the date or substituting an occurrence time.",
+      "authorityBoundary": "Unsubmitted Inner Cover date-picker input only; persisted timestamps continue through existing strict model readers and server chronology checks.",
+      "mutability": "none",
+      "dataScope": "User-entered calendar date text; no database or received business record is decoded here.",
+      "malformedDisposition": "Return null to Material calendar validation, keep the input editable, and display the explicit dd-MM-yyyy error; no command is prepared or sent.",
+      "regression": "test/inner_cover_date_entry_test.dart",
+      "reArmCondition": "Malformed input becomes a valid fallback date, month-first text is silently reinterpreted, or the helper starts decoding persisted records or mutating state."
     }
   ],
   "staleRegressionReferences": [

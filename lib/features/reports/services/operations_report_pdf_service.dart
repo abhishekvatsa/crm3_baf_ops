@@ -6,6 +6,7 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
+import '../../assets/domain/inner_cover_date_format.dart';
 import '../../abnormalities/data/abnormality_model.dart';
 import '../domain/base_inner_cover_register.dart';
 import '../domain/maintenance_ticket_dossier.dart';
@@ -367,7 +368,7 @@ class OperationsReportPdfService {
   ) => [
     _sectionHeading(
       'Current Base / Inner Cover register',
-      'Current server reads completed ${_formatLocalDateTime(register?.capturedAt ?? report.asOf)} $operationsReportTimeZone. These rows do not describe the historical date range.',
+      'Current server reads completed ${_formatInnerCoverLocalDateTime(register?.capturedAt ?? report.asOf)} $operationsReportTimeZone. These rows do not describe the historical date range.',
     ),
     if (register == null)
       _emptyStatement(
@@ -382,7 +383,7 @@ class OperationsReportPdfService {
           'Registry state',
           'Link state',
           'Cover / linkage',
-          'Installed / confirmed by',
+          'Pairing recorded / by',
           'Evidence',
         ],
         rows: baseCoverRegisterRows(register),
@@ -410,8 +411,8 @@ class OperationsReportPdfService {
           '${r.assignment?.innerCoverSerialNumber ?? '-'}\n${r.assignment?.linkageId ?? ''}',
           r.linkage == null
               ? 'Not verified'
-              : '${_formatLocalDateTime(r.linkage!.installedAt)}\n${r.linkage!.installedByName} (${r.linkage!.installedByUid})',
-          '${r.explanation}${r.assignment == null ? '' : '\nAssignment v${r.assignment!.version}; updated ${_formatLocalDateTime(r.assignment!.updatedAt)}'}',
+              : '${_formatInnerCoverLocalDateTime(r.linkage!.installedAt)}\n${r.linkage!.installedByName} (${r.linkage!.installedByUid})',
+          '${r.explanation}${r.assignment == null ? '' : '\nAssignment v${r.assignment!.version}; updated ${_formatInnerCoverLocalDateTime(r.assignment!.updatedAt)}'}',
         ],
       )
       .toList();
@@ -1902,6 +1903,14 @@ class OperationsReportPdfService {
   static String _reportCellText(String value) =>
       value.replaceAll(RegExp(r'\s+'), ' ').trim();
 
+  static String _formatInnerCoverLocalDateTime(DateTime value) => DateFormat(
+    innerCoverDateTimePattern,
+  ).format(operationsReportPlantTime(value));
+
+  static String _formatInnerCoverLocalDate(DateTime value) => DateFormat(
+    innerCoverDatePattern,
+  ).format(operationsReportPlantTime(value));
+
   static String _formatLocalDateTime(DateTime value) =>
       _dateTime.format(operationsReportPlantTime(value));
 
@@ -2189,12 +2198,12 @@ class OperationsReportPdfService {
     };
     final times = <String>[
       if (profile.receivedOrCompletedOn != null)
-        'Received/completed ${_formatLocalDate(profile.receivedOrCompletedOn!)}',
+        'Received/completed ${_formatInnerCoverLocalDate(profile.receivedOrCompletedOn!)}',
       if (profile.incorporatedOn != null)
-        'Incorporated ${_formatLocalDate(profile.incorporatedOn!)}',
+        'Incorporated ${_formatInnerCoverLocalDate(profile.incorporatedOn!)}',
       if (profile.acceptedAt != null)
-        'Accepted ${_formatLocalDateTime(profile.acceptedAt!)}',
-      'Updated ${_formatLocalDateTime(profile.updatedAt)}',
+        'Accepted ${_formatInnerCoverLocalDateTime(profile.acceptedAt!)}',
+      'Updated ${_formatInnerCoverLocalDateTime(profile.updatedAt)}',
     ];
     return <String>[
       'Inner Cover ${profile.serialNumber}\n${profile.assetClassName}',

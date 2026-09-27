@@ -143,14 +143,17 @@ final innerCoverAssignmentBatchProvider =
     });
 
 final innerCoverHistoryProvider = StreamProvider.autoDispose
-    .family<List<InnerCoverLinkage>, String>((ref, innerCoverId) {
+    .family<DecodedSnapshotBatch<InnerCoverLinkage>, String>((
+      ref,
+      innerCoverId,
+    ) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchInnerCoverHistory(innerCoverId);
     });
 
 final baseInnerCoverHistoryProvider = StreamProvider.autoDispose
-    .family<List<InnerCoverLinkage>, String>((ref, baseId) {
+    .family<DecodedSnapshotBatch<InnerCoverLinkage>, String>((ref, baseId) {
       return ref
           .watch(assetHierarchyRepositoryProvider)
           .watchBaseInnerCoverHistory(baseId);

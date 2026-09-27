@@ -13054,10 +13054,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 626
-    and a03_inventory_report.get("siteCount") == 2197
+    and a03_inventory_report.get("operationCount") == 625
+    and a03_inventory_report.get("siteCount") == 2196
     and a03_inventory_report.get("inventoryDigest")
-        == "0E9B82A21AA37BD09E0E457D9A53CD38FEECBD2E919C23A68829C9247A65A178"
+        == "9DCDBFDE91816018F603C1F782AC2AB8273C9027BACEA3013D67D47961E7D9DD"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -13115,7 +13115,7 @@ check(
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
     and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 128
     and a04_inventory_report.get("inventoryDigest")
-        == "1475F60C8E7DFF4FBB9E28F607035E46670A1510232EF841B965536DD75B4513"
+        == "185C1A811F3F9217AFF48BBC5A2F03D5DDD4A8542522B9EC9A12CB6F0EC68DA6"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13435,7 +13435,7 @@ check(
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
     and a05_decoder_inventory_report.get("surfaceCount") == 128
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 111
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 112
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 66
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 61
     and a05_decoder_inventory_report.get("riskCandidateCount") == 561
@@ -13444,7 +13444,7 @@ check(
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
     and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 128
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 111
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 112
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
