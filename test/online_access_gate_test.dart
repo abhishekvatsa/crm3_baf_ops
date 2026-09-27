@@ -173,6 +173,74 @@ void main() {
     },
   );
 
+  testWidgets(
+    'unsupported accessDisposition remains recoverable after corrected server proof',
+    (tester) async {
+      var corrected = false;
+      var profileSubscriptions = 0;
+      var serverReads = 0;
+      final checked = Completer<AppUser?>();
+      Map<String, dynamic> wire() => {
+        ...account().toFirestore(),
+        'accessDisposition': corrected ? 'approved' : 'unsupported-value',
+      };
+      AppUser decode(Map<String, dynamic> data) => AppUser.fromFirestore(
+        data,
+        'user',
+        fromCache: false,
+        observedAt: DateTime.utc(2026, 9, 27),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => Stream.value(_SignedInUser()),
+          ),
+          currentAppUserProvider.overrideWith((ref) {
+            profileSubscriptions++;
+            return Stream.value(wire()).map(decode);
+          }),
+          onlineAccessReaderProvider.overrideWithValue((uid) {
+            expect(uid, 'user');
+            serverReads++;
+            return checked.future;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await _pumpGate(tester, container);
+      expect(
+        container.read(currentAppUserProvider).error,
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('access disposition'),
+        ),
+      );
+      expect(find.text('Protected saved work'), findsNothing);
+      expect(find.text('Check access again'), findsOneWidget);
+      expect(find.text('Sign out'), findsOneWidget);
+      expect(serverReads, 0);
+      expect(tester.takeException(), isNull);
+
+      corrected = true;
+      await tester.tap(find.text('Check access again'));
+      await tester.pump();
+      await tester.pump();
+      expect(profileSubscriptions, 2);
+      expect(serverReads, 1);
+      expect(find.text('Protected saved work'), findsNothing);
+      expect(
+        find.text('Protected saved work', skipOffstage: false),
+        findsOneWidget,
+      );
+      checked.complete(decode(wire()));
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Protected saved work'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('profile error conceals a retained approved actor and editor', (
     tester,
   ) async {

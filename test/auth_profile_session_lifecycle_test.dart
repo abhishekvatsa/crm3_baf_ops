@@ -46,6 +46,63 @@ void main() {
   );
 
   test(
+    'unsupported accessDisposition requires an explicit fresh profile recheck',
+    () async {
+      final session = _Session();
+      addTearDown(session.close);
+      await session.start();
+      final old = session.store.active.single;
+      old.controller.add(_Snapshot('A'));
+      await session.flush();
+      expect(CurrentActorAccess.resolve(session.profile).isReady, isTrue);
+
+      old.controller.add(
+        _Snapshot('A', overrides: {'accessDisposition': 'unsupported-value'}),
+      );
+      await session.flush();
+      expect(
+        session.profile.error,
+        isA<FormatException>().having(
+          (error) => error.message,
+          'message',
+          contains('access disposition'),
+        ),
+      );
+      expect(CurrentActorAccess.resolve(session.profile).actor, isNull);
+      expect(old.cancelled, isTrue);
+      expect(session.auth.user!.refreshes, 0);
+
+      // Correcting an obsolete callback cannot restore the old authority.
+      old.controller.add(
+        _Snapshot('A', overrides: {'accessDisposition': 'approved'}),
+      );
+      await session.flush();
+      expect(session.profile.hasError, isTrue);
+      expect(CurrentActorAccess.resolve(session.profile).isReady, isFalse);
+
+      // This is the same explicit provider invalidation used by the gate's
+      // Check access again action, after the server profile is corrected.
+      session.container.invalidate(currentAppUserProvider);
+      await session.flush();
+      final fresh = session.store.active.single;
+      expect(fresh, isNot(same(old)));
+      expect(CurrentActorAccess.resolve(session.profile).isReady, isFalse);
+      fresh.controller.add(
+        _Snapshot('A', overrides: {'accessDisposition': 'approved'}),
+      );
+      await session.flush();
+      expect(session.profile.hasError, isFalse);
+      expect(session.profile.requireValue!.accessDisposition, 'approved');
+      expect(
+        session.profile.requireValue!.hasServerAuthorityObservation,
+        isTrue,
+      );
+      expect(CurrentActorAccess.resolve(session.profile).isReady, isTrue);
+      expect(session.auth.user!.refreshes, 0);
+    },
+  );
+
+  test(
     'token refresh completing after sign-out cannot reopen old profile',
     () async {
       final session = _Session();
