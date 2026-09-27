@@ -1116,7 +1116,6 @@ class _TicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deptColor = _agencyColor(ticket.routedTo);
     final elapsed = DateTime.now().difference(ticket.startDate);
     final safeElapsed = elapsed.isNegative ? Duration.zero : elapsed;
     final elapsedText = _formatDuration(safeElapsed);
@@ -1171,33 +1170,76 @@ class _TicketCard extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: deptColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(BafRadius.medium),
-                    ),
-                    child: Icon(
-                      Icons.build_rounded,
-                      color: deptColor,
-                      size: 27,
-                    ),
-                  ),
-                  const SizedBox(width: BafSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          assetLabel,
-                          style: const TextStyle(
-                            color: BafColors.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
+                        Wrap(
+                          spacing: BafSpacing.sm,
+                          runSpacing: BafSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              assetLabel,
+                              style: const TextStyle(
+                                color: BafColors.textPrimary,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            if (ticket.isCritical)
+                              const StatusBadge(
+                                label: 'CRITICAL',
+                                color: BafColors.danger,
+                                icon: Icons.priority_high_rounded,
+                              ),
+                          ],
                         ),
                         const SizedBox(height: BafSpacing.xs),
+                        Wrap(
+                          spacing: BafSpacing.md,
+                          runSpacing: BafSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (lanePlan != null)
+                              for (final laneName in lanePlan.assignedLanes)
+                                _TicketSummaryLabel(
+                                  label: _deptLabel(
+                                    RoutedTo.values.byName(laneName),
+                                  ),
+                                  color: _agencyColor(
+                                    RoutedTo.values.byName(laneName),
+                                  ),
+                                  icon:
+                                      lanePlan.completedLanes.contains(laneName)
+                                      ? Icons.task_alt_rounded
+                                      : lanePlan.acknowledgedLanes.contains(
+                                          laneName,
+                                        )
+                                      ? Icons.verified_rounded
+                                      : Icons.schedule_rounded,
+                                )
+                            else
+                              const _TicketSummaryLabel(
+                                label: 'LANE DATA ERROR',
+                                color: BafColors.danger,
+                                icon: Icons.error_outline_rounded,
+                              ),
+                            _TicketSummaryLabel(
+                              label: ticket.status == TicketStatus.acknowledged
+                                  ? 'Acknowledged'
+                                  : ticket.status == TicketStatus.inProgress
+                                  ? 'In progress'
+                                  : 'Open $elapsedText',
+                              color: ticket.status == TicketStatus.acknowledged
+                                  ? BafColors.warning
+                                  : BafColors.maintenance,
+                              icon: ticket.status == TicketStatus.acknowledged
+                                  ? Icons.verified_rounded
+                                  : Icons.timer_outlined,
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
@@ -1232,85 +1274,54 @@ class _TicketCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: BafSpacing.sm),
-              Wrap(
-                spacing: BafSpacing.sm,
-                runSpacing: BafSpacing.sm,
-                children: [
-                  if (lanePlan != null)
-                    for (final laneName in lanePlan.assignedLanes)
+              if (!ticket.isSynced ||
+                  burnerLockout != null ||
+                  ticket.isWorkflowLinked ||
+                  ticket.operationalEventIssueLinkIds.isNotEmpty) ...[
+                const SizedBox(height: BafSpacing.sm),
+                Wrap(
+                  spacing: BafSpacing.sm,
+                  runSpacing: BafSpacing.sm,
+                  children: [
+                    if (!ticket.isSynced)
+                      const StatusBadge(
+                        label: 'SYNC PENDING',
+                        color: BafColors.warning,
+                        icon: Icons.cloud_off_rounded,
+                      ),
+                    if (burnerLockout != null)
                       StatusBadge(
-                        label: _deptLabel(RoutedTo.values.byName(laneName)),
-                        color: _agencyColor(RoutedTo.values.byName(laneName)),
-                        icon: lanePlan.completedLanes.contains(laneName)
-                            ? Icons.task_alt_rounded
-                            : lanePlan.acknowledgedLanes.contains(laneName)
-                            ? Icons.verified_rounded
-                            : Icons.schedule_rounded,
-                      )
-                  else
-                    const StatusBadge(
-                      label: 'LANE DATA ERROR',
-                      color: BafColors.danger,
-                      icon: Icons.error_outline_rounded,
-                    ),
-                  if (ticket.isCritical)
-                    const StatusBadge(
-                      label: 'CRITICAL',
-                      color: BafColors.danger,
-                      icon: Icons.priority_high_rounded,
-                    ),
-                  if (!ticket.isSynced)
-                    const StatusBadge(
-                      label: 'SYNC PENDING',
-                      color: BafColors.warning,
-                      icon: Icons.cloud_off_rounded,
-                    ),
-                  if (burnerLockout != null)
-                    StatusBadge(
-                      label: 'BURNERS ${burnerLockout.positions.join(', ')}',
-                      color: BafColors.audit,
-                      icon: Icons.local_fire_department_outlined,
-                    ),
-                  if (burnerLockout?.hasRedHotObservation == true)
-                    StatusBadge(
-                      label:
-                          'RED HOT ${burnerLockout!.redHotPositions.map((value) => 'B$value').join(', ')}',
-                      color: BafColors.danger,
-                      icon: Icons.warning_amber_rounded,
-                    ),
-                  StatusBadge(
-                    label: ticket.status == TicketStatus.acknowledged
-                        ? 'Acknowledged'
-                        : ticket.status == TicketStatus.inProgress
-                        ? 'In progress'
-                        : 'Open $elapsedText',
-                    color: ticket.status == TicketStatus.acknowledged
-                        ? BafColors.warning
-                        : BafColors.maintenance,
-                    icon: ticket.status == TicketStatus.acknowledged
-                        ? Icons.verified_rounded
-                        : Icons.timer_outlined,
-                  ),
-                  if (ticket.isWorkflowLinked)
-                    StatusBadge(
-                      label: ticket.workflowStateLabel,
-                      color: ticket.workflowDeferred
-                          ? BafColors.warning
-                          : BafColors.audit,
-                      icon: ticket.workflowDeferred
-                          ? Icons.pause_circle_outline_rounded
-                          : Icons.account_tree_outlined,
-                    ),
-                  if (ticket.operationalEventIssueLinkIds.isNotEmpty)
-                    StatusBadge(
-                      label:
-                          '${ticket.operationalEventIssueLinkIds.length} EVENT LINK${ticket.operationalEventIssueLinkIds.length == 1 ? '' : 'S'}',
-                      color: BafColors.warning,
-                      icon: Icons.link_rounded,
-                    ),
-                ],
-              ),
+                        label: 'BURNERS ${burnerLockout.positions.join(', ')}',
+                        color: BafColors.audit,
+                        icon: Icons.local_fire_department_outlined,
+                      ),
+                    if (burnerLockout?.hasRedHotObservation == true)
+                      StatusBadge(
+                        label:
+                            'RED HOT ${burnerLockout!.redHotPositions.map((value) => 'B$value').join(', ')}',
+                        color: BafColors.danger,
+                        icon: Icons.warning_amber_rounded,
+                      ),
+                    if (ticket.isWorkflowLinked)
+                      StatusBadge(
+                        label: ticket.workflowStateLabel,
+                        color: ticket.workflowDeferred
+                            ? BafColors.warning
+                            : BafColors.audit,
+                        icon: ticket.workflowDeferred
+                            ? Icons.pause_circle_outline_rounded
+                            : Icons.account_tree_outlined,
+                      ),
+                    if (ticket.operationalEventIssueLinkIds.isNotEmpty)
+                      StatusBadge(
+                        label:
+                            '${ticket.operationalEventIssueLinkIds.length} EVENT LINK${ticket.operationalEventIssueLinkIds.length == 1 ? '' : 'S'}',
+                        color: BafColors.warning,
+                        icon: Icons.link_rounded,
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
               Text(
                 ticket.description,

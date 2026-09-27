@@ -1,5 +1,37 @@
 part of 'ticket_screen.dart';
 
+/// Compact, wrapping metadata without the height of a separate status pill.
+class _TicketSummaryLabel extends StatelessWidget {
+  const _TicketSummaryLabel({
+    required this.label,
+    required this.color,
+    required this.icon,
+  });
+
+  final String label;
+  final Color color;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 14, color: color),
+      const SizedBox(width: 4),
+      Flexible(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
 class _MetaRow extends StatelessWidget {
   final IconData icon;
   final String text;
