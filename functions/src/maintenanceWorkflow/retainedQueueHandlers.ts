@@ -369,12 +369,20 @@ const apply: CommandHandler = async ({tx, command, context}) => {
       } else if (before[field] != null) candidate[field] = before[field];
     }
   }
-  const accepted: Mutable = {...(before ?? {}), ...candidate};
+  let accepted: Mutable;
   if (collection === "job_executions") {
-    // Preserve native/original pinned fields on disk, including server fields.
-    const update = Object.fromEntries([...WORK].map((key) => [key, candidate[key] ?? null]));
+    // Omission preserves existing work; an explicit null still clears it.
+    // Derive evidence from exactly this patch so pinned fields also retain
+    // their stored representation in both the record and its audit/receipt.
+    const update = Object.fromEntries([...WORK]
+      .filter((key) => Object.prototype.hasOwnProperty.call(candidate, key))
+      .map((key) => [key, candidate[key] ?? null]));
+    accepted = {...before, ...update};
     tx.update(path, update);
-  } else tx.set(path, candidate, true);
+  } else {
+    accepted = {...(before ?? {}), ...candidate};
+    tx.set(path, candidate, true);
+  }
   tx.create(auditPath(command.commandId), {
     entityType: AUDIT_ENTITIES[command.commandType], entityId: command.aggregateId,
     action: candidate.isDeleted ? "delete" : before == null ? "create" : "update", severity: "low",

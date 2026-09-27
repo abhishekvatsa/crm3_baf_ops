@@ -44,7 +44,7 @@ suite('CF01 authenticated HTTP boundary',()=>{
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIRESTORE_EMULATOR_HOST||'')||
       !/^127\.0\.0\.1:\d+$/.test(process.env.FIREBASE_AUTH_EMULATOR_HOST||'')) throw Error('Isolated loopback demo emulators are required.');
     app=initializeApp({projectId},prefix);db=getFirestore(app);
-    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['historicalEditor','admin'],['paddedEditor','admin'],['paddedTemplateSi','si'],['paddedTemplateAdmin','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['ops','operations']]){
+    for(const [name,role] of [['admin','admin'],['admin2','admin'],['catalogueAuthor','admin'],['catalogueEditor','admin'],['historicalEditor','admin'],['paddedEditor','admin'],['paddedTemplateSi','si'],['paddedTemplateAdmin','admin'],['si','si'],['worker','contractSupervisor'],['worker2','contractSupervisor'],['omissionWorker','contractSupervisor'],['representationWorker','contractSupervisor'],['ops','operations']]){
       const response=await fetch(`http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=emulator-only`,{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:`${prefix}-${name}@example.invalid`,password:'synthetic-test-only',returnSecureToken:true})});
       const auth=await response.json();if(!auth.idToken)throw Error(`Auth fixture failed for ${name}`);
@@ -114,6 +114,74 @@ suite('CF01 authenticated HTTP boundary',()=>{
     await db.doc(`users/${actors[owner].uid}`).update({isApproved:true,
       accessDisposition:'approved',authorityRevision:profile.authorityRevision});
     expect(await accepted(actors[owner],cmd)).toEqual(first);
+    if(type==='updateJobExecutionWork') {
+      const proveWork=async(original,candidate,expected,suffix,actor)=>{
+        const path=`job_executions/${original.firestoreId}`, seeded=await seedStamped(path,original);
+        const work=make('updateJobExecutionWork',candidate,`work-parity-${suffix}`), frozen=JSON.stringify(work);
+        const receipt=await accepted(actor,work);
+        expect(receipt.result.record).toEqual(expected);
+        expect(JSON.stringify(work)).toBe(frozen);
+        const baseline=await waitForStamped(path,expected,seeded._globalPullServerUpdatedAt);
+        const snapshot=await db.doc(path).get();
+        const audit=await db.doc(`audit_logs/server_cf01_${work.commandId}`).get();
+        const storedReceipt=await db.doc(`maintenance_workflow_command_receipts/${work.commandId}`).get();
+        expect(storedReceipt.data().result.record).toEqual(expected);
+        expect(JSON.parse(audit.data().beforeJson)).toEqual(original);
+        expect(JSON.parse(audit.data().afterJson)).toEqual(expected);
+        expect(await accepted(actor,work)).toEqual(receipt);
+        const replayed=await db.doc(path).get();
+        expect(replayed.data()).toEqual(baseline);
+        expect(replayed.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await audit.ref.get()).updateTime.isEqual(audit.updateTime)).toBe(true);
+        expect((await storedReceipt.ref.get()).updateTime.isEqual(storedReceipt.updateTime)).toBe(true);
+      };
+      for(const [field,value] of [['remarks','Existing observation'],['metadataJson',' {"operatorNote":"Existing evidence"} ']]) {
+        for(const state of ['value','missing','null']) {
+          for(const input of ['omitted','null']) {
+            const suffix=`${field}-${state}-${input}`;
+            const original={...executionRecord(`${prefix}-work-${suffix}`),[field]:state==='value'?value:null};
+            if(state==='missing') delete original[field];
+            const candidate={...original,version:2,updatedAt:'2026-09-27T00:02:00.234567Z'};
+            if(input==='omitted') delete candidate[field]; else candidate[field]=null;
+            await proveWork(original,candidate,{...original,...candidate},suffix,actors.omissionWorker);
+          }
+        }
+      }
+      for(const [field,value] of [['assignedAgencies',[]],['isCancelled',false]]) {
+        for(const mode of ['stored-default','stored-missing']) {
+          const suffix=`${field}-${mode}`;
+          const original={...executionRecord(`${prefix}-work-${suffix}`),[field]:value};
+          if(mode==='stored-missing') delete original[field];
+          const candidate={...original,version:2,[field]:mode==='stored-default'?null:value};
+          await proveWork(original,candidate,{...original,version:2},suffix,actors.representationWorker);
+        }
+      }
+      const complete=executionRecord(`${prefix}-work-complete`);
+      const completeWork={...complete,version:2,updatedAt:'2026-09-27T00:02:00.234567Z',remarks:null,
+        teamsInvolved:['mechanical'],responsesJson:'[{"fieldId":"inspection","value":"normal"}]',
+        actionsJson:'[]',metadataJson:'{"operatorNote":"Current evidence"}'};
+      await proveWork(complete,completeWork,completeWork,'complete',actors.representationWorker);
+      const reserved={...executionRecord(`${prefix}-work-reserved`),metadataJson:'{"source":"server_governed_legacy_template_assignment","assignmentSchemaVersion":1}'};
+      const reservedPath=`job_executions/${reserved.firestoreId}`, baseline=await seedStamped(reservedPath,reserved);
+      const snapshot=await db.doc(reservedPath).get();
+      for(const [suffix,field,value,status] of [
+        ['metadata-omitted','metadataJson',undefined,'PERMISSION_DENIED'],
+        ['metadata-null','metadataJson',null,'PERMISSION_DENIED'],
+        ['required-omitted','responsesJson',undefined,'INVALID_ARGUMENT'],
+        ['required-null','teamsInvolved',null,'INVALID_ARGUMENT'],
+        ['physical-target','assetNumber',99,'PERMISSION_DENIED'],
+      ]) {
+        const candidate={...reserved,version:2};
+        if(value===undefined) delete candidate[field]; else candidate[field]=value;
+        const bad=make('updateJobExecutionWork',candidate,`work-parity-refused-${suffix}`);
+        expect((await invoke(actors.representationWorker,bad)).error.status).toBe(status);
+        const retained=await db.doc(reservedPath).get();
+        expect(retained.data()).toEqual(baseline);
+        expect(retained.updateTime.isEqual(snapshot.updateTime)).toBe(true);
+        expect((await db.doc(`audit_logs/server_cf01_${bad.commandId}`).get()).exists).toBe(false);
+        expect((await db.doc(`maintenance_workflow_command_receipts/${bad.commandId}`).get()).exists).toBe(false);
+      }
+    }
   },120000);
   test('fresh wrong-role and forged work identity are refused without receipt',async()=>{
     const id=`${prefix}-negative`, type=make('upsertAbnormalityType',typeRecord(id,actors.ops.uid),'wrong-role');

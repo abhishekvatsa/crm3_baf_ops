@@ -79,6 +79,90 @@ test('work edit changes only work fields and returns exact accepted snapshot',as
   expect(store.read('job_executions/execution-1')).toEqual({...next,serverEvidence:'retained'});
   expect(await execute(command('updateJobExecutionWork',next),'worker')).toEqual(first);
 });
+describe('execution work omission and persisted receipt parity',()=>{
+  const proveAccepted=async(original,candidate,expected)=>{
+    store.seed('job_executions/execution-1',original);
+    const cmd=command('updateJobExecutionWork',candidate,{expectedVersion:1}), frozen=JSON.stringify(cmd);
+    const receipt=await execute(cmd,'worker');
+    const persisted=store.read('job_executions/execution-1');
+    expect(persisted).toEqual(expected);
+    expect(receipt.result.record).toEqual(persisted);
+    expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`).result.record).toEqual(persisted);
+    const audit=store.read(`audit_logs/server_cf01_${cmd.commandId}`);
+    expect(JSON.parse(audit.beforeJson)).toEqual(original);
+    expect(JSON.parse(audit.afterJson)).toEqual(persisted);
+    expect(JSON.stringify(cmd)).toBe(frozen);
+    store.seed('job_executions/execution-1',{...persisted,version:5,remarks:'Later canonical work'});
+    const beforeReplay=store.entries();
+    expect(await execute(cmd,'worker')).toEqual(receipt);
+    expect(store.entries()).toEqual(beforeReplay);
+    return {cmd,beforeReplay};
+  };
+  for(const [field,value] of [['remarks','Existing observation'],['metadataJson',' {"operatorNote":"Existing evidence"} ']]) {
+    for(const state of ['value','missing','null']) {
+      test.each(['omitted','null'])(`${field} previously ${state}: %s has exact persisted, audit and replay evidence`,async(input)=>{
+        const original={...executionRecord(),[field]:state==='value'?value:null,serverEvidence:'Pinned server evidence'};
+        if(state==='missing') delete original[field];
+        const candidate={...executionRecord(),version:2,updatedAt:'2026-09-27T00:02:00.234567Z'};
+        if(input==='omitted') delete candidate[field]; else candidate[field]=null;
+        const expected={...original,...candidate};
+        const {cmd,beforeReplay}=await proveAccepted(original,candidate,expected);
+        const changed={...candidate};
+        if(input==='omitted') changed[field]=null; else delete changed[field];
+        await expect(execute({...cmd,payload:{...cmd.payload,record:changed}},'worker'))
+          .rejects.toMatchObject({code:'command-idempotency-conflict'});
+        expect(store.entries()).toEqual(beforeReplay);
+      });
+    }
+  }
+  for(const [field,value] of [['assignedAgencies',[]],['isCancelled',false],['workflowSchemaVersion',0],['laneSetVersion',0],['laneMappingReview',false]]) {
+    test.each(['stored-default','stored-missing'])(`pinned ${field} %s representation is not replaced by the candidate`,async(mode)=>{
+      const original={...executionRecord(),[field]:value,serverEvidence:'Pinned server evidence'};
+      if(mode==='stored-missing') delete original[field];
+      const candidate={...original,version:2,[field]:mode==='stored-default'?null:value};
+      delete candidate.serverEvidence;
+      const expected={...original,version:2};
+      await proveAccepted(original,candidate,expected);
+    });
+  }
+  for(const field of ['teamsInvolved','responsesJson','actionsJson','version','updatedAt']) {
+    test.each(['omitted','null'])(`required WORK ${field} %s remains refused without writes`,async(mode)=>{
+      const original=executionRecord();store.seed('job_executions/execution-1',original);
+      const candidate={...original,version:2};
+      if(mode==='omitted') delete candidate[field]; else candidate[field]=null;
+      const cmd=command('updateJobExecutionWork',candidate,{expectedVersion:1}), before=store.entries();
+      await expect(execute(cmd,'worker')).rejects.toMatchObject({code:'invalid-argument'});
+      expect(store.entries()).toEqual(before);
+      expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+      expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+    });
+  }
+  test.each(['omitted','null'])('reserved assignment metadata %s still refuses removal without writes',async(mode)=>{
+    const original={...executionRecord(),metadataJson:'{"source":"server_governed_legacy_template_assignment","assignmentSchemaVersion":1}'};
+    store.seed('job_executions/execution-1',original);
+    const candidate={...original,version:2};
+    if(mode==='omitted') delete candidate.metadataJson; else candidate.metadataJson=null;
+    const cmd=command('updateJobExecutionWork',candidate), before=store.entries();
+    await expect(execute(cmd,'worker')).rejects.toMatchObject({code:'permission-denied'});
+    expect(store.entries()).toEqual(before);
+    expect(store.read(`audit_logs/server_cf01_${cmd.commandId}`)).toBeNull();
+    expect(store.read(`maintenance_workflow_command_receipts/${cmd.commandId}`)).toBeNull();
+  });
+  test('complete client WORK payload retains explicit values and nulls without changing pinned fields',async()=>{
+    const original={...executionRecord(),remarks:'Earlier observation',metadataJson:'{"operatorNote":"Earlier evidence"}',serverEvidence:'Pinned server evidence'};
+    const candidate={...executionRecord(),version:2,updatedAt:'2026-09-27T00:02:00.234567Z',remarks:null,
+      teamsInvolved:['mechanical'],responsesJson:'[{"fieldId":"inspection","value":"normal"}]',
+      actionsJson:'[]',metadataJson:'{"operatorNote":"Current evidence"}'};
+    await proveAccepted(original,candidate,{...original,...candidate});
+  });
+  test('omitting optional WORK never permits a changed physical target',async()=>{
+    const original=executionRecord();store.seed('job_executions/execution-1',original);
+    const candidate={...original,version:2,assetNumber:99};delete candidate.remarks;delete candidate.metadataJson;
+    const before=store.entries();
+    await expect(execute(command('updateJobExecutionWork',candidate),'worker')).rejects.toMatchObject({code:'permission-denied'});
+    expect(store.entries()).toEqual(before);
+  });
+});
 test.each([{isCompleted:true},{isCancelled:true},{isDeleted:true}])('closed/deleted executions refuse work edits %j',async(state)=>{
   const before={...executionRecord(),...state}; store.seed('job_executions/execution-1',before);
   await expect(execute(command('updateJobExecutionWork',{...executionRecord(),version:2}),'worker')).rejects.toMatchObject({code:'failed-precondition'});
