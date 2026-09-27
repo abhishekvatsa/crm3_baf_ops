@@ -162,7 +162,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('plant-condition-down')));
       expect(selectedFilter, AssetConditionFilter.down);
       expect(opened, isFalse);
-      await tester.tap(find.text('Plant condition'));
+      await tester.tap(find.text('Plant condition — evidence incomplete'));
       expect(opened, isTrue);
     },
   );
@@ -227,8 +227,9 @@ void main() {
     expect(find.text('Furnace'), findsOneWidget);
     expect(
       find.text('All registered assets are in the available state.'),
-      findsNWidgets(3),
+      findsNothing,
     );
+    expect(find.textContaining('Unverified 1:'), findsNWidgets(3));
   });
 
   testWidgets(

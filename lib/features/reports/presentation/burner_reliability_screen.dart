@@ -125,8 +125,7 @@ class _BurnerReliabilityBodyState
         ),
       );
     }
-    if ((classesAsync.hasError && !classesAsync.hasValue) ||
-        (assetsAsync.hasError && !assetsAsync.hasValue)) {
+    if (classesAsync.hasError || assetsAsync.hasError) {
       return _shell(
         _ReportError(
           message: 'Could not load governed Furnace records.',
@@ -193,8 +192,7 @@ class _BurnerReliabilityBodyState
         ),
       );
     }
-    if ((roundsAsync.hasError && !roundsAsync.hasValue) ||
-        (ticketsAsync.hasError && !ticketsAsync.hasValue)) {
+    if (roundsAsync.hasError || ticketsAsync.hasError) {
       return _shell(
         _ReportError(
           message: 'Could not load burner reliability evidence.',
@@ -331,7 +329,13 @@ class _BurnerReliabilityBodyState
         ],
       ],
     ),
-    body: body,
+    body: Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: body,
+      ),
+    ),
   );
 
   Future<void> _openRoundForm() async {
@@ -459,41 +463,51 @@ class _ReliabilityMetrics extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scaledUnit = MediaQuery.textScalerOf(context).scale(1);
-    final metricExtent = 96 + 32 * (scaledUnit - 1).clamp(0.0, 1.0).toDouble();
-    return GridView.count(
-      crossAxisCount: 2,
-      mainAxisExtent: metricExtent,
-      crossAxisSpacing: BafSpacing.sm,
-      mainAxisSpacing: BafSpacing.sm,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        _Metric(
-          label: 'Lockout reports',
-          value: report.issueCount,
-          icon: Icons.warning_amber_rounded,
-          color: BafColors.maintenance,
-        ),
-        _Metric(
-          label: 'Witnessed surveys',
-          value: report.roundCount,
-          icon: Icons.fact_check_outlined,
-          color: BafColors.assets,
-        ),
-        _Metric(
-          label: 'Open positions',
-          value: report.openPositionCount,
-          icon: Icons.error_outline_rounded,
-          color: BafColors.danger,
-        ),
-        _Metric(
-          label: 'Red-hot records',
-          value: report.redHotObservationCount,
-          icon: Icons.local_fire_department_outlined,
-          color: BafColors.warning,
-        ),
-      ],
+    final metrics = [
+      _Metric(
+        label: 'Lockout reports',
+        value: report.issueCount,
+        icon: Icons.warning_amber_rounded,
+        color: BafColors.maintenance,
+      ),
+      _Metric(
+        label: 'Witnessed surveys',
+        value: report.roundCount,
+        icon: Icons.fact_check_outlined,
+        color: BafColors.assets,
+      ),
+      _Metric(
+        label: 'Open positions',
+        value: report.openPositionCount,
+        icon: Icons.error_outline_rounded,
+        color: BafColors.danger,
+      ),
+      _Metric(
+        label: 'Red-hot records',
+        value: report.redHotObservationCount,
+        icon: Icons.local_fire_department_outlined,
+        color: BafColors.warning,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final minimumWidth =
+            156 * MediaQuery.textScalerOf(context).scale(12) / 12;
+        final columns =
+            ((constraints.maxWidth + BafSpacing.sm) /
+                    (minimumWidth + BafSpacing.sm))
+                .floor()
+                .clamp(1, 4);
+        final width =
+            (constraints.maxWidth - BafSpacing.sm * (columns - 1)) / columns;
+        return Wrap(
+          spacing: BafSpacing.sm,
+          runSpacing: BafSpacing.sm,
+          children: [
+            for (final metric in metrics) SizedBox(width: width, child: metric),
+          ],
+        );
+      },
     );
   }
 }
@@ -514,6 +528,7 @@ class _Metric extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      constraints: const BoxConstraints(minHeight: 104),
       padding: const EdgeInsets.all(BafSpacing.md),
       decoration: BoxDecoration(
         color: BafColors.card,
@@ -539,11 +554,9 @@ class _Metric extends StatelessWidget {
                 ),
                 Text(
                   label,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: BafColors.textSecondary,
-                    fontSize: 11,
+                    fontSize: 13,
                   ),
                 ),
               ],
@@ -628,14 +641,6 @@ class _BurnerReliabilityCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  StatusBadge(
-                    label: row.openCount > 0
-                        ? '${row.openCount} open report${row.openCount == 1 ? '' : 's'}'
-                        : 'No open lockout',
-                    color: row.openCount > 0
-                        ? BafColors.danger
-                        : BafColors.success,
-                  ),
                   const SizedBox(width: BafSpacing.xs),
                   const Icon(
                     Icons.chevron_right_rounded,
@@ -648,6 +653,14 @@ class _BurnerReliabilityCard extends StatelessWidget {
                 spacing: BafSpacing.xs,
                 runSpacing: BafSpacing.xs,
                 children: [
+                  StatusBadge(
+                    label: row.openCount > 0
+                        ? '${row.openCount} open report${row.openCount == 1 ? '' : 's'}'
+                        : 'No open lockout',
+                    color: row.openCount > 0
+                        ? BafColors.danger
+                        : BafColors.success,
+                  ),
                   StatusBadge(
                     label: '${row.issueCount} reports',
                     color: BafColors.assets,

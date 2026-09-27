@@ -2,11 +2,15 @@ part of 'job_diary_provider.dart';
 
 class FirestoreJobDiaryRepository implements JobDiaryRepository {
   final AuditRepository _auditRepo;
+  final FirebaseFirestore _firestore;
 
-  FirestoreJobDiaryRepository({AuditRepository? auditRepository})
-    : _auditRepo = auditRepository ?? AuditRepository();
+  FirestoreJobDiaryRepository({
+    AuditRepository? auditRepository,
+    FirebaseFirestore? firestore,
+  }) : _auditRepo = auditRepository ?? AuditRepository(),
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final _entries = FirebaseFirestore.instance.collection('job_diary_entries');
+  late final _entries = _firestore.collection('job_diary_entries');
 
   @override
   Future<void> saveEntry(
@@ -272,17 +276,34 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
       final id = _cleanOptionalText(record.firestoreId);
       if (id == null) throw StateError('Diary identity is missing.');
       final reference = _entries.doc(id);
-      await FirebaseFirestore.instance.runTransaction((transaction) async {
+      await _firestore.runTransaction((transaction) async {
         final snapshot = await transaction.get(reference);
         final data = snapshot.data();
         final before = data == null ? null : JobDiaryEntry.fromMap(data, id);
         final afterMap = record.toMap();
-        if (before != null &&
-            persistedJsonEquivalent(
-              jsonEncode(before.toMap()),
-              jsonEncode(afterMap),
-            )) {
-          return;
+        afterMap['createdAt'] = record.createdAt.toUtc().toIso8601String();
+        afterMap['updatedAt'] = record.updatedAt.toUtc().toIso8601String();
+        if (before != null) {
+          if (!record.createdAt.isAtSameMomentAs(before.createdAt)) {
+            throw StateError('The diary creation time cannot be changed.');
+          }
+          final comparableAfter = Map<String, dynamic>.of(afterMap);
+          comparableAfter['createdAt'] = before.createdAt.toIso8601String();
+          if (record.updatedAt.isAtSameMomentAs(before.updatedAt)) {
+            comparableAfter['updatedAt'] = before.updatedAt.toIso8601String();
+          }
+          if (persistedJsonEquivalent(
+            jsonEncode(before.toMap()),
+            jsonEncode(comparableAfter),
+          )) {
+            return;
+          }
+          // Retain the exact origin in both the accepted record and its raw
+          // audit afterState. The semantic guard must run before this copy.
+          afterMap['createdAt'] = data!['createdAt'];
+          if (record.updatedAt.isAtSameMomentAs(before.updatedAt)) {
+            afterMap['updatedAt'] = data['updatedAt'];
+          }
         }
         final basis = record.reviewedServerVersion;
         if (basis == null ||
@@ -302,7 +323,7 @@ class FirestoreJobDiaryRepository implements JobDiaryRepository {
           );
         }
         transaction.set(
-          FirebaseFirestore.instance
+          _firestore
               .collection('audit_logs')
               .doc('diary_revision_${id}_${record.version}'),
           {

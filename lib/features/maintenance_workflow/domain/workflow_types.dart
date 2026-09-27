@@ -107,6 +107,7 @@ enum WorkflowCommandType {
   closeMaintenanceTicketWithoutResolution,
   reopenMaintenanceTicket,
   correctMaintenanceTicket,
+  identifyMaintenanceTicketComponent,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
   correctBurnerBlockInstallation,

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/audit_event_model.dart';
 import '../providers/audit_provider.dart';
+import '../repositories/audit_repository.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
@@ -102,12 +103,12 @@ class AuditTimelineScreen extends ConsumerWidget {
       ),
       body: auditAsync.when(
         loading: () => const BafLoadingPanel(label: 'Loading audit evidence'),
-        error:
-            (e, _) => BafStatePanel.error(
-              title: 'Audit evidence unavailable',
-              message: 'The entity history could not be loaded. $e',
-              onPrimary: () => ref.invalidate(auditTimelineProvider(scope)),
-            ),
+        error: (e, _) => _AuditLoadFailure(
+          error: e,
+          title: 'Audit evidence unavailable',
+          message: 'The entity history could not be loaded. $e',
+          onPrimary: () => ref.invalidate(auditTimelineProvider(scope)),
+        ),
         data: (events) {
           if (events.isEmpty) {
             return BafStatePanel.empty(
@@ -178,20 +179,19 @@ class RecentAuditLogScreen extends ConsumerWidget {
           IconButton(
             tooltip: 'Refresh audit log',
             icon: const Icon(Icons.refresh_rounded),
-            onPressed:
-                () => ref.invalidate(recentAuditEventsProvider(actor.uid)),
+            onPressed: () =>
+                ref.invalidate(recentAuditEventsProvider(actor.uid)),
           ),
         ],
       ),
       body: eventsAsync.when(
         loading: () => const BafLoadingPanel(label: 'Loading recent activity'),
-        error:
-            (error, _) => BafStatePanel.error(
-              title: 'Audit activity unavailable',
-              message: 'Recent governed changes could not be loaded. $error',
-              onPrimary:
-                  () => ref.invalidate(recentAuditEventsProvider(actor.uid)),
-            ),
+        error: (error, _) => _AuditLoadFailure(
+          error: error,
+          title: 'Audit activity unavailable',
+          message: 'Recent governed changes could not be loaded. $error',
+          onPrimary: () => ref.invalidate(recentAuditEventsProvider(actor.uid)),
+        ),
         data: (events) {
           if (events.isEmpty) {
             return BafStatePanel.empty(
@@ -264,13 +264,12 @@ class SyncConflictReviewScreen extends ConsumerWidget {
       ],
       body: conflictsAsync.when(
         loading: () => const BafLoadingPanel(label: 'Loading sync conflicts'),
-        error:
-            (e, _) => BafStatePanel.error(
-              title: 'Conflict evidence unavailable',
-              message: 'Sync conflicts could not be loaded. $e',
-              onPrimary:
-                  () => ref.invalidate(syncConflictAuditProvider(actor.uid)),
-            ),
+        error: (e, _) => _AuditLoadFailure(
+          error: e,
+          title: 'Conflict evidence unavailable',
+          message: 'Sync conflicts could not be loaded. $e',
+          onPrimary: () => ref.invalidate(syncConflictAuditProvider(actor.uid)),
+        ),
         data: (events) {
           if (events.isEmpty) {
             return const _NoSyncConflictsState();
@@ -297,6 +296,54 @@ class SyncConflictReviewScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _AuditLoadFailure extends StatelessWidget {
+  const _AuditLoadFailure({
+    required this.error,
+    required this.title,
+    required this.message,
+    required this.onPrimary,
+  });
+
+  final Object error;
+  final String title;
+  final String message;
+  final VoidCallback onPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final failure = error;
+    if (failure is! AuditHistoryUnavailable || failure.localEvents.isEmpty) {
+      return BafStatePanel.error(
+        title: title,
+        primaryLabel: 'Retry',
+        message: failure is AuditHistoryUnavailable
+            ? 'Server history could not be verified. No saved entries are '
+                  'available on this device; this does not mean no history exists.'
+            : message,
+        onPrimary: onPrimary,
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.all(BafSpacing.md),
+      children: [
+        const Text(
+          'History incomplete',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const Text(
+          'Server history could not be verified. Showing saved entries only; '
+          'other changes may be missing.',
+        ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(onPressed: onPrimary, child: const Text('Retry')),
+        ),
+        ...failure.localEvents.map((event) => _AuditTile(event: event)),
+      ],
     );
   }
 }

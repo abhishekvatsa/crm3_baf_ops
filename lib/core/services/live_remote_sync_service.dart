@@ -325,6 +325,7 @@ class LiveRemoteSyncService {
   LiveMaintenanceMirrorScope? _maintenanceScope;
   bool _maintenanceStarted = false;
   bool _pausedForLifecycle = false;
+  bool _disposed = false;
   int _lifecycleGeneration = 0;
 
   LiveRemoteSyncService(
@@ -349,12 +350,13 @@ class LiveRemoteSyncService {
            templateGovernanceRepository ?? IsarTemplateGovernanceRepository();
 
   void startMaintenanceOpenTicketMirror({required AppUser actor}) {
+    if (_disposed) return;
     final scope = LiveMaintenanceMirrorScope.forUser(actor);
     _startMaintenanceMirrorForScope(scope);
   }
 
   void pauseForLifecycle({String reason = 'app_backgrounded'}) {
-    if (kIsWeb || _pausedForLifecycle) return;
+    if (_disposed || kIsWeb || _pausedForLifecycle) return;
 
     _pausedForLifecycle = true;
     _cancelMaintenanceSubscriptions();
@@ -382,7 +384,7 @@ class LiveRemoteSyncService {
   }
 
   void resumeAfterLifecyclePause() {
-    if (kIsWeb || !_pausedForLifecycle) return;
+    if (_disposed || kIsWeb || !_pausedForLifecycle) return;
 
     _pausedForLifecycle = false;
     final scope = _maintenanceScope;
@@ -410,11 +412,8 @@ class LiveRemoteSyncService {
   }
 
   void stop() {
-    _pausedForLifecycle = false;
-    _maintenanceStarted = false;
-    _maintenanceScope = null;
-    _cleanLocalReconciliationVersions.clear();
-    _cancelMaintenanceSubscriptions();
+    if (_disposed) return;
+    _detach();
 
     _setHealth(
       _health.copyWith(
@@ -429,7 +428,21 @@ class LiveRemoteSyncService {
     );
   }
 
-  void dispose() => stop();
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    // WidgetRef is already invalid during ConsumerState unmount. Release
+    // listeners and invalidate in-flight work without publishing to its owner.
+    _detach();
+  }
+
+  void _detach() {
+    _pausedForLifecycle = false;
+    _maintenanceStarted = false;
+    _maintenanceScope = null;
+    _cleanLocalReconciliationVersions.clear();
+    _cancelMaintenanceSubscriptions();
+  }
 
   void _startMaintenanceMirrorForScope(
     LiveMaintenanceMirrorScope scope, {
@@ -1436,6 +1449,7 @@ class LiveRemoteSyncService {
     DocumentSnapshot<Map<String, dynamic>> snapshot, {
     bool propagateFailure = false,
   }) async {
+    if (_disposed) return;
     _maintenanceStarted = true;
     await _applyMaintenanceDoc(
       snapshot,

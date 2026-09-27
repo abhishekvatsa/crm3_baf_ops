@@ -7,6 +7,7 @@ import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
+import 'package:crm3_baf_ops/features/assets/domain/physical_plant_inventory.dart';
 import 'package:crm3_baf_ops/features/assets/providers/asset_hierarchy_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -348,70 +349,79 @@ void main() {
     expect(filter.endExclusive, DateTime.utc(2026, 9, 1, 18, 30));
   });
 
-  testWidgets('report dropdown selects a native serial cover subject', (
-    tester,
-  ) async {
-    final covers = assetClass('covers', 'Inner Cover', 'innerCover');
-    final cover = innerCoverProfile(
-      'serial-gr4',
-      covers,
-      InnerCoverLifecycleState.installed,
-    );
-    final other = innerCoverProfile(
-      'serial-gr19',
-      covers,
-      InnerCoverLifecycleState.available,
-    );
-    final actor = AppUser(
-      uid: 'report-manager',
-      name: 'Report manager',
-      email: 'reports@example.com',
-      roles: const [AppRole.admin],
-      isApproved: true,
-      createdAt: DateTime.utc(2026),
-    );
-    final observed = <OperationsReportFilter>[];
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
-          assetClassesProvider.overrideWith((ref) => Stream.value([covers])),
-          allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
-          innerCoverProfilesProvider.overrideWith(
-            (ref) => Stream.value([cover, other]),
-          ),
-          operationsReportProvider.overrideWith((ref, scope) {
-            observed.add(scope.filter);
-            return AsyncData(
-              buildOperationsReport(
-                filter: scope.filter,
-                tickets: const [],
-                executions: const [],
-                events: const [],
-                assetClasses: [covers],
-                assetInstances: const [],
-                innerCoverProfiles: [cover, other],
-                overview: const PlantAssetOverview(classes: [], assets: []),
-              ),
-            );
-          }),
-        ],
-        child: const MaterialApp(home: FleetStatusScreen()),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Scope and period'));
-    await tester.pumpAndSettle();
-    final assetSelector = find.byType(DropdownButtonFormField<String?>).at(1);
-    await tester.ensureVisible(assetSelector);
-    await tester.tap(assetSelector);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Inner Cover SERIAL-GR4').last);
-    await tester.pumpAndSettle();
-    expect(observed.last.assetInstanceId, cover.id);
-    expect(observed.last.subjectKind, OperationsReportSubjectKind.innerCover);
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'wide report stays centered and selects a native serial cover subject',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+      final cover = innerCoverProfile(
+        'serial-gr4',
+        covers,
+        InnerCoverLifecycleState.installed,
+      );
+      final other = innerCoverProfile(
+        'serial-gr19',
+        covers,
+        InnerCoverLifecycleState.available,
+      );
+      final actor = AppUser(
+        uid: 'report-manager',
+        name: 'Report manager',
+        email: 'reports@example.com',
+        roles: const [AppRole.admin],
+        isApproved: true,
+        createdAt: DateTime.utc(2026),
+      );
+      final observed = <OperationsReportFilter>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith((ref) => Stream.value(actor)),
+            assetClassesProvider.overrideWith((ref) => Stream.value([covers])),
+            allAssetInstancesProvider.overrideWith((ref) => Stream.value([])),
+            innerCoverProfilesProvider.overrideWith(
+              (ref) => Stream.value([cover, other]),
+            ),
+            operationsReportProvider.overrideWith((ref, scope) {
+              observed.add(scope.filter);
+              return AsyncData(
+                buildOperationsReport(
+                  filter: scope.filter,
+                  tickets: const [],
+                  executions: const [],
+                  events: const [],
+                  assetClasses: [covers],
+                  assetInstances: const [],
+                  innerCoverProfiles: [cover, other],
+                  overview: const PlantAssetOverview(classes: [], assets: []),
+                ),
+              );
+            }),
+          ],
+          child: const MaterialApp(home: FleetStatusScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final reportList = find.byType(ListView).first;
+      expect(tester.getSize(reportList).width, lessThanOrEqualTo(1100));
+      expect(
+        tester.getTopLeft(reportList).dx,
+        closeTo((1440 - tester.getSize(reportList).width) / 2, 0.1),
+      );
+      await tester.tap(find.text('Scope and period'));
+      await tester.pumpAndSettle();
+      final assetSelector = find.byType(DropdownButtonFormField<String?>).at(1);
+      await tester.ensureVisible(assetSelector);
+      await tester.tap(assetSelector);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Inner Cover SERIAL-GR4').last);
+      await tester.pumpAndSettle();
+      expect(observed.last.assetInstanceId, cover.id);
+      expect(observed.last.subjectKind, OperationsReportSubjectKind.innerCover);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('ranked report labels remain fully visible on narrow screens', (
     tester,
@@ -620,16 +630,13 @@ void main() {
     );
     expect(report.classSummaries.single.assetClassName, 'Furnace');
     expect(report.classSummaries.single.disruptionCount, 1);
-    expect(report.assetAvailabilityRate, 0);
+    expect(report.assetAvailabilityRate, isNull);
     expect(report.issueClosureRate, 0);
     expect(report.plannedCompletionRate, 0);
     expect(report.unavailableAssetCount, 1);
     expect(report.actionBacklogCount, 3);
     expect(report.assuranceBacklogCount, 0);
-    expect(
-      report.leadingManagementSignal,
-      '1 asset is outside the available state',
-    );
+    expect(report.leadingManagementSignal, 'Inventory evidence is incomplete');
     expect(report.managementSignals.map((signal) => signal.type), [
       OperationsManagementSignalType.unavailableAssets,
       OperationsManagementSignalType.openIssues,
@@ -688,20 +695,66 @@ void main() {
       overview: const PlantAssetOverview(classes: [], assets: []),
     );
 
-    expect(report.assetCount, 4);
+    expect(report.assetCount, 5);
+    expect(report.unknownAssetCount, 1);
+    expect(report.inventoryEvidenceComplete, isFalse);
     expect(report.availableAssetCount, 2);
     expect(report.underMaintenanceAssetCount, 1);
     expect(report.unfitAssetCount, 1);
-    expect(report.classSummaries.single.assetCount, 4);
-    expect(report.classSummaries.single.availableCount, 2);
-    expect(report.classSummaries.single.underMaintenanceCount, 1);
-    expect(report.classSummaries.single.unfitCount, 1);
+    final activeSummary = report.classSummaries.singleWhere(
+      (s) => s.assetClassId == innerCover.id,
+    );
+    final retiredSummary = report.classSummaries.singleWhere(
+      (s) => s.assetClassId == retiredInnerCover.id,
+    );
+    expect(activeSummary.assetCount, 4);
+    expect(activeSummary.availableCount, 2);
+    expect(activeSummary.underMaintenanceCount, 1);
+    expect(activeSummary.unfitCount, 1);
+    expect(retiredSummary.assetCount, 1);
+    expect(retiredSummary.availableCount, 0);
     expect(report.assetStates, isEmpty);
     expect(
       report.innerCoverProfiles.map((profile) => profile.serialNumber),
-      <String>['G97', 'GR19', 'GR4', 'N16'],
+      <String>['G97', 'GR19', 'GR4', 'N16', 'RETIRED-CLASS-PROFILE'],
     );
   });
+  test(
+    'report keeps the same qualified cover population as Plant condition across feed disagreement',
+    () {
+      final covers = assetClass('covers', 'Inner Cover', 'innerCover');
+      final retained = innerCoverProfile(
+        'serial-kept',
+        covers,
+        InnerCoverLifecycleState.installed,
+      );
+      final overview = physicalPlantInventory(
+        overview: const PlantAssetOverview(classes: [], assets: []),
+        classes: [covers],
+        profiles: [retained],
+        rejectedProfiles: {retained.id},
+      );
+      final report = buildOperationsReport(
+        filter: OperationsReportFilter(
+          startDate: DateTime.utc(2026, 8),
+          endDate: DateTime.utc(2026, 8, 31),
+        ),
+        tickets: [],
+        executions: [],
+        events: [],
+        assetClasses: [covers],
+        assetInstances: [],
+        innerCoverProfiles: [],
+        overview: overview,
+      );
+      expect(report.assetCount, overview.total);
+      expect(report.availableAssetCount, 0);
+      expect(report.unknownAssetCount, 1);
+      expect(report.innerCoverProfiles.single.id, retained.id);
+      expect(report.unverifiedInnerCoverIds, {retained.id});
+      expect(report.assetAvailabilityRate, isNull);
+    },
+  );
 
   test('serial cover scope retains its own assurance and inventory', () {
     final covers = assetClass('covers', 'Inner Cover', 'innerCover');
@@ -2058,6 +2111,8 @@ void main() {
           for (final item in assets)
             ChargeAbnormality()
               ..firestoreId = 'abnormality-${item.id}'
+              ..sourceChargeNo = 41001
+              ..linkedTicketFirestoreId = 'warning-${item.id}'
               ..loggedAt = DateTime.utc(2026, 8, 6)
               ..affectedAssets = [
                 AffectedAssetRef.fromMap({
@@ -2126,6 +2181,7 @@ void main() {
         filter: OperationsReportFilter(
           startDate: DateTime.utc(2026, 9, 1),
           endDate: DateTime.utc(2026, 9, 30),
+          qualityPeriodBasis: QualityReportPeriodBasis.outstanding,
           assetInstanceId: crane4.id,
         ),
         tickets: const [],
@@ -2172,9 +2228,10 @@ void main() {
           workflowStatuses: const [],
         ),
       );
-      expect(joinedReport.qualityWarnings.map((item) => item.warningId), [
-        'source-crane-4',
-      ]);
+      expect(
+        joinedReport.unmatchedQualityWarnings.map((item) => item.warningId),
+        ['source-crane-4'],
+      );
       expect(joinedReport.workflowLanes.map((item) => item.firestoreId), [
         'crane-4',
       ]);
@@ -2285,7 +2342,7 @@ void main() {
           type: AssetType.furnace,
           number: 7,
           loggedAt: DateTime.utc(2026, 8, 10),
-        ),
+        )..linkedTicketFirestoreId = 'furnace-warning',
         chargeAbnormality(
           id: 'outside-period',
           type: AssetType.furnace,
@@ -2450,6 +2507,7 @@ void main() {
       filter: OperationsReportFilter(
         startDate: reportPeriod,
         endDate: DateTime.utc(2026, 1, 31),
+        qualityPeriodBasis: QualityReportPeriodBasis.outstanding,
       ),
       tickets: const [],
       executions: const [],

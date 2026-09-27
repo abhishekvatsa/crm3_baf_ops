@@ -73,10 +73,9 @@ class TemplateDetailScreen extends ConsumerWidget {
             _ActionTile(
               icon: Icons.assignment_turned_in_rounded,
               label: 'Assign Job',
-              subtitle:
-                  fieldsValid
-                      ? 'Create a new job execution for a specific asset.'
-                      : 'Repair saved fields before assigning this template.',
+              subtitle: fieldsValid
+                  ? 'Create a new job execution for a specific asset.'
+                  : 'Repair saved fields before assigning this template.',
               color: BafColors.planned,
               onTap: () {
                 if (!fieldsValid) {
@@ -117,10 +116,9 @@ class TemplateDetailScreen extends ConsumerWidget {
               _ActionTile(
                 icon: Icons.edit_note_rounded,
                 label: 'Edit Template',
-                subtitle:
-                    fieldsValid
-                        ? 'Modify fields, structure, and template details.'
-                        : 'Repair saved fields before editing this template.',
+                subtitle: fieldsValid
+                    ? 'Modify fields, structure, and template details.'
+                    : 'Repair saved fields before editing this template.',
                 color: BafColors.warning,
                 onTap: () {
                   if (!fieldsValid) {
@@ -134,8 +132,8 @@ class TemplateDetailScreen extends ConsumerWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder:
-                          (_) => TemplateDesignerScreen(template: template),
+                      builder: (_) =>
+                          TemplateDesignerScreen(template: template),
                     ),
                   );
                 },
@@ -224,6 +222,10 @@ class TemplateDetailScreen extends ConsumerWidget {
           'Template marked deleted on this device; synchronization is queued.',
           BafColors.warning,
         ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+          BafColors.warning,
+        ),
         SyncRequestOutcome.failed => (
           'Template marked deleted on this device, but cloud synchronization needs attention.',
           BafColors.danger,
@@ -309,16 +311,12 @@ class _TemplateDeleteDialogState extends State<_TemplateDeleteDialog> {
                   labelText: 'Reason (optional)',
                   border: OutlineInputBorder(),
                 ),
-                items:
-                    AuditReason.values.map((reason) {
-                      return DropdownMenuItem(
-                        value: reason,
-                        child: Text(
-                          reason.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      );
-                    }).toList(),
+                items: AuditReason.values.map((reason) {
+                  return DropdownMenuItem(
+                    value: reason,
+                    child: Text(reason.name, overflow: TextOverflow.ellipsis),
+                  );
+                }).toList(),
                 onChanged: (value) => setState(() => _selectedReason = value),
               ),
               const SizedBox(height: 10),
@@ -345,14 +343,13 @@ class _TemplateDeleteDialogState extends State<_TemplateDeleteDialog> {
             backgroundColor: BafColors.danger,
             foregroundColor: Colors.white,
           ),
-          onPressed:
-              () => Navigator.pop(
-                context,
-                _TemplateDeleteDecision(
-                  reason: _selectedReason,
-                  notes: _cleanOptionalText(_reasonController.text),
-                ),
-              ),
+          onPressed: () => Navigator.pop(
+            context,
+            _TemplateDeleteDecision(
+              reason: _selectedReason,
+              notes: _cleanOptionalText(_reasonController.text),
+            ),
+          ),
           child: const Text('Delete'),
         ),
       ],
@@ -431,15 +428,13 @@ class _TemplateSummaryCard extends StatelessWidget {
                 icon: Icons.precision_manufacturing_rounded,
               ),
               StatusBadge(
-                label:
-                    fieldRead.isValid
-                        ? '${fieldRead.entries.length} fields'
-                        : 'Fields need repair',
+                label: fieldRead.isValid
+                    ? '${fieldRead.entries.length} fields'
+                    : 'Fields need repair',
                 color: fieldRead.isValid ? BafColors.planned : BafColors.danger,
-                icon:
-                    fieldRead.isValid
-                        ? Icons.list_alt_rounded
-                        : Icons.warning_amber_rounded,
+                icon: fieldRead.isValid
+                    ? Icons.list_alt_rounded
+                    : Icons.warning_amber_rounded,
               ),
               ...template.assignedAgencies.map(
                 (agency) => StatusBadge(

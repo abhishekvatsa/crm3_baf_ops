@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_receipt_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/data/workflow_command_record.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_command_contract.dart';
@@ -64,21 +65,245 @@ void main() {
     );
   }
 
-  WorkflowUncertainRetryService serviceWith(_Gateway gateway) {
+  WorkflowUncertainRetryService serviceWith(
+    _Gateway gateway, {
+    WorkflowRepository? retryRepository,
+  }) {
+    final store = retryRepository ?? repository;
     return WorkflowUncertainRetryService(
-      repository: repository,
+      repository: store,
       executor: WorkflowOnlineExecutor(
         connectivity: Connectivity(),
         gateway: gateway,
-        repository: repository,
+        repository: store,
         now: () => now,
-        checkConnectivity:
-            () async => <ConnectivityResult>[ConnectivityResult.wifi],
+        checkConnectivity: () async => <ConnectivityResult>[
+          ConnectivityResult.wifi,
+        ],
         isNetworkBlocked: () async => false,
       ),
       now: () => now,
     );
   }
+
+  group('a guarded sync run', () {
+    late bool current;
+    late SyncRunGuard guard;
+
+    setUp(() {
+      current = true;
+      guard = SyncRunGuard(() {
+        if (!current) {
+          throw const SyncRunAborted('account-or-authority-changed');
+        }
+      });
+    });
+
+    Future<void> seedPair() async {
+      await seedDue(
+        commandId: 'cmd-first',
+        payloadJson: '{"lane":"MECHANICAL"}',
+      );
+      await seedDue(
+        commandId: 'cmd-next',
+        payloadJson: '{"lane":"ELECTRICAL"}',
+      );
+    }
+
+    Future<void> expectNextUntouched() async {
+      final next = (await repository.getRetryCommand('cmd-next'))!;
+      expect(next.stateKey, 'uncertainOutcome');
+      expect(next.lastAttemptAt, isNull);
+      expect(next.attemptCount, 0);
+    }
+
+    test('an invalid session never takes the first claim', () async {
+      await seedPair();
+      current = false;
+      final gateway = _Gateway.accepting();
+      await expectLater(
+        serviceWith(gateway).retryDueCommands(runGuard: guard),
+        throwsA(isA<SyncRunAborted>()),
+      );
+      expect(gateway.calls, 0);
+      expect(
+        (await repository.getRetryCommand('cmd-first'))!.lastAttemptAt,
+        isNull,
+      );
+      await expectNextUntouched();
+    });
+
+    test(
+      'an interrupted claim releases only its lease without changing intent',
+      () async {
+        await seedPair();
+        final before = (await repository.getRetryCommand('cmd-first'))!;
+        final claims = _SettleOnClaimRepository(
+          repository,
+          onClaimed: (_) async {
+            current = false;
+          },
+        );
+        final gateway = _Gateway.accepting();
+        await expectLater(
+          serviceWith(
+            gateway,
+            retryRepository: claims,
+          ).retryDueCommands(runGuard: guard),
+          throwsA(isA<SyncRunAborted>()),
+        );
+        final after = (await repository.getRetryCommand('cmd-first'))!;
+        expect(after.stateKey, 'uncertainOutcome');
+        expect(after.lastAttemptAt?.toUtc(), now);
+        expect(after.payloadJson, before.payloadJson);
+        expect(after.nextRetryAt, before.nextRetryAt);
+        expect(after.attemptCount, before.attemptCount);
+        expect(gateway.calls, 0);
+        await expectNextUntouched();
+      },
+    );
+
+    test('abort cleanup cannot release a newer claimant', () async {
+      await seedPair();
+      final newerClaim = now.add(const Duration(minutes: 6));
+      final claims = _SettleOnClaimRepository(
+        repository,
+        onClaimed: (id) async {
+          final newer = (await repository.getRetryCommand(id))!
+            ..lastAttemptAt = newerClaim;
+          await repository.saveRetryCommand(newer);
+          current = false;
+        },
+      );
+      await expectLater(
+        serviceWith(
+          _Gateway.accepting(),
+          retryRepository: claims,
+        ).retryDueCommands(runGuard: guard),
+        throwsA(isA<SyncRunAborted>()),
+      );
+      final after = (await repository.getRetryCommand('cmd-first'))!;
+      expect(after.stateKey, 'sending');
+      expect(after.lastAttemptAt?.toUtc(), newerClaim);
+      await expectNextUntouched();
+    });
+
+    test(
+      'abort cleanup leaves an accepted receipt and its evidence intact',
+      () async {
+        await seedPair();
+        final claims = _SettleOnClaimRepository(
+          repository,
+          onClaimed: (id) async {
+            // A receipt may arrive before its retry row is reconciled. Cleanup
+            // must consult the receipt atomically, not just the sending lease.
+            await repository.saveReceipt(
+              WorkflowCommandReceiptRecord()
+                ..commandId = id
+                ..aggregateId = 'ticket-base-205'
+                ..resultKey = 'maintenance-ticket-acknowledged'
+                ..aggregateVersion = 5
+                ..appliedAt = now,
+            );
+            current = false;
+          },
+        );
+        await expectLater(
+          serviceWith(
+            _Gateway.accepting(),
+            retryRepository: claims,
+          ).retryDueCommands(runGuard: guard),
+          throwsA(isA<SyncRunAborted>()),
+        );
+        expect(await repository.getReceipt('cmd-first'), isNotNull);
+        expect(
+          (await repository.getRetryCommand('cmd-first'))!.stateKey,
+          'sending',
+        );
+        await expectNextUntouched();
+      },
+    );
+
+    test(
+      'lost authentication aborts instead of becoming a retry summary',
+      () async {
+        await seedPair();
+        final gateway = _Gateway.failing(
+          const WorkflowException(
+            WorkflowErrorCode.unauthenticated,
+            'session ended',
+          ),
+        );
+        await expectLater(
+          serviceWith(gateway).retryDueCommands(runGuard: guard),
+          throwsA(
+            isA<SyncRunAborted>().having(
+              (e) => e.reason,
+              'reason',
+              'unauthenticated',
+            ),
+          ),
+        );
+        expect(gateway.calls, 1);
+        final first = (await repository.getRetryCommand('cmd-first'))!;
+        expect(first.stateKey, isNot('sending'));
+        expect(first.payloadJson, '{"lane":"MECHANICAL"}');
+        await expectNextUntouched();
+      },
+    );
+
+    test(
+      'unavailable local storage aborts and releases the exact owned claim',
+      () async {
+        await seedPair();
+        final fault = IsarError('local store unavailable');
+        final gateway = _Gateway.throwing(fault);
+        await expectLater(
+          serviceWith(gateway).retryDueCommands(runGuard: guard),
+          throwsA(same(fault)),
+        );
+        expect(gateway.calls, 1);
+        expect(
+          (await repository.getRetryCommand('cmd-first'))!.stateKey,
+          'uncertainOutcome',
+        );
+        await expectNextUntouched();
+      },
+    );
+
+    test(
+      'a session change during execution preserves acceptance but stops the run',
+      () async {
+        await seedPair();
+        final gateway = _Gateway.accepting()
+          ..beforeResult = () async {
+            current = false;
+          };
+        await expectLater(
+          serviceWith(gateway).retryDueCommands(runGuard: guard),
+          throwsA(isA<SyncRunAborted>()),
+        );
+        expect(gateway.calls, 1);
+        expect(await repository.getReceipt('cmd-first'), isNotNull);
+        expect(await repository.getRetryCommand('cmd-first'), isNull);
+        await expectNextUntouched();
+      },
+    );
+
+    test('a record-specific fault still allows the next command', () async {
+      await seedPair();
+      final gateway = _Gateway.throwingFor(
+        'cmd-first',
+        StateError('record fault'),
+      );
+      final summary = await serviceWith(
+        gateway,
+      ).retryDueCommands(runGuard: guard);
+      expect(summary.failedVerification, ['cmd-first']);
+      expect(summary.applied, ['cmd-next']);
+      expect(gateway.calls, 2);
+    });
+  });
 
   group('a malformed retry payload', () {
     test('is retained for review, never discarded or executed', () async {
@@ -139,8 +364,9 @@ void main() {
           gateway: _Gateway.accepting(),
           repository: settling,
           now: () => now,
-          checkConnectivity:
-              () async => <ConnectivityResult>[ConnectivityResult.wifi],
+          checkConnectivity: () async => <ConnectivityResult>[
+            ConnectivityResult.wifi,
+          ],
           isNetworkBlocked: () async => false,
         ),
         now: () => now,
@@ -168,25 +394,28 @@ void main() {
       expect(await repository.getReceipt('cmd-good'), isNotNull);
     });
 
-    test('an execution StateError is not labelled a malformed payload', () async {
-      // The old catch covered decoding and sending together, so a StateError
-      // raised inside the send retired a perfectly readable command to manual
-      // review. A WorkflowException would never have shown that.
-      await seedDue(
-        commandId: 'cmd-good',
-        payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
-      );
-      final gateway = _Gateway.throwing(StateError('gateway fault'));
+    test(
+      'an execution StateError is not labelled a malformed payload',
+      () async {
+        // The old catch covered decoding and sending together, so a StateError
+        // raised inside the send retired a perfectly readable command to manual
+        // review. A WorkflowException would never have shown that.
+        await seedDue(
+          commandId: 'cmd-good',
+          payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
+        );
+        final gateway = _Gateway.throwing(StateError('gateway fault'));
 
-      final summary = await serviceWith(gateway).retryDueCommands();
+        final summary = await serviceWith(gateway).retryDueCommands();
 
-      final row = await repository.getRetryCommand('cmd-good');
-      expect(row!.stateKey, isNot('manualReview'));
-      expect(row.lastErrorCode, isNot('malformedLocalCommand'));
-      // And the fault is reported rather than reduced to "nothing applied".
-      expect(summary.failedVerification, <String>['cmd-good']);
-      expect(summary.needsAttention, isTrue);
-    });
+        final row = await repository.getRetryCommand('cmd-good');
+        expect(row!.stateKey, isNot('manualReview'));
+        expect(row.lastErrorCode, isNot('malformedLocalCommand'));
+        // And the fault is reported rather than reduced to "nothing applied".
+        expect(summary.failedVerification, <String>['cmd-good']);
+        expect(summary.needsAttention, isTrue);
+      },
+    );
 
     test('a returned verification failure reaches the operator', () async {
       // Following the StateError case one caller farther. The service catches
@@ -224,31 +453,34 @@ void main() {
       );
     });
 
-    test('one unresolvable command does not block the ones behind it', () async {
-      // The run used to release the oldest command, immediately reclaim it,
-      // see it again and stop - so every command behind it went unattempted.
-      await seedDue(
-        commandId: 'cmd-stuck',
-        payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
-      );
-      await seedDue(
-        commandId: 'cmd-behind',
-        payloadJson: jsonEncode(<String, Object?>{'lane': 'ELECTRICAL'}),
-      );
-      final gateway = _Gateway.throwingFor(
-        'cmd-stuck',
-        StateError('gateway fault'),
-      );
+    test(
+      'one unresolvable command does not block the ones behind it',
+      () async {
+        // The run used to release the oldest command, immediately reclaim it,
+        // see it again and stop - so every command behind it went unattempted.
+        await seedDue(
+          commandId: 'cmd-stuck',
+          payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
+        );
+        await seedDue(
+          commandId: 'cmd-behind',
+          payloadJson: jsonEncode(<String, Object?>{'lane': 'ELECTRICAL'}),
+        );
+        final gateway = _Gateway.throwingFor(
+          'cmd-stuck',
+          StateError('gateway fault'),
+        );
 
-      final summary = await serviceWith(gateway).retryDueCommands();
+        final summary = await serviceWith(gateway).retryDueCommands();
 
-      expect(summary.failedVerification, contains('cmd-stuck'));
-      expect(
-        summary.applied,
-        contains('cmd-behind'),
-        reason: 'the queue must keep moving past one bad command',
-      );
-    });
+        expect(summary.failedVerification, contains('cmd-stuck'));
+        expect(
+          summary.applied,
+          contains('cmd-behind'),
+          reason: 'the queue must keep moving past one bad command',
+        );
+      },
+    );
 
     test('a terminal rejection is not reported as still retrying', () async {
       // permissionDenied is classified as a rejection, so the command will
@@ -270,29 +502,34 @@ void main() {
       expect(summary.rejected, <String>['cmd-refused']);
       expect(summary.deferred, isEmpty);
       expect(summary.needsAttention, isTrue);
-      expect((await repository.getRetryCommand('cmd-refused'))!.stateKey,
-          'rejected');
+      expect(
+        (await repository.getRetryCommand('cmd-refused'))!.stateKey,
+        'rejected',
+      );
     });
 
-    test('a transport failure is deferred, not mistaken for a bad payload', () async {
-      // The decode and the send are caught separately. Catching both together
-      // let an error raised inside the send retire a perfectly readable
-      // command to manual review.
-      await seedDue(
-        commandId: 'cmd-good',
-        payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
-      );
-      final gateway = _Gateway.failing(
-        const WorkflowException(WorkflowErrorCode.unavailable, 'unreachable'),
-      );
+    test(
+      'a transport failure is deferred, not mistaken for a bad payload',
+      () async {
+        // The decode and the send are caught separately. Catching both together
+        // let an error raised inside the send retire a perfectly readable
+        // command to manual review.
+        await seedDue(
+          commandId: 'cmd-good',
+          payloadJson: jsonEncode(<String, Object?>{'lane': 'MECHANICAL'}),
+        );
+        final gateway = _Gateway.failing(
+          const WorkflowException(WorkflowErrorCode.unavailable, 'unreachable'),
+        );
 
-      await serviceWith(gateway).retryDueCommands();
+        await serviceWith(gateway).retryDueCommands();
 
-      final row = await repository.getRetryCommand('cmd-good');
-      expect(row!.stateKey, 'uncertainOutcome');
-      expect(row.lastErrorCode, isNot('malformedLocalCommand'));
-      expect(row.nextRetryAt, isNotNull, reason: 'it remains retryable');
-    });
+        final row = await repository.getRetryCommand('cmd-good');
+        expect(row!.stateKey, 'uncertainOutcome');
+        expect(row.lastErrorCode, isNot('malformedLocalCommand'));
+        expect(row.nextRetryAt, isNotNull, reason: 'it remains retryable');
+      },
+    );
   });
 }
 
@@ -312,13 +549,14 @@ class _Gateway implements WorkflowCommandGateway {
   final String? faultFor;
 
   int calls = 0;
+  Future<void> Function()? beforeResult;
 
   @override
   Future<WorkflowCommandReceipt> execute(WorkflowCommand command) async {
     calls += 1;
+    await beforeResult?.call();
     final raised = fault;
-    if (raised != null &&
-        (faultFor == null || faultFor == command.commandId)) {
+    if (raised != null && (faultFor == null || faultFor == command.commandId)) {
       throw raised;
     }
     final error = failure;

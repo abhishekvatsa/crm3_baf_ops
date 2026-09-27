@@ -10,6 +10,7 @@ import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -45,10 +46,25 @@ class TicketScreen extends ConsumerStatefulWidget {
   ConsumerState<TicketScreen> createState() => _TicketScreenState();
 }
 
+enum _IssueListStatus { open, all, closed }
+
 class _TicketScreenState extends ConsumerState<TicketScreen> {
   Timer? _timer;
+  final _searchController = TextEditingController();
   String _query = '';
+  _IssueListStatus _status = _IssueListStatus.open;
+  int _visibleLimit = businessListPageSize;
   String? _busyTicketId;
+
+  void _changeQuery(String value) => setState(() {
+    _query = value;
+    _visibleLimit = businessListPageSize;
+  });
+
+  void _changeStatus(_IssueListStatus value) => setState(() {
+    _status = value;
+    _visibleLimit = businessListPageSize;
+  });
 
   AppUser? _currentActor({
     String? originUid,
@@ -83,6 +99,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -113,12 +130,19 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 return _buildAccessPendingState();
               }
 
-              final openTicketsAsync = ref.watch(openTicketsProvider);
+              final includeHistory =
+                  _status != _IssueListStatus.open &&
+                  appUser.canViewClosedMaintenanceTickets;
+              final ticketsAsync = ref.watch(
+                includeHistory ? allTicketsProvider : openTicketsProvider,
+              );
               final feedDiagnostics = ref.watch(
-                maintenanceFeedDiagnosticsProvider('open'),
+                maintenanceFeedDiagnosticsProvider(
+                  includeHistory ? 'all' : 'open',
+                ),
               );
 
-              return openTicketsAsync.when(
+              return ticketsAsync.when(
                 loading: _buildLoadingState,
                 error: (error, _) => _buildErrorState(
                   title: 'Could not load issues',
@@ -166,7 +190,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
           content: Text(outcome.manualSyncMessage),
-          backgroundColor: outcome.isFailure
+          backgroundColor: outcome.isPartial
+              ? BafColors.warning
+              : outcome.isFailure
               ? BafColors.danger
               : (outcome.isSuccessful ? BafColors.sync : BafColors.warning),
         ),
@@ -186,7 +212,13 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     List<MaintenanceRecord> allTickets,
     AppUser appUser,
   ) {
-    return allTickets.where((ticket) {
+    final tickets = allTickets.where((ticket) {
+      if (ticket.isDeleted) return false;
+      if (ticket.isClosed || ticket.isResolved) {
+        return _status != _IssueListStatus.open &&
+            appUser.canViewClosedMaintenanceTickets;
+      }
+      if (_status == _IssueListStatus.closed) return false;
       final laneRead = ticket.issueLanePlanReadResult;
       if (!laneRead.isValid) {
         return appUser.canViewMaintenanceTicket(
@@ -199,6 +231,16 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
         lanes: laneRead.value!.assignedLanes.map(RoutedTo.values.byName),
       );
     }).toList();
+    // Keep page boundaries deterministic when source timestamps tie, without
+    // changing the canonical feed or mutating its list.
+    tickets.sort((left, right) {
+      final newestFirst = right.createdAt.compareTo(left.createdAt);
+      if (newestFirst != 0) return newestFirst;
+      return (left.firestoreId ?? 'local-${left.id}').compareTo(
+        right.firestoreId ?? 'local-${right.id}',
+      );
+    });
+    return tickets;
   }
 
   Widget _buildLoadingState() {
@@ -251,6 +293,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
     required MaintenanceFeedDiagnostics feedDiagnostics,
   }) {
     final filtered = _filterTickets(tickets, _query);
+    final visible = filtered.take(_visibleLimit).toList(growable: false);
 
     return _BoundedIssuesContent(
       child: ListView(
@@ -269,7 +312,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
             query: _query,
-            onQueryChanged: (value) => setState(() => _query = value),
+            searchController: _searchController,
+            onQueryChanged: _changeQuery,
+            status: _status,
+            canViewHistory: appUser.canViewClosedMaintenanceTickets,
+            onStatusChanged: _changeStatus,
             onRaiseIssue: _openMaintenanceForm,
             onViewResolved: _openResolvedIssues,
             onSyncNow: _refreshTickets,
@@ -284,7 +331,18 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
           if (filtered.isEmpty)
             const _NoMatchingIssuesState()
           else
-            ...filtered.map((ticket) {
+            ...visible.map((ticket) {
+              if (ticket.isClosed || ticket.isResolved) {
+                return Padding(
+                  key: ValueKey('issue-row-${ticket.firestoreId ?? ticket.id}'),
+                  padding: const EdgeInsets.only(bottom: BafSpacing.md),
+                  child: _ClosedIssueSummary(
+                    ticket: ticket,
+                    onViewDetails: () =>
+                        _openTicketDetails(ticket, canCorrect: false),
+                  ),
+                );
+              }
               final laneRead = ticket.issueLanePlanReadResult;
               final plan = laneRead.value;
               final assignedRoutes =
@@ -328,6 +386,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                       .map(RoutedTo.values.byName)
                       .any(appUser.canStartIssueCoordination);
               return Padding(
+                key: ValueKey('issue-row-${ticket.firestoreId ?? ticket.id}'),
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _TicketCard(
                   ticket: ticket,
@@ -384,6 +443,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 ),
               );
             }),
+          IncrementalListFooter(
+            visibleCount: visible.length,
+            totalCount: filtered.length,
+            onShowMore: () =>
+                setState(() => _visibleLimit += businessListPageSize),
+          ),
         ],
       ),
     );
@@ -929,8 +994,12 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
             canSeeAll: appUser.canSeeAllTickets,
             canSeeAssigned: appUser.canSeeAssignedMaintenanceTickets,
             isSyncing: syncStatus == SyncStatus.syncing,
-            query: '',
-            onQueryChanged: (_) {},
+            query: _query,
+            searchController: _searchController,
+            onQueryChanged: _changeQuery,
+            status: _status,
+            canViewHistory: appUser.canViewClosedMaintenanceTickets,
+            onStatusChanged: _changeStatus,
             onRaiseIssue: _openMaintenanceForm,
             onViewResolved: _openResolvedIssues,
             onSyncNow: _refreshTickets,
@@ -952,9 +1021,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                   color: BafColors.success,
                 ),
                 const SizedBox(height: BafSpacing.md),
-                const Text(
-                  'All clear',
-                  style: TextStyle(
+                Text(
+                  _status == _IssueListStatus.open ? 'All clear' : 'No issues',
+                  style: const TextStyle(
                     color: BafColors.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -962,7 +1031,9 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
                 ),
                 const SizedBox(height: BafSpacing.xs),
                 Text(
-                  appUser.canSeeAllTickets
+                  _status != _IssueListStatus.open
+                      ? 'No ${_status == _IssueListStatus.closed ? 'closed ' : ''}issues are available.'
+                      : appUser.canSeeAllTickets
                       ? 'No active breakdowns on the floor right now.'
                       : appUser.canSeeAssignedMaintenanceTickets
                       ? 'No active issues are assigned to your team or raised by you.'
@@ -988,7 +1059,7 @@ class _NoMatchingIssuesState extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
       child: Center(
         child: Text(
-          'No open issues match this search.',
+          'No issues match this search.',
           style: TextStyle(color: BafColors.textSecondary),
         ),
       ),
@@ -1120,101 +1191,13 @@ class _TicketCard extends StatelessWidget {
                       children: [
                         Text(
                           assetLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: BafColors.textPrimary,
                             fontSize: 17,
-                            fontWeight: FontWeight.w900,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                         const SizedBox(height: BafSpacing.xs),
-                        Wrap(
-                          spacing: BafSpacing.sm,
-                          runSpacing: BafSpacing.sm,
-                          children: [
-                            if (lanePlan != null)
-                              for (final laneName in lanePlan.assignedLanes)
-                                StatusBadge(
-                                  label: _deptLabel(
-                                    RoutedTo.values.byName(laneName),
-                                  ),
-                                  color: _agencyColor(
-                                    RoutedTo.values.byName(laneName),
-                                  ),
-                                  icon:
-                                      lanePlan.completedLanes.contains(laneName)
-                                      ? Icons.task_alt_rounded
-                                      : lanePlan.acknowledgedLanes.contains(
-                                          laneName,
-                                        )
-                                      ? Icons.verified_rounded
-                                      : Icons.schedule_rounded,
-                                )
-                            else
-                              const StatusBadge(
-                                label: 'LANE DATA ERROR',
-                                color: BafColors.danger,
-                                icon: Icons.error_outline_rounded,
-                              ),
-                            if (ticket.isCritical)
-                              const StatusBadge(
-                                label: 'CRITICAL',
-                                color: BafColors.danger,
-                                icon: Icons.priority_high_rounded,
-                              ),
-                            if (!ticket.isSynced)
-                              const StatusBadge(
-                                label: 'SYNC PENDING',
-                                color: BafColors.warning,
-                                icon: Icons.cloud_off_rounded,
-                              ),
-                            if (burnerLockout != null)
-                              StatusBadge(
-                                label:
-                                    'BURNERS ${burnerLockout.positions.join(', ')}',
-                                color: BafColors.audit,
-                                icon: Icons.local_fire_department_outlined,
-                              ),
-                            if (burnerLockout?.hasRedHotObservation == true)
-                              StatusBadge(
-                                label:
-                                    'RED HOT ${burnerLockout!.redHotPositions.map((value) => 'B$value').join(', ')}',
-                                color: BafColors.danger,
-                                icon: Icons.warning_amber_rounded,
-                              ),
-                            StatusBadge(
-                              label: ticket.status == TicketStatus.acknowledged
-                                  ? 'Acknowledged'
-                                  : ticket.status == TicketStatus.inProgress
-                                  ? 'In progress'
-                                  : 'Open $elapsedText',
-                              color: ticket.status == TicketStatus.acknowledged
-                                  ? BafColors.warning
-                                  : BafColors.maintenance,
-                              icon: ticket.status == TicketStatus.acknowledged
-                                  ? Icons.verified_rounded
-                                  : Icons.timer_outlined,
-                            ),
-                            if (ticket.isWorkflowLinked)
-                              StatusBadge(
-                                label: ticket.workflowStateLabel,
-                                color: ticket.workflowDeferred
-                                    ? BafColors.warning
-                                    : BafColors.audit,
-                                icon: ticket.workflowDeferred
-                                    ? Icons.pause_circle_outline_rounded
-                                    : Icons.account_tree_outlined,
-                              ),
-                            if (ticket.operationalEventIssueLinkIds.isNotEmpty)
-                              StatusBadge(
-                                label:
-                                    '${ticket.operationalEventIssueLinkIds.length} EVENT LINK${ticket.operationalEventIssueLinkIds.length == 1 ? '' : 'S'}',
-                                color: BafColors.warning,
-                                icon: Icons.link_rounded,
-                              ),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -1247,6 +1230,85 @@ class _TicketCard extends StatelessWidget {
                         ),
                     ],
                   ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Wrap(
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.sm,
+                children: [
+                  if (lanePlan != null)
+                    for (final laneName in lanePlan.assignedLanes)
+                      StatusBadge(
+                        label: _deptLabel(RoutedTo.values.byName(laneName)),
+                        color: _agencyColor(RoutedTo.values.byName(laneName)),
+                        icon: lanePlan.completedLanes.contains(laneName)
+                            ? Icons.task_alt_rounded
+                            : lanePlan.acknowledgedLanes.contains(laneName)
+                            ? Icons.verified_rounded
+                            : Icons.schedule_rounded,
+                      )
+                  else
+                    const StatusBadge(
+                      label: 'LANE DATA ERROR',
+                      color: BafColors.danger,
+                      icon: Icons.error_outline_rounded,
+                    ),
+                  if (ticket.isCritical)
+                    const StatusBadge(
+                      label: 'CRITICAL',
+                      color: BafColors.danger,
+                      icon: Icons.priority_high_rounded,
+                    ),
+                  if (!ticket.isSynced)
+                    const StatusBadge(
+                      label: 'SYNC PENDING',
+                      color: BafColors.warning,
+                      icon: Icons.cloud_off_rounded,
+                    ),
+                  if (burnerLockout != null)
+                    StatusBadge(
+                      label: 'BURNERS ${burnerLockout.positions.join(', ')}',
+                      color: BafColors.audit,
+                      icon: Icons.local_fire_department_outlined,
+                    ),
+                  if (burnerLockout?.hasRedHotObservation == true)
+                    StatusBadge(
+                      label:
+                          'RED HOT ${burnerLockout!.redHotPositions.map((value) => 'B$value').join(', ')}',
+                      color: BafColors.danger,
+                      icon: Icons.warning_amber_rounded,
+                    ),
+                  StatusBadge(
+                    label: ticket.status == TicketStatus.acknowledged
+                        ? 'Acknowledged'
+                        : ticket.status == TicketStatus.inProgress
+                        ? 'In progress'
+                        : 'Open $elapsedText',
+                    color: ticket.status == TicketStatus.acknowledged
+                        ? BafColors.warning
+                        : BafColors.maintenance,
+                    icon: ticket.status == TicketStatus.acknowledged
+                        ? Icons.verified_rounded
+                        : Icons.timer_outlined,
+                  ),
+                  if (ticket.isWorkflowLinked)
+                    StatusBadge(
+                      label: ticket.workflowStateLabel,
+                      color: ticket.workflowDeferred
+                          ? BafColors.warning
+                          : BafColors.audit,
+                      icon: ticket.workflowDeferred
+                          ? Icons.pause_circle_outline_rounded
+                          : Icons.account_tree_outlined,
+                    ),
+                  if (ticket.operationalEventIssueLinkIds.isNotEmpty)
+                    StatusBadge(
+                      label:
+                          '${ticket.operationalEventIssueLinkIds.length} EVENT LINK${ticket.operationalEventIssueLinkIds.length == 1 ? '' : 'S'}',
+                      color: BafColors.warning,
+                      icon: Icons.link_rounded,
+                    ),
                 ],
               ),
               const SizedBox(height: BafSpacing.md),

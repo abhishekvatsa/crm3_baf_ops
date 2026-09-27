@@ -61,6 +61,8 @@ WorkflowCommand buildMaintenanceIssueCreateCommand(
     'assetType': record.assetType.name,
     'assetNumber': record.assetNumber,
     'component': record.component,
+    if (record.componentIntakeState != null)
+      'componentIntakeState': record.componentIntakeState!.name,
     'subsystem': record.subsystem,
     'tag': record.tag,
     'hierarchyPath': record.hierarchyPath,

@@ -264,10 +264,7 @@ extension Implementation on Service {
 
     test('syncAll preserves the full baseline push sequence', () {
       final shell = _read(_shellFile);
-      final syncAllBlock = _blockStartingAt(
-        shell,
-        'Future<void> syncAll({bool recheckPermanentRejections = false})',
-      );
+      final syncAllBlock = _blockStartingAt(shell, 'Future<void> syncAll(');
 
       _expectOrder(syncAllBlock, const [
         'if (_isSyncing)',
@@ -290,7 +287,7 @@ extension Implementation on Service {
         'await _syncDirectives();',
         'await _syncAbnormalityTypes();',
         'await _syncChargeAbnormalities();',
-        'await _auditRepo.syncPendingAuditEvents();',
+        'await _auditRepo.syncPendingAuditEvents(',
         '_isSyncing = false;',
         '_recheckPermanentRejections = false;',
         // Reads through the service's injected clock so deadline behaviour can
@@ -314,10 +311,7 @@ extension Implementation on Service {
 
     test('planned job closure order remains protected in syncAll', () {
       final shell = _read(_shellFile);
-      final syncAllBlock = _blockStartingAt(
-        shell,
-        'Future<void> syncAll({bool recheckPermanentRejections = false})',
-      );
+      final syncAllBlock = _blockStartingAt(shell, 'Future<void> syncAll(');
 
       _expectOrder(syncAllBlock, const [
         'await _syncExecutions(skipCompletedClosures: true);',
@@ -631,6 +625,23 @@ void _expectOrder(String source, List<String> fragments) {
 String _blockStartingAt(String source, String marker) {
   final markerIndex = source.indexOf(marker);
   expect(markerIndex, isNot(-1), reason: 'Missing marker: $marker');
+
+  // Named optional arguments contain braces before the actual method body.
+  // Use the parsed declaration instead of mistaking those for an empty body.
+  final methodName = RegExp(r'([A-Za-z_]\w*)\(').firstMatch(marker)?.group(1);
+  if (methodName != null) {
+    for (final declaration in parseString(content: source).unit.declarations) {
+      if (declaration is ClassDeclaration) {
+        final body = declaration.body;
+        if (body is! BlockClassBody) continue;
+        for (final method in body.members.whereType<MethodDeclaration>()) {
+          if (method.name.lexeme == methodName) {
+            return source.substring(method.body.offset, method.body.end);
+          }
+        }
+      }
+    }
+  }
 
   final openBrace = source.indexOf('{', markerIndex + marker.length);
   expect(openBrace, isNot(-1), reason: 'Missing opening brace after $marker');

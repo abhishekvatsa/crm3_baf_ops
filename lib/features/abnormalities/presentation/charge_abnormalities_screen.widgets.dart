@@ -38,17 +38,16 @@ class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
               initialValue: _selectedReason,
               isExpanded: true,
               decoration: _inputDecoration(label: 'Reason', hint: 'Optional'),
-              items:
-                  AuditReason.values.map((reason) {
-                    return DropdownMenuItem(
-                      value: reason,
-                      child: Text(
-                        _auditReasonLabel(reason),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    );
-                  }).toList(),
+              items: AuditReason.values.map((reason) {
+                return DropdownMenuItem(
+                  value: reason,
+                  child: Text(
+                    _auditReasonLabel(reason),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
               onChanged: (value) {
                 setState(() {
                   _selectedReason = value;
@@ -113,6 +112,7 @@ class _DeleteAbnormalityDialogState extends State<_DeleteAbnormalityDialog> {
 }
 
 class _ChargeAbnormalityDraft {
+  final AbnormalityAssessment assessment;
   final DateTime eventAt;
   final AbnormalityType selectedType;
   final AbnormalitySeverity severity;
@@ -127,6 +127,7 @@ class _ChargeAbnormalityDraft {
   final String? correctionReason;
 
   const _ChargeAbnormalityDraft({
+    required this.assessment,
     required this.eventAt,
     required this.selectedType,
     required this.severity,
@@ -309,12 +310,11 @@ class _AffectedAssetTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final reference = asset.assetHierarchyReference;
     final component = asset.componentLabel;
-    final detail =
-        reference == null
-            ? 'Legacy identity - no governed hierarchy snapshot'
-            : component == null
-            ? 'Whole registered asset'
-            : reference.hierarchyPath.join(' > ');
+    final detail = reference == null
+        ? 'Legacy identity - no governed hierarchy snapshot'
+        : component == null
+        ? 'Whole registered asset'
+        : reference.hierarchyPath.join(' > ');
     return Container(
       padding: const EdgeInsets.fromLTRB(
         BafSpacing.md,
@@ -472,9 +472,13 @@ class _HeaderCard extends StatelessWidget {
           );
           final metrics = Row(
             children: [
-              Expanded(child: _MetricPill(label: 'Total', value: total)),
+              Expanded(
+                child: _MetricPill(label: 'Total', value: total),
+              ),
               const SizedBox(width: BafSpacing.sm),
-              Expanded(child: _MetricPill(label: 'RA', value: raCount)),
+              Expanded(
+                child: _MetricPill(label: 'RA', value: raCount),
+              ),
               const SizedBox(width: BafSpacing.sm),
               Expanded(
                 child: _MetricPill(label: 'Done', value: completedRaCount),
@@ -548,6 +552,7 @@ class _ChargeAbnormalityCard extends StatelessWidget {
   final VoidCallback? onDelete;
 
   const _ChargeAbnormalityCard({
+    super.key,
     required this.record,
     required this.onEdit,
     required this.onDelete,
@@ -584,6 +589,24 @@ class _ChargeAbnormalityCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(
+                        record.abnormalityTypeTitle,
+                        style: const TextStyle(
+                          color: BafColors.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: BafSpacing.xs),
+                      Text(
+                        record.observedReason,
+                        style: const TextStyle(
+                          color: BafColors.textSecondary,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: BafSpacing.md),
                       Wrap(
                         spacing: BafSpacing.sm,
                         runSpacing: BafSpacing.sm,
@@ -611,23 +634,35 @@ class _ChargeAbnormalityCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: BafSpacing.md),
-                      Text(
-                        record.abnormalityTypeTitle,
-                        style: const TextStyle(
-                          color: BafColors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
+                      if (record.assessment != null) ...[
+                        const SizedBox(height: BafSpacing.sm),
+                        Text(switch (record.observationKind) {
+                          AbnormalityObservationKind.resultFinding =>
+                            'Result finding',
+                          AbnormalityObservationKind.processEquipment =>
+                            'Process / equipment observation',
+                          _ => 'Historical observation kind unknown',
+                        }),
+                        for (final cause in record.assessment!.candidateCauses)
+                          Text(
+                            'Possible cause: ${cause.description} · ${_causeLabel(cause.assessment)}${cause.evidence == null ? '' : '\nEvidence: ${cause.evidence}'}',
+                          ),
+                        if (record.hasCompletedReannealing)
+                          Text(
+                            record.raPerformedAt == null
+                                ? 'Actual RA completion date unknown'
+                                : 'RA performed: ${DateFormat('dd MMM yyyy, HH:mm').format(record.raPerformedAt!.toLocal())}',
+                          ),
+                        Text(
+                          'Post-RA result: ${switch (record.assessment!.postRaResult) {
+                            PostRaResult.notAssessed => 'Not assessed',
+                            PostRaResult.acceptable => 'Acceptable',
+                            PostRaResult.abnormal => 'Still abnormal',
+                          }}',
                         ),
-                      ),
-                      const SizedBox(height: BafSpacing.xs),
-                      Text(
-                        record.observedReason,
-                        style: const TextStyle(
-                          color: BafColors.textSecondary,
-                          fontSize: 13,
-                          height: 1.28,
-                        ),
-                      ),
+                        if (record.assessment!.postRaObservation != null)
+                          Text(record.assessment!.postRaObservation!),
+                      ],
                       if ((record.description ?? '').trim().isNotEmpty) ...[
                         const SizedBox(height: BafSpacing.xs),
                         Text(

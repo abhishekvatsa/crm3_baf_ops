@@ -64,7 +64,8 @@ StructuredReportDocument buildMaintenanceTicketDossier({
 
   return StructuredReportDocument(
     title: 'Maintenance issue dossier',
-    subtitle: 'Complete issue lifecycle, work, closure and correction evidence',
+    subtitle:
+        'Complete issue lifecycle, work, closure and correction evidence; times in Asia/Kolkata',
     reportId: createStructuredReportId('ISSUE', generatedAt),
     generatedAt: generatedAt,
     generatedByName: generatedByName,
@@ -147,6 +148,23 @@ StructuredReportDocument buildMaintenanceTicketDossier({
             label: 'Component path',
             value: _componentPath(ticket),
           ),
+          StructuredReportField(
+            label: 'Component at intake',
+            value: ticket.componentIntakeLabel,
+          ),
+          if (ticket.componentIdentification != null) ...[
+            StructuredReportField(
+              label: 'Later identified component',
+              value: ticket.componentIdentification!.component,
+            ),
+            StructuredReportField(
+              label: 'Identification evidence',
+              value:
+                  '${ticket.componentIdentification!.basis} / ${ticket.componentIdentification!.identifiedByName} '
+                  '(${ticket.componentIdentification!.identifiedByUid}) at ${_dateTime(ticket.componentIdentification!.identifiedAt)}; '
+                  'v${ticket.componentIdentification!.version}, original ticket v${ticket.componentIdentification!.originalTicketVersion}',
+            ),
+          ],
           StructuredReportField(label: 'Tag', value: _value(ticket.tag)),
           StructuredReportField(
             label: 'Charge at event',
@@ -595,7 +613,7 @@ String _componentPath(MaintenanceRecord ticket) {
 }
 
 String _dateTime(DateTime value) {
-  final local = value.toLocal();
+  final local = value.toUtc().add(const Duration(hours: 5, minutes: 30));
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(local.day)}-${two(local.month)}-${local.year} '
       '${two(local.hour)}:${two(local.minute)}';

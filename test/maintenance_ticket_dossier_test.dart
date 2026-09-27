@@ -48,7 +48,9 @@ void main() {
         .singleWhere((section) => section.title == 'Lane accountability')
         .tables
         .singleWhere((table) => table.title == 'Current closure');
-    final local = completedAt.toLocal();
+    final local = completedAt.toUtc().add(
+      const Duration(hours: 5, minutes: 30),
+    );
     String two(int value) => value.toString().padLeft(2, '0');
     final expectedTime =
         '${two(local.day)}-${two(local.month)}-${local.year} '
@@ -60,7 +62,9 @@ void main() {
         .singleWhere((section) => section.title == 'Lane accountability')
         .tables
         .singleWhere((table) => table.title == 'Earlier closure 1');
-    final earlierLocal = earlierCompletedAt.toLocal();
+    final earlierLocal = earlierCompletedAt.toUtc().add(
+      const Duration(hours: 5, minutes: 30),
+    );
     final expectedEarlierTime =
         '${two(earlierLocal.day)}-${two(earlierLocal.month)}-${earlierLocal.year} '
         '${two(earlierLocal.hour)}:${two(earlierLocal.minute)}';

@@ -4,6 +4,51 @@ import 'package:crm3_baf_ops/features/planned_maintenance/data/template_governan
 import 'package:crm3_baf_ops/features/planned_maintenance/domain/template_publication_readiness.dart';
 
 void main() {
+  group('publication audit package dependency', () {
+    for (final pending in [
+      'missing',
+      'older',
+      'wrong package',
+      'deleted',
+      'archived',
+    ]) {
+      test('holds audit while package is $pending', () {
+        final fixture = _Fixture.ready();
+        final package = fixture.package;
+        if (pending == 'older') package.latestVersionNumber = 0;
+        if (pending == 'wrong package') package.firestoreId = 'other';
+        if (pending == 'deleted') package.isDeleted = true;
+        if (pending == 'archived') {
+          package.lifecycleStatus = TemplatePackageLifecycleStatus.archived;
+        }
+        expect(
+          remotePackageSupportsPublicationAudit(
+            package: pending == 'missing' ? null : package,
+            version: fixture.version,
+          ),
+          isFalse,
+        );
+      });
+    }
+    for (final historical in [false, true]) {
+      test('allows converged package and historical=$historical audit', () {
+        final fixture = _Fixture.ready();
+        if (historical) {
+          fixture.package
+            ..latestVersionNumber = 5
+            ..activeVersionFirestoreId = 'version-5'
+            ..lifecycleStatus = TemplatePackageLifecycleStatus.retired;
+        }
+        expect(
+          remotePackageSupportsPublicationAudit(
+            package: fixture.package,
+            version: fixture.version,
+          ),
+          isTrue,
+        );
+      });
+    }
+  });
   group('TemplatePublicationReadiness', () {
     test('accepts synchronized active package/version/audit triad', () {
       final fixture = _Fixture.ready();
@@ -75,45 +120,42 @@ class _Fixture {
 
   factory _Fixture.ready() {
     final now = DateTime.utc(2026, 6, 19, 12);
-    final package =
-        TemplatePackage()
-          ..firestoreId = 'package-1'
-          ..isSynced = true
-          ..packageCode = 'BAF-TEST'
-          ..title = 'BAF test package'
-          ..lifecycleStatus = TemplatePackageLifecycleStatus.active
-          ..activeVersionFirestoreId = 'version-1'
-          ..latestVersionNumber = 1
-          ..createdAt = now
-          ..updatedAt = now;
+    final package = TemplatePackage()
+      ..firestoreId = 'package-1'
+      ..isSynced = true
+      ..packageCode = 'BAF-TEST'
+      ..title = 'BAF test package'
+      ..lifecycleStatus = TemplatePackageLifecycleStatus.active
+      ..activeVersionFirestoreId = 'version-1'
+      ..latestVersionNumber = 1
+      ..createdAt = now
+      ..updatedAt = now;
 
-    final version =
-        TemplateVersion()
-          ..firestoreId = 'version-1'
-          ..packageFirestoreId = 'package-1'
-          ..isSynced = true
-          ..versionNumber = 1
-          ..versionLabel = 'v1'
-          ..status = TemplateVersionStatus.published
-          ..jobTemplateSnapshotJson = '{"title":"BAF test"}'
-          ..moduleSnapshotsJson = '[]'
-          ..fieldDefinitionsJson = '[]'
-          ..checklistJson = '[]'
-          ..createdAt = now
-          ..updatedAt = now
-          ..publishedAt = now;
+    final version = TemplateVersion()
+      ..firestoreId = 'version-1'
+      ..packageFirestoreId = 'package-1'
+      ..isSynced = true
+      ..versionNumber = 1
+      ..versionLabel = 'v1'
+      ..status = TemplateVersionStatus.published
+      ..jobTemplateSnapshotJson = '{"title":"BAF test"}'
+      ..moduleSnapshotsJson = '[]'
+      ..fieldDefinitionsJson = '[]'
+      ..checklistJson = '[]'
+      ..createdAt = now
+      ..updatedAt = now
+      ..publishedAt = now;
     version.refreshContentHash();
 
-    final audit =
-        TemplatePublishAudit()
-          ..firestoreId = 'audit-1'
-          ..packageFirestoreId = 'package-1'
-          ..versionFirestoreId = 'version-1'
-          ..isSynced = true
-          ..action = TemplatePublishAuditAction.published
-          ..performedAt = now
-          ..updatedAt = now
-          ..afterHash = version.contentHash;
+    final audit = TemplatePublishAudit()
+      ..firestoreId = 'audit-1'
+      ..packageFirestoreId = 'package-1'
+      ..versionFirestoreId = 'version-1'
+      ..isSynced = true
+      ..action = TemplatePublishAuditAction.published
+      ..performedAt = now
+      ..updatedAt = now
+      ..afterHash = version.contentHash;
 
     return _Fixture(package: package, version: version, audit: audit);
   }

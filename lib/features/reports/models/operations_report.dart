@@ -14,6 +14,9 @@ import '../../planned_maintenance/data/maintenance_intelligence.dart';
 import '../../planned_maintenance/data/job_template_model.dart';
 import '../../quality/data/quality_warning.dart';
 import '../domain/operations_report_query_plan.dart';
+import '../domain/operations_report_options.dart';
+import '../domain/base_inner_cover_register.dart';
+export '../domain/operations_report_options.dart';
 
 enum OperationsReportSubjectKind { numberedAsset, innerCover }
 
@@ -32,6 +35,12 @@ class OperationsReportFilter {
     this.assetInstanceId,
     this.subjectKind = OperationsReportSubjectKind.numberedAsset,
     this.queryPlan = const OperationsReportQueryPlan.all(),
+    this.maintenancePeriodBasis = MaintenanceReportPeriodBasis.activeDuring,
+    this.includeMaintenanceDetails = false,
+    this.qualityPeriodBasis = QualityReportPeriodBasis.firstReported,
+    this.qualitySource = QualityReportSource.all,
+    this.qualityKind = QualityReportKind.all,
+    this.raOnly = false,
   });
 
   final DateTime startDate;
@@ -42,6 +51,12 @@ class OperationsReportFilter {
   // represented by a synthetic numbered asset merely to support reporting.
   final OperationsReportSubjectKind subjectKind;
   final OperationsReportQueryPlan queryPlan;
+  final MaintenanceReportPeriodBasis maintenancePeriodBasis;
+  final bool includeMaintenanceDetails;
+  final QualityReportPeriodBasis qualityPeriodBasis;
+  final QualityReportSource qualitySource;
+  final QualityReportKind qualityKind;
+  final bool raOnly;
 
   DateTime get startInclusive => DateTime.utc(
     startDate.year,
@@ -63,7 +78,13 @@ class OperationsReportFilter {
       other.assetClassId == assetClassId &&
       other.assetInstanceId == assetInstanceId &&
       other.subjectKind == subjectKind &&
-      other.queryPlan == queryPlan;
+      other.queryPlan == queryPlan &&
+      other.maintenancePeriodBasis == maintenancePeriodBasis &&
+      other.includeMaintenanceDetails == includeMaintenanceDetails &&
+      other.qualityPeriodBasis == qualityPeriodBasis &&
+      other.qualitySource == qualitySource &&
+      other.qualityKind == qualityKind &&
+      other.raOnly == raOnly;
 
   @override
   int get hashCode => Object.hash(
@@ -73,6 +94,12 @@ class OperationsReportFilter {
     assetInstanceId,
     subjectKind,
     queryPlan,
+    maintenancePeriodBasis,
+    includeMaintenanceDetails,
+    qualityPeriodBasis,
+    qualitySource,
+    qualityKind,
+    raOnly,
   );
 }
 
@@ -185,6 +212,9 @@ class OperationsReport {
     this.sourceAssetClasses = const [],
     this.sourceAssetInstances = const [],
     this.innerCoverProfiles = const [],
+    this.baseInnerCoverRegister,
+    this.undatedRaCases = const [],
+    this.unmatchedQualityWarnings = const [],
     required this.classSummaries,
     required this.topComponents,
     required this.topSubsystemPaths,
@@ -202,6 +232,9 @@ class OperationsReport {
     this.inventoryUnderMaintenanceAssetCount,
     this.inventoryDownAssetCount,
     this.inventoryUnfitAssetCount,
+    this.inventoryUnknownAssetCount,
+    this.inventoryEvidenceWarnings = const [],
+    this.unverifiedInnerCoverIds = const {},
     this.qualityWarnings = const [],
     this.qualityMonitoringRequests = const [],
     this.abnormalities = const [],
@@ -242,6 +275,12 @@ class OperationsReport {
   final List<AssetClassRecord> sourceAssetClasses;
   final List<AssetInstanceRecord> sourceAssetInstances;
   final List<InnerCoverProfile> innerCoverProfiles;
+  final BaseInnerCoverRegister? baseInnerCoverRegister;
+  final List<ChargeAbnormality> undatedRaCases;
+  final List<QualityWarning> unmatchedQualityWarnings;
+  int get qualityCaseCount => abnormalities.length;
+  int get qualityDistinctChargeCount =>
+      abnormalities.map((record) => record.sourceChargeNo).toSet().length;
   final List<AssetClassReportSummary> classSummaries;
   final List<CountedReportLabel> topComponents;
   final List<CountedReportLabel> topSubsystemPaths;
@@ -258,6 +297,14 @@ class OperationsReport {
   final int openDisruptionCount;
   final Duration disruptionDuration;
   final int? inventoryAssetCount;
+  final int? inventoryUnknownAssetCount;
+  final List<String> inventoryEvidenceWarnings;
+  final Set<String> unverifiedInnerCoverIds;
+  int get unknownAssetCount =>
+      inventoryUnknownAssetCount ??
+      assetStates.where((s) => s.hasUnverifiedWorkflowEvidence).length;
+  bool get inventoryEvidenceComplete =>
+      inventoryEvidenceWarnings.isEmpty && unknownAssetCount == 0;
   final int? inventoryAvailableAssetCount;
   final int? inventoryUnderMaintenanceAssetCount;
   final int? inventoryDownAssetCount;
@@ -548,7 +595,9 @@ class OperationsReport {
               .length;
 
   double? get assetAvailabilityRate =>
-      assetCount == 0 ? null : availableAssetCount / assetCount;
+      assetCount == 0 || !inventoryEvidenceComplete
+      ? null
+      : availableAssetCount / assetCount;
 
   double? get issueClosureRate =>
       issueCount == 0 ? null : terminalIssueCount / issueCount;
@@ -645,7 +694,18 @@ class OperationsReport {
               'Confirm affected scope, linked issues and restoration evidence.',
           count: openDisruptionCount,
         ),
-      if (unavailableAssetCount > 0 && highRiskUnavailableAssetCount == 0)
+      if (!inventoryEvidenceComplete)
+        OperationsManagementSignal(
+          type: OperationsManagementSignalType.unavailableAssets,
+          level: OperationsManagementSignalLevel.warning,
+          title: 'Inventory evidence is incomplete',
+          detail:
+              '$unknownAssetCount recorded assets have unverified condition. Available counts describe verified rows; the fleet percentage is withheld.',
+          count: unknownAssetCount,
+        ),
+      if (inventoryEvidenceComplete &&
+          unavailableAssetCount > 0 &&
+          highRiskUnavailableAssetCount == 0)
         OperationsManagementSignal(
           type: OperationsManagementSignalType.unavailableAssets,
           level: OperationsManagementSignalLevel.warning,

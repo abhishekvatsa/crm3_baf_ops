@@ -5,6 +5,37 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('70E Composer save-sync refresh', () {
+    for (final acknowledged in [false, true]) {
+      test(
+        'partial draft sync retains record-specific acknowledgement $acknowledged',
+        () async {
+          final source = _draft(firestoreId: 'version-70e', isSynced: false);
+          final result = saveAndRefreshComposerTemplateVersionDraft(
+            version: source,
+            persistLocal: () async {},
+            runSync: () async => SyncRequestOutcome.partial,
+            reloadLocal: (id) async =>
+                _draft(firestoreId: id, isSynced: acknowledged),
+          );
+          if (acknowledged) {
+            expect((await result).isSynced, isTrue);
+          } else {
+            await expectLater(
+              result,
+              throwsA(
+                isA<StateError>().having(
+                  (error) => error.message,
+                  'message',
+                  contains('Partly synced'),
+                ),
+              ),
+            );
+          }
+          expect(source.firestoreId, 'version-70e');
+          expect(source.isSynced, isFalse);
+        },
+      );
+    }
     test('returns the same remotely confirmed draft identity', () async {
       final source = _draft(firestoreId: null, isSynced: false);
       final calls = <String>[];
@@ -127,14 +158,12 @@ void main() {
     });
 
     test('blocks stale authoring metadata during refresh', () async {
-      final source =
-          _draft(firestoreId: 'version-70e', isSynced: false)
-            ..versionLabel = 'Operator-ready v7'
-            ..releaseNotes = 'Adds structured gas evidence guidance.';
-      final stale =
-          _draft(firestoreId: 'version-70e', isSynced: true)
-            ..versionLabel = 'Old label'
-            ..releaseNotes = 'Old release notes';
+      final source = _draft(firestoreId: 'version-70e', isSynced: false)
+        ..versionLabel = 'Operator-ready v7'
+        ..releaseNotes = 'Adds structured gas evidence guidance.';
+      final stale = _draft(firestoreId: 'version-70e', isSynced: true)
+        ..versionLabel = 'Old label'
+        ..releaseNotes = 'Old release notes';
 
       await expectLater(
         saveAndRefreshComposerTemplateVersionDraft(
@@ -155,10 +184,9 @@ void main() {
 
     test('blocks an identity fork during refresh', () async {
       final source = _draft(firestoreId: 'version-70e', isSynced: false);
-      final fork =
-          _draft(firestoreId: 'version-70e', isSynced: true)
-            ..id = 701
-            ..versionNumber = 8;
+      final fork = _draft(firestoreId: 'version-70e', isSynced: true)
+        ..id = 701
+        ..versionNumber = 8;
 
       await expectLater(
         saveAndRefreshComposerTemplateVersionDraft(
@@ -179,6 +207,29 @@ void main() {
   });
 
   group('Composer publish-sync refresh', () {
+    test('partial sync never confirms the complete publication', () async {
+      final source = _published(isSynced: false);
+      await expectLater(
+        publishAndRefreshComposerTemplateVersion(
+          version: source,
+          persistLocal: () async {},
+          runSync: () async => SyncRequestOutcome.partial,
+          reloadLocal: (id) async => _published(isSynced: true),
+        ),
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            allOf(
+              contains('not yet presented as confirmed'),
+              contains('Partly synced'),
+            ),
+          ),
+        ),
+      );
+      expect(source.isPublished, isTrue);
+      expect(source.isSynced, isFalse);
+    });
     test('returns only a synchronized published record', () async {
       final source = _published(isSynced: false);
       final calls = <String>[];

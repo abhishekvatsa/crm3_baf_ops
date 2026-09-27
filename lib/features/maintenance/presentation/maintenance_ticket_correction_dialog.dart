@@ -14,6 +14,9 @@ import '../domain/maintenance_ticket_correction.dart';
 /// source IDs that are not projected into MaintenanceRecord, including
 /// sourceInspectionObservationId, before accepting any target change.
 String? maintenanceRegisteredTargetRetentionReason(MaintenanceRecord ticket) {
+  if (ticket.componentIdentification != null) {
+    return 'This issue has a later audited component identification. Retain the original target and review its identification evidence before correcting physical scope.';
+  }
   if (ticket.status != TicketStatus.open || ticket.isResolved) {
     return 'The equipment target is locked after acknowledgement or closure. Keep the current target and retain the device values.';
   }

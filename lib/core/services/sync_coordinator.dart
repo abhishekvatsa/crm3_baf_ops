@@ -1,6 +1,6 @@
 // FILE: lib/core/services/sync_coordinator.dart
 
-import 'dart:async' show Completer, StreamSubscription, unawaited;
+import 'dart:async' show Completer, StreamSubscription, Timer, unawaited;
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -19,19 +19,25 @@ import 'global_pull_service.dart';
 import 'local_recovery_session_guard.dart';
 import 'local_sync_recovery_service.dart';
 import 'sync_service.dart';
+import 'sync_run_guard.dart';
+import 'sync_session_guard_provider.dart';
 
-enum SyncRequestOutcome { succeeded, failed, queued, throttled }
+enum SyncRequestOutcome { succeeded, partial, failed, queued, throttled }
 
 extension SyncRequestOutcomeX on SyncRequestOutcome {
   bool get isSuccessful => this == SyncRequestOutcome.succeeded;
 
-  bool get isFailure => this == SyncRequestOutcome.failed;
+  bool get isPartial => this == SyncRequestOutcome.partial;
+
+  // Existing callers must not clear pending work on an incomplete upload.
+  bool get isFailure => this == SyncRequestOutcome.failed || isPartial;
 
   bool get isDeferred =>
       this == SyncRequestOutcome.queued || this == SyncRequestOutcome.throttled;
 
   String get diagnosticLabel => switch (this) {
     SyncRequestOutcome.succeeded => 'Success',
+    SyncRequestOutcome.partial => 'Partly synced',
     SyncRequestOutcome.failed => 'Failed',
     SyncRequestOutcome.queued => 'Queued',
     SyncRequestOutcome.throttled => 'Throttled',
@@ -39,6 +45,8 @@ extension SyncRequestOutcomeX on SyncRequestOutcome {
 
   String get manualSyncMessage => switch (this) {
     SyncRequestOutcome.succeeded => 'Manual sync completed.',
+    SyncRequestOutcome.partial =>
+      'Partly synced. Latest information refreshed; some changes still need attention.',
     SyncRequestOutcome.failed => 'Manual sync could not complete.',
     SyncRequestOutcome.queued =>
       'Manual sync queued behind the sync already running.',
@@ -116,6 +124,7 @@ class SyncRunHealth {
   final String? lastReason;
   final String? lastSkippedReason;
   final bool? lastSucceeded;
+  final bool lastPartiallySucceeded;
   final int successCount;
   final int failureCount;
   final int conflictCount;
@@ -144,6 +153,7 @@ class SyncRunHealth {
     this.lastReason,
     this.lastSkippedReason,
     this.lastSucceeded,
+    this.lastPartiallySucceeded = false,
     this.successCount = 0,
     this.failureCount = 0,
     this.conflictCount = 0,
@@ -168,6 +178,7 @@ class SyncRunHealth {
     String? lastReason,
     String? lastSkippedReason,
     bool? lastSucceeded,
+    bool? lastPartiallySucceeded,
     int? successCount,
     int? failureCount,
     int? conflictCount,
@@ -195,6 +206,8 @@ class SyncRunHealth {
       lastReason: lastReason ?? this.lastReason,
       lastSkippedReason: lastSkippedReason ?? this.lastSkippedReason,
       lastSucceeded: lastSucceeded ?? this.lastSucceeded,
+      lastPartiallySucceeded:
+          lastPartiallySucceeded ?? this.lastPartiallySucceeded,
       successCount: successCount ?? this.successCount,
       failureCount: failureCount ?? this.failureCount,
       conflictCount: conflictCount ?? this.conflictCount,
@@ -248,8 +261,12 @@ class SyncCoordinator {
   final SyncService _sync;
   final GlobalPullService _pull;
   final LocalRecoverySessionGuard _recoverySessionGuard;
+  final SyncRunGuard Function() _runGuardFactory;
 
   bool _running = false;
+  bool _disposed = false;
+  int _runGeneration = 0;
+  Timer? _successResetTimer;
   bool _initialized = false;
   bool _localRecoveryActive = false;
   bool _followUpRequested = false;
@@ -268,8 +285,9 @@ class SyncCoordinator {
     this._sync,
     this._pull,
     this._recoverySessionGuard, {
+    required SyncRunGuard Function() runGuardFactory,
     Connectivity? connectivity,
-  }) {
+  }) : _runGuardFactory = runGuardFactory {
     _initConnectivityListener(connectivity ?? Connectivity());
   }
 
@@ -305,6 +323,9 @@ class SyncCoordinator {
     String reason = 'local_recovery',
     bool resumeSyncAfterRecovery = true,
   }) async {
+    if (_disposed) {
+      throw StateError('The synchronization coordinator has been disposed.');
+    }
     if (_localRecoveryActive) {
       throw StateError('Local synchronization recovery is already running.');
     }
@@ -318,26 +339,31 @@ class SyncCoordinator {
       if (activeRun != null) {
         await activeRun.future;
       }
+      if (_disposed) {
+        throw StateError('Synchronization ended before local recovery began.');
+      }
       return await operation();
     } finally {
       _localRecoveryActive = false;
       try {
-        _ref.read(syncLocalRecoveryActiveProvider.notifier).state = false;
+        if (!_disposed) {
+          _ref.read(syncLocalRecoveryActiveProvider.notifier).state = false;
 
-        final followUp = _takeQueuedFollowUp();
-        if (followUp != null) {
-          _clearPendingFollowUpHealth();
-        }
-        if (resumeSyncAfterRecovery) {
-          unawaited(
-            _runFullSync(
-              reason: '${followUp?.reason ?? reason} (recovery refresh)',
-              force: true,
-              queuedFollowUp: true,
-              recheckPermanentRejections:
-                  followUp?.recheckPermanentRejections ?? false,
-            ),
-          );
+          final followUp = _takeQueuedFollowUp();
+          if (followUp != null) {
+            _clearPendingFollowUpHealth();
+          }
+          if (resumeSyncAfterRecovery) {
+            unawaited(
+              _runFullSync(
+                reason: '${followUp?.reason ?? reason} (recovery refresh)',
+                force: true,
+                queuedFollowUp: true,
+                recheckPermanentRejections:
+                    followUp?.recheckPermanentRejections ?? false,
+              ),
+            );
+          }
         }
       } finally {
         _recoverySessionGuard.endRecovery();
@@ -351,6 +377,7 @@ class SyncCoordinator {
     bool queuedFollowUp = false,
     bool recheckPermanentRejections = false,
   }) async {
+    if (_disposed) return SyncRequestOutcome.failed;
     final now = DateTime.now();
 
     if (_running || _localRecoveryActive) {
@@ -368,6 +395,9 @@ class SyncCoordinator {
     }
 
     _running = true;
+    final runGeneration = ++_runGeneration;
+    _successResetTimer?.cancel();
+    _successResetTimer = null;
     _activeRunCompletion = Completer<void>();
     _lastRun = now;
 
@@ -378,6 +408,10 @@ class SyncCoordinator {
       lastStartedAt: now,
       lastReason: reason,
       lastSucceeded: false,
+      lastPartiallySucceeded: false,
+      successCount: 0,
+      failureCount: 0,
+      conflictCount: 0,
       failureDetails: const <SyncFailureDetail>[],
       failureDetailOverflowCount: 0,
       lastFailureLikelyPermanent: false,
@@ -392,21 +426,40 @@ class SyncCoordinator {
       _publishSyncStartContext(reason: reason, force: force, startedAt: now),
     );
 
-    final runStamp = DateTime.now();
-
+    var pushStarted = false;
+    var pullStarted = false;
     try {
+      final sessionGuard = _runGuardFactory();
+      final runGuard = SyncRunGuard(() {
+        if (!_isCurrentRun(runGeneration)) {
+          throw const SyncRunAborted('run-owner-ended');
+        }
+        sessionGuard.checkCurrent();
+      });
+      runGuard.checkCurrent();
       // ORDER: ordinary snapshot push → canonical pull → safe replay of
       // uncertain workflow commands → workflow projection pull.
+      pushStarted = true;
       await _sync.syncAll(
         recheckPermanentRejections: recheckPermanentRejections,
+        runGuard: runGuard,
       );
-      await _pull.pullAndReconcile();
-      await _reconcileAuthoritativePurgeManifests();
+      if (!_isCurrentRun(runGeneration)) return SyncRequestOutcome.failed;
+      runGuard.checkCurrent();
+      pullStarted = true;
+      await _pull.pullAndReconcile(runGuard: runGuard);
+      if (!_isCurrentRun(runGeneration)) return SyncRequestOutcome.failed;
+      runGuard.checkCurrent();
+      await _reconcileAuthoritativePurgeManifests(runGuard);
+      if (!_isCurrentRun(runGeneration)) return SyncRequestOutcome.failed;
+      runGuard.checkCurrent();
 
       // Workflow is a supplemental control plane. Its retry/pull health is
       // reported independently so it cannot turn a successful mature
       // data-plane sync into an apparent whole-application failure.
-      await _runWorkflowSupplementalSync(reason: reason);
+      await _runWorkflowSupplementalSync(reason: reason, runGuard: runGuard);
+      if (!_isCurrentRun(runGeneration)) return SyncRequestOutcome.failed;
+      runGuard.checkCurrent();
 
       final conflictKeys = <String>{
         ..._sync.lastConflictKeys,
@@ -423,7 +476,7 @@ class SyncCoordinator {
       final hasFailures = _sync.lastFailureCount > 0;
 
       _ref.read(syncStatusProvider.notifier).state = hasFailures
-          ? SyncStatus.failed
+          ? SyncStatus.partial
           : SyncStatus.success;
 
       final completedAt = DateTime.now();
@@ -437,6 +490,7 @@ class SyncCoordinator {
         lastCompletedAt: completedAt,
         lastReason: reason,
         lastSucceeded: !hasFailures,
+        lastPartiallySucceeded: hasFailures,
         // The data plane succeeding and submitted work needing attention are
         // different facts, and the operator is entitled to both. This does not
         // turn a workflow rejection into a failed sync.
@@ -446,7 +500,9 @@ class SyncCoordinator {
         failureCount: _sync.lastFailureCount,
         conflictCount: conflictCount,
         runCount: nextRunCount,
-        lastError: hasFailures ? 'Push sync reported failures.' : null,
+        lastError: hasFailures
+            ? 'Pull completed; some changes still need attention.'
+            : null,
         failureDetails: failureDetails,
         failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
         lastFailureLikelyPermanent:
@@ -462,6 +518,7 @@ class SyncCoordinator {
           reason: reason,
           force: force,
           succeeded: !hasFailures,
+          partiallySucceeded: hasFailures,
           completedAt: completedAt,
           successCount: _sync.lastSuccessCount,
           failureCount: _sync.lastFailureCount,
@@ -493,27 +550,37 @@ class SyncCoordinator {
               'sync_first_failure_permanent': firstFailure.isLikelyPermanent,
           },
         );
-        return SyncRequestOutcome.failed;
+        return SyncRequestOutcome.partial;
       }
 
-      Future.delayed(const Duration(seconds: 5), () {
+      _successResetTimer = Timer(const Duration(seconds: 5), () {
+        if (!_isCurrentRun(runGeneration)) return;
+        _successResetTimer = null;
         final current = _ref.read(syncStatusProvider);
 
-        if (current == SyncStatus.success &&
-            !_running &&
-            DateTime.now().difference(runStamp) >= const Duration(seconds: 5)) {
+        if (current == SyncStatus.success && !_running) {
           _ref.read(syncStatusProvider.notifier).state = SyncStatus.idle;
         }
       });
 
       return SyncRequestOutcome.succeeded;
     } catch (error, stackTrace) {
+      // The in-flight repository call may finish after its provider owner has
+      // gone away. It cannot publish health or start the next phase then.
+      if (!_isCurrentRun(runGeneration)) return SyncRequestOutcome.failed;
       final completedAt = DateTime.now();
       final nextRunCount = _health.runCount + 1;
       final failureDetails = List<SyncFailureDetail>.unmodifiable(
-        _sync.lastFailureDetails,
+        pushStarted ? _sync.lastFailureDetails : const <SyncFailureDetail>[],
       );
-      final conflictCount = _sync.lastConflictCount + _pull.lastConflicted;
+      final conflictCount =
+          (pushStarted ? _sync.lastConflictCount : 0) +
+          (pullStarted ? _pull.lastConflicted : 0);
+      final successCount = pushStarted ? _sync.lastSuccessCount : 0;
+      final failureCount = pushStarted ? _sync.lastFailureCount : 0;
+      final detailOverflow = pushStarted
+          ? _sync.lastFailureDetailOverflowCount
+          : 0;
 
       _ref.read(syncConflictProvider.notifier).state = conflictCount;
       _ref.read(syncStatusProvider.notifier).state = SyncStatus.failed;
@@ -522,12 +589,14 @@ class SyncCoordinator {
         lastCompletedAt: completedAt,
         lastReason: reason,
         lastSucceeded: false,
-        failureCount: _sync.lastFailureCount,
+        lastPartiallySucceeded: false,
+        successCount: successCount,
+        failureCount: failureCount,
         conflictCount: conflictCount,
         runCount: nextRunCount,
         lastError: '$error',
         failureDetails: failureDetails,
-        failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
+        failureDetailOverflowCount: detailOverflow,
         lastFailureLikelyPermanent: syncFailureLikelyPermanent(error),
       );
 
@@ -537,12 +606,12 @@ class SyncCoordinator {
           force: force,
           succeeded: false,
           completedAt: completedAt,
-          successCount: _sync.lastSuccessCount,
-          failureCount: _sync.lastFailureCount,
+          successCount: successCount,
+          failureCount: failureCount,
           conflictCount: conflictCount,
           runCount: nextRunCount,
           failureDetails: failureDetails,
-          failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
+          failureDetailOverflowCount: detailOverflow,
         ),
       );
 
@@ -555,25 +624,29 @@ class SyncCoordinator {
           'app_area': 'sync',
           'sync_reason': reason,
           'sync_forced': force,
-          'sync_success_count': _sync.lastSuccessCount,
-          'sync_failure_count': _sync.lastFailureCount,
+          'sync_success_count': successCount,
+          'sync_failure_count': failureCount,
           'sync_conflict_count': conflictCount,
           ...syncFailureDiagnosticContext(
             error,
-            pullDomain: _pull.lastFailedDomain,
+            pullDomain: pullStarted ? _pull.lastFailedDomain : null,
           ),
         },
       );
       return SyncRequestOutcome.failed;
     } finally {
-      final followUp = _localRecoveryActive ? null : _takeQueuedFollowUp();
+      final followUp = _disposed || _localRecoveryActive
+          ? null
+          : _takeQueuedFollowUp();
       _running = false;
       final completedRun = _activeRunCompletion;
       _activeRunCompletion = null;
       if (completedRun != null && !completedRun.isCompleted) {
         completedRun.complete();
       }
-      unawaited(AppLogger.setCustomKey('sync_running', false));
+      if (!_disposed) {
+        unawaited(AppLogger.setCustomKey('sync_running', false));
+      }
 
       if (followUp != null) {
         _clearPendingFollowUpHealth();
@@ -589,14 +662,24 @@ class SyncCoordinator {
     }
   }
 
-  Future<void> _reconcileAuthoritativePurgeManifests() async {
+  bool _isCurrentRun(int generation) =>
+      !_disposed && generation == _runGeneration;
+
+  Future<void> _reconcileAuthoritativePurgeManifests(
+    SyncRunGuard runGuard,
+  ) async {
+    runGuard.checkCurrent();
     final actor = _ref.read(currentAppUserProvider).value;
     if (actor == null || !actor.isApproved) return;
     try {
       await _ref
           .read(localSyncRecoveryServiceProvider)
           .reconcileAuthoritativelyPurgedTombstones(actor: actor);
+      runGuard.checkCurrent();
     } catch (error, stackTrace) {
+      if (_disposed) return;
+      rethrowIfSyncRunMustAbort(error);
+      runGuard.checkCurrent();
       // Local compaction is best-effort. A failed manifest read must not turn
       // an otherwise healthy business-data synchronization into a failure.
       debugPrint('Authoritative purge reconciliation deferred: $error');
@@ -619,16 +702,23 @@ class SyncCoordinator {
   /// parent, which writes run health afterwards.
   String? _workflowAttentionReason;
 
-  Future<void> _runWorkflowSupplementalSync({required String reason}) async {
+  Future<void> _runWorkflowSupplementalSync({
+    required String reason,
+    required SyncRunGuard runGuard,
+  }) async {
     // Two different ways this phase reports that an outcome was not
     // established: it throws, or it returns carrying commands it could not
     // verify. Only counting the first left a logged verification failure
     // invisible to the operator.
     var retryVerificationIncomplete = false;
+    _workflowAttentionReason = null;
     try {
+      runGuard.checkCurrent();
       final summary = await _ref
           .read(workflowUncertainRetryServiceProvider)
-          .retryDueCommands();
+          .retryDueCommands(runGuard: runGuard);
+      if (_disposed) return;
+      runGuard.checkCurrent();
       // The run's own account of what it did. Awaiting it and discarding it
       // left a rejection, a command needing review and an empty queue looking
       // identical from the outside.
@@ -652,6 +742,9 @@ class SyncCoordinator {
         );
       }
     } catch (error, stackTrace) {
+      if (_disposed) return;
+      rethrowIfSyncRunMustAbort(error);
+      runGuard.checkCurrent();
       retryVerificationIncomplete = true;
       AppLogger.warning(
         'Workflow uncertain-command retry failed independently',
@@ -683,10 +776,16 @@ class SyncCoordinator {
     {
       WorkflowOutcomeInventory? inventory;
       try {
+        runGuard.checkCurrent();
         inventory = await _ref
             .read(workflowRepositoryProvider)
             .readOutcomeInventory();
+        if (_disposed) return;
+        runGuard.checkCurrent();
       } catch (error, stackTrace) {
+        if (_disposed) return;
+        rethrowIfSyncRunMustAbort(error);
+        runGuard.checkCurrent();
         // A journal that could not be read establishes no absence, so this
         // reports unverified rather than quietly clearing the warning.
         AppLogger.warning(
@@ -714,7 +813,12 @@ class SyncCoordinator {
     }
 
     try {
-      final summary = await _ref.read(workflowPullServiceProvider).pull();
+      runGuard.checkCurrent();
+      final summary = await _ref
+          .read(workflowPullServiceProvider)
+          .pull(runGuard: runGuard);
+      if (_disposed) return;
+      runGuard.checkCurrent();
       if (summary.hasFailures) {
         AppLogger.warning(
           'Workflow projection pull completed with isolated failures',
@@ -733,6 +837,9 @@ class SyncCoordinator {
         );
       }
     } catch (error, stackTrace) {
+      if (_disposed) return;
+      rethrowIfSyncRunMustAbort(error);
+      runGuard.checkCurrent();
       AppLogger.warning(
         'Workflow projection pull failed before collection isolation',
         context: {
@@ -861,6 +968,7 @@ class SyncCoordinator {
       'sync_last_forced': force,
       'sync_last_started_at': startedAt.toIso8601String(),
       'sync_last_succeeded': false,
+      'sync_last_partially_succeeded': false,
     });
     AppLogger.info(
       'Full sync started',
@@ -876,6 +984,7 @@ class SyncCoordinator {
     required String reason,
     required bool force,
     required bool succeeded,
+    bool partiallySucceeded = false,
     required DateTime completedAt,
     required int successCount,
     required int failureCount,
@@ -892,6 +1001,7 @@ class SyncCoordinator {
       'sync_last_forced': force,
       'sync_last_completed_at': completedAt.toIso8601String(),
       'sync_last_succeeded': succeeded,
+      'sync_last_partially_succeeded': partiallySucceeded,
       'sync_last_success_count': successCount,
       'sync_last_failure_count': failureCount,
       'sync_last_conflict_count': conflictCount,
@@ -914,6 +1024,7 @@ class SyncCoordinator {
     _initialized = true;
 
     _connectivitySub = connectivity.onConnectivityChanged.listen((results) {
+      if (_disposed) return;
       final hasConnection = results.any((r) => r != ConnectivityResult.none);
 
       if (hasConnection) {
@@ -929,7 +1040,14 @@ class SyncCoordinator {
   }
 
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _runGeneration++;
+    _successResetTimer?.cancel();
+    _successResetTimer = null;
+    _takeQueuedFollowUp();
     _connectivitySub?.cancel();
+    _connectivitySub = null;
   }
 }
 
@@ -939,6 +1057,7 @@ final syncCoordinatorProvider = Provider<SyncCoordinator>((ref) {
     ref.read(syncServiceProvider),
     ref.read(pullServiceProvider),
     ref.read(localRecoverySessionGuardProvider),
+    runGuardFactory: ref.watch(syncRunGuardFactoryProvider),
   );
 
   ref.onDispose(() => coordinator.dispose());

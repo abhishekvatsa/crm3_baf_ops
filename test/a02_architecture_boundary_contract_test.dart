@@ -42,10 +42,12 @@ void main() {
       expect(root, isNot(contains('class Firestore')));
 
       final directory = File(entry.key).parent.path;
-      final local =
-          File('$directory/${entry.value}.local.dart').readAsStringSync();
-      final remote =
-          File('$directory/${entry.value}.remote.dart').readAsStringSync();
+      final local = File(
+        '$directory/${entry.value}.local.dart',
+      ).readAsStringSync();
+      final remote = File(
+        '$directory/${entry.value}.remote.dart',
+      ).readAsStringSync();
       expect(local, contains("part of '${entry.value}.dart';"));
       expect(local, isNot(contains('FirebaseFirestore.instance')));
       expect(remote, contains("part of '${entry.value}.dart';"));
@@ -57,13 +59,18 @@ void main() {
     'quality and abnormality screens keep their extracted UI boundaries',
     () {
       const libraries = <String, List<String>>{
+        'lib/features/abnormalities/presentation/abnormality_types_screen': [
+          'widgets',
+        ],
         'lib/features/abnormalities/presentation/charge_abnormalities_screen': [
           'form',
           'widgets',
+          'assessment',
         ],
         'lib/features/quality/presentation/quality_home_screen': [
           'cards',
           'widgets',
+          'dialogs',
         ],
       };
       for (final entry in libraries.entries) {
@@ -111,8 +118,9 @@ void main() {
       ];
       for (final part in parts) {
         expect(root, contains("part '$part';"));
-        final source =
-            File('${File(rootPath).parent.path}/$part').readAsStringSync();
+        final source = File(
+          '${File(rootPath).parent.path}/$part',
+        ).readAsStringSync();
         expect(source, contains("part of 'admin_asset_hierarchy_tab.dart';"));
         expect(source.split('\n').length, lessThanOrEqualTo(1200));
       }
@@ -128,8 +136,8 @@ void main() {
               ).readAsStringSync(),
             )
             as Map<String, dynamic>;
-    final surfaces =
-        (manifest['surfaces'] as List).cast<Map<String, dynamic>>();
+    final surfaces = (manifest['surfaces'] as List)
+        .cast<Map<String, dynamic>>();
     expect(surfaces, isNotEmpty);
     expect(
       surfaces.map((surface) => surface['path']).toSet().length,

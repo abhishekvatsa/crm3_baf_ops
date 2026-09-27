@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/baf_ui.dart';
+import '../../../../core/widgets/incremental_list_footer.dart';
 import '../../../audit/models/audit_event_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../maintenance/data/maintenance_model.dart';
@@ -378,8 +379,24 @@ class TicketsBrowser extends ConsumerStatefulWidget {
   ConsumerState<TicketsBrowser> createState() => _TicketsBrowserState();
 }
 
+enum _TicketListStatus { open, all, closed }
+
 class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
   String _searchQuery = '';
+  _TicketListStatus _status = _TicketListStatus.open;
+  int _visibleLimit = businessListPageSize;
+  final _scrollController = ScrollController();
+
+  void _resetVisibleRows() {
+    _visibleLimit = businessListPageSize;
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -392,6 +409,7 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
           Padding(
             padding: const EdgeInsets.all(BafSpacing.sm),
             child: TextField(
+              key: const ValueKey('admin-tickets-search'),
               decoration: InputDecoration(
                 hintText:
                     'Search by asset number, description, tag, or component',
@@ -408,10 +426,30 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
                 ),
                 isDense: true,
               ),
-              onChanged:
-                  (val) =>
-                      setState(() => _searchQuery = val.trim().toLowerCase()),
+              onChanged: (val) => setState(() {
+                _searchQuery = val.trim().toLowerCase();
+                _resetVisibleRows();
+              }),
             ),
+          ),
+          Wrap(
+            spacing: BafSpacing.sm,
+            children: [
+              for (final status in _TicketListStatus.values)
+                ChoiceChip(
+                  key: ValueKey('admin-tickets-status-${status.name}'),
+                  label: Text(switch (status) {
+                    _TicketListStatus.open => 'Open',
+                    _TicketListStatus.all => 'All',
+                    _TicketListStatus.closed => 'Closed',
+                  }),
+                  selected: _status == status,
+                  onSelected: (_) => setState(() {
+                    _status = status;
+                    _resetVisibleRows();
+                  }),
+                ),
+            ],
           ),
           Expanded(
             child: ticketsAsync.when(
@@ -430,6 +468,13 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
               data: (tickets) {
                 final filtered =
                     tickets.where((t) {
+                      final closed = t.isClosed || t.isResolved;
+                      final matchesStatus = switch (_status) {
+                        _TicketListStatus.open => !closed && !t.isDeleted,
+                        _TicketListStatus.all => true,
+                        _TicketListStatus.closed => closed,
+                      };
+                      if (!matchesStatus) return false;
                       if (_searchQuery.isEmpty) return true;
                       return t.assetNumber.toString().contains(_searchQuery) ||
                           t.description.toLowerCase().contains(_searchQuery) ||
@@ -437,7 +482,13 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
                               false) ||
                           (t.component?.toLowerCase().contains(_searchQuery) ??
                               false);
-                    }).toList();
+                    }).toList()..sort((left, right) {
+                      final newest = right.createdAt.compareTo(left.createdAt);
+                      return newest != 0 ? newest :
+                          (left.firestoreId ?? 'local-${left.id}').compareTo(
+                            right.firestoreId ?? 'local-${right.id}',
+                          );
+                    });
 
                 if (filtered.isEmpty) {
                   return const Center(
@@ -448,10 +499,27 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
                   );
                 }
 
+                final visible = filtered.take(_visibleLimit).toList();
                 return ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.only(bottom: BafSpacing.md),
-                  itemCount: filtered.length,
-                  itemBuilder: (ctx, idx) => _TicketCard(ticket: filtered[idx]),
+                  itemCount: visible.length + 1,
+                  itemBuilder: (ctx, idx) {
+                    if (idx == visible.length) {
+                      return IncrementalListFooter(
+                        visibleCount: visible.length,
+                        totalCount: filtered.length,
+                        onShowMore: () => setState(
+                          () => _visibleLimit += businessListPageSize,
+                        ),
+                      );
+                    }
+                    final ticket = visible[idx];
+                    return _TicketCard(
+                      key: ValueKey('admin-ticket-row-${ticket.firestoreId ?? ticket.id}'),
+                      ticket: ticket,
+                    );
+                  },
                 );
               },
             ),
@@ -464,7 +532,7 @@ class _TicketsBrowserState extends ConsumerState<TicketsBrowser> {
 
 class _TicketCard extends ConsumerStatefulWidget {
   final MaintenanceRecord ticket;
-  const _TicketCard({required this.ticket});
+  const _TicketCard({super.key, required this.ticket});
 
   @override
   ConsumerState<_TicketCard> createState() => _TicketCardState();

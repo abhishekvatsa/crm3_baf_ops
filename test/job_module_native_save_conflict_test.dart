@@ -1,3 +1,4 @@
+import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -17,7 +18,11 @@ import '../tool/test_support/test_isar_core.dart';
 
 class _NoRemoteAudit extends AuditRepository {
   @override
-  Future<void> log(AuditEvent event, {bool syncToRemote = true}) async {}
+  Future<void> log(
+    AuditEvent event, {
+    bool syncToRemote = true,
+    SyncRunGuard? runGuard,
+  }) async {}
 }
 
 void main() {
@@ -234,7 +239,11 @@ void main() {
       'current $status module cannot be overwritten even with matching baseline',
       () async {
         if (status == JobModuleStatus.notApplicable) {
-          await repository.markModuleNotApplicable(moduleId, actor: actor, reason: 'Not required for this job');
+          await repository.markModuleNotApplicable(
+            moduleId,
+            actor: actor,
+            reason: 'Not required for this job',
+          );
         } else {
           await repository.submitModule(moduleId, actor: actor);
           if (status == JobModuleStatus.accepted) {
@@ -285,9 +294,15 @@ void main() {
           parent.isCompleted = state == 'completed-parent';
           parent.isCancelled = state == 'cancelled-parent';
           parent.isDeleted = state == 'deleted-parent';
-          parent.completedAt = parent.isCompleted ? DateTime.utc(2026, 9, 13) : null;
-          parent.cancelledAt = parent.isCancelled ? DateTime.utc(2026, 9, 13) : null;
-          parent.deletedAt = parent.isDeleted ? DateTime.utc(2026, 9, 13) : null;
+          parent.completedAt = parent.isCompleted
+              ? DateTime.utc(2026, 9, 13)
+              : null;
+          parent.cancelledAt = parent.isCancelled
+              ? DateTime.utc(2026, 9, 13)
+              : null;
+          parent.deletedAt = parent.isDeleted
+              ? DateTime.utc(2026, 9, 13)
+              : null;
           await isar.jobExecutions.put(parent);
         }
       });

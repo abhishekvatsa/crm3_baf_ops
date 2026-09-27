@@ -7,6 +7,7 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../admin/presentation/saved_submission_review_screen.dart';
@@ -14,6 +15,7 @@ import '../../auth/domain/current_actor_access.dart';
 import '../../auth/presentation/current_actor_gate.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../abnormalities/data/abnormality_model.dart';
+import '../../abnormalities/presentation/ra_performed_at_field.dart';
 import '../../abnormalities/providers/abnormality_provider.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
@@ -24,8 +26,11 @@ import '../services/quality_command_service.dart';
 
 part 'quality_home_screen.widgets.dart';
 part 'quality_home_screen.cards.dart';
+part 'quality_home_screen.dialogs.dart';
 
-enum _WarningFilter { open, review, closed }
+enum _WarningFilter { open, all, review, closed }
+
+enum _MonitoringFilter { open, all, closed, cancelled }
 
 enum QualityWorkspaceTab { warnings, monitoring }
 
@@ -46,6 +51,9 @@ class QualityHomeScreen extends ConsumerStatefulWidget {
 
 class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   _WarningFilter _filter = _WarningFilter.open;
+  _MonitoringFilter _monitoringFilter = _MonitoringFilter.open;
+  int _warningVisibleLimit = businessListPageSize;
+  int _monitoringVisibleLimit = businessListPageSize;
   bool _submitting = false;
 
   @override
@@ -108,6 +116,10 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             accent: BafColors.charges,
           ),
           bottom: TabBar(
+            isScrollable: MediaQuery.textScalerOf(context).scale(14) > 18,
+            tabAlignment: MediaQuery.textScalerOf(context).scale(14) > 18
+                ? TabAlignment.start
+                : null,
             tabs: [
               Tab(
                 icon: const Icon(Icons.warning_amber_rounded),
@@ -150,18 +162,28 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             )
             .length;
         final closed = items.length - open - review;
-        final visible = items
-            .where(
-              (warning) => switch (_filter) {
-                _WarningFilter.open =>
-                  warning.status == QualityWarningStatus.open,
-                _WarningFilter.review =>
-                  warning.status == QualityWarningStatus.closureRequested,
-                _WarningFilter.closed =>
-                  warning.status == QualityWarningStatus.closed,
-              },
-            )
-            .toList();
+        final filtered =
+            items
+                .where(
+                  (warning) => switch (_filter) {
+                    _WarningFilter.all => true,
+                    _WarningFilter.open => warning.isOpen,
+                    _WarningFilter.review =>
+                      warning.status == QualityWarningStatus.closureRequested,
+                    _WarningFilter.closed =>
+                      warning.status == QualityWarningStatus.closed,
+                  },
+                )
+                .toList()
+              ..sort((left, right) {
+                final status = left.status.index.compareTo(right.status.index);
+                if (status != 0) return status;
+                final date = right.updatedAt.compareTo(left.updatedAt);
+                return date != 0
+                    ? date
+                    : left.warningId.compareTo(right.warningId);
+              });
+        final visible = filtered.take(_warningVisibleLimit).toList();
 
         return RefreshIndicator(
           onRefresh: () async => ref.invalidate(qualityWarningsProvider),
@@ -173,7 +195,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
               BafSpacing.lg,
               BafSpacing.xl,
             ),
-            itemCount: visible.length + 1,
+            key: const ValueKey('quality-warnings-list'),
+            itemCount: visible.length + 2,
             itemBuilder: (context, index) {
               if (index == 0) {
                 return Column(
@@ -184,15 +207,20 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                       const SizedBox(height: BafSpacing.sm),
                       const _WindowScopeNotice(
                         text:
-                            'Showing every open or review warning plus up to 500 recent warnings',
+                            'Available: all open/review warnings and up to 500 recent warnings',
                       ),
                     ],
                     const SizedBox(height: BafSpacing.lg),
-                    SegmentedButton<_WarningFilter>(
+                    _QualityStatusFilter<_WarningFilter>(
+                      key: const ValueKey('quality-warning-status-filter'),
                       segments: const [
                         ButtonSegment(
                           value: _WarningFilter.open,
                           label: Text('Open'),
+                        ),
+                        ButtonSegment(
+                          value: _WarningFilter.all,
+                          label: Text('All'),
                         ),
                         ButtonSegment(
                           value: _WarningFilter.review,
@@ -204,8 +232,10 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                         ),
                       ],
                       selected: <_WarningFilter>{_filter},
-                      onSelectionChanged: (selection) =>
-                          setState(() => _filter = selection.first),
+                      onSelectionChanged: (selection) => setState(() {
+                        _filter = selection.first;
+                        _warningVisibleLimit = businessListPageSize;
+                      }),
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     if (visible.isEmpty)
@@ -217,8 +247,19 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                 );
               }
 
+              if (index == visible.length + 1) {
+                return IncrementalListFooter(
+                  visibleCount: visible.length,
+                  totalCount: filtered.length,
+                  onShowMore: () => setState(
+                    () => _warningVisibleLimit += businessListPageSize,
+                  ),
+                );
+              }
+
               final warning = visible[index - 1];
               return Padding(
+                key: ValueKey('quality-warning-${warning.warningId}'),
                 padding: const EdgeInsets.only(bottom: BafSpacing.md),
                 child: _WarningCard(
                   warning: warning,
@@ -286,56 +327,122 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
               detail: '$error',
               onRetry: () => ref.invalidate(qualityMonitoringRequestsProvider),
             ),
-            data: (items) => RefreshIndicator(
-              onRefresh: () async =>
-                  ref.invalidate(qualityMonitoringRequestsProvider),
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(
-                  BafSpacing.lg,
-                  BafSpacing.lg,
-                  BafSpacing.lg,
-                  BafSpacing.xl,
-                ),
-                children: [
-                  if (!monitoringPopulationIsQualified(items))
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: BafSpacing.md),
-                      child: Text(
-                        'Monitoring evidence is incomplete or not server-confirmed. Valid records remain visible; totals are unverified.',
-                      ),
+            data: (items) {
+              final filtered =
+                  items
+                      .where(
+                        (request) => switch (_monitoringFilter) {
+                          _MonitoringFilter.open =>
+                            request.status == QualityMonitoringStatus.active,
+                          _MonitoringFilter.all => true,
+                          _MonitoringFilter.closed =>
+                            request.status == QualityMonitoringStatus.closed &&
+                                !request.isCancelled,
+                          _MonitoringFilter.cancelled => request.isCancelled,
+                        },
+                      )
+                      .toList()
+                    ..sort((left, right) {
+                      final status = left.status.index.compareTo(
+                        right.status.index,
+                      );
+                      if (status != 0) return status;
+                      final date = right.createdAt.compareTo(left.createdAt);
+                      return date != 0
+                          ? date
+                          : left.requestId.compareTo(right.requestId);
+                    });
+              final visible = filtered.take(_monitoringVisibleLimit).toList();
+              return RefreshIndicator(
+                onRefresh: () async =>
+                    ref.invalidate(qualityMonitoringRequestsProvider),
+                child: ListView(
+                  key: const ValueKey('quality-monitoring-list'),
+                  padding: const EdgeInsets.fromLTRB(
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                    BafSpacing.lg,
+                    BafSpacing.xl,
+                  ),
+                  children: [
+                    _QualityStatusFilter<_MonitoringFilter>(
+                      key: const ValueKey('quality-monitoring-status-filter'),
+                      segments: const [
+                        ButtonSegment(
+                          value: _MonitoringFilter.open,
+                          label: Text('Open'),
+                        ),
+                        ButtonSegment(
+                          value: _MonitoringFilter.all,
+                          label: Text('All'),
+                        ),
+                        ButtonSegment(
+                          value: _MonitoringFilter.closed,
+                          label: Text('Closed'),
+                        ),
+                        ButtonSegment(
+                          value: _MonitoringFilter.cancelled,
+                          label: Text('Cancelled'),
+                        ),
+                      ],
+                      selected: {_monitoringFilter},
+                      onSelectionChanged: (selection) => setState(() {
+                        _monitoringFilter = selection.first;
+                        _monitoringVisibleLimit = businessListPageSize;
+                      }),
                     ),
-                  if (kIsWeb)
-                    const Text(
-                      'Use the Android app to create or change monitoring with saved recovery support.',
-                    ),
-                  if (items.isEmpty && monitoringPopulationIsQualified(items))
-                    const _EmptyState(
-                      icon: Icons.monitor_heart_outlined,
-                      title: 'No active or recently closed monitoring requests',
-                    )
-                  else
-                    for (final request in items) ...[
-                      _MonitoringCard(
-                        request: request,
-                        canClose:
-                            !kIsWeb &&
-                            actor?.canManageQualityMonitoring == true,
-                        busy: _submitting,
-                        onClose: () => _closeMonitoringRequest(request),
-                        onCorrect: () => _reviewMonitoring(request, false),
-                        onCancel: () => _reviewMonitoring(request, true),
-                        canCheckSaved: !kIsWeb && actor?.isApproved == true,
-                        onCheckSaved: () => _runCommand(
-                          () => ref
-                              .read(qualityCommandServiceProvider)
-                              .checkSavedMonitoringChange(request.requestId),
+                    const SizedBox(height: BafSpacing.md),
+                    if (!monitoringPopulationIsQualified(items))
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: BafSpacing.md),
+                        child: Text(
+                          'Monitoring evidence is incomplete or not server-confirmed. Valid records remain visible; totals are unverified.',
                         ),
                       ),
-                      const SizedBox(height: BafSpacing.md),
-                    ],
-                ],
-              ),
-            ),
+                    if (kIsWeb)
+                      const Text(
+                        'Use the Android app to create or change monitoring with saved recovery support.',
+                      ),
+                    if (filtered.isEmpty &&
+                        monitoringPopulationIsQualified(items))
+                      const _EmptyState(
+                        icon: Icons.monitor_heart_outlined,
+                        title: 'No monitoring requests in this view',
+                      )
+                    else
+                      for (final request in visible) ...[
+                        _MonitoringCard(
+                          key: ValueKey(
+                            'quality-monitoring-${request.requestId}',
+                          ),
+                          request: request,
+                          canClose:
+                              !kIsWeb &&
+                              actor?.canManageQualityMonitoring == true,
+                          busy: _submitting,
+                          onClose: () => _closeMonitoringRequest(request),
+                          onCorrect: () => _reviewMonitoring(request, false),
+                          onCancel: () => _reviewMonitoring(request, true),
+                          canCheckSaved: !kIsWeb && actor?.isApproved == true,
+                          onCheckSaved: () => _runCommand(
+                            () => ref
+                                .read(qualityCommandServiceProvider)
+                                .checkSavedMonitoringChange(request.requestId),
+                          ),
+                        ),
+                        const SizedBox(height: BafSpacing.md),
+                      ],
+                    IncrementalListFooter(
+                      visibleCount: visible.length,
+                      totalCount: filtered.length,
+                      onShowMore: () => setState(
+                        () => _monitoringVisibleLimit += businessListPageSize,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ],
@@ -375,6 +482,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             disposition: decision.disposition,
             reason: decision.reason,
             linkedReannealingChargeNos: decision.raChargeNumbers,
+            raPerformedAt: decision.raPerformedAt,
           ),
     );
   }
@@ -410,6 +518,7 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
             warning: warning,
             reannealedToChargeNo: completion.newChargeNo,
             reason: completion.evidence,
+            raPerformedAt: completion.performedAt,
           ),
     );
   }
@@ -758,389 +867,4 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
         applied.reannealingStatus == remote.reannealingStatus &&
         applied.reannealedToChargeNo == remote.reannealedToChargeNo;
   }
-}
-
-class _MonitoringRequestDialog extends StatefulWidget {
-  const _MonitoringRequestDialog({required this.bases, this.initial});
-
-  final QualityMonitoringRequest? initial;
-
-  final List<AssetInstanceRecord> bases;
-
-  @override
-  State<_MonitoringRequestDialog> createState() =>
-      _MonitoringRequestDialogState();
-}
-
-class _MonitoringRequestDialogState extends State<_MonitoringRequestDialog> {
-  final _grade = TextEditingController();
-  final _cycle = TextEditingController();
-  final _charges = TextEditingController();
-  final _reason = TextEditingController();
-  String? _selectedBaseId;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    final initial = widget.initial;
-    if (initial != null) {
-      _grade.text = initial.grade;
-      _cycle.text = initial.cycleReference;
-      _charges.text = initial.chargeNumbers.join(', ');
-      if (widget.bases.any((base) => base.id == initial.baseAssetInstanceId)) {
-        _selectedBaseId = initial.baseAssetInstanceId;
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _grade.dispose();
-    _cycle.dispose();
-    _charges.dispose();
-    _reason.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(
-      widget.initial == null
-          ? 'New quality monitoring request'
-          : 'Correct monitoring context',
-    ),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.initial != null)
-            const Text(
-              'The original context and reason remain in history. This correction does not transfer observations or certify a physical charge.',
-            ),
-          DropdownButtonFormField<String>(
-            key: const ValueKey('quality-monitoring-governed-base'),
-            initialValue: _selectedBaseId,
-            isExpanded: true,
-            decoration: const InputDecoration(
-              labelText: 'Governed Base',
-              prefixIcon: Icon(Icons.precision_manufacturing_outlined),
-            ),
-            items: [
-              for (final base in widget.bases)
-                DropdownMenuItem(
-                  value: base.id,
-                  child: Text(
-                    base.displayLabel,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-            ],
-            onChanged: (value) => setState(() {
-              _selectedBaseId = value;
-              _error = null;
-            }),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          TextField(
-            controller: _grade,
-            maxLength: 120,
-            decoration: const InputDecoration(labelText: 'Grade'),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          TextField(
-            controller: _cycle,
-            maxLength: 200,
-            decoration: const InputDecoration(labelText: 'Cycle reference'),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          TextField(
-            controller: _charges,
-            keyboardType: TextInputType.text,
-            decoration: const InputDecoration(
-              labelText: 'Charge numbers',
-              hintText: 'Optional, comma separated',
-            ),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          TextField(
-            controller: _reason,
-            maxLength: 2000,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: widget.initial == null
-                  ? 'Monitoring reason'
-                  : 'Correction reason',
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: BafSpacing.sm),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _error!,
-                style: const TextStyle(color: BafColors.danger, fontSize: 12),
-              ),
-            ),
-          ],
-        ],
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          final selectedBases = widget.bases
-              .where((base) => base.id == _selectedBaseId)
-              .toList(growable: false);
-          final grade = _grade.text.trim();
-          final cycle = _cycle.text.trim();
-          final reason = _reason.text.trim();
-          final charges = _tryParsePositiveInts(_charges.text, maximum: 50);
-          if (selectedBases.length != 1 ||
-              grade.isEmpty ||
-              cycle.isEmpty ||
-              reason.isEmpty) {
-            setState(
-              () => _error =
-                  'Select a governed Base and enter Grade, cycle and a reason.',
-            );
-            return;
-          }
-          if (charges == null) {
-            setState(
-              () => _error = 'Use up to 50 distinct five-digit charge numbers.',
-            );
-            return;
-          }
-          final base = selectedBases.single;
-          Navigator.pop(
-            context,
-            _MonitoringInput(
-              baseNumber: base.assetNumber,
-              baseAssetClassId: base.assetClassId,
-              baseAssetInstanceId: base.id,
-              baseAssetInstanceVersion: base.version,
-              grade: grade,
-              cycleReference: cycle,
-              chargeNumbers: charges,
-              reason: reason,
-            ),
-          );
-        },
-        child: Text(
-          widget.initial == null ? 'Create' : 'Save audited correction',
-        ),
-      ),
-    ],
-  );
-}
-
-class _WarningDecision {
-  const _WarningDecision({
-    required this.disposition,
-    required this.reason,
-    required this.raChargeNumbers,
-  });
-
-  final QualityWarningClosureDisposition disposition;
-  final String reason;
-  final List<int> raChargeNumbers;
-}
-
-class _ReasonDialog extends StatefulWidget {
-  const _ReasonDialog({
-    required this.title,
-    required this.label,
-    this.initialValue,
-  });
-
-  final String title;
-  final String label;
-  final String? initialValue;
-
-  @override
-  State<_ReasonDialog> createState() => _ReasonDialogState();
-}
-
-class _ReasonDialogState extends State<_ReasonDialog> {
-  late final TextEditingController _controller;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController(text: widget.initialValue ?? '');
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title),
-    content: TextField(
-      controller: _controller,
-      maxLength: 2000,
-      maxLines: 4,
-      autofocus: true,
-      decoration: InputDecoration(labelText: widget.label, errorText: _error),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          final value = _controller.text.trim();
-          if (value.isEmpty) {
-            setState(() => _error = 'Enter a reason.');
-            return;
-          }
-          Navigator.pop(context, value);
-        },
-        child: const Text('Submit'),
-      ),
-    ],
-  );
-}
-
-class _MonitoringInput {
-  const _MonitoringInput({
-    required this.baseNumber,
-    required this.baseAssetClassId,
-    required this.baseAssetInstanceId,
-    required this.baseAssetInstanceVersion,
-    required this.grade,
-    required this.cycleReference,
-    required this.chargeNumbers,
-    required this.reason,
-  });
-
-  final int baseNumber;
-  final String baseAssetClassId;
-  final String baseAssetInstanceId;
-  final int baseAssetInstanceVersion;
-  final String grade;
-  final String cycleReference;
-  final List<int> chargeNumbers;
-  final String reason;
-}
-
-List<int>? _tryParsePositiveInts(String raw, {required int maximum}) {
-  final cleaned = raw.trim();
-  if (cleaned.isEmpty) return <int>[];
-  final tokens = cleaned.split(RegExp(r'[,\s]+'));
-  if (tokens.length > maximum) return null;
-  final values = <int>[];
-  for (final token in tokens) {
-    final value = int.tryParse(token);
-    if (value == null ||
-        !isValidChargeNumber(value) ||
-        values.contains(value)) {
-      return null;
-    }
-    values.add(value);
-  }
-  values.sort();
-  return values;
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 64),
-    child: Column(
-      children: [
-        Icon(icon, size: 44, color: BafColors.textSecondary),
-        const SizedBox(height: BafSpacing.md),
-        Text(
-          title,
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _WindowScopeNotice extends StatelessWidget {
-  const _WindowScopeNotice({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      const Icon(
-        Icons.history_rounded,
-        size: 16,
-        color: BafColors.textSecondary,
-      ),
-      const SizedBox(width: BafSpacing.xs),
-      Expanded(
-        child: Text(
-          text,
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    ],
-  );
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({
-    required this.title,
-    required this.detail,
-    required this.onRetry,
-  });
-
-  final String title;
-  final String detail;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) => Center(
-    child: Padding(
-      padding: const EdgeInsets.all(BafSpacing.xl),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline_rounded, color: BafColors.danger),
-          const SizedBox(height: BafSpacing.md),
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w800)),
-          const SizedBox(height: BafSpacing.xs),
-          Text(
-            detail,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: BafColors.textSecondary),
-          ),
-          const SizedBox(height: BafSpacing.md),
-          IconButton(
-            onPressed: onRetry,
-            tooltip: 'Retry',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-    ),
-  );
 }

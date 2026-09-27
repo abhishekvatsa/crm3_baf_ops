@@ -26,6 +26,7 @@ import '../../../core/services/auto_sync_service.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/live_dropdown_form_field.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -42,6 +43,7 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../data/frequent_issue_definition.dart';
 import '../domain/frequent_issue_selection.dart';
+import '../domain/maintenance_component_identification.dart';
 import '../domain/issue_lane_plan.dart';
 import 'issue_lane_selector.dart';
 import '../providers/frequent_issue_provider.dart';
@@ -108,6 +110,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   late final DateTime _initialStartTime;
 
   final _descController = TextEditingController();
+  ComponentIntakeState _componentIntakeState = ComponentIntakeState.unidentified;
   final _chargeNoController = TextEditingController();
   final _tagController = TextEditingController();
   final _componentController = TextEditingController();
@@ -431,6 +434,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   }
 
   void _resetAssetEvidence() {
+    _componentIntakeState = ComponentIntakeState.unidentified;
     _tagResolutionDebounce?.cancel();
     _tagResolutionGeneration++;
     _tagController.clear();
@@ -480,6 +484,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         (type) =>
             type.isActive &&
             !type.isDeleted &&
+            {AbnormalityCategory.process, AbnormalityCategory.equipment}.contains(type.category) &&
             (type.applicableAssetTypes.isEmpty ||
                 type.applicableAssetTypes.contains(_assetType)),
       )
@@ -634,6 +639,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       if (!mounted || selection == null) return;
       if (selection.unlisted) {
         setState(() {
+          _componentIntakeState = ComponentIntakeState.unlisted;
           if (_selectedComponentNodeId != null) _clearFrequentIssueSelection();
           _selectedComponentNodeId = null;
           _tagController.clear();
@@ -652,6 +658,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       final reference = selection.reference;
       if (node == null || reference == null) return;
       setState(() {
+        _componentIntakeState = ComponentIntakeState.registered;
         if (_selectedComponentNodeId != node.id) _clearFrequentIssueSelection();
         _selectedComponentNodeId = node.id;
         _assetHierarchyReference = reference;
@@ -691,15 +698,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   void _selectFrequentIssue(_FrequentIssueChoice choice) {
     final definition = choice.definition;
-    final previousDescription = _selectedFrequentIssue?.description;
     setState(() {
+      if (definition != null && _descController.text.trim() == _selectedFrequentIssue?.description) {
+        _descController.clear();
+      }
       _selectedFrequentIssue = definition;
       _frequentIssueUnlisted = choice.unlisted;
       if (definition == null) return;
-      if (_descController.text.trim().isEmpty ||
-          _descController.text.trim() == previousDescription) {
-        _descController.text = definition.description;
-      }
       _routedTo = RoutedTo.values.byName(definition.defaultRouteKey);
       _routedLanes
         ..clear()
@@ -711,6 +716,20 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       if (_routedTo != RoutedTo.others) {
         _otherDepartmentController.clear();
       }
+    });
+  }
+
+  String get _issueDescription => maintenanceIssueDescription(
+    catalogueDescription: _selectedFrequentIssue?.description,
+    observations: _descController.text,
+  );
+
+  void _selectComponentIntakeState(ComponentIntakeState state) {
+    if (state == _componentIntakeState) return;
+    setState(() {
+      _resetAssetEvidence();
+      _componentIntakeState = state;
+      _assetHierarchyReference = _selectedPhysicalAsset()?.toReference();
     });
   }
 
@@ -974,12 +993,17 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
     final description =
         burnerLockout?.reportDescription(notes: _descController.text) ??
-        _descController.text.trim();
+        _issueDescription;
+    if (_usesGovernedComponentIssueTarget && _componentIntakeState == ComponentIntakeState.registered && _selectedComponentNodeId == null) {
+      _showMessage('Choose the registered component from the hierarchy.', BafColors.warning);
+      return;
+    }
     final inputValidation = MaintenanceInputValidator.validateCreate(
       MaintenanceCreateInput(
         assetType: assetType,
         assetNumberText: '$assetNumber',
         hasGovernedAssetIdentity: true,
+        componentIntakeState: _usesGovernedComponentIssueTarget ? _componentIntakeState : null,
         component:
             burnerLockout != null
                 ? 'Burner system'
@@ -1158,7 +1182,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     ? 'Furnace / Inner Cover interface'
                     : _isBaseInnerCoverAvailability
                     ? baseInnerCoverAvailabilityComponent
-                    : _cleanRequiredText(_componentController.text)
+                    : _cleanOptionalText(_componentController.text)
             ..tag = tagText
             ..subsystem =
                 _isBaseInnerCoverAvailability
@@ -1167,6 +1191,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
             ..hierarchyPath =
                 _isBaseInnerCoverAvailability ? null : hierarchyPath;
       record.assetHierarchyRefJson = eventAssetReference?.encode();
+      if (_usesGovernedComponentIssueTarget) record.componentIntakeState = _componentIntakeState;
       record.continuesIssueId = widget.continuesIssueId;
       record.burnerLockoutCase = burnerLockout;
       record.furnaceStuckupCase = furnaceStuckup;
@@ -1360,7 +1385,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           ),
           children: [
             if (widget.continuesIssueId != null)
-              CurrentActorNotice(message: 'Continuing retained concern ${widget.continuesIssueId}. Select its same physical asset and component using the current register. The original closure and relevance decision remain unchanged.'),
+              CurrentActorNotice(
+                message:
+                    'Continuing retained concern ${widget.continuesIssueId}. Select its same physical asset and component using the current register. The original closure and relevance decision remain unchanged.',
+              ),
             if (accountMessage != null)
               CurrentActorNotice(message: accountMessage),
             _IntroCard(appUserName: appUser?.name),
@@ -1407,7 +1435,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     initialValue: selectedQualityType?.firestoreId,
                     isExpanded: true,
                     decoration: _inputDecoration(
-                      'Suspected abnormality classification',
+                      'Reason abnormality (process / equipment)',
                       hint:
                           qualityTypesAsync.value == null
                               ? 'Synchronizing governed classifications'
@@ -1552,6 +1580,19 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                 ],
                 if (_usesGovernedComponentIssueTarget) ...[
                   const SizedBox(height: BafSpacing.md),
+                  LiveDropdownFormField<ComponentIntakeState>(
+                    key: const ValueKey('maintenance-component-intake-state'),
+                    initialValue: _componentIntakeState,
+                    decoration: _inputDecoration('Component identification'),
+                    items: ComponentIntakeState.values.map((state) => DropdownMenuItem(
+                      value: state, child: Text(state.label),
+                    )).toList(),
+                    onChanged: (state) { if (state != null) _selectComponentIntakeState(state); },
+                  ),
+                  if (_componentIntakeState == ComponentIntakeState.unidentified)
+                    const Padding(padding: EdgeInsets.only(top: BafSpacing.sm),
+                      child: Text('Report what you observed. A supervisor can identify the component later.')),
+                  if (_componentIntakeState == ComponentIntakeState.registered) ...[
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -1588,10 +1629,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           value,
                         ).messageFor('tag'),
                   ),
+                  ],
+                  if ({ComponentIntakeState.registered, ComponentIntakeState.unlisted}.contains(_componentIntakeState)) ...[
                   const SizedBox(height: BafSpacing.md),
                   TextFormField(
+                    key: const ValueKey('maintenance-component-name'),
                     controller: _componentController,
-                    readOnly: _selectedComponentNodeId != null,
+                    readOnly: _componentIntakeState == ComponentIntakeState.registered,
                     decoration: _inputDecoration(
                       _selectedComponentNodeId != null
                           ? 'Governed component'
@@ -1605,6 +1649,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                           value,
                         ).messageFor('component'),
                   ),
+                  ],
                   if (_isAutoResolved) ...[
                     const SizedBox(height: BafSpacing.md),
                     _ResolvedTagPanel(
@@ -1712,12 +1757,18 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                   ),
                   const SizedBox(height: BafSpacing.md),
                 ],
+                if (_selectedFrequentIssue != null)
+                  Padding(padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+                    child: Text(_selectedFrequentIssue!.description)),
                 TextFormField(
+                  key: const ValueKey('maintenance-issue-observations'),
                   controller: _descController,
                   maxLines: 4,
                   decoration: _inputDecoration(
                     _isBurnerLockout
                         ? 'Additional notes (optional)'
+                        : _selectedFrequentIssue != null
+                        ? 'Additional observations (optional)'
                         : 'Fault description',
                     hint: 'What happened? What is affected?',
                     alignLabelWithHint: true,
@@ -1727,7 +1778,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                       return null;
                     }
                     return MaintenanceInputValidator.validateDescription(
-                      value,
+                      _issueDescription,
                     ).messageFor('description');
                   },
                 ),
@@ -2458,12 +2509,9 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: BafSpacing.sm),
-        DropdownButtonFormField<String>(
-          key: ValueKey(
-            'stuckup-base-${selectedBase?.id ?? 'none'}-${eligibleBases.length}',
-          ),
+        LiveDropdownFormField<String>(
+          key: ValueKey('stuckup-base-${baseClass.id}'),
           initialValue: selectedBase?.id,
-          isExpanded: true,
           decoration: _decoration('Base'),
           items: [
             for (final asset in eligibleBases)
@@ -2561,12 +2609,9 @@ class _FurnaceStuckupAssetSelector extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: BafSpacing.sm),
-        DropdownButtonFormField<String>(
-          key: ValueKey(
-            'stuckup-furnace-${selectedFurnace?.id ?? 'none'}-${eligibleFurnaces.length}',
-          ),
+        LiveDropdownFormField<String>(
+          key: ValueKey('stuckup-furnace-${furnaceClass.id}'),
           initialValue: selectedFurnace?.id,
-          isExpanded: true,
           decoration: _decoration('Furnace'),
           items: [
             for (final asset in eligibleFurnaces)
@@ -2632,52 +2677,43 @@ class _GovernedIssueAssetSelector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final classesValue = ref.watch(assetClassesProvider);
     return classesValue.when(
-      loading:
-          () => const _AssetSelectorMessage(
-            icon: Icons.sync_rounded,
-            message: 'Loading the governed asset register...',
-            color: BafColors.maintenance,
-            showProgress: true,
-          ),
-      error:
-          (error, stackTrace) => const _AssetSelectorMessage(
-            icon: Icons.error_outline_rounded,
-            message:
-                'The governed asset register could not be loaded. Sync and try again.',
-            color: BafColors.danger,
-          ),
+      loading: () => const _AssetSelectorMessage(
+        icon: Icons.sync_rounded,
+        message: 'Loading the governed asset register...',
+        color: BafColors.maintenance,
+        showProgress: true,
+      ),
+      error: (error, stackTrace) => const _AssetSelectorMessage(
+        icon: Icons.error_outline_rounded,
+        message:
+            'The governed asset register could not be loaded. Sync and try again.',
+        color: BafColors.danger,
+      ),
       data: (allClasses) {
         final classes = activeIssueAssetClasses(allClasses);
-        if (classes.isEmpty) {
-          return const _AssetSelectorMessage(
-            icon: Icons.inventory_2_outlined,
-            message:
-                'No active asset classes are registered. An administrator must add one before issues can be raised.',
-            color: BafColors.warning,
-          );
-        }
-
-        final selectedClass =
-            classes
-                .where((item) => item.id == selectedIssueClassId)
-                .firstOrNull;
-        final route =
-            selectedClass == null
-                ? null
-                : resolveGovernedIssueAssetRoute(
-                  issueClass: selectedClass,
-                  allClasses: allClasses,
-                );
+        final selectedClass = classes
+            .where((item) => item.id == selectedIssueClassId)
+            .firstOrNull;
+        final route = selectedClass == null
+            ? null
+            : resolveGovernedIssueAssetRoute(
+                issueClass: selectedClass,
+                allClasses: allClasses,
+              );
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<String>(
-              key: ValueKey(
-                'issue-asset-class-${selectedClass?.id ?? 'none'}-${classes.length}',
+            if (classes.isEmpty)
+              const _AssetSelectorMessage(
+                icon: Icons.inventory_2_outlined,
+                message:
+                    'No active asset classes are registered. An administrator must add one before issues can be raised.',
+                color: BafColors.warning,
               ),
+            LiveDropdownFormField<String>(
+              key: const ValueKey('issue-asset-class'),
               initialValue: selectedClass?.id,
-              isExpanded: true,
               decoration: _decoration('Asset class'),
               items: classes
                   .map(
@@ -2783,43 +2819,35 @@ class _PhysicalAssetSelector extends ConsumerWidget {
     final physicalClass = route.physicalAssetClass!;
     final assetsValue = ref.watch(assetInstancesProvider(physicalClass.id));
     return assetsValue.when(
-      loading:
-          () => const _AssetSelectorMessage(
-            icon: Icons.sync_rounded,
-            message: 'Loading active physical assets...',
-            color: BafColors.maintenance,
-            showProgress: true,
-          ),
-      error:
-          (error, stackTrace) => const _AssetSelectorMessage(
-            icon: Icons.error_outline_rounded,
-            message: 'Physical assets could not be loaded. Sync and try again.',
-            color: BafColors.danger,
-          ),
+      loading: () => const _AssetSelectorMessage(
+        icon: Icons.sync_rounded,
+        message: 'Loading active physical assets...',
+        color: BafColors.maintenance,
+        showProgress: true,
+      ),
+      error: (error, stackTrace) => const _AssetSelectorMessage(
+        icon: Icons.error_outline_rounded,
+        message: 'Physical assets could not be loaded. Sync and try again.',
+        color: BafColors.danger,
+      ),
       data: (allAssets) {
         final assets = eligibleIssueAssets(route: route, assets: allAssets);
-        final selectedAsset =
-            assets
-                .where((item) => item.id == selectedAssetInstanceId)
-                .firstOrNull;
-        if (assets.isEmpty) {
-          return _AssetSelectorMessage(
-            icon: Icons.precision_manufacturing_outlined,
-            message:
-                'No active ${physicalClass.name} assets are registered. Add or reactivate the physical asset before raising an issue.',
-            color: BafColors.warning,
-          );
-        }
-
+        final selectedAsset = assets
+            .where((item) => item.id == selectedAssetInstanceId)
+            .firstOrNull;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonFormField<String>(
-              key: ValueKey(
-                'issue-physical-asset-${physicalClass.id}-${selectedAsset?.id ?? 'none'}-${assets.length}',
+            if (assets.isEmpty)
+              _AssetSelectorMessage(
+                icon: Icons.precision_manufacturing_outlined,
+                message:
+                    'No active ${physicalClass.name} assets are registered. Add or reactivate the physical asset before raising an issue.',
+                color: BafColors.warning,
               ),
+            LiveDropdownFormField<String>(
+              key: ValueKey('issue-physical-asset-${physicalClass.id}'),
               initialValue: selectedAsset?.id,
-              isExpanded: true,
               decoration: _decoration(
                 route.innerCoverByBase
                     ? 'Base carrying Inner Cover'

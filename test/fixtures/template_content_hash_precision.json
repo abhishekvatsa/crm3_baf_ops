@@ -1,0 +1,64 @@
+{
+  "description": "Exact synthetic DEV phone publication snapshot plus timestamp precision variants; expected hashes verified by the Dart model and TypeScript server. No persisted record is rewritten.",
+  "version": {
+    "jobTemplateSnapshotJson": "{\"jobName\":\"DEV Furnace planned final inspection\",\"assetType\":\"furnace\",\"composer\":{\"closureReviewConfirmed\":true,\"closureReviewConfirmedByUid\":\"7iZNJVyAVSaYxknddaWcI4qQNK61\",\"closureReviewConfirmedByName\":\"DEV Usability si\",\"closureReviewConfirmedAt\":\"2026-09-26T20:56:38.793151Z\"},\"closureCriticalCount\":1}",
+    "moduleSnapshotsJson": "[\n  {\n    \"moduleCode\": \"DEV-MECH\",\n    \"moduleTitle\": \"Furnace inspection\",\n    \"discipline\": \"mechanical\",\n    \"requiredForClosure\": true,\n    \"isRequired\": true\n  }\n]",
+    "fieldDefinitionsJson": "[\n  {\n    \"key\": \"inspection\",\n    \"label\": \"Inspection findings\",\n    \"moduleCode\": \"DEV-MECH\",\n    \"type\": \"text\",\n    \"isRequired\": true\n  }\n]",
+    "checklistJson": "[]",
+    "targetRefs": [],
+    "deviceTagRefs": [],
+    "safetyClass": null,
+    "safetyGatePolicyJson": null,
+    "procedureRefs": [],
+    "operationalStatePreconditions": [],
+    "schemaVersion": 1,
+    "metadataJson": "{\"source\":\"TemplatePublisherScreen\",\"disciplineScope\":[\"mechanical\"],\"packageCode\":\"DEV-PLANNED\",\"assetType\":\"furnace\",\"generatedAt\":\"2026-09-27T02:26:37.395213\"}"
+  },
+  "cases": [
+    {
+      "name": "exact-phone-published-review",
+      "reviewAt": "2026-09-26T20:56:38.793151Z",
+      "expectedHash": "tg2-sha256:8c9c86fe99c0190ebd4bd7058618c626f3ccf69a416352edbc304ab400196252"
+    },
+    {
+      "name": "millisecond",
+      "reviewAt": "2026-09-26T20:56:38.793Z",
+      "expectedHash": "tg2-sha256:941113dc0aa9c2549890b6b9047bdc18cb83ab1d8c785ea1724f59b263934813"
+    },
+    {
+      "name": "zero-microsecond-residue",
+      "reviewAt": "2026-09-26T20:56:38.793000Z",
+      "expectedHash": "tg2-sha256:85f8684df93bfafe5de567b50010b5d5807e19fe2d032aa63b47ee96bb65bdd7"
+    },
+    {
+      "name": "one-microsecond",
+      "reviewAt": "2026-09-26T20:56:38.000001Z",
+      "expectedHash": "tg2-sha256:477fcc9969fb6acfbc3d434d2c21d41f5ebafd248bb225d10f69438907716b5d"
+    },
+    {
+      "name": "trailing-microsecond-zeroes",
+      "reviewAt": "2026-09-26T20:56:38.793100Z",
+      "expectedHash": "tg2-sha256:43355cffa3fd5567ff467b98935f221c99d57e666c85f981e7cc3f32b11db5f2"
+    },
+    {
+      "name": "explicit-positive-offset",
+      "reviewAt": "2026-09-27T02:26:38.793151+05:30",
+      "expectedHash": "tg2-sha256:e150936e400d5c37f391348b3e0debfacfec57da8b96f3d215eb22b5c016904e"
+    },
+    {
+      "name": "explicit-negative-offset",
+      "reviewAt": "2026-09-26T16:56:38.793151-04:00",
+      "expectedHash": "tg2-sha256:10bd73598be5ec4274faa7f7fdd70e2d2a26dabff30b1d41a2807bdd79485301"
+    },
+    {
+      "name": "dart-six-digit-truncation",
+      "reviewAt": "2026-09-26T20:56:38.793151999Z",
+      "expectedHash": "tg2-sha256:50147d14b8747c9143151c56e63fc2c21084cc209b61730601f420de1ef7587f"
+    },
+    {
+      "name": "local-wall-clock",
+      "reviewAt": "2026-09-27T02:26:38.793151",
+      "expectedHash": "tg2-sha256:4e9d8bd65db03ddd68488dc0b1ff9fc72ce6a320091a5a26511a76a17356da0e"
+    }
+  ]
+}

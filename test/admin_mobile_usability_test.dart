@@ -107,15 +107,19 @@ void main() {
       expect(hierarchyList, findsOneWidget);
       expect(tester.getSize(toolbar).height, lessThanOrEqualTo(56));
       expect(tester.getSize(hierarchyList).height, greaterThanOrEqualTo(140));
-      final retiredButton = tester.widget<IconButton>(
+      final retiredButton = tester.widget<FilterChip>(
         find.byKey(const ValueKey('asset-hierarchy-retired-toggle')),
       );
       final addButton = tester.widget<IconButton>(
         find.byKey(const ValueKey('asset-hierarchy-add-class')),
       );
+      expect(retiredButton.selected, isFalse);
       expect(
-        retiredButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
-        Colors.white,
+        find.descendant(
+          of: find.byKey(const ValueKey('asset-hierarchy-retired-toggle')),
+          matching: find.text('Retired 0'),
+        ),
+        findsOneWidget,
       );
       expect(
         addButton.style?.foregroundColor?.resolve(const <WidgetState>{}),
@@ -136,6 +140,81 @@ void main() {
     },
   );
 
+  testWidgets('large-text retired filter preserves search and class scope', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final now = DateTime.utc(2026, 9, 27);
+    final furnace = _assetClass(now);
+    final retired = _baseAssetClass(now, status: AssetHierarchyStatus.retired);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          assetClassesProvider.overrideWith(
+            (ref) => Stream.value([furnace, retired]),
+          ),
+          assetHierarchyNodesProvider(
+            furnace.id,
+          ).overrideWith((ref) => Stream.value([])),
+          assetInstancesProvider(
+            furnace.id,
+          ).overrideWith((ref) => Stream.value([])),
+          assetHierarchyNodesProvider(
+            retired.id,
+          ).overrideWith((ref) => Stream.value([])),
+          assetInstancesProvider(
+            retired.id,
+          ).overrideWith((ref) => Stream.value([])),
+        ],
+        child: MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.6)),
+            child: child!,
+          ),
+          home: Scaffold(body: AssetHierarchyAdminTab(actor: _admin(now))),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final filter = find.byKey(const ValueKey('asset-hierarchy-retired-toggle'));
+    final selector = find.byKey(
+      const ValueKey('asset-hierarchy-class-selector'),
+    );
+    List<String?> visibleIds() => tester
+        .widget<DropdownButton<String>>(
+          find.descendant(
+            of: selector,
+            matching: find.byType(DropdownButton<String>),
+          ),
+        )
+        .items!
+        .map((item) => item.value)
+        .toList();
+    expect(visibleIds(), [furnace.id]);
+    expect(find.text('Retired 1'), findsOneWidget);
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(filter).selected, isTrue);
+    expect(visibleIds(), [furnace.id, retired.id]);
+    await tester.enterText(find.byType(TextField).first, 'Base');
+    await tester.pumpAndSettle();
+    expect(visibleIds(), [retired.id]);
+    await tester.ensureVisible(filter);
+    await tester.tap(filter);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(filter).selected, isFalse);
+    expect(visibleIds(), isEmpty);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      'Base',
+    );
+    expect(find.byTooltip('Add asset class').hitTestable(), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('deep hierarchy keeps useful width and actions below copy', (
     tester,
   ) async {
@@ -155,10 +234,9 @@ void main() {
             for (var ancestor = 1; ancestor <= index; ancestor++)
               'component-$ancestor',
           ],
-          name:
-              index == 7
-                  ? 'Deep governed component with a deliberately descriptive maintenance name'
-                  : 'Hierarchy level ${index + 1}',
+          name: index == 7
+              ? 'Deep governed component with a deliberately descriptive maintenance name'
+              : 'Hierarchy level ${index + 1}',
           activeChildCount: index == 7 ? 0 : 1,
         ),
       );
@@ -413,14 +491,17 @@ AssetClassRecord _assetClass(DateTime now) => AssetClassRecord(
   lastMutationId: 'class-mutation',
 );
 
-AssetClassRecord _baseAssetClass(DateTime now) => AssetClassRecord(
+AssetClassRecord _baseAssetClass(
+  DateTime now, {
+  AssetHierarchyStatus status = AssetHierarchyStatus.active,
+}) => AssetClassRecord(
   id: 'base-class',
   code: 'BASE',
   name: 'Base',
   majorArea: 'BAF shop',
   legacyAssetTypeKey: 'base',
   shortDescription: 'Base hierarchy used to verify compact search continuity.',
-  status: AssetHierarchyStatus.active,
+  status: status,
   version: 1,
   createdAt: now,
   createdByUid: 'admin-1',
@@ -462,25 +543,24 @@ AssetHierarchyNode _hierarchyNode(
   lastMutationId: 'node-mutation-$index',
 );
 
-MaintenanceRecord _longTicket(DateTime now) =>
-    MaintenanceRecord()
-      ..firestoreId = 'ticket-long-copy'
-      ..version = 1
-      ..assetType = AssetType.furnace
-      ..assetNumber = 12
-      ..maintenanceType = MaintenanceType.breakdown
-      ..description =
-          'UV detector replacement completed after inspection; verify the flame '
-          'signal and restore the burner before release.'
-      ..routedTo = RoutedTo.mechanical
-      ..status = TicketStatus.open
-      ..loggedByUid = 'operator-1'
-      ..loggedByName = 'Operations User With A Deliberately Long Display Name'
-      ..startDate = now
-      ..createdAt = now
-      ..updatedAt = now
-      ..actionsJson = '{not-json'
-      ..isSynced = true;
+MaintenanceRecord _longTicket(DateTime now) => MaintenanceRecord()
+  ..firestoreId = 'ticket-long-copy'
+  ..version = 1
+  ..assetType = AssetType.furnace
+  ..assetNumber = 12
+  ..maintenanceType = MaintenanceType.breakdown
+  ..description =
+      'UV detector replacement completed after inspection; verify the flame '
+      'signal and restore the burner before release.'
+  ..routedTo = RoutedTo.mechanical
+  ..status = TicketStatus.open
+  ..loggedByUid = 'operator-1'
+  ..loggedByName = 'Operations User With A Deliberately Long Display Name'
+  ..startDate = now
+  ..createdAt = now
+  ..updatedAt = now
+  ..actionsJson = '{not-json'
+  ..isSynced = true;
 
 AppUser _admin(DateTime now) => AppUser(
   uid: 'admin-1',

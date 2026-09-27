@@ -1,5 +1,19 @@
 import '../data/template_governance_model.dart';
 
+/// The immutable publication audit must wait for its remote package update.
+/// A later active version is allowed: the audit still records earlier history.
+bool remotePackageSupportsPublicationAudit({
+  required TemplatePackage? package,
+  required TemplateVersion version,
+}) {
+  return package != null &&
+      package.firestoreId == version.packageFirestoreId &&
+      !package.isDeleted &&
+      (package.lifecycleStatus == TemplatePackageLifecycleStatus.active ||
+          package.lifecycleStatus == TemplatePackageLifecycleStatus.retired) &&
+      package.latestVersionNumber >= version.versionNumber;
+}
+
 enum TemplatePublicationReadinessCode {
   ready,
   packageMissing,
@@ -180,15 +194,16 @@ TemplatePublicationReadinessDecision evaluateTemplatePublicationReadiness({
     );
   }
 
-  final publishedAudits = audits
-      .where(
-        (audit) =>
-            !audit.isDeleted &&
-            audit.action == TemplatePublishAuditAction.published &&
-            _clean(audit.versionFirestoreId) == versionId,
-      )
-      .toList(growable: false)
-    ..sort((a, b) => b.performedAt.compareTo(a.performedAt));
+  final publishedAudits =
+      audits
+          .where(
+            (audit) =>
+                !audit.isDeleted &&
+                audit.action == TemplatePublishAuditAction.published &&
+                _clean(audit.versionFirestoreId) == versionId,
+          )
+          .toList(growable: false)
+        ..sort((a, b) => b.performedAt.compareTo(a.performedAt));
 
   if (publishedAudits.isEmpty) {
     return const TemplatePublicationReadinessDecision(

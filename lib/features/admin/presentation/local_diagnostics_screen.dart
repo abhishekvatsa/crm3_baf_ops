@@ -132,9 +132,10 @@ class LocalDiagnosticsReport {
     required LocalDiagnosticsSupportSnapshot supportSnapshot,
     required LocalReleaseDiagnosticsSnapshot releaseSnapshot,
     required IsarInstalledStoreProvenanceInventory provenanceInventory,
-    CrashReportingStartupHealth crashReporting = const CrashReportingStartupHealth(
-      CrashReportingStartupStatus.notAttempted,
-    ),
+    CrashReportingStartupHealth crashReporting =
+        const CrashReportingStartupHealth(
+          CrashReportingStartupStatus.notAttempted,
+        ),
   }) {
     return LocalDiagnosticsReport(
       generatedAt: DateTime.now(),
@@ -157,89 +158,89 @@ class LocalDiagnosticsReport {
       rows.fold<int>(0, (sum, row) => sum + row.unsyncedCount);
 
   String toClipboardText() {
-    final buffer =
-        StringBuffer()
-          ..writeln('CRM-III BAF Ops local diagnostics inventory')
-          ..writeln('generatedAt: ${generatedAt.toIso8601String()}')
-          ..writeln('totalUnsyncedRows: $totalUnsyncedRows')
-          ..writeln('unresolvedSyncRejections: $unresolvedRejections')
-          ..writeln('likelyPermanentSyncRejections: $likelyPermanentRejections')
-          ..writeln('totalSyncRejectionRows: $totalRejections')
-          ..writeln('knowledgeMetaRows: $knowledgeMetaRows')
-          ..writeln('workflowCommandsUnfinished: ${commandJournal.unfinished}')
-          ..writeln(
-            'workflowCommandsUncertainOutcome: '
-            '${commandJournal.uncertainOutcome}',
-          )
-          ..writeln(
-            'workflowCommandsManualReview: ${commandJournal.manualReview}',
-          )
-          ..writeln('workflowCommandRows: ${commandJournal.total}')
-          ..writeln('collectionsReported: $collectionCount')
-          ..writeln('crashReportingStartup: ${crashReporting.status.name}')
-          ..writeln('crashReportingErrorType: ${crashReporting.errorType ?? 'none'}')
-          ..writeln('syncStatus: ${supportSnapshot.syncStatusLabel}')
-          ..writeln('syncRunning: ${supportSnapshot.syncIsRunning}')
-          ..writeln(
-            'syncLastReason: ${supportSnapshot.syncLastReason ?? 'none'}',
-          )
-          ..writeln(
-            'syncLastCompletedAt: ${supportSnapshot.syncLastCompletedAtIso ?? 'never'}',
-          )
-          ..writeln(
-            'syncLastSkippedAt: ${supportSnapshot.syncLastSkippedAtIso ?? 'never'}',
-          )
-          ..writeln(
-            'syncLastSucceeded: ${supportSnapshot.syncLastSucceeded ?? 'unknown'}',
-          )
-          ..writeln('syncRunCount: ${supportSnapshot.syncRunCount}')
-          ..writeln('syncSuccessCount: ${supportSnapshot.syncSuccessCount}')
-          ..writeln('syncFailureCount: ${supportSnapshot.syncFailureCount}')
-          ..writeln('syncConflictCount: ${supportSnapshot.syncConflictCount}')
-          ..writeln(
-            'syncFailureDetailCount: ${supportSnapshot.syncFailureDetailCount}',
-          )
-          ..writeln(
-            'syncFailureDetailOverflowCount: ${supportSnapshot.syncFailureDetailOverflowCount}',
-          )
-          ..writeln(
-            'closureCallable: ${supportSnapshot.callableName} (${supportSnapshot.callableRegion})',
-          )
-          ..writeln(
-            'assignmentCallable: ${supportSnapshot.assignmentCallableName} (${supportSnapshot.assignmentCallableRegion})',
-          )
-          ..writeln(
-            'backendIdentityCallable: ${supportSnapshot.backendIdentityCallableName} (${supportSnapshot.backendIdentityCallableRegion})',
-          )
-          ..writeln(
-            'firebaseProjectId: ${supportSnapshot.firebaseProjectId ?? 'unavailable'}',
-          )
-          ..writeln(
-            'firebaseStorageBucket: ${supportSnapshot.firebaseStorageBucket ?? 'unavailable'}',
-          )
-          ..writeln('platform: ${supportSnapshot.platformLabel}')
-          ..writeln('')
-          ..writeln('Local database provenance:')
-          ..writeln(provenanceInventory.toDiagnosticsText())
-          ..writeln('')
-          ..writeln('Release identity:')
-          ..writeln(releaseSnapshot.toDiagnosticsText())
-          ..writeln('')
-          ..writeln('Governance:')
-          ..writeln(
-            'activeTemplatePackages: ${governanceSummary?.activePackages ?? 0}',
-          )
-          ..writeln(
-            'publishedTemplateVersions: ${governanceSummary?.publishedVersions ?? 0}',
-          )
-          ..writeln(
-            'draftTemplateVersions: ${governanceSummary?.draftVersions ?? 0}',
-          )
-          ..writeln(
-            'registryMode: Firestore-only in this release; local diagnostics do not count remote registry families/revisions.',
-          )
-          ..writeln('')
-          ..writeln('Rows:');
+    final buffer = StringBuffer()
+      ..writeln('CRM-III BAF Ops local diagnostics inventory')
+      ..writeln('generatedAt: ${generatedAt.toIso8601String()}')
+      ..writeln('totalUnsyncedRows: $totalUnsyncedRows')
+      ..writeln('unresolvedSyncRejections: $unresolvedRejections')
+      ..writeln('likelyPermanentSyncRejections: $likelyPermanentRejections')
+      ..writeln('totalSyncRejectionRows: $totalRejections')
+      ..writeln('knowledgeMetaRows: $knowledgeMetaRows')
+      ..writeln('workflowCommandsUnfinished: ${commandJournal.unfinished}')
+      ..writeln(
+        'workflowCommandsUncertainOutcome: '
+        '${commandJournal.uncertainOutcome}',
+      )
+      ..writeln('workflowCommandsManualReview: ${commandJournal.manualReview}')
+      ..writeln('workflowCommandRows: ${commandJournal.total}')
+      ..writeln('collectionsReported: $collectionCount')
+      ..writeln('crashReportingStartup: ${crashReporting.status.name}')
+      ..writeln(
+        'crashReportingErrorType: ${crashReporting.errorType ?? 'none'}',
+      )
+      ..writeln('syncStatus: ${supportSnapshot.syncStatusLabel}')
+      ..writeln('syncRunning: ${supportSnapshot.syncIsRunning}')
+      ..writeln('syncLastReason: ${supportSnapshot.syncLastReason ?? 'none'}')
+      ..writeln(
+        'syncLastCompletedAt: ${supportSnapshot.syncLastCompletedAtIso ?? 'never'}',
+      )
+      ..writeln(
+        'syncLastSkippedAt: ${supportSnapshot.syncLastSkippedAtIso ?? 'never'}',
+      )
+      ..writeln(
+        'syncLastSucceeded: ${supportSnapshot.syncLastSucceeded ?? 'unknown'}',
+      )
+      ..writeln(
+        'syncLastPartiallySucceeded: ${supportSnapshot.syncLastPartiallySucceeded}',
+      )
+      ..writeln('syncRunCount: ${supportSnapshot.syncRunCount}')
+      ..writeln('syncSuccessCount: ${supportSnapshot.syncSuccessCount}')
+      ..writeln('syncFailureCount: ${supportSnapshot.syncFailureCount}')
+      ..writeln('syncConflictCount: ${supportSnapshot.syncConflictCount}')
+      ..writeln(
+        'syncFailureDetailCount: ${supportSnapshot.syncFailureDetailCount}',
+      )
+      ..writeln(
+        'syncFailureDetailOverflowCount: ${supportSnapshot.syncFailureDetailOverflowCount}',
+      )
+      ..writeln(
+        'closureCallable: ${supportSnapshot.callableName} (${supportSnapshot.callableRegion})',
+      )
+      ..writeln(
+        'assignmentCallable: ${supportSnapshot.assignmentCallableName} (${supportSnapshot.assignmentCallableRegion})',
+      )
+      ..writeln(
+        'backendIdentityCallable: ${supportSnapshot.backendIdentityCallableName} (${supportSnapshot.backendIdentityCallableRegion})',
+      )
+      ..writeln(
+        'firebaseProjectId: ${supportSnapshot.firebaseProjectId ?? 'unavailable'}',
+      )
+      ..writeln(
+        'firebaseStorageBucket: ${supportSnapshot.firebaseStorageBucket ?? 'unavailable'}',
+      )
+      ..writeln('platform: ${supportSnapshot.platformLabel}')
+      ..writeln('')
+      ..writeln('Local database provenance:')
+      ..writeln(provenanceInventory.toDiagnosticsText())
+      ..writeln('')
+      ..writeln('Release identity:')
+      ..writeln(releaseSnapshot.toDiagnosticsText())
+      ..writeln('')
+      ..writeln('Governance:')
+      ..writeln(
+        'activeTemplatePackages: ${governanceSummary?.activePackages ?? 0}',
+      )
+      ..writeln(
+        'publishedTemplateVersions: ${governanceSummary?.publishedVersions ?? 0}',
+      )
+      ..writeln(
+        'draftTemplateVersions: ${governanceSummary?.draftVersions ?? 0}',
+      )
+      ..writeln(
+        'registryMode: Firestore-only in this release; local diagnostics do not count remote registry families/revisions.',
+      )
+      ..writeln('')
+      ..writeln('Rows:');
 
     for (final row in rows) {
       buffer.writeln(
@@ -320,8 +321,9 @@ class LocalReleaseDiagnosticsSnapshot {
       );
     }
     try {
-      final backend =
-          await ref.read(backendReleaseIdentityServiceProvider).fetch();
+      final backend = await ref
+          .read(backendReleaseIdentityServiceProvider)
+          .fetch();
       return LocalReleaseDiagnosticsSnapshot(
         build: AppBuildIdentity.current,
         backend: backend,
@@ -423,6 +425,7 @@ class LocalDiagnosticsSupportSnapshot {
   final String? syncLastReason;
   final String? syncLastSkippedReason;
   final bool? syncLastSucceeded;
+  final bool syncLastPartiallySucceeded;
   final int syncRunCount;
   final int syncSuccessCount;
   final int syncFailureCount;
@@ -469,6 +472,7 @@ class LocalDiagnosticsSupportSnapshot {
     this.syncLastReason,
     this.syncLastSkippedReason,
     this.syncLastSucceeded,
+    this.syncLastPartiallySucceeded = false,
     this.syncLastError,
     this.syncPendingFollowUpReason,
     this.firebaseProjectId,
@@ -488,6 +492,7 @@ class LocalDiagnosticsSupportSnapshot {
       syncLastReason: syncHealth.lastReason,
       syncLastSkippedReason: syncHealth.lastSkippedReason,
       syncLastSucceeded: syncHealth.lastSucceeded,
+      syncLastPartiallySucceeded: syncHealth.lastPartiallySucceeded,
       syncRunCount: syncHealth.runCount,
       syncSuccessCount: syncHealth.successCount,
       syncFailureCount: syncHealth.failureCount,
@@ -555,6 +560,7 @@ class LocalDiagnosticsSupportSnapshot {
     'syncLastReason': syncLastReason,
     'syncLastSkippedReason': syncLastSkippedReason,
     'syncLastSucceeded': syncLastSucceeded,
+    'syncLastPartiallySucceeded': syncLastPartiallySucceeded,
     'syncRunCount': syncRunCount,
     'syncSuccessCount': syncSuccessCount,
     'syncFailureCount': syncFailureCount,
@@ -629,14 +635,13 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
     final actorAsync = ref.watch(currentAppUserProvider);
 
     return actorAsync.when(
-      loading:
-          () => BafScreenStateScaffold.loading(
-            appBarTitle: 'Local diagnostics',
-            appBarSubtitle: 'Offline store, recovery and release evidence',
-            appBarIcon: Icons.monitor_heart_outlined,
-            accent: BafColors.admin,
-            label: 'Checking diagnostics authority',
-          ),
+      loading: () => BafScreenStateScaffold.loading(
+        appBarTitle: 'Local diagnostics',
+        appBarSubtitle: 'Offline store, recovery and release evidence',
+        appBarIcon: Icons.monitor_heart_outlined,
+        accent: BafColors.admin,
+        label: 'Checking diagnostics authority',
+      ),
       error: (error, _) => _DiagnosticsError(message: '$error'),
       data: (actor) {
         if (actor == null || !actor.canManageTemplateGovernance) {
@@ -665,59 +670,56 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
                 icon: const Icon(Icons.refresh_rounded),
               ),
               reportAsync.maybeWhen(
-                data:
-                    (report) => PopupMenuButton<_LocalDiagnosticsAction>(
-                      tooltip: 'Diagnostics actions',
-                      enabled: !report.isWebUnavailable,
-                      onSelected: (action) {
-                        switch (action) {
-                          case _LocalDiagnosticsAction.recoveryPackage:
-                            _createRecoveryPackage(context, report);
-                          case _LocalDiagnosticsAction.saveFile:
-                            _saveReportFile(context, report);
-                          case _LocalDiagnosticsAction.copy:
-                            _copyReport(context, report);
-                        }
-                      },
-                      itemBuilder:
-                          (context) => const [
-                            PopupMenuItem(
-                              value: _LocalDiagnosticsAction.recoveryPackage,
-                              child: ListTile(
-                                leading: Icon(Icons.inventory_2_rounded),
-                                title: Text('Create recovery package'),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: _LocalDiagnosticsAction.saveFile,
-                              child: ListTile(
-                                leading: Icon(Icons.file_download_rounded),
-                                title: Text('Save diagnostics file'),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: _LocalDiagnosticsAction.copy,
-                              child: ListTile(
-                                leading: Icon(Icons.copy_rounded),
-                                title: Text('Copy diagnostics'),
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
-                          ],
+                data: (report) => PopupMenuButton<_LocalDiagnosticsAction>(
+                  tooltip: 'Diagnostics actions',
+                  enabled: !report.isWebUnavailable,
+                  onSelected: (action) {
+                    switch (action) {
+                      case _LocalDiagnosticsAction.recoveryPackage:
+                        _createRecoveryPackage(context, report);
+                      case _LocalDiagnosticsAction.saveFile:
+                        _saveReportFile(context, report);
+                      case _LocalDiagnosticsAction.copy:
+                        _copyReport(context, report);
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(
+                      value: _LocalDiagnosticsAction.recoveryPackage,
+                      child: ListTile(
+                        leading: Icon(Icons.inventory_2_rounded),
+                        title: Text('Create recovery package'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
                     ),
+                    PopupMenuItem(
+                      value: _LocalDiagnosticsAction.saveFile,
+                      child: ListTile(
+                        leading: Icon(Icons.file_download_rounded),
+                        title: Text('Save diagnostics file'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _LocalDiagnosticsAction.copy,
+                      child: ListTile(
+                        leading: Icon(Icons.copy_rounded),
+                        title: Text('Copy diagnostics'),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                    ),
+                  ],
+                ),
                 orElse: () => const SizedBox.shrink(),
               ),
             ],
           ),
           body: SafeArea(
             child: reportAsync.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Reading local diagnostics',
-                    color: BafColors.admin,
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Reading local diagnostics',
+                color: BafColors.admin,
+              ),
               error: (error, _) => _DiagnosticsErrorBody(message: '$error'),
               data: (report) => _DiagnosticsReportView(report: report),
             ),
@@ -745,8 +747,7 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           duration: const Duration(seconds: 8),
-          backgroundColor:
-              outcome.coversDatabase ? null : BafColors.danger,
+          backgroundColor: outcome.coversDatabase ? null : BafColors.danger,
           content: Text(
             '${outcome.operatorSummary} Folder path copied.'
             '${outcome.warnings.isEmpty ? '' : ' ${outcome.warnings.join(' ')}'}',
@@ -872,7 +873,8 @@ class _DiagnosticsSummary extends StatelessWidget {
         spacing: BafSpacing.sm,
         runSpacing: BafSpacing.sm,
         children: [
-          if (report.crashReporting.status == CrashReportingStartupStatus.unavailable)
+          if (report.crashReporting.status ==
+              CrashReportingStartupStatus.unavailable)
             const _SummaryChip(
               label: 'Crash reporting unavailable; local work can continue',
               icon: Icons.bug_report_outlined,
@@ -881,38 +883,34 @@ class _DiagnosticsSummary extends StatelessWidget {
           _SummaryChip(
             label: '${report.totalUnsyncedRows} unsynced rows',
             icon: Icons.cloud_off_rounded,
-            color:
-                report.totalUnsyncedRows > 0
-                    ? BafColors.warning
-                    : BafColors.success,
+            color: report.totalUnsyncedRows > 0
+                ? BafColors.warning
+                : BafColors.success,
           ),
           _SummaryChip(
             label: '${report.unresolvedRejections} unresolved rejections',
             icon: Icons.report_problem_rounded,
-            color:
-                report.unresolvedRejections > 0
-                    ? BafColors.danger
-                    : BafColors.success,
+            color: report.unresolvedRejections > 0
+                ? BafColors.danger
+                : BafColors.success,
           ),
           _SummaryChip(
             label: '${report.likelyPermanentRejections} likely permanent',
             icon: Icons.block_rounded,
-            color:
-                report.likelyPermanentRejections > 0
-                    ? BafColors.danger
-                    : BafColors.textSecondary,
+            color: report.likelyPermanentRejections > 0
+                ? BafColors.danger
+                : BafColors.textSecondary,
           ),
           _SummaryChip(
             label:
                 '${report.commandJournal.unfinished} unfinished commands'
                 '${report.commandJournal.unresolvedOutcome > 0 ? ' (${report.commandJournal.unresolvedOutcome} outcome unknown)' : ''}',
             icon: Icons.pending_actions_rounded,
-            color:
-                report.commandJournal.unresolvedOutcome > 0
-                    ? BafColors.danger
-                    : report.commandJournal.unfinished > 0
-                    ? BafColors.warning
-                    : BafColors.success,
+            color: report.commandJournal.unresolvedOutcome > 0
+                ? BafColors.danger
+                : report.commandJournal.unfinished > 0
+                ? BafColors.warning
+                : BafColors.success,
           ),
           _SummaryChip(
             label: '${report.knowledgeMetaRows} knowledge meta rows',
@@ -921,14 +919,12 @@ class _DiagnosticsSummary extends StatelessWidget {
           ),
           _SummaryChip(
             label: 'Sync ${report.supportSnapshot.syncStatusLabel}',
-            icon:
-                report.supportSnapshot.syncIsRunning
-                    ? Icons.sync_rounded
-                    : Icons.cloud_done_rounded,
-            color:
-                report.supportSnapshot.syncIsRunning
-                    ? BafColors.warning
-                    : BafColors.sync,
+            icon: report.supportSnapshot.syncIsRunning
+                ? Icons.sync_rounded
+                : Icons.cloud_done_rounded,
+            color: report.supportSnapshot.syncIsRunning
+                ? BafColors.warning
+                : BafColors.sync,
           ),
         ],
       ),
@@ -944,8 +940,9 @@ class _DatabaseProvenanceDiagnosticsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final generation = inventory.databaseGenerationSha256;
-    final generationLabel =
-        generation == null ? 'none' : '${generation.substring(0, 16)}...';
+    final generationLabel = generation == null
+        ? 'none'
+        : '${generation.substring(0, 16)}...';
 
     return _DiagnosticsPanel(
       title: 'Local database provenance',
@@ -961,10 +958,9 @@ class _DatabaseProvenanceDiagnosticsPanel extends StatelessWidget {
               _SummaryChip(
                 label: 'Canonical ${inventory.canonicalDisposition.wireName}',
                 icon: Icons.fingerprint_rounded,
-                color:
-                    inventory.canonicalFingerprintRecognized
-                        ? BafColors.success
-                        : BafColors.warning,
+                color: inventory.canonicalFingerprintRecognized
+                    ? BafColors.success
+                    : BafColors.warning,
               ),
               _SummaryChip(
                 label:
@@ -973,18 +969,15 @@ class _DatabaseProvenanceDiagnosticsPanel extends StatelessWidget {
                 color: BafColors.planned,
               ),
               _SummaryChip(
-                label:
-                    inventory.requiresGovernedRecovery
-                        ? 'Recovery review required'
-                        : 'Provenance current',
-                icon:
-                    inventory.requiresGovernedRecovery
-                        ? Icons.report_problem_rounded
-                        : Icons.check_circle_rounded,
-                color:
-                    inventory.requiresGovernedRecovery
-                        ? BafColors.danger
-                        : BafColors.success,
+                label: inventory.requiresGovernedRecovery
+                    ? 'Recovery review required'
+                    : 'Provenance current',
+                icon: inventory.requiresGovernedRecovery
+                    ? Icons.report_problem_rounded
+                    : Icons.check_circle_rounded,
+                color: inventory.requiresGovernedRecovery
+                    ? BafColors.danger
+                    : BafColors.success,
               ),
             ],
           ),
@@ -1062,17 +1055,17 @@ class _DiagnosticsSupportPanel extends StatelessWidget {
           ),
           _DiagnosticsInfoRow(
             label: 'Last sync completed',
-            value:
-                snapshot.syncLastCompletedAt == null
-                    ? 'never'
-                    : _formatDiagnosticTime(snapshot.syncLastCompletedAt!),
+            value: snapshot.syncLastCompletedAt == null
+                ? 'never'
+                : _formatDiagnosticTime(snapshot.syncLastCompletedAt!),
           ),
           _DiagnosticsInfoRow(
             label: 'Last sync result',
-            value:
-                snapshot.syncLastSucceeded == null
-                    ? 'unknown'
-                    : (snapshot.syncLastSucceeded! ? 'success' : 'failed'),
+            value: snapshot.syncLastPartiallySucceeded
+                ? 'partly synced'
+                : snapshot.syncLastSucceeded == null
+                ? 'unknown'
+                : (snapshot.syncLastSucceeded! ? 'success' : 'failed'),
           ),
           _DiagnosticsInfoRow(
             label: 'Last skipped sync',
@@ -1175,10 +1168,9 @@ class _ReleaseIdentityDiagnosticsPanel extends StatelessWidget {
             ),
             _DiagnosticsInfoRow(
               label: 'Backend deployed at',
-              value:
-                  snapshot.backend!.deployedAt == null
-                      ? 'Unavailable'
-                      : _formatDiagnosticTime(snapshot.backend!.deployedAt!),
+              value: snapshot.backend!.deployedAt == null
+                  ? 'Unavailable'
+                  : _formatDiagnosticTime(snapshot.backend!.deployedAt!),
             ),
           ] else if (snapshot.backendError != null)
             _DiagnosticsInfoRow(

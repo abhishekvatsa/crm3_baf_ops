@@ -27,6 +27,10 @@ void showAdminMutationSyncOutcome(
       '$action saved on this device; synchronization is queued.',
       BafColors.warning,
     ),
+    SyncRequestOutcome.partial => (
+      'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
+      BafColors.warning,
+    ),
     SyncRequestOutcome.failed => (
       '$action saved on this device, but cloud synchronization needs attention.',
       BafColors.danger,

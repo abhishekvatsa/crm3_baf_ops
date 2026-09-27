@@ -7,7 +7,8 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -525,17 +526,21 @@ void main() {
     return;
   }
 
-  runCrashReportingZoned(() async {
-    WidgetsFlutterBinding.ensureInitialized();
-    var startupFailure = await _initializeFirebaseAndCrashReporting();
+  runCrashReportingZoned(startCrmBafApp);
+}
 
-    if (startupFailure == null) {
-      await _requestStartupNotificationPermission();
-      startupFailure = await _initializeLocalDatabase();
-    }
+/// The same complete startup used by main, awaitable by device integration
+/// tests so their error reporter can be restored after app handler setup.
+Future<void> startCrmBafApp() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  var startupFailure = await _initializeFirebaseAndCrashReporting();
 
-    runApp(ProviderScope(child: CrmBafApp(startupFailure: startupFailure)));
-  });
+  if (startupFailure == null) {
+    await _requestStartupNotificationPermission();
+    startupFailure = await _initializeLocalDatabase();
+  }
+
+  runApp(ProviderScope(child: CrmBafApp(startupFailure: startupFailure)));
 }
 
 void _showStartupSnack(
@@ -1349,10 +1354,32 @@ class _ProfileBootstrapScreenState
   }
 }
 
+@visibleForTesting
+Widget startupSyncGateForTesting({required AppUser appUser}) =>
+    _StartupSyncGate(
+      appUser: appUser,
+      initializeBackgroundServices: false,
+      child: const SizedBox.shrink(),
+    );
+
+String? _startupAuthorityKey(AppUser actor) {
+  if (!actor.isApproved || !actor.hasServerAuthorityObservation) {
+    return null;
+  }
+  final roles = actor.roles.map((role) => role.name).toSet().toList()..sort();
+  return jsonEncode([actor.uid, actor.authorityRevision, roles]);
+}
+
 class _StartupSyncGate extends ConsumerStatefulWidget {
   final AppUser appUser;
+  final bool initializeBackgroundServices;
+  final Widget? child;
 
-  const _StartupSyncGate({required this.appUser});
+  const _StartupSyncGate({
+    required this.appUser,
+    this.initializeBackgroundServices = true,
+    this.child,
+  });
 
   @override
   ConsumerState<_StartupSyncGate> createState() => _StartupSyncGateState();
@@ -1361,6 +1388,7 @@ class _StartupSyncGate extends ConsumerStatefulWidget {
 class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
     with WidgetsBindingObserver {
   bool _syncStarted = false;
+  int _startupSyncGeneration = 0;
   bool _backgroundServicesStarted = false;
   late final AutoSyncService _autoSyncService;
   DeviceRecoveryListener? _deviceRecoveryListener;
@@ -1370,7 +1398,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   void initState() {
     super.initState();
     _autoSyncService = ref.read(autoSyncServiceProvider);
-    if (!kIsWeb) {
+    if (!kIsWeb && widget.initializeBackgroundServices) {
       _deviceRecoveryListener = ref.read(deviceRecoveryListenerProvider);
     }
     WidgetsBinding.instance.addObserver(this);
@@ -1398,6 +1426,22 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void didUpdateWidget(_StartupSyncGate oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_startupAuthorityKey(oldWidget.appUser) !=
+            _startupAuthorityKey(widget.appUser) ||
+        oldWidget.appUser.uid != widget.appUser.uid) {
+      _startupSyncGeneration++;
+      _syncStarted = false;
+      final changedAccount = oldWidget.appUser.uid != widget.appUser.uid;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        if (changedAccount && _currentStartupAuthorityKey() != null) {
+          ref.read(syncOnceProvider.notifier).state = false;
+        }
+        _startInitialSyncOnce();
+      });
+    }
     if (!kIsWeb &&
         (oldWidget.appUser.uid != widget.appUser.uid ||
             oldWidget.appUser.isApproved != widget.appUser.isApproved)) {
@@ -1413,7 +1457,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && !kIsWeb) {
-      unawaited(_deviceRecoveryListener!.checkNow(reason: 'app_resumed'));
+      unawaited(_deviceRecoveryListener?.checkNow(reason: 'app_resumed'));
     }
     final liveService = _liveRemoteSyncService;
     if (liveService == null) {
@@ -1433,7 +1477,7 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _autoSyncService.stop();
+    _autoSyncService.detach();
     _deviceRecoveryListener?.stop();
     _liveRemoteSyncService?.dispose();
     _liveRemoteSyncService = null;
@@ -1441,17 +1485,47 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   }
 
   @override
-  Widget build(BuildContext context) => const HomeScreen();
+  Widget build(BuildContext context) => widget.child ?? const HomeScreen();
+
+  String? _currentStartupAuthorityKey() {
+    if (!mounted || ref.read(signOutInProgressProvider)) {
+      return null;
+    }
+    final profile = ref.read(currentAppUserProvider);
+    if (profile.isLoading || profile.hasError) {
+      return null;
+    }
+    final auth = ref.read(authStateProvider);
+    if (auth.isLoading || auth.hasError) {
+      return null;
+    }
+    final actor = profile.valueOrNull;
+    if (actor == null ||
+        actor.uid != widget.appUser.uid ||
+        auth.valueOrNull?.uid != actor.uid ||
+        ref.read(firebaseAuthProvider).currentUser?.uid != actor.uid) {
+      return null;
+    }
+    final authority = _startupAuthorityKey(actor);
+    return authority == _startupAuthorityKey(widget.appUser) ? authority : null;
+  }
 
   void _startInitialSyncOnce() {
-    if (_syncStarted || ref.read(syncOnceProvider)) {
+    final authority = _currentStartupAuthorityKey();
+    if (authority == null || _syncStarted || ref.read(syncOnceProvider)) {
       return;
     }
     _syncStarted = true;
+    final generation = _startupSyncGeneration;
 
     Future.microtask(() async {
       try {
         if (!mounted) {
+          return;
+        }
+        if (generation != _startupSyncGeneration ||
+            _currentStartupAuthorityKey() != authority) {
+          if (generation == _startupSyncGeneration) _syncStarted = false;
           return;
         }
         final syncOutcome = await ref
@@ -1459,6 +1533,11 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
             .runFullSyncWithResult(reason: 'auth_gate', force: true);
 
         if (!mounted) {
+          return;
+        }
+        if (generation != _startupSyncGeneration ||
+            _currentStartupAuthorityKey() != authority) {
+          if (generation == _startupSyncGeneration) _syncStarted = false;
           return;
         }
 
@@ -1482,12 +1561,15 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
         if (!mounted) {
           return;
         }
-        _syncStarted = false;
+        if (generation == _startupSyncGeneration) _syncStarted = false;
       }
     });
   }
 
   void _startBackgroundSyncServices() {
+    if (!widget.initializeBackgroundServices) {
+      return;
+    }
     if (_backgroundServicesStarted) {
       return;
     }
@@ -1520,6 +1602,9 @@ class _StartupSyncGateState extends ConsumerState<_StartupSyncGate>
   }
 
   void _startOrUpdateLiveMaintenanceMirror() {
+    if (!widget.initializeBackgroundServices) {
+      return;
+    }
     if (kIsWeb || !mounted) {
       return;
     }

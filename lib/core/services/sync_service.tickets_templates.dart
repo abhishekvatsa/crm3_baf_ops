@@ -28,6 +28,7 @@ class _MaintenanceCreationEvidenceError extends StateError {
 extension _SyncServiceTicketsTemplates on SyncService {
   Future<void> _syncTickets() async {
     final unsynced = await _maintenanceRepo.getUnsyncedTickets();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -35,6 +36,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -43,6 +45,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         entityType: 'maintenance_ticket',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -55,6 +58,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       final remoteList = await _firestoreMaintenance.getTicketsByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <MaintenanceRecord>[];
@@ -62,6 +66,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       final skippedButSyncedRecords = <MaintenanceRecord>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -95,6 +100,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             // a cached tombstone can settle a pending local deletion.
             remote = await _firestoreMaintenance
                 .readMaintenanceIssueCommandServerState(record.firestoreId!);
+            _checkRunCurrent();
             if (remote == null) {
               // Even server absence does not prove that an earlier creation
               // request cannot still commit. Cancellation needs a durable
@@ -124,7 +130,10 @@ extension _SyncServiceTicketsTemplates on SyncService {
               );
             }
           } catch (error) {
+            rethrowIfSyncRunMustAbort(error);
+            _checkRunCurrent();
             await _recordMaintenancePushFailure(record, error);
+            _checkRunCurrent();
             continue;
           }
           if (remote.isDeleted) {
@@ -136,25 +145,44 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
           try {
             final originalActor = record.deletedByUid;
-            if (originalActor == null || originalActor != _authentication.currentUser?.uid) {
-              throw StateError('Return to the original Admin account to synchronize this withdrawal.');
+            if (originalActor == null ||
+                originalActor != _authentication.currentUser?.uid) {
+              throw StateError(
+                'Return to the original Admin account to synchronize this withdrawal.',
+              );
             }
-            final command = buildMaintenanceWithdrawalCommand(remote, record.deleteReason ?? '');
+            final command = buildMaintenanceWithdrawalCommand(
+              remote,
+              record.deleteReason ?? '',
+            );
             final executor = _maintenanceCreationOwner?.executor;
             final receipt = executor == null
                 ? await _maintenanceCommands.execute(command)
-                : await executor.execute(command,
-                    validateReceipt: (receipt) => validateMaintenanceWithdrawalReceipt(command, receipt));
+                : await executor.execute(
+                    command,
+                    validateReceipt: (receipt) =>
+                        validateMaintenanceWithdrawalReceipt(command, receipt),
+                  );
+            _checkRunCurrent();
             validateMaintenanceWithdrawalReceipt(command, receipt);
-            final confirmed = await _firestoreMaintenance.readMaintenanceIssueCommandServerState(record.firestoreId!);
-            if (confirmed == null || !confirmed.isDeleted || confirmed.version < receipt.aggregateVersion) {
-              throw StateError('Withdrawal was accepted; exact server refresh remains pending.');
+            final confirmed = await _firestoreMaintenance
+                .readMaintenanceIssueCommandServerState(record.firestoreId!);
+            _checkRunCurrent();
+            if (confirmed == null ||
+                !confirmed.isDeleted ||
+                confirmed.version < receipt.aggregateVersion) {
+              throw StateError(
+                'Withdrawal was accepted; exact server refresh remains pending.',
+              );
             }
             skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
             skippedButSyncedRecords.add(record);
             lastSuccessCount++;
           } catch (error) {
+            rethrowIfSyncRunMustAbort(error);
+            _checkRunCurrent();
             await _recordMaintenancePushFailure(record, error);
+            _checkRunCurrent();
           }
           continue;
         }
@@ -163,11 +191,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
           try {
             final result = await _maintenanceRepo
                 .applyTombstoneFromMaintenanceRemote(remote);
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'maintenance_ticket',
-              record: record,
-              entityLabel: 'maintenance ticket',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'maintenance_ticket',
+                record: record,
+                entityLabel: 'maintenance ticket',
+              ),
             )) {
               continue;
             }
@@ -177,9 +208,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
               evidence:
                   'The canonical remote maintenance tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint('📥 Applied remote tombstone for ticket ${record.id}');
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for ticket ${record.id}: $e',
@@ -193,11 +227,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
           try {
             final expectedLocal = _syncPushSnapshot(record);
             final creation = await _pushMissingMaintenanceTicket(record);
+            _checkRunCurrent();
             final adopted = await _maintenanceRepo
                 .applyGovernedCreationServerStateForSync(
                   remote: creation.serverRecord,
                   expectedLocal: expectedLocal,
                 );
+            _checkRunCurrent();
             if (!adopted) {
               debugPrint(
                 'Governed ticket ${record.id} was created remotely, but the '
@@ -210,8 +246,11 @@ extension _SyncServiceTicketsTemplates on SyncService {
               evidence:
                   'The governed issue-creation command returned an authoritative server receipt.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
           } catch (error, stackTrace) {
+            rethrowIfSyncRunMustAbort(error);
+            _checkRunCurrent();
             lastFailureCount++;
             _recordPushFailureDetail(
               entityType: 'maintenance_ticket',
@@ -231,6 +270,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
           record,
           remote,
         );
+        _checkRunCurrent();
         if (recoveredCreation.error case final error?) {
           lastFailureCount++;
           final detail = _buildPushFailureDetail(
@@ -240,6 +280,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             error: error,
           );
           await _upsertSyncRejection(detail);
+          _checkRunCurrent();
           _appendPushFailureDetail(detail);
           continue;
         }
@@ -250,6 +291,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
                 remote: recoveredCreation.serverRecord!,
                 expectedLocal: expectedLocal,
               );
+          _checkRunCurrent();
           if (!adopted) {
             debugPrint(
               'Governed ticket ${record.id} was recovered remotely, but the '
@@ -262,6 +304,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             evidence:
                 'The idempotent creation receipt and exact server state were recovered after an interrupted submission.',
           );
+          _checkRunCurrent();
           lastSuccessCount++;
           continue;
         }
@@ -276,8 +319,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
             record,
             remote,
           );
+          _checkRunCurrent();
         } catch (error) {
+          rethrowIfSyncRunMustAbort(error);
+          _checkRunCurrent();
           await _recordMaintenancePushFailure(record, error);
+          _checkRunCurrent();
           continue;
         }
         if (replayReceipt != null) {
@@ -297,6 +344,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
                 'before local reconciliation.',
               ),
             );
+            _checkRunCurrent();
             continue;
           }
           final adopted = await _maintenanceRepo
@@ -304,6 +352,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
                 remote: replayReceipt.serverRecord,
                 expectedLocal: expectedLocal,
               );
+          _checkRunCurrent();
           if (!adopted) {
             debugPrint(
               'Maintenance lifecycle replay for ${record.id} committed '
@@ -317,6 +366,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             evidence:
                 'The governed maintenance-lifecycle replay returned an authoritative server receipt.',
           );
+          _checkRunCurrent();
           lastSuccessCount++;
           continue;
         }
@@ -328,6 +378,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local ticket ${record.id} and did not overwrite newer remote data',
@@ -342,12 +393,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
         await _maintenanceRepo.markTicketsSyncedIfUnchanged(
           skippedButSyncedSnapshots,
         );
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'maintenance_ticket',
           records: skippedButSyncedRecords,
           evidence:
               'An exact server tombstone was read and the matching local deletion snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
 
       for (
@@ -355,6 +408,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         offset < recordsToPush.length;
         offset += maintenancePairedBatchMaximum
       ) {
+        _checkRunCurrent();
         final chunk = recordsToPush.sublist(
           offset,
           offset + maintenancePairedBatchMaximum > recordsToPush.length
@@ -364,8 +418,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
         try {
           await _retry(() async {
             await _firestoreMaintenance.batchUpsertTickets(chunk);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += chunk.length;
           _recordPushFailuresForBatch(
             entityType: 'maintenance_ticket',
@@ -382,14 +440,18 @@ extension _SyncServiceTicketsTemplates on SyncService {
               _syncPushSnapshots(chunk),
             ),
           );
+          _checkRunCurrent();
           await _resolveRecheckedPermanentRejectionsForRecords(
             entityType: 'maintenance_ticket',
             records: chunk,
             evidence:
                 'The remote maintenance batch was accepted and matching local snapshots were reconciled.',
           );
+          _checkRunCurrent();
           lastSuccessCount += chunk.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += chunk.length;
           _recordPushFailuresForBatch(
             entityType: 'maintenance_ticket',
@@ -419,6 +481,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       error: error,
     );
     await _upsertSyncRejection(detail);
+    _checkRunCurrent();
     _appendPushFailureDetail(detail);
   }
 
@@ -467,8 +530,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
       final owner = _maintenanceCreationOwner;
       if (owner == null) {
         receipt = await _maintenanceCommands.execute(command);
+        _checkRunCurrent();
       } else {
-        final original = await owner.execute(draft: command, actorUid: currentUid);
+        final original = await owner.execute(
+          draft: command,
+          actorUid: currentUid,
+        );
+        _checkRunCurrent();
         command = original.command;
         receipt = original.receipt;
         if (original.hasSuccessor) {
@@ -478,6 +546,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         }
       }
     }, shouldRetry: _shouldRetryWorkflowCommand);
+    _checkRunCurrent();
     final applied = receipt!;
     validateMaintenanceIssueCreateReceipt(
       command: command,
@@ -498,7 +567,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local.firestoreId!,
           close,
         );
+        _checkRunCurrent();
       }, shouldRetry: _shouldRetryWorkflowCommand);
+      _checkRunCurrent();
       return (
         receipt: applied,
         serverRecord: _validateGovernedCreationServerRecord(
@@ -518,6 +589,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       await _retry(
         () => _applyMaintenanceLifecycleReplayStep(local.firestoreId!, close),
       );
+      _checkRunCurrent();
       final reopen = _maintenanceReopenReplayStepData(local, applied.appliedAt);
       _MaintenanceLifecycleReplayReceipt? lifecycle;
       await _retry(() async {
@@ -525,7 +597,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local.firestoreId!,
           reopen,
         );
+        _checkRunCurrent();
       }, shouldRetry: _shouldRetryWorkflowCommand);
+      _checkRunCurrent();
       return (
         receipt: applied,
         serverRecord: _validateGovernedCreationServerRecord(
@@ -537,6 +611,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     }
     final serverRecord = await _firestoreMaintenance
         .readMaintenanceIssueCommandServerState(local.firestoreId!);
+    _checkRunCurrent();
     if (serverRecord == null) {
       throw StateError(
         'The governed issue-creation receipt has no server record.',
@@ -565,6 +640,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       try {
         final exact = await _firestoreMaintenance
             .readMaintenanceIssueCommandServerState(local.firestoreId!);
+        _checkRunCurrent();
         if (exact == null || !_sameMaintenanceCreationIdentity(local, exact)) {
           return _blockedMaintenanceRecovery(
             contradiction: true,
@@ -577,7 +653,9 @@ extension _SyncServiceTicketsTemplates on SyncService {
           _MaintenanceCreationRecoveryDisposition.existingIdentity,
           serverRecord: exact,
         );
-      } catch (_) {
+      } catch (syncError) {
+        rethrowIfSyncRunMustAbort(syncError);
+        _checkRunCurrent();
         return _blockedMaintenanceRecovery(
           reason: 'The existing ticket could not be verified with the server.',
         );
@@ -604,17 +682,24 @@ extension _SyncServiceTicketsTemplates on SyncService {
           createVersion: createVersion,
         );
       } on StateError catch (error) {
+        rethrowIfSyncRunMustAbort(error);
+        _checkRunCurrent();
         throw _MaintenanceCreationEvidenceError(error.message);
       }
       final owner = _maintenanceCreationOwner;
-      final original = owner == null ? null : await owner.execute(draft: command, actorUid: currentUid);
+      final original = owner == null
+          ? null
+          : await owner.execute(draft: command, actorUid: currentUid);
+      _checkRunCurrent();
       if (original != null) command = original.command;
       if (original?.hasSuccessor == true) {
         throw _MaintenanceCreationEvidenceError(
           'Original issue creation is accepted. Newer local edits remain saved and require a reviewed successor correction; they were not overwritten.',
         );
       }
-      final receipt = original?.receipt ?? await _maintenanceCommands.execute(command);
+      final receipt =
+          original?.receipt ?? await _maintenanceCommands.execute(command);
+      _checkRunCurrent();
       try {
         validateMaintenanceIssueCreateReceipt(
           command: command,
@@ -622,10 +707,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
           createVersion: createVersion,
         );
       } on StateError catch (error) {
+        rethrowIfSyncRunMustAbort(error);
+        _checkRunCurrent();
         throw _MaintenanceCreationEvidenceError(error.message);
       }
       final exactRemote = await _firestoreMaintenance
           .readMaintenanceIssueCommandServerState(local.firestoreId!);
+      _checkRunCurrent();
       if (exactRemote == null) {
         throw _MaintenanceCreationEvidenceError(
           'The recovered issue-creation receipt has no server record.',
@@ -645,6 +733,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local,
           validatedRemote,
         );
+        _checkRunCurrent();
         if (lifecycle == null) {
           throw StateError(
             'The recovered issue creation could not complete its pending lifecycle.',
@@ -664,6 +753,8 @@ extension _SyncServiceTicketsTemplates on SyncService {
         serverRecord: validatedRemote,
       );
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       debugPrint(
         'Governed creation recovery remains unresolved for ticket '
         '${local.id}: $error',
@@ -747,12 +838,15 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     try {
       if (plan.isEmpty) {
-        return await _tryConfirmCompletedMaintenanceLifecycle(local, remote);
+        return await _guardedPushAwait(
+          () async => _tryConfirmCompletedMaintenanceLifecycle(local, remote),
+        );
       }
       var stepVersion =
           remote?.version ?? maintenanceCreateReplayVersion(local);
       _MaintenanceLifecycleReplayReceipt? receipt;
       for (final step in plan) {
+        _checkRunCurrent();
         final stepData = switch (step) {
           _MaintenanceReplayStep.close => _maintenanceCloseReplayStepData(
             local,
@@ -771,11 +865,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
           local.firestoreId!,
           stepData,
         );
+        _checkRunCurrent();
 
         stepVersion = stepData['version'] as int;
       }
       return receipt;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Maintenance lifecycle replay did not complete for ticket ${local.id}: $error',
       );
@@ -867,15 +964,22 @@ extension _SyncServiceTicketsTemplates on SyncService {
     }
     final owner = _maintenanceCreationOwner;
     if (owner != null) {
-      final commandId = 'legacy_${local.wasTechnicallyResolved ? 'close' : 'reopen'}_${local.firestoreId}_v${stepData['version']}';
+      final commandId =
+          'legacy_${local.wasTechnicallyResolved ? 'close' : 'reopen'}_${local.firestoreId}_v${stepData['version']}';
       final accepted = await owner.repository.getReceipt(commandId);
+      _checkRunCurrent();
       final pending = await owner.repository.getRetryCommand(commandId);
+      _checkRunCurrent();
       if (accepted != null || pending != null) {
-        return _applyMaintenanceLifecycleReplayStep(local.firestoreId!, stepData);
+        return _applyMaintenanceLifecycleReplayStep(
+          local.firestoreId!,
+          stepData,
+        );
       }
     }
     final observed = await _firestoreMaintenance
         .readRemoteMaintenanceLifecycleReplayFieldsForSync(local.firestoreId!);
+    _checkRunCurrent();
     if (_cleanMaintenanceText(_authentication.currentUser?.uid) != currentUid) {
       throw const WorkflowException(
         WorkflowErrorCode.unavailable,
@@ -911,38 +1015,77 @@ extension _SyncServiceTicketsTemplates on SyncService {
     if (executor != null) {
       final closing = stepData['isResolved'] == true;
       final originalActor = stepData[closing ? 'closedByUid' : 'reopenedByUid'];
-      if (originalActor is! String || originalActor != _authentication.currentUser?.uid) {
-        throw StateError('The original actor must review this saved lifecycle action.');
+      if (originalActor is! String ||
+          originalActor != _authentication.currentUser?.uid) {
+        throw StateError(
+          'The original actor must review this saved lifecycle action.',
+        );
       }
-      final version = readRequiredPersistedInt(stepData['version'],
-        field: 'version', source: 'saved maintenance lifecycle', minimum: 2);
+      final version = readRequiredPersistedInt(
+        stepData['version'],
+        field: 'version',
+        source: 'saved maintenance lifecycle',
+        minimum: 2,
+      );
       final command = WorkflowCommand(
-        commandId: 'legacy_${closing ? 'close' : 'reopen'}_${firestoreId}_v$version',
-        type: closing ? WorkflowCommandType.resolveMaintenanceTicket : WorkflowCommandType.reopenMaintenanceTicket,
-        aggregateId: firestoreId, expectedVersion: version - 1,
-        payload: closing ? <String, Object?>{
-          'endDate': stepData['endDate'], 'remarks': stepData['remarks'],
-          'teamsInvolved': stepData['teamsInvolved'] ?? <String>[],
-          'actionsJson': stepData['actionsJson'] ?? '[]', 'actionTargetContractVersion': 1,
-        } : <String, Object?>{'remarks': stepData['reopenReason']},
+        commandId:
+            'legacy_${closing ? 'close' : 'reopen'}_${firestoreId}_v$version',
+        type: closing
+            ? WorkflowCommandType.resolveMaintenanceTicket
+            : WorkflowCommandType.reopenMaintenanceTicket,
+        aggregateId: firestoreId,
+        expectedVersion: version - 1,
+        payload: closing
+            ? <String, Object?>{
+                'endDate': stepData['endDate'],
+                'remarks': stepData['remarks'],
+                'teamsInvolved': stepData['teamsInvolved'] ?? <String>[],
+                'actionsJson': stepData['actionsJson'] ?? '[]',
+                'actionTargetContractVersion': 1,
+              }
+            : <String, Object?>{'remarks': stepData['reopenReason']},
       );
       void validate(WorkflowCommandReceipt receipt) {
-        if (receipt.commandId != command.commandId || receipt.aggregateVersion != version ||
-            receipt.resultKey != (closing ? 'maintenance-ticket-resolved' : 'maintenance-ticket-reopened') ||
+        if (receipt.commandId != command.commandId ||
+            receipt.aggregateVersion != version ||
+            receipt.resultKey !=
+                (closing
+                    ? 'maintenance-ticket-resolved'
+                    : 'maintenance-ticket-reopened') ||
             receipt.result['ticketId'] != firestoreId ||
-            receipt.result['auditId'] != 'server_maintenance_ticket_${command.commandId}') {
-          throw StateError('The saved lifecycle action has no matching server acceptance.');
+            receipt.result['auditId'] !=
+                'server_maintenance_ticket_${command.commandId}') {
+          throw StateError(
+            'The saved lifecycle action has no matching server acceptance.',
+          );
         }
       }
-      final accepted = await executor.execute(command, validateReceipt: validate);
+
+      final accepted = await executor.execute(
+        command,
+        validateReceipt: validate,
+      );
+      _checkRunCurrent();
       validate(accepted);
-      final server = await _firestoreMaintenance.readMaintenanceIssueCommandServerState(firestoreId);
-      if (originalActor != _authentication.currentUser?.uid || server == null || server.isDeleted ||
-          server.version != accepted.aggregateVersion || server.isResolved != closing ||
-          (closing ? server.closedByUid : server.reopenedByUid) != originalActor) {
-        throw StateError('The accepted lifecycle action needs exact server reconciliation. Local evidence is retained.');
+      final server = await _firestoreMaintenance
+          .readMaintenanceIssueCommandServerState(firestoreId);
+      _checkRunCurrent();
+      if (originalActor != _authentication.currentUser?.uid ||
+          server == null ||
+          server.isDeleted ||
+          server.version != accepted.aggregateVersion ||
+          server.isResolved != closing ||
+          (closing ? server.closedByUid : server.reopenedByUid) !=
+              originalActor) {
+        throw StateError(
+          'The accepted lifecycle action needs exact server reconciliation. Local evidence is retained.',
+        );
       }
-      return (version: server.version, updatedAt: server.updatedAt.toUtc(), serverRecord: server);
+      return (
+        version: server.version,
+        updatedAt: server.updatedAt.toUtc(),
+        serverRecord: server,
+      );
     }
     // Explicit legacy adapter for compatibility tests; production always has
     // the durable, origin-bound executor above and never uses direct writes.
@@ -952,9 +1095,13 @@ extension _SyncServiceTicketsTemplates on SyncService {
             firestoreId,
             stepData,
           );
-    } catch (_) {
+      _checkRunCurrent();
+    } catch (syncError) {
+      rethrowIfSyncRunMustAbort(syncError);
+      _checkRunCurrent();
       observed = await _firestoreMaintenance
           .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
+      _checkRunCurrent();
       if (!maintenanceLifecycleReplayOutcomeMatches(observed, stepData)) {
         rethrow;
       }
@@ -966,6 +1113,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
     observed ??= await _firestoreMaintenance
         .readRemoteMaintenanceLifecycleReplayFieldsForSync(firestoreId);
+    _checkRunCurrent();
     return _maintenanceLifecycleReceiptFromReadback(
       firestoreId,
       observed,
@@ -1274,6 +1422,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
   Future<void> _syncTemplates() async {
     final unsynced = await _plannedRepo.getUnsyncedTemplates();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -1281,6 +1430,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -1289,6 +1439,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
         entityType: 'job_template',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -1301,6 +1452,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       final remoteList = await _firestorePlanned.getTemplatesByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <JobTemplate>[];
@@ -1308,6 +1460,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
       final convergedRecords = <JobTemplate>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -1350,11 +1503,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
             final result = await _plannedRepo.applyTombstoneFromTemplateRemote(
               remote,
             );
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'job_template',
-              record: record,
-              entityLabel: 'job template',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'job_template',
+                record: record,
+                entityLabel: 'job template',
+              ),
             )) {
               continue;
             }
@@ -1364,9 +1520,12 @@ extension _SyncServiceTicketsTemplates on SyncService {
               evidence:
                   'The canonical remote job-template tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint('📥 Applied remote tombstone for template ${record.id}');
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for template ${record.id}: $e',
@@ -1383,6 +1542,7 @@ extension _SyncServiceTicketsTemplates on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local template ${record.id} and did not overwrite newer remote data',
@@ -1399,11 +1559,15 @@ extension _SyncServiceTicketsTemplates on SyncService {
         try {
           await _retry(() async {
             await _firestorePlanned.batchUpsertTemplates(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
 
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'job_template',
@@ -1424,12 +1588,14 @@ extension _SyncServiceTicketsTemplates on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _plannedRepo.markTemplatesSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'job_template',
           records: convergedRecords,
           evidence:
               'The remote job-template write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }

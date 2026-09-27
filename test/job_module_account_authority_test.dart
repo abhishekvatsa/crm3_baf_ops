@@ -1,3 +1,4 @@
+import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'dart:async';
 import 'dart:io';
 
@@ -73,7 +74,11 @@ ComponentAction _action() => ComponentAction(
 
 class _NoRemoteAudit extends AuditRepository {
   @override
-  Future<void> log(AuditEvent event, {bool syncToRemote = true}) async {}
+  Future<void> log(
+    AuditEvent event, {
+    bool syncToRemote = true,
+    SyncRunGuard? runGuard,
+  }) async {}
 }
 
 // These adapters retain the actual native transaction and write. Only the

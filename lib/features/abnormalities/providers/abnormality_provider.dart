@@ -439,6 +439,7 @@ void _validateTypeForSave(AbnormalityType type) {
 
 void _validateAbnormalityForSave(ChargeAbnormality abnormality) {
   _normalizeAbnormality(abnormality);
+  abnormality.validateAssessmentLifecycle();
 
   if (!isValidChargeNumber(abnormality.sourceChargeNo)) {
     throw ArgumentError.value(

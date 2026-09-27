@@ -1,5 +1,100 @@
 part of 'quality_home_screen.dart';
 
+class _QualityStatusFilter<T> extends StatelessWidget {
+  const _QualityStatusFilter({
+    super.key,
+    required this.segments,
+    required this.selected,
+    required this.onSelectionChanged,
+  });
+
+  final List<ButtonSegment<T>> segments;
+  final Set<T> selected;
+  final ValueChanged<Set<T>> onSelectionChanged;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final textScale = MediaQuery.textScalerOf(context).scale(14) / 14;
+      if (constraints.maxWidth / textScale >= 380) {
+        return SegmentedButton<T>(
+          segments: segments,
+          selected: selected,
+          onSelectionChanged: onSelectionChanged,
+        );
+      }
+      return Wrap(
+        spacing: BafSpacing.sm,
+        runSpacing: BafSpacing.xs,
+        children: [
+          for (final segment in segments)
+            ChoiceChip(
+              label: segment.label!,
+              selected: selected.contains(segment.value),
+              onSelected: (_) => onSelectionChanged({segment.value}),
+            ),
+        ],
+      );
+    },
+  );
+}
+
+class _QualityRecordHeading extends StatelessWidget {
+  const _QualityRecordHeading({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.status,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final Widget status;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final identity = Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: BafColors.textPrimary,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
+      );
+      final textScale = MediaQuery.textScalerOf(context).scale(17) / 17;
+      if (constraints.maxWidth / textScale < 330) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            identity,
+            const SizedBox(height: BafSpacing.sm),
+            status,
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: identity),
+          const SizedBox(width: BafSpacing.sm),
+          status,
+        ],
+      );
+    },
+  );
+}
+
 class _LinkedCaseState extends StatelessWidget {
   const _LinkedCaseState({
     required this.icon,
@@ -159,7 +254,11 @@ class _Fact extends StatelessWidget {
         child: Text(
           text,
           softWrap: true,
-          style: const TextStyle(fontSize: 12, color: BafColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 12,
+            color: BafColors.textSecondary,
+            height: 1.4,
+          ),
         ),
       ),
     ],
@@ -281,6 +380,7 @@ class _CloseWarningDialog extends StatefulWidget {
 }
 
 class _CloseWarningDialogState extends State<_CloseWarningDialog> {
+  DateTime? _raPerformedAt;
   QualityWarningClosureDisposition _disposition =
       QualityWarningClosureDisposition.coilFoundAcceptable;
   late final TextEditingController _reason;
@@ -356,17 +456,16 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
                   child: Text('Quality adjudication'),
                 ),
             ],
-            onChanged:
-                _linkedRequiresRaClosure
-                    ? null
-                    : (value) => setState(() {
-                      _disposition = value!;
-                      if (value !=
-                          QualityWarningClosureDisposition
-                              .reannealingCompleted) {
-                        _raCharges.clear();
-                      }
-                    }),
+            onChanged: _linkedRequiresRaClosure
+                ? null
+                : (value) => setState(() {
+                    _disposition = value!;
+                    if (value !=
+                        QualityWarningClosureDisposition.reannealingCompleted) {
+                      _raCharges.clear();
+                      _raPerformedAt = null;
+                    }
+                  }),
           ),
           if (_disposition ==
               QualityWarningClosureDisposition.reannealingCompleted) ...[
@@ -374,22 +473,24 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
             TextField(
               controller: _raCharges,
               readOnly: _linkedAlreadyCompleted,
-              keyboardType:
-                  _hasLinkedAbnormality
-                      ? TextInputType.number
-                      : TextInputType.text,
+              keyboardType: _hasLinkedAbnormality
+                  ? TextInputType.number
+                  : TextInputType.text,
               decoration: InputDecoration(
-                labelText:
-                    _hasLinkedAbnormality
-                        ? 'RA charge number'
-                        : 'RA charge numbers',
+                labelText: _hasLinkedAbnormality
+                    ? 'RA charge number'
+                    : 'RA charge numbers',
                 hintText: _hasLinkedAbnormality ? '13001' : '13001, 13002',
-                helperText:
-                    _linkedAlreadyCompleted
-                        ? 'Recorded by Operations; correct it in the abnormality record if needed'
-                        : null,
+                helperText: _linkedAlreadyCompleted
+                    ? 'Recorded by Operations; correct it in the abnormality record if needed'
+                    : null,
               ),
             ),
+            if (_hasLinkedAbnormality && !_linkedAlreadyCompleted)
+              RaPerformedAtField(
+                value: _raPerformedAt,
+                onChanged: (value) => setState(() => _raPerformedAt = value),
+              ),
           ],
           const SizedBox(height: BafSpacing.md),
           TextField(
@@ -432,11 +533,9 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
           }
           if (charges == null) {
             setState(
-              () =>
-                  _error =
-                      _hasLinkedAbnormality
-                          ? 'Enter one five-digit RA charge number.'
-                          : 'Use up to 20 distinct five-digit charge numbers.',
+              () => _error = _hasLinkedAbnormality
+                  ? 'Enter one five-digit RA charge number.'
+                  : 'Use up to 20 distinct five-digit charge numbers.',
             );
             return;
           }
@@ -444,11 +543,9 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
                   QualityWarningClosureDisposition.reannealingCompleted &&
               charges.isEmpty) {
             setState(
-              () =>
-                  _error =
-                      _hasLinkedAbnormality
-                          ? 'The RA charge number is required.'
-                          : 'At least one RA charge number is required.',
+              () => _error = _hasLinkedAbnormality
+                  ? 'The RA charge number is required.'
+                  : 'At least one RA charge number is required.',
             );
             return;
           }
@@ -460,12 +557,21 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
             );
             return;
           }
+          if (_disposition ==
+                  QualityWarningClosureDisposition.reannealingCompleted &&
+              _hasLinkedAbnormality &&
+              !_linkedAlreadyCompleted &&
+              _raPerformedAt == null) {
+            setState(() => _error = 'Confirm when RA was actually performed.');
+            return;
+          }
           Navigator.pop(
             context,
             _WarningDecision(
               disposition: _disposition,
               reason: reason,
               raChargeNumbers: charges,
+              raPerformedAt: _raPerformedAt,
             ),
           );
         },
@@ -476,10 +582,15 @@ class _CloseWarningDialogState extends State<_CloseWarningDialog> {
 }
 
 class _RaCompletionInput {
-  const _RaCompletionInput({required this.newChargeNo, required this.evidence});
+  const _RaCompletionInput({
+    required this.newChargeNo,
+    required this.evidence,
+    required this.performedAt,
+  });
 
   final int newChargeNo;
   final String evidence;
+  final DateTime performedAt;
 }
 
 class _RecordRaCompletionDialog extends StatefulWidget {
@@ -499,6 +610,7 @@ class _RecordRaCompletionDialog extends StatefulWidget {
 class _RecordRaCompletionDialogState extends State<_RecordRaCompletionDialog> {
   final _newCharge = TextEditingController();
   final _evidence = TextEditingController();
+  DateTime? _performedAt;
   String? _error;
 
   @override
@@ -559,6 +671,10 @@ class _RecordRaCompletionDialogState extends State<_RecordRaCompletionDialog> {
                   'The original operational opinion remains linked above.',
             ),
           ),
+          RaPerformedAtField(
+            value: _performedAt,
+            onChanged: (value) => setState(() => _performedAt = value),
+          ),
           if (_error != null) ...[
             const SizedBox(height: BafSpacing.sm),
             Text(
@@ -593,9 +709,19 @@ class _RecordRaCompletionDialogState extends State<_RecordRaCompletionDialog> {
             setState(() => _error = 'Completion evidence is required.');
             return;
           }
+          if (_performedAt == null) {
+            setState(
+              () => _error = 'Confirm the actual RA completion date and time.',
+            );
+            return;
+          }
           Navigator.pop(
             context,
-            _RaCompletionInput(newChargeNo: newCharge, evidence: evidence),
+            _RaCompletionInput(
+              newChargeNo: newCharge,
+              evidence: evidence,
+              performedAt: _performedAt!,
+            ),
           );
         },
         child: const Text('Record completion'),

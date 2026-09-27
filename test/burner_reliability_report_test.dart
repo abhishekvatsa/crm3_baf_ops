@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:crm3_baf_ops/features/maintenance/data/maintenance_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/burner_condition_round.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/burner_lockout_case.dart';
@@ -6,6 +8,136 @@ import 'package:crm3_baf_ops/features/reports/models/burner_reliability_report.d
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'restricted attendance contributes physical evidence without closing the issue',
+    () {
+      final performedAt = DateTime.utc(2026, 8, 16, 9);
+      final action = buildBurnerComponentAction(
+        ticketId: 'attended',
+        furnaceNumber: 2,
+        burnerPosition: 1,
+        code: BurnerActionCode.uvDetectorCleaning,
+        outcome: BurnerResolutionOutcome.remainsLockedOut,
+        microampReading: 0.4,
+        performedBy: 'I&A One',
+        performedAt: performedAt,
+      );
+      final ticket = _ticket(
+        id: 'attended',
+        furnaceNumber: 2,
+        startedAt: performedAt.subtract(const Duration(hours: 1)),
+        lockout: BurnerLockoutCase(
+          positions: const [1],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.ignition,
+          flameObservation: BurnerObservation.notSeen,
+          sparkObservation: BurnerObservation.seen,
+          relightAttempts: 1,
+          remainsLockedOut: true,
+        ),
+      );
+      final metadata = jsonDecode(ticket.metadataJson!) as Map<String, dynamic>;
+      metadata['burnerAttendanceHistory'] = [
+        {
+          'requestId': 'attendance-1',
+          'performedAt': performedAt.toIso8601String(),
+          'recordedAt': performedAt
+              .add(const Duration(days: 2))
+              .toIso8601String(),
+          'recordedByUid': 'instrumentation-1',
+          'recordedByName': 'I&A One',
+          'remarks':
+              'Still locked out after cleaning; further investigation required.',
+          'actionsJson': ComponentAction.encode([action]),
+        },
+      ];
+      ticket.metadataJson = jsonEncode(metadata);
+      final row = buildBurnerReliabilityReport([ticket]).rows.single;
+      expect(row.openCount, 1);
+      expect(row.returnedCount, 0);
+      expect(row.followUpCount, 1);
+      expect(row.actionCounts[BurnerActionCode.uvDetectorCleaning], 1);
+      expect(row.latestMicroampReading, 0.4);
+      expect(row.latestMicroampAt, performedAt);
+
+      metadata['burnerAttendanceHistory'] = 'corrupt';
+      ticket.metadataJson = jsonEncode(metadata);
+      expect(() => buildBurnerReliabilityReport([ticket]), throwsStateError);
+    },
+  );
+
+  for (final historical in [false, true]) {
+    test(
+      'delayed ${historical ? 'historical' : 'current'} closure does not refresh a physical reading',
+      () {
+        final performedAt = DateTime.utc(2026, 8, 16, 9);
+        final action = buildBurnerComponentAction(
+          ticketId: 'delayed',
+          furnaceNumber: 2,
+          burnerPosition: 1,
+          code: BurnerActionCode.uvDetectorCleaning,
+          outcome: BurnerResolutionOutcome.returnedToService,
+          microampReading: 3.4,
+          performedBy: 'I&A One',
+          performedAt: performedAt,
+        );
+        final lockout = BurnerLockoutCase(
+          positions: const [1],
+          commonMode: false,
+          cycleStage: BurnerCycleStage.ignition,
+          flameObservation: BurnerObservation.notSeen,
+          sparkObservation: BurnerObservation.seen,
+          relightAttempts: 1,
+          remainsLockedOut: true,
+        );
+        final ticket = _ticket(
+          id: 'delayed',
+          furnaceNumber: 2,
+          startedAt: DateTime.utc(2026, 8, 16, 8),
+          lockout: historical
+              ? lockout
+              : lockout.withResolution(
+                  BurnerLockoutResolution(
+                    outcomes: const {
+                      1: BurnerResolutionOutcome.returnedToService,
+                    },
+                    microampReadings: const {1: 3.4},
+                  ),
+                  actions: [action],
+                ),
+          actions: historical ? [] : [action],
+          resolved: !historical,
+        )..updatedAt = DateTime.utc(2026, 8, 20);
+        if (historical) {
+          ticket.resolutionHistory = [
+            ResolutionHistory(
+              resolvedAt: DateTime.utc(2026, 8, 16, 12),
+              actionsJson: ComponentAction.encode([action]),
+            ),
+          ];
+        } else {
+          ticket.endDate = DateTime.utc(2026, 8, 16, 12);
+        }
+
+        final closureOnly = buildBurnerReliabilityReport([ticket]).rows.single;
+        expect(closureOnly.latestMicroampAt, performedAt);
+        expect(closureOnly.latest, performedAt);
+
+        final witnessedAt = DateTime.utc(2026, 8, 16, 10);
+        final report = buildBurnerReliabilityReport(
+          [ticket],
+          [_round(furnaceNumber: 2, observedAt: witnessedAt)],
+        );
+        final position = report.rows.firstWhere(
+          (row) => row.burnerPosition == 1,
+        );
+        expect(position.latestMicroampReading, 4.1);
+        expect(position.latestMicroampAt, witnessedAt);
+        expect(position.returnedCount, 1);
+      },
+    );
+  }
+
   test(
     'copied readings retain original ages and do not count as a new survey',
     () {

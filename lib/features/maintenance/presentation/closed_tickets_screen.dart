@@ -19,6 +19,7 @@ import '../../../core/providers/refresh_providers.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/services/sync_coordinator.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
 import '../../../features/auth/data/user_model.dart';
@@ -88,7 +89,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   }
 
   int _currentPage = 0;
-  final int _pageSize = 20;
+  final int _pageSize = businessListPageSize;
   final List<MaintenanceRecord> _tickets = [];
   bool _isLoading = false;
   bool _hasMore = true;
@@ -348,10 +349,9 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
       }
       ref.read(refreshClosedTicketsProvider.notifier).state++;
 
-      final message =
-          converged
-              ? 'Ticket reopened and verified against the plant system.'
-              : 'Ticket reopen accepted. Exact device refresh is pending and will retry during sync.';
+      final message = converged
+          ? 'Ticket reopened and verified against the plant system.'
+          : 'Ticket reopen accepted. Exact device refresh is pending and will retry during sync.';
       final color = converged ? BafColors.maintenance : BafColors.warning;
       _showSnack(message: message, color: color);
     } catch (e) {
@@ -393,7 +393,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
             ) ==
             null) {
       return;
-            }
+    }
 
     setState(() => _endingRelevanceTicketKeys.add(ticketKey));
     try {
@@ -462,10 +462,9 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
       }
       ref.read(refreshClosedTicketsProvider.notifier).state++;
       _showSnack(
-        message:
-            converged
-                ? 'Retained concern ended and Plant Condition refreshed.'
-                : 'Relevance end accepted. Exact device refresh will retry during sync.',
+        message: converged
+            ? 'Retained concern ended and Plant Condition refreshed.'
+            : 'Relevance end accepted. Exact device refresh will retry during sync.',
         color: converged ? BafColors.success : BafColors.warning,
       );
     } catch (error) {
@@ -510,7 +509,7 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
             ) ==
             null) {
       return;
-            }
+    }
     final ticketKey = _ticketKey(ticket);
     setState(() => _classifyingTicketKeys.add(ticketKey));
     try {
@@ -563,10 +562,9 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
   void _setCorrectionBusy(String ticketKey, bool busy) {
     if (!mounted) return;
     setState(
-      () =>
-          busy
-              ? _correctingTicketKeys.add(ticketKey)
-              : _correctingTicketKeys.remove(ticketKey),
+      () => busy
+          ? _correctingTicketKeys.add(ticketKey)
+          : _correctingTicketKeys.remove(ticketKey),
     );
   }
 
@@ -620,10 +618,20 @@ class _ClosedTicketsScreenState extends ConsumerState<_ClosedTicketsBody> {
                   }
 
                   if (index == _tickets.length + 1) {
-                    return _LoadMoreFooter(
-                      isLoading: _isLoading,
-                      hasMore: _hasMore,
-                      onLoadMore: _loadNextPage,
+                    return Column(
+                      children: [
+                        if (!_hasMore && _tickets.length < _totalCount)
+                          const Text(
+                            'More records were counted but could not be loaded. '
+                            'Show more will refresh history.',
+                          ),
+                        IncrementalListFooter(
+                          visibleCount: _tickets.length,
+                          totalCount: _totalCount,
+                          isLoading: _isLoading,
+                          onShowMore: _hasMore ? _loadNextPage : _loadInitial,
+                        ),
+                      ],
                     );
                   }
 
@@ -849,15 +857,13 @@ class _TicketClassificationDialogState
   void initState() {
     super.initState();
     final currentId = widget.current?.definitionId;
-    _definitionId =
-        widget.definitions.any((item) => item.id == currentId)
-            ? currentId!
-            : widget.definitions.first.id;
+    _definitionId = widget.definitions.any((item) => item.id == currentId)
+        ? currentId!
+        : widget.definitions.first.id;
     _reason = TextEditingController(
-      text:
-          widget.current == null
-              ? 'Classify final resolved issue work against the reviewed scope.'
-              : 'Correct the completed issue classification with audited evidence.',
+      text: widget.current == null
+          ? 'Classify final resolved issue work against the reviewed scope.'
+          : 'Correct the completed issue classification with audited evidence.',
     );
   }
 
@@ -890,18 +896,16 @@ class _TicketClassificationDialogState
               initialValue: _definitionId,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Maintenance class'),
-              items:
-                  widget.definitions
-                      .map(
-                        (definition) => DropdownMenuItem(
-                          value: definition.id,
-                          child: Text(definition.title),
-                        ),
-                      )
-                      .toList(),
-              onChanged:
-                  (value) =>
-                      setState(() => _definitionId = value ?? _definitionId),
+              items: widget.definitions
+                  .map(
+                    (definition) => DropdownMenuItem(
+                      value: definition.id,
+                      child: Text(definition.title),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (value) =>
+                  setState(() => _definitionId = value ?? _definitionId),
             ),
             const SizedBox(height: BafSpacing.sm),
             TextField(
@@ -1019,12 +1023,17 @@ class _ClosedTicketsHeader extends StatelessWidget {
                       icon: Icons.inventory_2_rounded,
                     ),
                     StatusBadge(
-                      label: hasMore ? 'More available' : 'All loaded',
-                      color: hasMore ? BafColors.warning : BafColors.sync,
-                      icon:
-                          hasMore
-                              ? Icons.expand_more_rounded
-                              : Icons.check_circle_rounded,
+                      label: hasMore
+                          ? 'More available'
+                          : loadedCount < totalCount
+                          ? 'History incomplete'
+                          : 'All loaded',
+                      color: loadedCount < totalCount
+                          ? BafColors.warning
+                          : BafColors.sync,
+                      icon: hasMore
+                          ? Icons.expand_more_rounded
+                          : Icons.check_circle_rounded,
                     ),
                   ],
                 ),
@@ -1208,53 +1217,45 @@ class _ClosedTicketCard extends StatelessWidget {
                             icon: Icons.engineering_rounded,
                           ),
                           StatusBadge(
-                            label:
-                                administrativeClosure == null
-                                    ? 'Resolved'
-                                    : administrativeClosure.disposition.name ==
-                                        'stillRelevant'
-                                    ? 'Closed unresolved - retained'
-                                    : 'Closed - relevance ended',
-                            color:
-                                administrativeClosure == null
-                                    ? BafColors.sync
-                                    : BafColors.warning,
-                            icon:
-                                administrativeClosure == null
-                                    ? Icons.check_circle_rounded
-                                    : Icons.inventory_2_outlined,
+                            label: administrativeClosure == null
+                                ? 'Resolved'
+                                : administrativeClosure.disposition.name ==
+                                      'stillRelevant'
+                                ? 'Closed unresolved - retained'
+                                : 'Closed - relevance ended',
+                            color: administrativeClosure == null
+                                ? BafColors.sync
+                                : BafColors.warning,
+                            icon: administrativeClosure == null
+                                ? Icons.check_circle_rounded
+                                : Icons.inventory_2_outlined,
                           ),
                           StatusBadge(
-                            label:
-                                !ticket.isSynced
-                                    ? 'Sync pending'
-                                    : canReopen
-                                    ? 'Reopen window'
-                                    : 'Locked',
-                            color:
-                                !ticket.isSynced
-                                    ? BafColors.warning
-                                    : canReopen
-                                    ? BafColors.maintenance
-                                    : BafColors.admin,
-                            icon:
-                                !ticket.isSynced
-                                    ? Icons.cloud_off_rounded
-                                    : canReopen
-                                    ? Icons.refresh_rounded
-                                    : Icons.lock_clock_rounded,
+                            label: !ticket.isSynced
+                                ? 'Sync pending'
+                                : canReopen
+                                ? 'Reopen window'
+                                : 'Locked',
+                            color: !ticket.isSynced
+                                ? BafColors.warning
+                                : canReopen
+                                ? BafColors.maintenance
+                                : BafColors.admin,
+                            icon: !ticket.isSynced
+                                ? Icons.cloud_off_rounded
+                                : canReopen
+                                ? Icons.refresh_rounded
+                                : Icons.lock_clock_rounded,
                           ),
                           if (ticket.isWorkflowLinked)
                             StatusBadge(
                               label: ticket.workflowStateLabel,
-                              color:
-                                  ticket.workflowDeferred
-                                      ? BafColors.warning
-                                      : BafColors.audit,
-                              icon:
-                                  ticket.workflowDeferred
-                                      ? Icons.pause_circle_outline_rounded
-                                      : Icons.account_tree_outlined,
+                              color: ticket.workflowDeferred
+                                  ? BafColors.warning
+                                  : BafColors.audit,
+                              icon: ticket.workflowDeferred
+                                  ? Icons.pause_circle_outline_rounded
+                                  : Icons.account_tree_outlined,
                             ),
                           if (maintenanceClass != null)
                             StatusBadge(
@@ -1294,10 +1295,9 @@ class _ClosedTicketCard extends StatelessWidget {
                         const SizedBox(height: 5),
                         _MetaLine(
                           icon: Icons.layers_outlined,
-                          text:
-                              innerCover.innerCoverSerialNumber == null
-                                  ? 'At event: no Inner Cover linked'
-                                  : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
+                          text: innerCover.innerCoverSerialNumber == null
+                              ? 'At event: no Inner Cover linked'
+                              : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
                         ),
                       ],
                       if (burnerReadings.isNotEmpty) ...[
@@ -1319,10 +1319,9 @@ class _ClosedTicketCard extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed:
-                                isEndingRelevance
-                                    ? null
-                                    : onEndRetainedRelevance,
+                            onPressed: isEndingRelevance
+                                ? null
+                                : onEndRetainedRelevance,
                             style: FilledButton.styleFrom(
                               backgroundColor: BafColors.warning,
                               foregroundColor: Colors.white,
@@ -1432,16 +1431,15 @@ class _ClosedTicketCard extends StatelessWidget {
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: isClassifying ? null : onClassify,
-                            icon:
-                                isClassifying
-                                    ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                    : const Icon(Icons.event_repeat_rounded),
+                            icon: isClassifying
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.event_repeat_rounded),
                             label: Text(
                               isClassifying
                                   ? 'Recording class…'
@@ -1533,54 +1531,6 @@ class _ClosedTicketCard extends StatelessWidget {
       case RoutedTo.others:
         return 'Others';
     }
-  }
-}
-
-class _LoadMoreFooter extends StatelessWidget {
-  final bool isLoading;
-  final bool hasMore;
-  final VoidCallback onLoadMore;
-
-  const _LoadMoreFooter({
-    required this.isLoading,
-    required this.hasMore,
-    required this.onLoadMore,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    if (!hasMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: BafSpacing.md),
-        child: Center(
-          child: StatusBadge(
-            label: 'All closed tickets loaded',
-            color: BafColors.sync,
-            icon: Icons.check_circle_rounded,
-          ),
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: BafSpacing.md),
-      child: Center(
-        child: isLoading
-            ? const CircularProgressIndicator()
-            : OutlinedButton.icon(
-                onPressed: onLoadMore,
-                icon: const Icon(Icons.expand_more_rounded),
-                label: const Text('Load More'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: BafColors.audit,
-                  side: const BorderSide(color: BafColors.audit),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(BafRadius.medium),
-                  ),
-                ),
-              ),
-      ),
-    );
   }
 }
 

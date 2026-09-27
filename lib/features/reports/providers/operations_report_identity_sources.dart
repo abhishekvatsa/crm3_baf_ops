@@ -34,13 +34,12 @@ bool _needsAbnormalityIdentity(
   _ReportAssetIdentityMatcher identity,
 ) =>
     warning.sourceType == QualityWarningSourceType.abnormality &&
-    (warning.closedAt == null ||
+    (filter.qualityPeriodBasis == QualityReportPeriodBasis.raPerformed ||
+        warning.closedAt == null ||
         (warning.createdAt.isBefore(filter.endExclusive) &&
             warning.closedAt!.isAfter(filter.startInclusive))) &&
     warning.affectedAssets.any(
-      (asset) =>
-          asset.assetType == 'governedCustom' &&
-          asset.assetHierarchyReference == null,
+      (asset) => asset.assetHierarchyReference == null,
     ) &&
     !identity.warningMatchesOwnIdentity(warning);
 

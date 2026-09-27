@@ -57,10 +57,9 @@ class ChargeAbnormalityMutationException implements Exception {
   factory ChargeAbnormalityMutationException.fromFirebase(
     FirebaseFunctionsException error,
   ) {
-    final details =
-        error.details is Map
-            ? Map<String, dynamic>.from(error.details as Map)
-            : <String, dynamic>{};
+    final details = error.details is Map
+        ? Map<String, dynamic>.from(error.details as Map)
+        : <String, dynamic>{};
     return ChargeAbnormalityMutationException(
       code: error.code,
       message:
@@ -201,11 +200,10 @@ class ChargeAbnormalityCommandService {
     final bytes = sha256.convert(utf8.encode(source)).bytes.toList();
     bytes[6] = (bytes[6] & 0x0f) | 0x50;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    final hex =
-        bytes
-            .take(16)
-            .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
-            .join();
+    final hex = bytes
+        .take(16)
+        .map((byte) => byte.toRadixString(16).padLeft(2, '0'))
+        .join();
     return '${hex.substring(0, 8)}-'
         '${hex.substring(8, 12)}-'
         '${hex.substring(12, 16)}-'
@@ -268,6 +266,8 @@ class ChargeAbnormalityCommandService {
           abnormality.possibleRootReasonNotes,
         ),
         'reannealingStatus': abnormality.reannealingStatus.name,
+        if (abnormality.assessment != null)
+          'assessment': abnormality.assessment!.toMap(),
         'reannealedToChargeNo': abnormality.reannealedToChargeNo,
       },
     };

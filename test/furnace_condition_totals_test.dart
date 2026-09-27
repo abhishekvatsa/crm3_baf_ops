@@ -43,6 +43,12 @@ void main() {
     'tab totals count positions and summary distinguishes affected furnaces',
     (tester) async {
       await _pump(tester);
+      expect(find.text('3 of 4 active furnaces'), findsOneWidget);
+      expect(find.text('Supported: 1–26 · 1 excluded'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('furnace-audit-row-label-furnace-27')),
+        findsNothing,
+      );
       expect(find.text('Burner blocks (3)'), findsOneWidget);
       expect(find.text('Draft seal (2)'), findsOneWidget);
       expect(find.text('UV melted (1)'), findsOneWidget);
@@ -227,6 +233,8 @@ void main() {
         furnaceNumbers: List<int>.generate(26, (index) => index + 1),
         boundary: boundary,
       );
+      expect(find.text('26 of 26 active furnaces'), findsOneWidget);
+      expect(find.text('Supported: 1–26'), findsOneWidget);
       await _tab(tester, 'UV missing (2)');
 
       final corner = find.byKey(const ValueKey('furnace-audit-fixed-corner'));

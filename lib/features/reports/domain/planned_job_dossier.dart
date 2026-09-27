@@ -133,7 +133,7 @@ StructuredReportDocument buildPlannedJobDossier({
   return StructuredReportDocument(
     title: 'Planned maintenance dossier',
     subtitle:
-        'Execution, module, component, lane, diary and compliance evidence',
+        'Execution, module, component, lane, diary and compliance evidence; times in Asia/Kolkata',
     reportId: createStructuredReportId('PM', generatedAt),
     generatedAt: generatedAt,
     generatedByName: generatedByName,
@@ -669,7 +669,12 @@ String _responseValue(Object? value) {
   return text.isEmpty ? 'Blank response' : text;
 }
 
-String _dateTime(DateTime value) => value.toLocal().toIso8601String();
+String _dateTime(DateTime value) {
+  final plant = value.toUtc().add(const Duration(hours: 5, minutes: 30));
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(plant.day)}-${two(plant.month)}-${plant.year} '
+      '${two(plant.hour)}:${two(plant.minute)}';
+}
 
 String _value(String? value) => _clean(value) ?? 'Not recorded';
 
@@ -679,6 +684,14 @@ String? _clean(String? value) {
 }
 
 String _label(String value) {
+  final laneLabel = switch (value) {
+    'mech' => 'Mechanical',
+    'inst' => 'Instrumentation',
+    'elec' => 'Electrical',
+    'oprn' => 'Operations',
+    _ => null,
+  };
+  if (laneLabel != null) return laneLabel;
   final spaced = value
       .trim()
       .replaceAll(RegExp(r'[_-]+'), ' ')

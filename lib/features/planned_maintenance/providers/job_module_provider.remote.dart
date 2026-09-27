@@ -7,17 +7,20 @@ class _RemoteModuleTransitionResult {
 }
 
 class FirestoreJobModuleRepository implements JobModuleRepository {
+  final FirebaseFirestore _firestore;
   final AuditRepository _auditRepo;
   final RuntimeJobModulePopulationService _populationService;
 
   FirestoreJobModuleRepository({
+    FirebaseFirestore? firestore,
     AuditRepository? auditRepository,
     RuntimeJobModulePopulationService? populationService,
-  }) : _auditRepo = auditRepository ?? AuditRepository(),
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _auditRepo = auditRepository ?? AuditRepository(),
        _populationService =
            populationService ?? RuntimeJobModulePopulationService();
 
-  final _modules = FirebaseFirestore.instance.collection('job_modules');
+  late final _modules = _firestore.collection('job_modules');
 
   @override
   Future<void> saveModule(
@@ -64,7 +67,10 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     } else {
       await _modules
           .doc(module.firestoreId)
-          .set(module.toMap(), SetOptions(merge: true));
+          .set(
+            _moduleUpdateData(module, before, existing!.data()!),
+            SetOptions(merge: true),
+          );
     }
     module.isSynced = true;
 
@@ -330,7 +336,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   }) async {
     final docRef = _modules.doc(docId);
 
-    final result = await FirebaseFirestore.instance
+    final result = await _firestore
         .runTransaction<_RemoteModuleTransitionResult?>((transaction) async {
           final doc = await transaction.get(docRef);
           if (!doc.exists || doc.data() == null) return null;
@@ -338,7 +344,7 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
           final before = JobModuleInstance.fromMap(doc.data()!, doc.id);
           validate?.call(before);
 
-          final now = DateTime.now();
+          final now = DateTime.now().toUtc();
           final updateMap = <String, dynamic>{
             ...buildUpdate(now),
             'updatedAt': now.toIso8601String(),
@@ -472,17 +478,23 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
   Future<List<JobModuleInstance>> getModulesByFirestoreIds(
     List<String> ids,
   ) async {
+    final snapshots = await _getModuleSnapshotsByFirestoreIds(ids);
+    return snapshots
+        .map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id))
+        .toList();
+  }
+
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _getModuleSnapshotsByFirestoreIds(List<String> ids) async {
     if (ids.isEmpty) return [];
 
-    final results = <JobModuleInstance>[];
+    final results = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     for (var i = 0; i < ids.length; i += 30) {
       final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
       final snap = await _modules
           .where(FieldPath.documentId, whereIn: chunk)
           .get();
-      results.addAll(
-        snap.docs.map((doc) => JobModuleInstance.fromMap(doc.data(), doc.id)),
-      );
+      results.addAll(snap.docs);
     }
     return results;
   }
@@ -496,18 +508,20 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         .toList(growable: false);
     if (recordsWithIds.isEmpty) return;
 
-    final remote = await getModulesByFirestoreIds(
+    final remote = await _getModuleSnapshotsByFirestoreIds(
       recordsWithIds.map((record) => record.firestoreId!).toList(),
     );
-    final remoteById = <String, JobModuleInstance>{
-      for (final record in remote)
-        if (record.firestoreId != null) record.firestoreId!: record,
+    final remoteById = <String, QueryDocumentSnapshot<Map<String, dynamic>>>{
+      for (final record in remote) record.id: record,
     };
 
-    final directUpdates = <JobModuleInstance>[];
+    final directUpdates = <MapEntry<JobModuleInstance, Map<String, dynamic>>>[];
     for (final record in recordsWithIds) {
       final firestoreId = record.firestoreId!;
-      final existing = remoteById[firestoreId];
+      final snapshot = remoteById[firestoreId];
+      final existing = snapshot == null
+          ? null
+          : JobModuleInstance.fromMap(snapshot.data(), snapshot.id);
 
       if (record.isDeleted) {
         // Deleting a never-synchronized local module is already remotely
@@ -531,10 +545,12 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
         continue;
       }
 
-      directUpdates.add(record);
+      directUpdates.add(
+        MapEntry(record, _moduleUpdateData(record, existing, snapshot!.data())),
+      );
     }
 
-    final firestore = FirebaseFirestore.instance;
+    final firestore = _firestore;
     for (var i = 0; i < directUpdates.length; i += 500) {
       final chunk = directUpdates.sublist(
         i,
@@ -543,8 +559,8 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
       final batch = firestore.batch();
       for (final record in chunk) {
         batch.set(
-          _modules.doc(record.firestoreId),
-          record.toMap(),
+          _modules.doc(record.key.firestoreId),
+          record.value,
           SetOptions(merge: true),
         );
       }
@@ -567,7 +583,17 @@ class FirestoreJobModuleRepository implements JobModuleRepository {
     // Field-scoped merge: the caller provides only the keys for one lifecycle
     // rule branch. This avoids pushing a final dirty snapshot that collapses
     // submit+accept into a single Firestore update.
-    await _modules.doc(id).set(stepData, SetOptions(merge: true));
+    final outgoing = Map<String, dynamic>.of(stepData);
+    for (final field in const ['submittedAt', 'acceptedAt', 'updatedAt']) {
+      if (outgoing[field] != null) {
+        outgoing[field] = readRequiredPersistedDateTime(
+          outgoing[field],
+          field: field,
+          source: 'job module lifecycle replay $id',
+        ).toUtc().toIso8601String();
+      }
+    }
+    await _modules.doc(id).set(outgoing, SetOptions(merge: true));
   }
 }
 

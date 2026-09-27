@@ -27,13 +27,108 @@ import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 
 void main() {
   test(
+    'RA-performed report retains open warning for completed exact Furnace case',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, performedRa: true);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(h.report.requireValue.qualityCaseCount, 1);
+      expect(h.report.requireValue.qualityWarnings.single.isOpen, true);
+      expect(
+        h.report.requireValue.abnormalities
+            .map((record) => record.sourceChargeNo)
+            .toSet()
+            .length,
+        1,
+      );
+    },
+  );
+
+  test(
+    'issue-origin warning binds to selected case with ambiguous legacy Furnace scope',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, issueWarning: true);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(
+        h.report.requireValue.qualityWarnings.single.sourceId,
+        'linked-issue',
+      );
+      expect(h.report.requireValue.qualityCaseCount, 1);
+    },
+  );
+  test(
+    'same charge cannot lend selected case identity to an unrelated warning',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, unrelatedWarning: true);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(h.report.requireValue.qualityWarnings, isEmpty);
+      expect(h.report.requireValue.qualityCaseCount, 0);
+    },
+  );
+  test(
+    'conflicting explicit warning and selected case references block export',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, conflictingReference: true);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(h.report.hasError, true);
+      expect(
+        h.report.error.toString(),
+        contains('physical identity conflicts'),
+      );
+    },
+  );
+
+  test(
+    'ambiguous legacy Furnace warning uses its exact live case identity',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, holdSource: true);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(h.report.isLoading, true);
+      h.repository.releaseInitial();
+      await h.settle();
+      expect(
+        h.report.requireValue.qualityWarnings.single.sourceId,
+        'historical-source',
+      );
+      expect(h.report.requireValue.abnormalities, hasLength(1));
+      h.repository.updates.add([
+        _source(h.hoist, assetType: AssetType.furnace),
+      ]);
+      await h.settle();
+      expect(h.report.requireValue.qualityWarnings, isEmpty);
+      expect(h.report.requireValue.abnormalities, isEmpty);
+      expect(h.warningEmissions, 1);
+    },
+  );
+
+  test(
+    'contradictory warning tuple cannot silently disappear from selected case',
+    () async {
+      final h = _ReportHarness(legacyFurnace: true, warningNumber: 5);
+      addTearDown(h.dispose);
+      await h.settle();
+      expect(h.report.hasError, true);
+      expect(
+        h.report.error.toString(),
+        contains('conflicts with its selected case'),
+      );
+    },
+  );
+
+  test(
     'scoped warning follows corrected abnormality identity without a warning update',
     () async {
       final h = _ReportHarness();
       addTearDown(h.dispose);
       await h.settle();
       expect(h.report.requireValue.qualityWarnings.single.warningId, 'warning');
-      expect(h.report.requireValue.abnormalities, isEmpty);
+      expect(h.report.requireValue.abnormalities.map((r) => r.firestoreId), [
+        "historical-source",
+      ]);
       expect(h.warningEmissions, 1);
 
       h.repository.records = [_source(h.hoist)];
@@ -44,7 +139,7 @@ void main() {
       expect(
         h.report.requireValue.abnormalities,
         isEmpty,
-        reason: 'Historical identity rows must not enter the report period.',
+        reason: 'The corrected source belongs to another physical asset.',
       );
       expect(h.report.requireValue.sourceAbnormalityCount, 1);
     },
@@ -153,22 +248,49 @@ class _ReportHarness {
     bool outOfPeriod = false,
     bool mixedIdentity = false,
     bool customFirst = false,
+    bool legacyFurnace = false,
+    int warningNumber = 4,
+    bool issueWarning = false,
+    bool unrelatedWarning = false,
+    bool conflictingReference = false,
+    bool performedRa = false,
   }) {
     final classes = [
       _assetClass(
-        mixedIdentity ? 'furnace' : 'crane',
-        legacy: mixedIdentity ? 'furnace' : null,
+        mixedIdentity || legacyFurnace ? 'furnace' : 'crane',
+        legacy: mixedIdentity || legacyFurnace ? 'furnace' : null,
       ),
-      _assetClass('hoist'),
+      _assetClass('hoist', legacy: legacyFurnace ? 'furnace' : null),
     ];
     crane = _asset(classes.first);
     hoist = _asset(classes.last);
     final assets = [crane, hoist];
-    repository = _IdentityAbnormalityRepository([_source(crane)], holdSource);
+    repository = _IdentityAbnormalityRepository([
+      _source(
+        crane,
+        assetType: legacyFurnace ? AssetType.furnace : AssetType.governedCustom,
+        extraFurnace: mixedIdentity,
+      )..linkedTicketFirestoreId = issueWarning ? 'linked-issue' : null,
+    ], holdSource);
+    if (performedRa) {
+      repository.records.single
+        ..reannealingStatus = ReannealingStatus.completed
+        ..reannealedToChargeNo = 41002
+        ..assessment = AbnormalityAssessment(
+          observationKind: AbnormalityObservationKind.resultFinding,
+          raPerformedAt: DateTime.utc(2026, 8, 6),
+        );
+    }
     final warning = QualityWarning(
       warningId: 'warning',
-      sourceType: QualityWarningSourceType.abnormality,
-      sourceId: 'historical-source',
+      sourceType: issueWarning
+          ? QualityWarningSourceType.issue
+          : QualityWarningSourceType.abnormality,
+      sourceId: issueWarning
+          ? 'linked-issue'
+          : unrelatedWarning
+          ? 'other-case-on-same-charge'
+          : 'historical-source',
       sourceVersion: 1,
       sourceChargeNo: 41001,
       sourceSummary: 'Temperature deviation',
@@ -178,9 +300,13 @@ class _ReportHarness {
         if (mixedIdentity && !customFirst)
           const QualityAffectedAsset(assetType: 'furnace', assetNumber: 4),
         QualityAffectedAsset(
-          assetType: 'governedCustom',
-          assetNumber: 4,
-          assetHierarchyReference: ownIdentity ? _reference(crane) : null,
+          assetType: legacyFurnace ? 'furnace' : 'governedCustom',
+          assetNumber: warningNumber,
+          assetHierarchyReference: conflictingReference
+              ? _reference(hoist)
+              : ownIdentity
+              ? _reference(crane)
+              : null,
         ),
         if (mixedIdentity && customFirst)
           const QualityAffectedAsset(assetType: 'furnace', assetNumber: 4),
@@ -199,6 +325,9 @@ class _ReportHarness {
       startDate: DateTime.utc(2026, 8, 1),
       endDate: DateTime.utc(2026, 8, 31),
       assetInstanceId: crane.id,
+      qualityPeriodBasis: performedRa
+          ? QualityReportPeriodBasis.raPerformed
+          : QualityReportPeriodBasis.outstanding,
     );
     provider = operationsReportProvider((actorUid: 'actor-a', filter: filter));
     container = ProviderContainer(
@@ -367,7 +496,11 @@ AssetHierarchyReference _reference(AssetInstanceRecord item) =>
       hierarchyPath: [item.assetClassName],
       ownershipStatus: AssetOwnershipStatus.unassigned,
     );
-ChargeAbnormality _source(AssetInstanceRecord item) => ChargeAbnormality()
+ChargeAbnormality _source(
+  AssetInstanceRecord item, {
+  AssetType assetType = AssetType.governedCustom,
+  bool extraFurnace = false,
+}) => ChargeAbnormality()
   ..firestoreId = 'historical-source'
   ..sourceChargeNo = 41001
   ..abnormalityTypeId = 'temperature'
@@ -377,8 +510,14 @@ ChargeAbnormality _source(AssetInstanceRecord item) => ChargeAbnormality()
   ..loggedAt = DateTime.utc(2026, 7, 1)
   ..updatedAt = DateTime.utc(2026, 9, 1)
   ..affectedAssets = [
+    if (extraFurnace)
+      AffectedAssetRef(
+        assetType: AssetType.furnace,
+        assetNumber: 4,
+        assetHierarchyReference: _reference(item),
+      ),
     AffectedAssetRef.fromMap({
-      'assetType': 'governedCustom',
+      'assetType': assetType.name,
       'assetNumber': 4,
       'assetHierarchyRef': _reference(item).toMap(),
     }),

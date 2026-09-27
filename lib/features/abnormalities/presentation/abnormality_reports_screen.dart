@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
+import '../../../core/widgets/incremental_list_footer.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../../core/widgets/dashboard/dashboard_widgets.dart';
 import '../../../core/widgets/dashboard/status_badge.dart';
@@ -14,6 +15,7 @@ import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
 import '../providers/abnormality_provider.dart';
+import 'abnormality_list_filter.dart';
 
 class AbnormalityReportsScreen extends ConsumerStatefulWidget {
   const AbnormalityReportsScreen({super.key});
@@ -29,9 +31,17 @@ class _AbnormalityReportsScreenState
   String? _futureActorUid;
 
   String _searchQuery = '';
+  final _searchController = TextEditingController();
+  int _visibleLimit = businessListPageSize;
   AbnormalityCategory? _categoryFilter;
-  ReannealingStatus? _raFilter;
+  AbnormalityListFilter _raFilter = AbnormalityListFilter.open;
   AbnormalitySeverity? _severityFilter;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<List<ChargeAbnormality>> _load() {
     return ref.read(abnormalityRepositoryProvider).getAllAbnormalities();
@@ -40,6 +50,7 @@ class _AbnormalityReportsScreenState
   void _ensureLoadedFor(AppUser actor) {
     if (_future != null && _futureActorUid == actor.uid) return;
     _futureActorUid = actor.uid;
+    _visibleLimit = businessListPageSize;
     _future = _load();
   }
 
@@ -136,6 +147,7 @@ class _AbnormalityReportsScreenState
 
           final records = snapshot.data ?? const <ChargeAbnormality>[];
           final filtered = _applyFilters(records);
+          final visible = filtered.take(_visibleLimit).toList(growable: false);
 
           return RefreshIndicator(
             onRefresh: _refresh,
@@ -145,56 +157,67 @@ class _AbnormalityReportsScreenState
                 _HeaderCard(
                   total: records.length,
                   filtered: filtered.length,
-                  raPending:
-                      records
-                          .where(
-                            (record) =>
-                                record.reannealingStatus ==
-                                    ReannealingStatus.pendingDecision ||
-                                record.reannealingStatus ==
-                                    ReannealingStatus.required,
-                          )
-                          .length,
-                  raCompleted:
-                      records
-                          .where(
-                            (record) =>
-                                record.reannealingStatus ==
-                                ReannealingStatus.completed,
-                          )
-                          .length,
-                  critical:
-                      records
-                          .where(
-                            (record) =>
-                                record.severity == AbnormalitySeverity.critical,
-                          )
-                          .length,
+                  raPending: records
+                      .where(
+                        (record) =>
+                            record.reannealingStatus ==
+                                ReannealingStatus.pendingDecision ||
+                            record.reannealingStatus ==
+                                ReannealingStatus.required,
+                      )
+                      .length,
+                  raCompleted: records
+                      .where(
+                        (record) =>
+                            record.reannealingStatus ==
+                            ReannealingStatus.completed,
+                      )
+                      .length,
+                  critical: records
+                      .where(
+                        (record) =>
+                            record.severity == AbnormalitySeverity.critical,
+                      )
+                      .length,
                 ),
                 const SizedBox(height: BafSpacing.lg),
                 _FiltersCard(
-                  searchQuery: _searchQuery,
+                  searchController: _searchController,
                   categoryFilter: _categoryFilter,
                   severityFilter: _severityFilter,
                   raFilter: _raFilter,
                   onSearchChanged: (value) {
-                    setState(() => _searchQuery = value);
+                    setState(() {
+                      _searchQuery = value;
+                      _visibleLimit = businessListPageSize;
+                    });
                   },
                   onCategoryChanged: (value) {
-                    setState(() => _categoryFilter = value);
+                    setState(() {
+                      _categoryFilter = value;
+                      _visibleLimit = businessListPageSize;
+                    });
                   },
                   onSeverityChanged: (value) {
-                    setState(() => _severityFilter = value);
+                    setState(() {
+                      _severityFilter = value;
+                      _visibleLimit = businessListPageSize;
+                    });
                   },
                   onRaChanged: (value) {
-                    setState(() => _raFilter = value);
+                    setState(() {
+                      _raFilter = value;
+                      _visibleLimit = businessListPageSize;
+                    });
                   },
                   onClear: () {
                     setState(() {
                       _searchQuery = '';
+                      _searchController.clear();
                       _categoryFilter = null;
                       _severityFilter = null;
-                      _raFilter = null;
+                      _raFilter = AbnormalityListFilter.open;
+                      _visibleLimit = businessListPageSize;
                     });
                   },
                 ),
@@ -209,9 +232,20 @@ class _AbnormalityReportsScreenState
                         'Change filters or pull to refresh. The report only shows locally available, non-deleted records.',
                   )
                 else
-                  ...filtered.map(
-                    (record) => _ReportRecordCard(record: record),
+                  ...visible.map(
+                    (record) => KeyedSubtree(
+                      key: ValueKey(
+                        'abnormality-report-row-${record.firestoreId ?? record.id}',
+                      ),
+                      child: _ReportRecordCard(record: record),
+                    ),
                   ),
+                IncrementalListFooter(
+                  visibleCount: visible.length,
+                  totalCount: filtered.length,
+                  onShowMore: () =>
+                      setState(() => _visibleLimit += businessListPageSize),
+                ),
               ],
             ),
           );
@@ -223,40 +257,43 @@ class _AbnormalityReportsScreenState
   List<ChargeAbnormality> _applyFilters(List<ChargeAbnormality> records) {
     final query = _searchQuery.trim().toLowerCase();
 
-    final filtered =
-        records.where((record) {
-          if (_categoryFilter != null && record.category != _categoryFilter) {
-            return false;
-          }
+    final filtered = records.where((record) {
+      if (_categoryFilter != null && record.category != _categoryFilter) {
+        return false;
+      }
 
-          if (_severityFilter != null && record.severity != _severityFilter) {
-            return false;
-          }
+      if (_severityFilter != null && record.severity != _severityFilter) {
+        return false;
+      }
 
-          if (_raFilter != null && record.reannealingStatus != _raFilter) {
-            return false;
-          }
+      if (!_raFilter.includes(record)) {
+        return false;
+      }
 
-          if (query.isEmpty) return true;
+      if (query.isEmpty) return true;
 
-          final text =
-              [
-                record.sourceChargeNo.toString(),
-                record.reannealedToChargeNo?.toString() ?? '',
-                record.abnormalityTypeCode,
-                record.abnormalityTypeTitle,
-                record.observedReason,
-                record.description ?? '',
-                record.component ?? '',
-                record.affectedAssetsLabel,
-                record.possibleRootReasonNotes ?? '',
-                record.loggedByName ?? '',
-              ].join(' ').toLowerCase();
+      final text = [
+        record.sourceChargeNo.toString(),
+        record.reannealedToChargeNo?.toString() ?? '',
+        record.abnormalityTypeCode,
+        record.abnormalityTypeTitle,
+        record.observedReason,
+        record.description ?? '',
+        record.component ?? '',
+        record.affectedAssetsLabel,
+        record.possibleRootReasonNotes ?? '',
+        record.loggedByName ?? '',
+      ].join(' ').toLowerCase();
 
-          return text.contains(query);
-        }).toList();
+      return text.contains(query);
+    }).toList();
 
-    filtered.sort((a, b) => b.loggedAt.compareTo(a.loggedAt));
+    filtered.sort((a, b) {
+      final byDate = b.loggedAt.compareTo(a.loggedAt);
+      return byDate != 0
+          ? byDate
+          : (a.firestoreId ?? '${a.id}').compareTo(b.firestoreId ?? '${b.id}');
+    });
     return filtered;
   }
 }
@@ -332,7 +369,7 @@ class _HeaderCard extends StatelessWidget {
             runSpacing: BafSpacing.sm,
             children: [
               _MetricPill(label: 'Total', value: total),
-              _MetricPill(label: 'Shown', value: filtered),
+              _MetricPill(label: 'Matching', value: filtered),
               _MetricPill(label: 'RA Pending', value: raPending),
               _MetricPill(label: 'RA Done', value: raCompleted),
               _MetricPill(label: 'Critical', value: critical),
@@ -386,18 +423,18 @@ class _MetricPill extends StatelessWidget {
 }
 
 class _FiltersCard extends StatelessWidget {
-  final String searchQuery;
+  final TextEditingController searchController;
   final AbnormalityCategory? categoryFilter;
   final AbnormalitySeverity? severityFilter;
-  final ReannealingStatus? raFilter;
+  final AbnormalityListFilter raFilter;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<AbnormalityCategory?> onCategoryChanged;
   final ValueChanged<AbnormalitySeverity?> onSeverityChanged;
-  final ValueChanged<ReannealingStatus?> onRaChanged;
+  final ValueChanged<AbnormalityListFilter> onRaChanged;
   final VoidCallback onClear;
 
   const _FiltersCard({
-    required this.searchQuery,
+    required this.searchController,
     required this.categoryFilter,
     required this.severityFilter,
     required this.raFilter,
@@ -423,15 +460,17 @@ class _FiltersCard extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.md),
           TextField(
-            decoration: _inputDecoration(
-              label: 'Search',
-              hint: 'Charge no., RA charge, reason, asset...',
-            ).copyWith(
-              prefixIcon: const Icon(
-                Icons.search_rounded,
-                color: BafColors.textSecondary,
-              ),
-            ),
+            controller: searchController,
+            decoration:
+                _inputDecoration(
+                  label: 'Search',
+                  hint: 'Charge no., RA charge, reason, asset...',
+                ).copyWith(
+                  prefixIcon: const Icon(
+                    Icons.search_rounded,
+                    color: BafColors.textSecondary,
+                  ),
+                ),
             onChanged: onSearchChanged,
           ),
           const SizedBox(height: BafSpacing.md),
@@ -453,12 +492,24 @@ class _FiltersCard extends StatelessWidget {
                 itemLabel: _severityLabel,
                 onChanged: onSeverityChanged,
               ),
-              _FilterDropdown<ReannealingStatus>(
-                label: 'RA Status',
-                value: raFilter,
-                values: ReannealingStatus.values,
-                itemLabel: _raStatusLabel,
-                onChanged: onRaChanged,
+              SizedBox(
+                width: 230,
+                child: DropdownButtonFormField<AbnormalityListFilter>(
+                  key: ValueKey(raFilter),
+                  initialValue: raFilter,
+                  isExpanded: true,
+                  decoration: _inputDecoration(label: 'Status'),
+                  items: [
+                    for (final filter in AbnormalityListFilter.values)
+                      DropdownMenuItem(
+                        value: filter,
+                        child: Text(filter.label),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) onRaChanged(value);
+                  },
+                ),
               ),
               OutlinedButton.icon(
                 onPressed: onClear,
@@ -466,6 +517,11 @@ class _FiltersCard extends StatelessWidget {
                 label: const Text('Clear'),
               ),
             ],
+          ),
+          const SizedBox(height: BafSpacing.sm),
+          const Text(
+            'Open means an RA decision or action is pending. Quality adjudication is tracked separately.',
+            style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
           ),
         ],
       ),
@@ -493,6 +549,7 @@ class _FilterDropdown<T> extends StatelessWidget {
     return SizedBox(
       width: 190,
       child: DropdownButtonFormField<T?>(
+        key: ValueKey((label, value)),
         isExpanded: true,
         initialValue: value,
         decoration: _inputDecoration(label: label),
@@ -622,8 +679,8 @@ class _BreakdownCard<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries =
-        values.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
+    final entries = values.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return DashboardCard(
       child: Column(
@@ -632,10 +689,9 @@ class _BreakdownCard<T> extends StatelessWidget {
           _SectionHeader(
             icon: icon,
             title: title,
-            subtitle:
-                entries.isEmpty
-                    ? 'No records in current filter.'
-                    : 'Top contributors in current filter.',
+            subtitle: entries.isEmpty
+                ? 'No records in current filter.'
+                : 'Top contributors in current filter.',
             color: color,
           ),
           const SizedBox(height: BafSpacing.md),

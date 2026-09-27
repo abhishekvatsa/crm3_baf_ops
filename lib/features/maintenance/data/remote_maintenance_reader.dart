@@ -11,6 +11,7 @@ import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
 import '../domain/issue_administrative_closure.dart';
 import '../domain/issue_lane_plan.dart';
+import '../domain/maintenance_component_identification.dart';
 import 'remote_maintenance_timestamps.dart';
 
 const _workflowQueueStates = <String>{
@@ -413,12 +414,14 @@ MaintenanceRecord readRemoteMaintenanceRecord(
         mergedMetadata,
         administrativeClosure,
       );
-  final localMetadata = synchronizedLanePlan == null
+  final laneMetadata = synchronizedLanePlan == null
       ? metadataWithClosure
       : mergeIssueLanePlanIntoMaintenanceMetadata(
           metadataWithClosure,
           synchronizedLanePlan,
         );
+
+  final localMetadata = mergeRemoteMaintenanceComponentContext(laneMetadata, map);
 
   return MaintenanceRecord()
     ..firestoreId = embeddedId

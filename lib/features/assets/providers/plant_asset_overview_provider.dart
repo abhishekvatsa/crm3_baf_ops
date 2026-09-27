@@ -9,6 +9,8 @@ import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../data/plant_condition_evidence.dart';
+import '../data/inner_cover_lifecycle.dart';
+import '../domain/physical_plant_inventory.dart';
 import '../domain/plant_asset_overview.dart';
 import '../domain/qualified_plant_asset_overview.dart';
 
@@ -48,6 +50,10 @@ final plantTicketEvidenceProvider = _source(
   'maintenance_records',
   (data, id) => readRemoteMaintenanceRecord(data, documentId: id),
 );
+final plantInnerCoverEvidenceProvider = _source(
+  'inner_cover_profiles',
+  InnerCoverProfile.fromMap,
+);
 
 final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
   ref,
@@ -58,6 +64,7 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
   final workflow = ref.watch(plantWorkflowEvidenceProvider);
   final availability = ref.watch(plantAvailabilityEvidenceProvider);
   final tickets = ref.watch(plantTicketEvidenceProvider);
+  final covers = ref.watch(plantInnerCoverEvidenceProvider);
   final localTickets = ref.watch(plantConditionTicketsProvider);
   if (classes.isLoading || assets.isLoading) return const AsyncLoading();
   if (classes.hasError || assets.hasError) {
@@ -65,16 +72,19 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
     return AsyncError(error.error, error.stackTrace);
   }
   final warnings = <String>[];
+  final unverifiedSources = <String>[];
   void qualify<T>(String name, AsyncValue<PlantEvidenceBatch<T>> value) {
     final batch = value.asData?.value;
     if (batch == null) {
       warnings.add('$name evidence is unavailable or still loading.');
+      unverifiedSources.add(warnings.last);
       return;
     }
     if (!batch.fromServer) {
       warnings.add(
         '$name is last-known evidence; current server state is unconfirmed.',
       );
+      unverifiedSources.add(warnings.last);
     }
     for (final entry in batch.rejected.entries) {
       warnings.add('$name ${entry.key}: ${entry.value}');
@@ -89,6 +99,7 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
   qualify('Issues', tickets);
   if (localTickets.hasError || localTickets.isLoading) {
     warnings.add('Local pending issue evidence is not yet verified.');
+    unverifiedSources.add(warnings.last);
   }
   final overview = qualifiedPlantAssetOverview(
     classes: classes.requireValue.rows,
@@ -101,6 +112,7 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
       ...?localTickets.asData?.value.where((row) => !row.isSynced),
     ],
     populationWarnings: warnings,
+    unverifiedSources: unverifiedSources,
     manualSourcesCurrent:
         classes.requireValue.fromServer &&
         assets.requireValue.fromServer &&
@@ -108,6 +120,32 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
     rejectedConditions: conditions.asData?.value.rejected.keys.toSet() ?? {},
     rejectedAssets: assets.requireValue.rejected.keys.toSet(),
     rejectedClasses: classes.requireValue.rejected.keys.toSet(),
+    rejectedWorkflow: workflow.asData?.value.rejected.keys.toSet() ?? {},
+    rejectedAvailability:
+        availability.asData?.value.rejected.keys.toSet() ?? {},
+    rejectedTickets: tickets.asData?.value.rejected.keys.toSet() ?? {},
   );
-  return AsyncData(overview);
+  final coverWarnings = <String>[
+    if (covers.asData?.value.fromServer != true)
+      'Inner Cover inventory is incomplete or last-known; current server state is unconfirmed.',
+    if (!classes.requireValue.fromServer)
+      'Inner Cover class evidence is last-known; current server state is unconfirmed.',
+  ];
+  final coverPopulationWarnings = <String>[
+    for (final entry
+        in covers.asData?.value.rejected.entries ??
+            <MapEntry<String, String>>[])
+      'Inner Cover ${entry.key}: ${entry.value}',
+  ];
+  return AsyncData(
+    physicalPlantInventory(
+      overview: overview,
+      classes: classes.requireValue.rows,
+      profiles: covers.asData?.value.rows ?? [],
+      coverSourceWarnings: coverWarnings,
+      coverPopulationWarnings: coverPopulationWarnings,
+      rejectedProfiles: covers.asData?.value.rejected.keys.toSet() ?? {},
+      rejectedClasses: classes.requireValue.rejected.keys.toSet(),
+    ),
+  );
 });

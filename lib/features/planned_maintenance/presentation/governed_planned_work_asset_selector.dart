@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
+import '../../../core/widgets/live_dropdown_form_field.dart';
 import '../../assets/data/asset_hierarchy_model.dart';
 import '../../assets/data/asset_registry_model.dart';
 import '../../assets/data/inner_cover_lifecycle.dart';
@@ -105,16 +106,6 @@ class GovernedPlannedWorkAssetSelector extends StatelessWidget {
       );
     }
     final physicalClass = currentRoute.physicalAssetClass!;
-    if (eligibleAssets.isEmpty) {
-      return AssetSelectionMessage(
-        icon: Icons.precision_manufacturing_outlined,
-        message:
-            currentRoute.innerCoverByBase
-                ? 'No active ${physicalClass.name} currently has a governed Inner Cover linkage.'
-                : 'No active ${physicalClass.name} assets match this template.',
-        color: BafColors.warning,
-      );
-    }
     final selectedAsset =
         eligibleAssets
             .where((item) => item.id == selectedAssetInstanceId)
@@ -126,31 +117,33 @@ class GovernedPlannedWorkAssetSelector extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (eligibleAssets.isEmpty)
+          AssetSelectionMessage(
+            icon: Icons.precision_manufacturing_outlined,
+            message: currentRoute.innerCoverByBase
+                ? 'No active ${physicalClass.name} currently has a governed Inner Cover linkage.'
+                : 'No active ${physicalClass.name} assets match this template.',
+            color: BafColors.warning,
+          ),
         AssetSelectionMessage(
-          icon:
-              currentRoute.innerCoverByBase
-                  ? Icons.link_rounded
-                  : Icons.account_tree_rounded,
-          message:
-              currentRoute.innerCoverByBase
-                  ? 'This Inner Cover job is assigned by its current Base position. Select the Base carrying the Inner Cover.'
-                  : currentRoute.fixedAssetInstanceId != null
-                  ? 'This template is fixed to one governed physical asset.'
-                  : '${plannedWorkAssetTypeLabel(currentAssetType)} work will be assigned to an exact active ${physicalClass.name} record.',
+          icon: currentRoute.innerCoverByBase
+              ? Icons.link_rounded
+              : Icons.account_tree_rounded,
+          message: currentRoute.innerCoverByBase
+              ? 'This Inner Cover job is assigned by its current Base position. Select the Base carrying the Inner Cover.'
+              : currentRoute.fixedAssetInstanceId != null
+              ? 'This template is fixed to one governed physical asset.'
+              : '${plannedWorkAssetTypeLabel(currentAssetType)} work will be assigned to an exact active ${physicalClass.name} record.',
           color: BafColors.planned,
         ),
         const SizedBox(height: BafSpacing.md),
-        DropdownButtonFormField<String>(
-          key: ValueKey(
-            'planned-work-asset-${physicalClass.id}-${selectedAsset?.id ?? 'none'}-${eligibleAssets.length}',
-          ),
+        LiveDropdownFormField<String>(
+          key: ValueKey('planned-work-asset-${physicalClass.id}'),
           initialValue: selectedAsset?.id,
-          isExpanded: true,
           decoration: InputDecoration(
-            labelText:
-                currentRoute.innerCoverByBase
-                    ? 'Base carrying Inner Cover'
-                    : 'Physical asset',
+            labelText: currentRoute.innerCoverByBase
+                ? 'Base carrying Inner Cover'
+                : 'Physical asset',
             prefixIcon: const Icon(Icons.precision_manufacturing_rounded),
             filled: true,
             fillColor: BafColors.card,
@@ -186,18 +179,15 @@ class GovernedPlannedWorkAssetSelector extends StatelessWidget {
               .toList(growable: false),
           onChanged:
               onAssetChanged == null ||
-                      currentRoute.fixedAssetInstanceId != null
-                  ? null
-                  : (assetId) => onAssetChanged!(
-                    assetId == null
-                        ? null
-                        : eligibleAssets.firstWhere(
-                          (item) => item.id == assetId,
-                        ),
-                  ),
-          validator:
-              (value) =>
-                  value == null ? 'Choose the exact physical asset' : null,
+                  currentRoute.fixedAssetInstanceId != null
+              ? null
+              : (assetId) => onAssetChanged!(
+                  assetId == null
+                      ? null
+                      : eligibleAssets.firstWhere((item) => item.id == assetId),
+                ),
+          validator: (value) =>
+              value == null ? 'Choose the exact physical asset' : null,
         ),
         if (selectedAsset != null) ...[
           const SizedBox(height: BafSpacing.sm),

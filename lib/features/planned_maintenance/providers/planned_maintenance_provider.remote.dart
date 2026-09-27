@@ -3,16 +3,43 @@ part of 'planned_maintenance_provider.dart';
 class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   final AuditRepository _auditRepo;
   final PlannedJobServerCompletionService _serverCompletion;
+  final FirebaseFirestore _firestore;
 
   FirestorePlannedRepository({
     AuditRepository? auditRepository,
     PlannedJobServerCompletionService? serverCompletion,
+    FirebaseFirestore? firestore,
   }) : _auditRepo = auditRepository ?? AuditRepository(),
        _serverCompletion =
-           serverCompletion ?? PlannedJobServerCompletionService();
+           serverCompletion ?? PlannedJobServerCompletionService(),
+       _firestore = firestore ?? FirebaseFirestore.instance;
 
-  final _templates = FirebaseFirestore.instance.collection('job_templates');
-  final _executions = FirebaseFirestore.instance.collection('job_executions');
+  late final _templates = _firestore.collection('job_templates');
+  late final _executions = _firestore.collection('job_executions');
+
+  Future<Map<String, dynamic>> _executionWriteDataPreservingCreation(
+    JobExecution record,
+  ) async {
+    final data = record.toClientWritableMap();
+    data['createdAt'] = record.createdAt.toUtc().toIso8601String();
+    data['updatedAt'] = record.updatedAt.toUtc().toIso8601String();
+    final snapshot = await _executions
+        .doc(record.firestoreId)
+        .get(const GetOptions(source: Source.server));
+    final remoteData = snapshot.data();
+    if (remoteData == null) return data;
+    final remote = JobExecution.fromMap(remoteData, snapshot.id);
+    if (!record.createdAt.isAtSameMomentAs(remote.createdAt)) {
+      throw StateError('The planned job creation time cannot be changed.');
+    }
+    // Isar reloads DateTime in local time. Rules pin the original wire value,
+    // which may be UTC text, offset text, or a native Firestore Timestamp.
+    data['createdAt'] = remoteData['createdAt'];
+    if (record.updatedAt.isAtSameMomentAs(remote.updatedAt)) {
+      data['updatedAt'] = remoteData['updatedAt'];
+    }
+    return data;
+  }
 
   Map<String, dynamic>? _sanitizeForAudit(Map<String, dynamic>? data) {
     if (data == null) return null;
@@ -40,8 +67,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobTemplate.fromMap, source: 'JobTemplate')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobTemplate.fromMap,
+        source: 'JobTemplate',
+      ).toList(),
     );
   }
 
@@ -56,8 +86,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -122,9 +155,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isDeleted', isEqualTo: false)
         .snapshots()
         .map(
-          (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-              .where((execution) => !execution.isCancelled)
-              .toList(),
+          (snap) => decodeSnapshotDocuments(
+            snap,
+            JobExecution.fromMap,
+            source: 'JobExecution',
+          ).where((execution) => !execution.isCancelled).toList(),
         );
   }
 
@@ -145,8 +180,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -165,8 +203,11 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     }
 
     return query.snapshots().map(
-      (snap) => decodeSnapshotDocuments(snap, JobExecution.fromMap, source: 'JobExecution')
-          .toList(),
+      (snap) => decodeSnapshotDocuments(
+        snap,
+        JobExecution.fromMap,
+        source: 'JobExecution',
+      ).toList(),
     );
   }
 
@@ -206,7 +247,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('templateFirestoreId', isEqualTo: templateFirestoreId)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -226,7 +268,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   @override
   Future<List<JobTemplate>> getAllTemplates() async {
     final snap = await _templates.where('isDeleted', isEqualTo: false).get();
-    return snap.docs.map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobTemplate.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -319,15 +362,17 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
     _requireCanAssignJobExecution(actor);
     if (execution.firestoreId == null) throw Exception('firestoreId required');
     _normalizeExecutionForUserSave(execution, markUnsynced: false);
+    final data = await _executionWriteDataPreservingCreation(execution);
     await _executions
         .doc(execution.firestoreId)
-        .set(execution.toClientWritableMap(), SetOptions(merge: true));
+        .set(data, SetOptions(merge: true));
   }
 
   @override
   Future<List<JobExecution>> getAllExecutions() async {
     final snap = await _executions.where('isDeleted', isEqualTo: false).get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -337,7 +382,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('isCompleted', isEqualTo: false)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .where((execution) => !execution.isCancelled)
         .toList();
   }
@@ -352,7 +398,8 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
         .where('assetNumber', isEqualTo: number)
         .where('isDeleted', isEqualTo: false)
         .get();
-    return snap.docs.map((doc) => JobExecution.fromMap(doc.data(), doc.id))
+    return snap.docs
+        .map((doc) => JobExecution.fromMap(doc.data(), doc.id))
         .toList();
   }
 
@@ -579,7 +626,7 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Future<void> batchUpsertTemplates(List<JobTemplate> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final r in records) {
       if (r.firestoreId != null) {
         batch.set(
@@ -612,12 +659,13 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Future<void> batchUpsertExecutions(List<JobExecution> records) async {
-    final batch = FirebaseFirestore.instance.batch();
+    final batch = _firestore.batch();
     for (final r in records) {
       if (r.firestoreId != null) {
+        final data = await _executionWriteDataPreservingCreation(r);
         batch.set(
           _executions.doc(r.firestoreId),
-          r.toClientWritableMap(),
+          data,
           SetOptions(merge: true),
         );
       }

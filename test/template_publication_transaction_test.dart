@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:convert';
+import 'package:crm3_baf_ops/features/planned_maintenance/domain/template_closure_review.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:isar_community/isar.dart';
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
@@ -69,6 +71,54 @@ void main() {
     await database.close(deleteFromDisk: true);
     await directory.delete(recursive: true);
   });
+  test(
+    'native save rejects copied review before writes, then preserves creation and explicit review',
+    () async {
+      final created = DateTime.utc(2026, 9, 20);
+      final candidate = TemplateVersion()
+        ..firestoreId = 'timeline-draft'
+        ..packageFirestoreId = 'package'
+        ..createdAt = created
+        ..updatedAt = created
+        ..jobTemplateSnapshotJson = jsonEncode({
+          'jobName': 'Checks',
+          'assetType': 'base',
+          'composer': {
+            'closureReviewConfirmed': true,
+            'closureReviewConfirmedByUid': actor.uid,
+            'closureReviewConfirmedByName': actor.name,
+            'closureReviewConfirmedAt': created
+                .subtract(const Duration(days: 1))
+                .toIso8601String(),
+          },
+        })
+        ..moduleSnapshotsJson =
+            '[{"moduleCode":"M","moduleTitle":"Inspection","requiredForClosure":true}]'
+        ..fieldDefinitionsJson =
+            '[{"key":"inspection","moduleCode":"M","type":"text","label":"Inspection"}]';
+      await expectLater(
+        repo.saveVersion(candidate, actor: actor),
+        throwsFormatException,
+      );
+      expect(await repo.getVersionByFirestoreId('timeline-draft'), isNull);
+      clearTemplateClosureReview(candidate);
+      confirmTemplateClosureReview(
+        candidate,
+        actorUid: actor.uid,
+        actorName: actor.name,
+        confirmedAt: created.add(const Duration(seconds: 1)),
+      );
+      await repo.saveVersion(candidate, actor: actor);
+      final saved = (await repo.getVersionByFirestoreId('timeline-draft'))!;
+      final read = TemplateVersion.fromMap(saved.toMap(), saved.firestoreId!);
+      expect(read.createdAt.toUtc(), created);
+      expect(
+        read.closureReviewConfirmedAt?.toUtc(),
+        created.add(const Duration(seconds: 1)),
+      );
+      expect(read.closureReviewConfirmedByUid, actor.uid);
+    },
+  );
   for (final transition in [
     'newer draft',
     'already published',

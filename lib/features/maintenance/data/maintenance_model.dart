@@ -8,6 +8,7 @@ import '../domain/burner_lockout_case.dart';
 import '../domain/furnace_stuckup_case.dart';
 import '../domain/frequent_issue_selection.dart';
 import '../domain/issue_administrative_closure.dart';
+import '../domain/maintenance_component_identification.dart';
 import '../domain/issue_lane_plan.dart';
 
 part 'maintenance_model.g.dart';
@@ -348,6 +349,66 @@ class MaintenanceRecord {
   String? tag;
   List<String>? hierarchyPath;
   String? assetHierarchyRefJson;
+
+  @ignore
+  ComponentIntakeState? get componentIntakeState {
+    final value = maintenanceComponentContext(metadataJson)['intakeState'];
+    return value == null
+        ? null
+        : ComponentIntakeState.values.byName(value as String);
+  }
+
+  set componentIntakeState(ComponentIntakeState? value) {
+    metadataJson = mergeMaintenanceComponentContext(
+      metadataJson,
+      intakeState: value,
+      identification: componentIdentification,
+    );
+  }
+
+  @ignore
+  MaintenanceComponentIdentification? get componentIdentification {
+    final value = maintenanceComponentContext(metadataJson)['identification'];
+    return value == null
+        ? null
+        : MaintenanceComponentIdentification.fromMap(
+            Map<String, dynamic>.from(value as Map),
+          );
+  }
+
+  @ignore
+  String get componentIntakeLabel =>
+      componentIntakeState?.label ??
+      (hasLegacyBlankComponent ? 'Not recorded' : 'As originally reported');
+
+  @ignore
+  bool get hasLegacyBlankComponent =>
+      componentIntakeState == null &&
+      (component?.trim().isEmpty ?? true) &&
+      (tag?.trim().isEmpty ?? true) &&
+      assetHierarchyReference?.scope ==
+          AssetHierarchyReferenceScope.physicalAsset;
+
+  @ignore
+  String? get effectiveComponentLabel =>
+      componentIdentification?.component ?? component;
+
+  @ignore
+  bool get awaitsComponentIdentification =>
+      !isDeleted &&
+      (hasLegacyBlankComponent ||
+          {
+            ComponentIntakeState.unidentified,
+            ComponentIntakeState.unlisted,
+          }.contains(componentIntakeState)) &&
+      !{
+        burnerLockoutClassification,
+        furnaceStuckupClassification,
+        baseInnerCoverUnavailableClassification,
+      }.contains(classification) &&
+      assetHierarchyReference?.scope ==
+          AssetHierarchyReferenceScope.physicalAsset &&
+      componentIdentification == null;
 
   /// Stable link to the administratively retained concern this issue
   /// continues. Ordinary issues leave this absent.

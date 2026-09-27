@@ -16,10 +16,12 @@ import '../../auth/providers/auth_provider.dart';
 import '../data/template_governance_model.dart';
 import '../data/maintenance_intelligence.dart';
 import '../domain/module_composer_models.dart';
+import '../domain/template_closure_review.dart';
 import '../domain/template_version_snapshot_contract.dart';
 import '../providers/template_governance_provider.dart';
 import '../providers/maintenance_intelligence_provider.dart';
 import 'module_composer_screen.dart';
+import 'widgets/template_closure_review_dialog.dart';
 
 part 'template_publisher_screen.builders.dart';
 part 'template_publisher_screen.actions.dart';

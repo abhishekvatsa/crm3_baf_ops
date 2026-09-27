@@ -179,10 +179,23 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
     final feed = ref.watch(activeCriticalAlarmsProvider);
     final liveSnapshot = feed.asData?.value;
     final active = liveSnapshot?.alarms ?? const <CriticalAlarm>[];
-    final isServerVerified = liveSnapshot?.isServerVerified == true;
+    final isServerVerified =
+        !feed.isLoading &&
+        !feed.hasError &&
+        liveSnapshot?.isServerVerified == true;
     final primary = !isServerVerified || active.isEmpty
         ? null
         : _primary(active);
+    final launcherColor = !isServerVerified
+        ? BafColors.warning
+        : active.isEmpty
+        ? BafColors.graphiteSoft
+        : BafColors.danger;
+    final launcherStatus = !isServerVerified
+        ? 'Live status not verified.'
+        : active.isEmpty
+        ? 'No active alarms.'
+        : '${active.length} active ${active.length == 1 ? 'alarm' : 'alarms'}.';
     final showUnverifiedBanner =
         user?.isApproved == true &&
         _showUnverifiedAlarmBanner &&
@@ -246,13 +259,12 @@ class _CriticalAlarmHostState extends ConsumerState<CriticalAlarmHost>
                       dimension: _launcherSize,
                       child: Semantics(
                         key: const Key('global-critical-alarm-launcher'),
-                        label: 'Critical safety alarms. Drag to reposition.',
+                        label:
+                            'Critical safety alarms. $launcherStatus Drag to reposition.',
                         button: true,
                         child: FloatingActionButton.small(
                           heroTag: 'global-critical-alarm-launcher',
-                          backgroundColor: showUnverifiedBanner
-                              ? BafColors.warning
-                              : BafColors.danger,
+                          backgroundColor: launcherColor,
                           foregroundColor: Colors.white,
                           onPressed: _open,
                           child: showUnverifiedBanner

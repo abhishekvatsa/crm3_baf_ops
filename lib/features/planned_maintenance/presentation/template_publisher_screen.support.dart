@@ -242,6 +242,8 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
       ..retiredByName = null
       ..retiredAt = null
       ..retireReason = null
+      ..createdByUid = null
+      ..createdByName = null
       ..createdAt = DateTime.now()
       ..updatedAt = DateTime.now();
     successor.refreshClosureReviewStateFromSnapshots();

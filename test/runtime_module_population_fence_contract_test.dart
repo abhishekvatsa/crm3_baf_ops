@@ -186,7 +186,15 @@ void main() {
         }
         expect(
           index,
-          contains('timestampFromDate: admin.firestore.Timestamp.fromDate'),
+          contains(
+            'import {FieldValue, Timestamp} from "firebase-admin/firestore";',
+          ),
+        );
+        expect(index, contains('timestampFromDate: Timestamp.fromDate'));
+        expect(
+          index,
+          isNot(contains('admin.firestore.Timestamp')),
+          reason: 'the emulator can strip static classes from admin.firestore',
         );
         expect(callable, contains('throw new HttpsError(error.code'));
       },

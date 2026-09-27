@@ -824,7 +824,9 @@ void main() {
 
       expect(find.text('Warnings (1)'), findsOneWidget);
       expect(find.text('Monitoring (1)'), findsOneWidget);
-      expect(find.text('No warnings in this view'), findsOneWidget);
+      // Awaiting review remains open until the accountable decision.
+      expect(find.text('No warnings in this view'), findsNothing);
+      expect(find.text('Atmosphere interruption during cycle'), findsOneWidget);
 
       await tester.tap(find.text('Monitoring (1)'));
       await tester.pumpAndSettle();
@@ -986,6 +988,16 @@ void main() {
           theme: BafAppTheme.light,
           home: const QualityHomeScreen.monitoring(),
         ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Open is the default; closed evidence remains available explicitly.
+    expect(find.text('Campaign evidence reviewed and accepted.'), findsNothing);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('quality-monitoring-status-filter')),
+        matching: find.text('Closed'),
       ),
     );
     await tester.pumpAndSettle();

@@ -1611,7 +1611,7 @@ class _ModuleProgressSheetState extends State<_ModuleProgressSheet> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'This records module-level progress. Detailed dynamic checklist fields come in the next stage.',
+              'Record progress notes here. Use Structured Responses to complete the checklist, then submit the module for review.',
               style: TextStyle(
                 color: BafColors.textSecondary,
                 fontSize: 12,

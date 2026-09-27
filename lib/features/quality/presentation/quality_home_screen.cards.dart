@@ -131,25 +131,11 @@ class _WarningCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  _statusIcon(warning.status),
-                  color: _statusColor(warning.status),
-                ),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Charge ${warning.sourceChargeNo}',
-                    style: const TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: BafColors.textPrimary,
-                    ),
-                  ),
-                ),
-                _StatusLabel(status: warning.status),
-              ],
+            _QualityRecordHeading(
+              icon: _statusIcon(warning.status),
+              color: _statusColor(warning.status),
+              title: 'Charge ${warning.sourceChargeNo}',
+              status: _StatusLabel(status: warning.status),
             ),
             const SizedBox(height: BafSpacing.sm),
             Text(
@@ -358,6 +344,7 @@ class _WarningCard extends ConsumerWidget {
 
 class _MonitoringCard extends StatelessWidget {
   const _MonitoringCard({
+    super.key,
     required this.request,
     required this.canClose,
     required this.busy,
@@ -390,37 +377,23 @@ class _MonitoringCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.monitor_heart_outlined,
-                color: BafColors.charges,
+          _QualityRecordHeading(
+            icon: Icons.monitor_heart_outlined,
+            color: BafColors.charges,
+            title: 'Base ${request.baseNumber} · ${request.grade}',
+            status: Text(
+              request.status == QualityMonitoringStatus.active
+                  ? 'Active'
+                  : request.isCancelled
+                  ? 'Cancelled'
+                  : 'Closed',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                color: request.status == QualityMonitoringStatus.active
+                    ? BafColors.warning
+                    : BafColors.sync,
               ),
-              const SizedBox(width: BafSpacing.sm),
-              Expanded(
-                child: Text(
-                  'Base ${request.baseNumber} · ${request.grade}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: BafColors.textPrimary,
-                  ),
-                ),
-              ),
-              Text(
-                request.status == QualityMonitoringStatus.active
-                    ? 'Active'
-                    : request.isCancelled
-                    ? 'Cancelled'
-                    : 'Closed',
-                style: TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: request.status == QualityMonitoringStatus.active
-                      ? BafColors.warning
-                      : BafColors.sync,
-                ),
-              ),
-            ],
+            ),
           ),
           const SizedBox(height: BafSpacing.sm),
           Text(

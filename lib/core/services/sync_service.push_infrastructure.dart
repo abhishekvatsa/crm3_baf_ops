@@ -1,6 +1,67 @@
 part of 'sync_service.dart';
 
 extension _SyncServicePushInfrastructure on SyncService {
+  void _checkRunCurrent() => _runGuard?.checkCurrent();
+
+  Future<T> _guardedPushAwait<T>(Future<T> Function() operation) async {
+    _checkRunCurrent();
+    final result = await operation();
+    _checkRunCurrent();
+    return result;
+  }
+
+  /// A failed row, retry hold or conflict is also a failed prerequisite. Only
+  /// independent domains may continue; dependent stages keep their local work.
+  Future<bool> _runPushStage(
+    String entityType,
+    Future<void> Function() operation,
+  ) async {
+    _checkRunCurrent();
+    final failuresBefore = lastFailureCount;
+    final conflictsBefore = lastConflictCount;
+    try {
+      await operation();
+      await _flushPushDiagnostics();
+      _checkRunCurrent();
+    } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
+      lastFailureCount++;
+      // No row was identified, so this is a pass diagnostic, not a permanent
+      // rejection attached to an invented record identity.
+      _appendPushFailureDetail(
+        _buildPushFailureDetail(
+          entityType: entityType,
+          entityId: 'pending_batch',
+          error: error,
+        ),
+      );
+      debugPrint(
+        'Push stage $entityType failed; dependent work remains local: $error',
+      );
+      debugPrintStack(stackTrace: stackTrace);
+      await _flushPushDiagnostics();
+    }
+    return failuresBefore == lastFailureCount &&
+        conflictsBefore == lastConflictCount;
+  }
+
+  Future<void> _flushPushDiagnostics() async {
+    if (_pendingRejectionWrites.isEmpty) return;
+    final pending = List.of(_pendingRejectionWrites);
+    _pendingRejectionWrites.clear();
+    // These futures already have error handlers, so none can escape while an
+    // earlier diagnostic is awaited. No business writes are run in parallel.
+    // Drain every already-started diagnostic before releasing run ownership,
+    // even when one of them failed. These are local evidence writes only.
+    final results = await Future.wait(pending);
+    for (final result in results) {
+      if (result.error != null) {
+        Error.throwWithStackTrace(result.error!, result.stack!);
+      }
+    }
+  }
+
   Future<void> _retry(
     Future<void> Function() task, {
     int maxAttempts = 3,
@@ -11,9 +72,13 @@ extension _SyncServicePushInfrastructure on SyncService {
 
     while (true) {
       try {
+        _checkRunCurrent();
         await task();
+        _checkRunCurrent();
         return;
       } catch (e) {
+        rethrowIfSyncRunMustAbort(e);
+        _checkRunCurrent();
         attempt++;
 
         if (shouldRetry != null && !shouldRetry(e)) rethrow;
@@ -26,6 +91,7 @@ extension _SyncServicePushInfrastructure on SyncService {
         debugPrint('⚠️ Retry $attempt after ${delay.inMilliseconds}ms → $e');
 
         await Future.delayed(delay);
+        _checkRunCurrent();
       }
     }
   }
@@ -75,6 +141,8 @@ extension _SyncServicePushInfrastructure on SyncService {
     required Object error,
     String? firestoreId,
   }) {
+    rethrowIfSyncRunMustAbort(error);
+    _checkRunCurrent();
     final classification = classifySyncFailure(error);
     return SyncFailureDetail(
       entityType: entityType,
@@ -113,7 +181,15 @@ extension _SyncServicePushInfrastructure on SyncService {
       error: error,
       firestoreId: firestoreId,
     );
-    unawaited(_upsertSyncRejection(detail));
+    // Observe errors immediately; the stage awaits the result before it moves
+    // on. The buffered future itself never rejects outside an owning await.
+    _pendingRejectionWrites.add(
+      _upsertSyncRejection(detail).then(
+        (_) => (error: null, stack: null),
+        onError: (Object error, StackTrace stack) =>
+            (error: error, stack: stack),
+      ),
+    );
     _appendPushFailureDetail(detail);
   }
 
@@ -137,44 +213,43 @@ extension _SyncServicePushInfrastructure on SyncService {
     SyncFailureDetail detail, {
     bool failClosed = false,
   }) async {
+    _checkRunCurrent();
     if (kIsWeb) {
       return;
     }
     final localIsar = Isar.getInstance();
     if (localIsar == null) {
       if (failClosed) {
-        throw StateError(
-          'A durable population rejection could not be persisted because the '
-          'local Isar database is unavailable.',
-        );
+        throw const SyncRunAborted('local-storage-unavailable');
       }
       return;
     }
 
     try {
       await localIsar.writeTxn(() async {
-        final existing =
-            await localIsar.syncRejections
-                .filter()
-                .entityTypeEqualTo(detail.entityType)
-                .and()
-                .entityIdEqualTo(detail.entityId)
-                .and()
-                .originatingUidEqualTo(detail.originatingUid)
-                .and()
-                .isResolvedEqualTo(false)
-                .findFirst();
+        _checkRunCurrent();
+        final existing = await localIsar.syncRejections
+            .filter()
+            .entityTypeEqualTo(detail.entityType)
+            .and()
+            .entityIdEqualTo(detail.entityId)
+            .and()
+            .originatingUidEqualTo(detail.originatingUid)
+            .and()
+            .isResolvedEqualTo(false)
+            .findFirst();
+        _checkRunCurrent();
 
         if (existing != null) {
           final preservePermanentEvidence =
               existing.isLikelyPermanent && !detail.isLikelyPermanent;
           existing.markSeenAgain(
-            message:
-                preservePermanentEvidence ? existing.message : detail.message,
-            errorCode:
-                preservePermanentEvidence
-                    ? existing.errorCode
-                    : detail.errorCode,
+            message: preservePermanentEvidence
+                ? existing.message
+                : detail.message,
+            errorCode: preservePermanentEvidence
+                ? existing.errorCode
+                : detail.errorCode,
             firestoreId: detail.firestoreId,
             originatingUid: detail.originatingUid,
             isLikelyPermanent:
@@ -185,22 +260,23 @@ extension _SyncServicePushInfrastructure on SyncService {
           return;
         }
 
-        final rejection =
-            SyncRejection()
-              ..entityType = detail.entityType
-              ..entityId = detail.entityId
-              ..firestoreId = detail.firestoreId
-              ..errorCode = detail.errorCode
-              ..message = detail.message
-              ..originatingUid = detail.originatingUid
-              ..firstSeenAt = detail.occurredAt
-              ..lastSeenAt = detail.occurredAt
-              ..attemptCount = 1
-              ..isLikelyPermanent = detail.isLikelyPermanent
-              ..isResolved = false;
+        final rejection = SyncRejection()
+          ..entityType = detail.entityType
+          ..entityId = detail.entityId
+          ..firestoreId = detail.firestoreId
+          ..errorCode = detail.errorCode
+          ..message = detail.message
+          ..originatingUid = detail.originatingUid
+          ..firstSeenAt = detail.occurredAt
+          ..lastSeenAt = detail.occurredAt
+          ..attemptCount = 1
+          ..isLikelyPermanent = detail.isLikelyPermanent
+          ..isResolved = false;
         await localIsar.syncRejections.put(rejection);
       });
     } catch (e, st) {
+      rethrowIfSyncRunMustAbort(e);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Failed to persist sync rejection for ${detail.shortLabel}: $e',
       );
@@ -228,6 +304,7 @@ extension _SyncServicePushInfrastructure on SyncService {
     required String entityType,
     required List<T> records,
   }) async {
+    _checkRunCurrent();
     if (records.isEmpty || kIsWeb) return records;
 
     final localIsar = Isar.getInstance();
@@ -250,16 +327,18 @@ extension _SyncServicePushInfrastructure on SyncService {
 
     List<SyncRejection> permanentRejections;
     try {
-      permanentRejections =
-          await localIsar.syncRejections
-              .filter()
-              .entityTypeEqualTo(entityType)
-              .and()
-              .isResolvedEqualTo(false)
-              .and()
-              .isLikelyPermanentEqualTo(true)
-              .findAll();
+      permanentRejections = await localIsar.syncRejections
+          .filter()
+          .entityTypeEqualTo(entityType)
+          .and()
+          .isResolvedEqualTo(false)
+          .and()
+          .isLikelyPermanentEqualTo(true)
+          .findAll();
+      _checkRunCurrent();
     } catch (e, st) {
+      rethrowIfSyncRunMustAbort(e);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Could not inspect sync rejection hold state for $entityType: $e',
       );
@@ -270,16 +349,18 @@ extension _SyncServicePushInfrastructure on SyncService {
       // establish eligibility.
       for (final record in records) {
         lastFailureCount++;
-        _appendPushFailureDetail(_buildPushFailureDetail(
-          entityType: entityType,
-          entityId: _syncEntityId(record),
-          firestoreId: _syncFirestoreId(record),
-          error: const WorkflowException(
-            WorkflowErrorCode.unavailable,
-            'Saved sync holds could not be verified. Local work is retained; '
-            'automatic sending is paused until this check succeeds.',
+        _appendPushFailureDetail(
+          _buildPushFailureDetail(
+            entityType: entityType,
+            entityId: _syncEntityId(record),
+            firestoreId: _syncFirestoreId(record),
+            error: const WorkflowException(
+              WorkflowErrorCode.unavailable,
+              'Saved sync holds could not be verified. Local work is retained; '
+              'automatic sending is paused until this check succeeds.',
+            ),
           ),
-        ));
+        );
       }
       return <T>[];
     }
@@ -362,6 +443,7 @@ extension _SyncServicePushInfrastructure on SyncService {
     Set<String> firestoreIds = const <String>{},
     required String evidence,
   }) async {
+    _checkRunCurrent();
     if (!_recheckPermanentRejections ||
         _permanentRejectionIdsUnderRecheck.isEmpty ||
         kIsWeb ||
@@ -375,8 +457,10 @@ extension _SyncServicePushInfrastructure on SyncService {
     final resolvedIds = <int>{};
     final trackedIds = _permanentRejectionIdsUnderRecheck.toList();
     await localIsar.writeTxn(() async {
+      _checkRunCurrent();
       for (final rejectionId in trackedIds) {
         final rejection = await localIsar.syncRejections.get(rejectionId);
+        _checkRunCurrent();
         if (rejection == null || rejection.isResolved) {
           resolvedIds.add(rejectionId);
           continue;
@@ -399,6 +483,7 @@ extension _SyncServicePushInfrastructure on SyncService {
               'Manual server recheck confirmed authoritative remote acceptance or exact remote readback before releasing this retry hold. Evidence: $evidence.',
         );
         await localIsar.syncRejections.put(rejection);
+        _checkRunCurrent();
         resolvedIds.add(rejectionId);
       }
     });
@@ -501,17 +586,17 @@ extension _SyncServicePushInfrastructure on SyncService {
     required Map<String, dynamic> localSnapshot,
     required Map<String, dynamic> remoteSnapshot,
   }) async {
+    _checkRunCurrent();
     lastConflictCount++;
     lastConflictKeys.add('$entityType:$entityId');
 
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    final firebaseUser = _authentication.currentUser;
     final actorUid = firebaseUser?.uid;
-    final actorName =
-        firebaseUser?.displayName?.trim().isNotEmpty == true
-            ? firebaseUser!.displayName!.trim()
-            : firebaseUser?.email?.trim().isNotEmpty == true
-            ? firebaseUser!.email!.trim()
-            : 'Sync Engine';
+    final actorName = firebaseUser?.displayName?.trim().isNotEmpty == true
+        ? firebaseUser!.displayName!.trim()
+        : firebaseUser?.email?.trim().isNotEmpty == true
+        ? firebaseUser!.email!.trim()
+        : 'Sync Engine';
 
     try {
       await _auditRepo.log(
@@ -520,8 +605,9 @@ extension _SyncServicePushInfrastructure on SyncService {
           entityId: entityId,
           action: AuditAction.update,
           performedByUid: actorUid ?? 'sync_engine',
-          performedByName:
-              actorUid == null ? 'Sync Engine' : 'Sync Engine ($actorName)',
+          performedByName: actorUid == null
+              ? 'Sync Engine'
+              : 'Sync Engine ($actorName)',
           reasonNotes:
               'Sync conflict preserved during push. Local unsynced record was not pushed over newer remote data.',
           summary: 'Sync conflict preserved during push',
@@ -530,8 +616,11 @@ extension _SyncServicePushInfrastructure on SyncService {
           after: remoteSnapshot,
         ),
         syncToRemote: actorUid != null,
+        runGuard: _runGuard,
       );
     } catch (e) {
+      rethrowIfSyncRunMustAbort(e);
+      _checkRunCurrent();
       debugPrint(
         '⚠️ Failed to audit push conflict for $entityType/$entityId: $e',
       );

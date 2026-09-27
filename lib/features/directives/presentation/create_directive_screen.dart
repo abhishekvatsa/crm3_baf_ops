@@ -160,40 +160,38 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
       final tagText = _cleanOptionalText(_tagController.text)?.toUpperCase();
       final componentText = _cleanOptionalText(_componentController.text);
 
-      final directive =
-          OperationalDirective()
-            ..firestoreId = const Uuid().v4()
-            ..title = _cleanRequiredText(_titleController.text)
-            ..description = _cleanRequiredText(_descController.text)
-            ..directedTo = _directedTo!
-            ..assetType = _assetType
-            ..assetNumber = _assetNumberForSubmit()
-            ..component = componentText
-            ..tag = tagText
-            ..subsystem = _cleanOptionalText(_resolvedSubsystem ?? '')
-            ..hierarchyPath = _resolvedPath
-            ..createdByUid = actor.uid
-            ..createdByName = actor.name
-            ..issuedByUid = actor.uid
-            ..issuedByName = actor.name
-            ..issuedAt = now
-            ..isActive = true
-            ..createdAt = now
-            ..updatedAt = now
-            ..version = 1
-            ..isSynced = false;
+      final directive = OperationalDirective()
+        ..firestoreId = const Uuid().v4()
+        ..title = _cleanRequiredText(_titleController.text)
+        ..description = _cleanRequiredText(_descController.text)
+        ..directedTo = _directedTo!
+        ..assetType = _assetType
+        ..assetNumber = _assetNumberForSubmit()
+        ..component = componentText
+        ..tag = tagText
+        ..subsystem = _cleanOptionalText(_resolvedSubsystem ?? '')
+        ..hierarchyPath = _resolvedPath
+        ..createdByUid = actor.uid
+        ..createdByName = actor.name
+        ..issuedByUid = actor.uid
+        ..issuedByName = actor.name
+        ..issuedAt = now
+        ..isActive = true
+        ..createdAt = now
+        ..updatedAt = now
+        ..version = 1
+        ..isSynced = false;
 
       final repo = ref.read(directiveRepositoryProvider);
       final syncCoordinator = ref.read(syncCoordinatorProvider);
       await repo.saveDirective(directive, actor: actor);
 
-      final syncOutcome =
-          directive.isSynced
-              ? SyncRequestOutcome.succeeded
-              : await syncCoordinator.runFullSyncWithResult(
-                reason: 'directive_created',
-                force: true,
-              );
+      final syncOutcome = directive.isSynced
+          ? SyncRequestOutcome.succeeded
+          : await syncCoordinator.runFullSyncWithResult(
+              reason: 'directive_created',
+              force: true,
+            );
       final (message, color) = switch (syncOutcome) {
         SyncRequestOutcome.succeeded => (
           'Directive issued and synchronized.',
@@ -201,6 +199,10 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
         ),
         SyncRequestOutcome.queued || SyncRequestOutcome.throttled => (
           'Directive saved on this device; synchronization is queued.',
+          BafColors.warning,
+        ),
+        SyncRequestOutcome.partial => (
+          'Partly synced. Server data was refreshed, but some saved changes still need attention. Check Sync health for details.',
           BafColors.warning,
         ),
         SyncRequestOutcome.failed => (
@@ -238,10 +240,9 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
     return InputDecoration(
       labelText: label,
       hintText: hint,
-      prefixIcon:
-          icon == null
-              ? null
-              : Icon(icon, color: BafColors.textSecondary, size: 20),
+      prefixIcon: icon == null
+          ? null
+          : Icon(icon, color: BafColors.textSecondary, size: 20),
       filled: true,
       fillColor: BafColors.background,
       labelStyle: const TextStyle(
@@ -344,15 +345,14 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
                     label: 'Route To',
                     icon: Icons.groups_rounded,
                   ),
-                  items:
-                      validTargets
-                          .map(
-                            (r) => DropdownMenuItem(
-                              value: r,
-                              child: Text(r.name.toUpperCase()),
-                            ),
-                          )
-                          .toList(),
+                  items: validTargets
+                      .map(
+                        (r) => DropdownMenuItem(
+                          value: r,
+                          child: Text(r.name.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) => setState(() => _directedTo = v),
                 ),
               ],
@@ -458,10 +458,9 @@ class _CreateDirectiveScreenState extends ConsumerState<CreateDirectiveScreen> {
                 TextFormField(
                   controller: _componentController,
                   decoration: _fieldDecoration(
-                    label:
-                        _isAutoResolved
-                            ? 'Component (auto-filled, editable)'
-                            : 'Component Name',
+                    label: _isAutoResolved
+                        ? 'Component (auto-filled, editable)'
+                        : 'Component Name',
                     icon: Icons.memory_rounded,
                   ),
                 ),
@@ -794,17 +793,16 @@ class _BottomSubmitBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(BafRadius.medium),
               ),
             ),
-            icon:
-                isSubmitting
-                    ? const SizedBox(
-                      height: 19,
-                      width: 19,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                    : const Icon(Icons.send_rounded, size: 20),
+            icon: isSubmitting
+                ? const SizedBox(
+                    height: 19,
+                    width: 19,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.send_rounded, size: 20),
             label: Text(
               isSubmitting ? 'Issuing directive...' : 'Issue Directive',
               style: const TextStyle(

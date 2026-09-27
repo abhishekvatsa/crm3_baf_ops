@@ -51,18 +51,18 @@ class BafBrandLockup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = onDark ? Colors.white : BafColors.textPrimary;
-    final secondary =
-        onDark ? Colors.white.withValues(alpha: 0.68) : BafColors.textSecondary;
+    final secondary = onDark
+        ? Colors.white.withValues(alpha: 0.68)
+        : BafColors.textSecondary;
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         ManmithasMark(
           size: compact ? 36 : 44,
-          backgroundColor:
-              onDark
-                  ? Colors.white.withValues(alpha: 0.08)
-                  : BafColors.graphite,
+          backgroundColor: onDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : BafColors.graphite,
         ),
         const SizedBox(width: BafSpacing.sm),
         Flexible(
@@ -270,7 +270,7 @@ class BafAppBarTitle extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: BafColors.textSecondary,
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                     height: 1.15,
                   ),

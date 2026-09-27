@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/serialization/persisted_data_reader.dart';
 import '../../auth/data/user_model.dart';
 import '../data/module_registry_model.dart';
 import '../domain/module_composer_models.dart';
@@ -16,8 +17,44 @@ void _requireRegistryGovernor(AppUser actor, String actionLabel) {
   }
 }
 
-String _newAuditFirestoreId() =>
-    FirebaseFirestore.instance.collection('module_registry_audits').doc().id;
+void _requireRegistryCreationUnchanged(DateTime? candidate, DateTime? stored) {
+  if (candidate == null ||
+      stored == null ||
+      !candidate.isAtSameMomentAs(stored)) {
+    throw StateError(
+      'The registry creation time cannot be changed. Reload the original record.',
+    );
+  }
+}
+
+Map<String, dynamic> _registryWriteData(
+  Map<String, dynamic> candidate, {
+  Map<String, dynamic>? stored,
+}) {
+  final data = Map<String, dynamic>.of(candidate);
+  for (final field in ['createdAt', 'updatedAt', 'publishedAt', 'retiredAt']) {
+    final value = readOptionalPersistedDateTime(
+      data[field],
+      field: field,
+      source: 'registry write',
+    );
+    final previous = readOptionalPersistedDateTime(
+      stored?[field],
+      field: field,
+      source: 'stored registry record',
+    );
+    if (field == 'createdAt' && stored != null) {
+      _requireRegistryCreationUnchanged(value, previous);
+    }
+    if (value != null && previous != null && value.isAtSameMomentAs(previous)) {
+      // Rules pin origin and prior lifecycle evidence by exact stored value.
+      data[field] = stored![field];
+    } else if (value != null) {
+      data[field] = value.toUtc().toIso8601String();
+    }
+  }
+  return data;
+}
 
 class ModuleRegistryRepository {
   final FirebaseFirestore _firestore;
@@ -91,9 +128,9 @@ class ModuleRegistryRepository {
           actor: actor,
           now: now,
         );
-        txn.set(familyRef, family.toMap());
+        txn.set(familyRef, _registryWriteData(family.toMap()));
       }
-      txn.set(revisionRef, draft.toMap());
+      txn.set(revisionRef, _registryWriteData(draft.toMap()));
       txn.set(_audits.doc(audit.firestoreId), audit.toMap());
     });
 
@@ -133,6 +170,7 @@ class ModuleRegistryRepository {
         revisionSnap.id,
         registryModuleId: revision.registryModuleId,
       );
+      _requireRegistryCreationUnchanged(revision.createdAt, current.createdAt);
       if (!current.isDraft) {
         throw StateError('Only draft registry revisions are editable.');
       }
@@ -170,7 +208,10 @@ class ModuleRegistryRepository {
         lineage: lineagePayload,
       );
 
-      txn.update(revisionRef, current.toMap());
+      txn.update(
+        revisionRef,
+        _registryWriteData(current.toMap(), stored: revisionSnap.data()!),
+      );
       txn.set(_audits.doc(audit.firestoreId), audit.toMap());
     });
   }
@@ -333,7 +374,7 @@ class ModuleRegistryRepository {
         'latestPublishedContentHash': currentRevision.contentHash,
         'updatedByUid': actor.uid,
         'updatedByName': actor.name,
-        'updatedAt': now.toIso8601String(),
+        'updatedAt': now.toUtc().toIso8601String(),
         'version': currentFamily.version + 1,
       });
     });
@@ -463,8 +504,14 @@ class ModuleRegistryRepository {
         lineage: jsonDecode(revision.lineageJson) as Map<String, dynamic>,
       );
 
-      txn.update(familyRef, family.toMap());
-      txn.update(revisionRef, revision.toMap());
+      txn.update(
+        familyRef,
+        _registryWriteData(family.toMap(), stored: familySnap.data()!),
+      );
+      txn.update(
+        revisionRef,
+        _registryWriteData(revision.toMap(), stored: revisionSnap.data()!),
+      );
       txn.set(_audits.doc(audit.firestoreId), audit.toMap());
       published = revision;
     });
@@ -494,6 +541,7 @@ class ModuleRegistryRepository {
         revisionSnap.id,
         registryModuleId: revision.registryModuleId,
       );
+      _requireRegistryCreationUnchanged(revision.createdAt, current.createdAt);
       final beforeHash = current.contentHash;
       final now = DateTime.now();
       current.retire(actor: actor, reason: trimmedReason, now: now);
@@ -508,7 +556,10 @@ class ModuleRegistryRepository {
         afterHash: current.contentHash,
         now: now,
       );
-      txn.update(revisionRef, current.toMap());
+      txn.update(
+        revisionRef,
+        _registryWriteData(current.toMap(), stored: revisionSnap.data()!),
+      );
       txn.set(_audits.doc(audit.firestoreId), audit.toMap());
     });
   }
@@ -533,6 +584,7 @@ class ModuleRegistryRepository {
         familySnap.data()!,
         familySnap.id,
       );
+      _requireRegistryCreationUnchanged(family.createdAt, current.createdAt);
       final now = DateTime.now();
       current.retire(actor: actor, reason: trimmedReason, now: now);
 
@@ -543,7 +595,10 @@ class ModuleRegistryRepository {
         reason: trimmedReason,
         now: now,
       );
-      txn.update(familyRef, current.toMap());
+      txn.update(
+        familyRef,
+        _registryWriteData(current.toMap(), stored: familySnap.data()!),
+      );
       txn.set(_audits.doc(audit.firestoreId), audit.toMap());
     });
   }
@@ -735,7 +790,7 @@ class ModuleRegistryRepository {
     DateTime? now,
   }) {
     return ModuleRegistryAudit(
-      firestoreId: _newAuditFirestoreId(),
+      firestoreId: _audits.doc().id,
       registryModuleId: registryModuleId,
       revisionId: revisionId,
       revisionNumber: revisionNumber,

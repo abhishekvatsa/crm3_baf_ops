@@ -1,7 +1,18 @@
 import 'dart:convert';
-
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/frequent_issue_definition.dart';
+
+/// Catalogue wording is the reported observation; extra notes are optional.
+String maintenanceIssueDescription({
+  String? catalogueDescription,
+  required String observations,
+}) {
+  final summary = catalogueDescription?.trim() ?? '';
+  final notes = observations.trim();
+  if (summary.isEmpty) return notes;
+  if (notes.isEmpty || notes == summary) return summary;
+  return '$summary\nAdditional observations: $notes';
+}
 
 enum FrequentIssueSelectionType { definition, unlisted }
 
@@ -28,9 +39,9 @@ class FrequentIssueSelection {
 
   factory FrequentIssueSelection.unlisted(String reason) {
     final cleaned = reason.trim();
-    if (cleaned.isEmpty || cleaned.length > 500) {
+    if (cleaned.isEmpty || cleaned.length > 2000) {
       throw const FormatException(
-        'Describe the unlisted issue in no more than 500 characters.',
+        'Describe the unlisted issue in no more than 2000 characters.',
       );
     }
     return FrequentIssueSelection._(

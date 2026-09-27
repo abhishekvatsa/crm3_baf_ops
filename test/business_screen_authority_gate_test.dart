@@ -182,6 +182,12 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('charge-abnormality-status-filter')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All').last);
+      await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
 
@@ -206,18 +212,17 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      final type =
-          AbnormalityType()
-            ..firestoreId = 'TYPE_1'
-            ..code = 'TYPE_1'
-            ..title = 'Observed process condition'
-            ..category = AbnormalityCategory.process
-            ..severity = AbnormalitySeverity.high
-            ..suggestsReannealing = true
-            ..isActive = true
-            ..isDeleted = false
-            ..createdAt = DateTime.utc(2026, 9, 2)
-            ..updatedAt = DateTime.utc(2026, 9, 2);
+      final type = AbnormalityType()
+        ..firestoreId = 'TYPE_1'
+        ..code = 'TYPE_1'
+        ..title = 'Observed process condition'
+        ..category = AbnormalityCategory.process
+        ..severity = AbnormalitySeverity.high
+        ..suggestsReannealing = true
+        ..isActive = true
+        ..isDeleted = false
+        ..createdAt = DateTime.utc(2026, 9, 2)
+        ..updatedAt = DateTime.utc(2026, 9, 2);
 
       await tester.pumpWidget(
         ProviderScope(
@@ -256,38 +261,65 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Log charge abnormality'), findsOneWidget);
-      expect(
-        find.text(
-          'This opinion is also carried into the linked Quality warning.',
-        ),
-        findsOneWidget,
-      );
       final formList = find.byType(ListView).last;
-      await tester.drag(formList, const Offset(0, -700));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Affected equipment'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+      Future<void> reveal(Finder target) async {
+        await tester.scrollUntilVisible(
+          target,
+          250,
+          scrollable: find
+              .descendant(of: formList, matching: find.byType(Scrollable))
+              .first,
+          maxScrolls: 40,
+        );
+        await Scrollable.ensureVisible(tester.element(target), alignment: 0.5);
+        await tester.pumpAndSettle();
+      }
+
+      final observation = find.byKey(const ValueKey('abnormality-observation'));
+      await reveal(observation);
+      await tester.enterText(
+        observation,
+        'Observed colour needs a recorded decision.',
+      );
+      final assetClass = find.byKey(const ValueKey('abnormality-asset-class'));
+      await reveal(assetClass);
+      await tester.tap(assetClass);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Furnace').last);
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      final asset = find.byKey(
+        const ValueKey('abnormality-asset-class-furnace'),
+      );
+      await reveal(asset);
+      await tester.tap(asset);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Furnace 7').last);
       await tester.pumpAndSettle();
       expect(find.text('Choose component or subcomponent'), findsOneWidget);
 
-      await tester.drag(formList, const Offset(0, -1200));
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Re-annealing / RA traceability'));
-      await tester.pumpAndSettle();
-      expect(find.text('RA lifecycle state'), findsOneWidget);
-      await tester.tap(
-        find.byType(DropdownButtonFormField<ReannealingStatus>).last,
-      );
+      final decision = find.byKey(const ValueKey('abnormality-ra-decision'));
+      await reveal(decision);
+      expect(find.text('RA decision'), findsOneWidget);
+      await tester.tap(decision);
       await tester.pumpAndSettle();
       expect(find.text('Required'), findsOneWidget);
-      expect(find.text('Completed'), findsOneWidget);
+      expect(find.text('Completed'), findsNothing);
+      await tester.tap(find.text('Required').last);
+      await tester.pumpAndSettle();
+      final performed = find.byKey(const ValueKey('abnormality-ra-performed'));
+      await reveal(performed);
+      expect(tester.widget<CheckboxListTile>(performed).value, isFalse);
+      await tester.tap(performed);
+      await tester.pumpAndSettle();
+      final performedAt = find.byKey(const ValueKey('ra-performed-at'));
+      await reveal(performedAt);
+      expect(find.text('New RA charge number'), findsOneWidget);
+      expect(
+        find.text('Choose the actual completion date and time'),
+        findsOneWidget,
+      );
+      await reveal(find.byKey(const ValueKey('abnormality-post-ra-result')));
+      expect(find.text('Post-RA result'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -335,11 +367,10 @@ void main() {
     tester,
   ) async {
     var aggregateReads = 0;
-    final record =
-        ComplianceRequestRecord()
-          ..firestoreId = 'compliance-1'
-          ..title = 'Move Furnace 7'
-          ..linkedWorkflowId = 'workflow-1';
+    final record = ComplianceRequestRecord()
+      ..firestoreId = 'compliance-1'
+      ..title = 'Move Furnace 7'
+      ..linkedWorkflowId = 'workflow-1';
 
     await _pumpUnapproved(
       tester,
@@ -361,15 +392,14 @@ void main() {
     tester,
   ) async {
     var aggregateReads = 0;
-    final record =
-        ComplianceRequestRecord()
-          ..firestoreId = 'compliance-private'
-          ..title = 'Electrical isolation support'
-          ..description = 'Isolate the burner control supply.'
-          ..originLaneKey = 'mechanical'
-          ..targetLaneKey = 'inst'
-          ..raisedByUid = 'mechanical-1'
-          ..linkedWorkflowId = 'workflow-private';
+    final record = ComplianceRequestRecord()
+      ..firestoreId = 'compliance-private'
+      ..title = 'Electrical isolation support'
+      ..description = 'Isolate the burner control supply.'
+      ..originLaneKey = 'mechanical'
+      ..targetLaneKey = 'inst'
+      ..raisedByUid = 'mechanical-1'
+      ..linkedWorkflowId = 'workflow-private';
 
     await tester.pumpWidget(
       ProviderScope(

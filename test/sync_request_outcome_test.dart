@@ -24,7 +24,21 @@ void main() {
       }
     });
 
-    test('diagnostic labels preserve all four states', () {
+    test(
+      'partial remains actionable and is not a full success or deferral',
+      () {
+        expect(SyncRequestOutcome.partial.isPartial, isTrue);
+        expect(SyncRequestOutcome.partial.isFailure, isTrue);
+        expect(SyncRequestOutcome.partial.isSuccessful, isFalse);
+        expect(SyncRequestOutcome.partial.isDeferred, isFalse);
+        expect(
+          SyncRequestOutcome.partial.manualSyncMessage,
+          contains('Partly synced'),
+        );
+      },
+    );
+
+    test('diagnostic labels preserve all states', () {
       expect(SyncRequestOutcome.succeeded.diagnosticLabel, 'Success');
       expect(SyncRequestOutcome.failed.diagnosticLabel, 'Failed');
       expect(SyncRequestOutcome.queued.diagnosticLabel, 'Queued');

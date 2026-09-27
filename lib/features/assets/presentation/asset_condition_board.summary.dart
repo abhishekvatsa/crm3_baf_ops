@@ -9,6 +9,13 @@ class _PlantClassConditionSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = <Widget?>[
       _statusMetric(
+        label: 'Unverified',
+        color: BafColors.warning,
+        assets: summary.assets.where(
+          (asset) => asset.hasUnverifiedWorkflowEvidence,
+        ),
+      ),
+      _statusMetric(
         label: 'Maintenance',
         color: BafColors.maintenance,
         assets: summary.assets.where((asset) => asset.isUnderMaintenance),
@@ -134,16 +141,24 @@ class _PlantClassConditionSummary extends StatelessWidget {
             },
           ),
           const SizedBox(height: BafSpacing.xs),
-          if (metrics.isEmpty)
+          if (metrics.isEmpty && summary.available == summary.total)
             const Text(
               'All registered assets are in the available state.',
               style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
             )
-          else
+          else if (metrics.isNotEmpty)
             Wrap(
               spacing: BafSpacing.xs,
               runSpacing: BafSpacing.xs,
               children: metrics,
+            ),
+          for (final cover in summary.innerCovers)
+            Text(
+              'Inner Cover ${cover.profile.serialNumber}: ${cover.profile.lifecycleState.label}${cover.evidenceWarnings.isEmpty ? '' : ' · evidence unverified'}',
+              style: const TextStyle(
+                color: BafColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
         ],
       ),
@@ -160,10 +175,11 @@ class _PlantClassConditionSummary extends StatelessWidget {
     required Color color,
     required Iterable<PlantAssetState> assets,
   }) {
-    final rows = assets.toList(growable: false)..sort(
-      (left, right) =>
-          left.asset.assetNumber.compareTo(right.asset.assetNumber),
-    );
+    final rows = assets.toList(growable: false)
+      ..sort(
+        (left, right) =>
+            left.asset.assetNumber.compareTo(right.asset.assetNumber),
+      );
     if (rows.isEmpty) return null;
     return Container(
       constraints: const BoxConstraints(maxWidth: 480),

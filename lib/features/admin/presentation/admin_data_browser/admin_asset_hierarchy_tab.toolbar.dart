@@ -40,48 +40,57 @@ class _HierarchyToolbar extends StatelessWidget {
           );
           final retired = total - active;
           if (compact) {
+            final retiredFilter = FilterChip(
+              key: const ValueKey('asset-hierarchy-retired-toggle'),
+              selected: showRetired,
+              showCheckmark: true,
+              onSelected: onShowRetiredChanged,
+              avatar: const Icon(Icons.history_rounded, size: 18),
+              label: Text('Retired $retired'),
+              tooltip: showRetired
+                  ? 'Hide retired asset classes'
+                  : 'Show retired asset classes',
+            );
+            final addClass = IconButton.filled(
+              key: const ValueKey('asset-hierarchy-add-class'),
+              tooltip: 'Add asset class',
+              onPressed: onAddClass,
+              style: IconButton.styleFrom(
+                backgroundColor: BafColors.assets,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: BafColors.surfaceStrong,
+                disabledForegroundColor: BafColors.textTertiary,
+              ),
+              icon: const Icon(Icons.add_rounded),
+            );
+            final needsSecondRow =
+                constraints.maxWidth <
+                360 * MediaQuery.textScalerOf(context).scale(14) / 14;
             return Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
+              child: Flex(
                 key: const ValueKey('asset-hierarchy-mobile-toolbar'),
+                direction: needsSecondRow ? Axis.vertical : Axis.horizontal,
+                crossAxisAlignment: needsSecondRow
+                    ? CrossAxisAlignment.stretch
+                    : CrossAxisAlignment.center,
                 children: [
-                  Expanded(child: search),
-                  const SizedBox(width: BafSpacing.sm),
-                  Badge(
-                    isLabelVisible: retired > 0,
-                    label: Text('$retired'),
-                    child: IconButton.filledTonal(
-                      key: const ValueKey('asset-hierarchy-retired-toggle'),
-                      tooltip:
-                          showRetired
-                              ? 'Hide retired asset classes'
-                              : 'Show retired asset classes',
-                      onPressed: () => onShowRetiredChanged(!showRetired),
-                      style: IconButton.styleFrom(
-                        backgroundColor: BafColors.cobalt,
-                        foregroundColor: Colors.white,
-                        disabledForegroundColor: Colors.white54,
-                      ),
-                      icon: Icon(
-                        showRetired
-                            ? Icons.history_toggle_off_rounded
-                            : Icons.history_rounded,
-                      ),
+                  if (needsSecondRow) ...[
+                    search,
+                    const SizedBox(height: BafSpacing.sm),
+                    Wrap(
+                      spacing: BafSpacing.sm,
+                      runSpacing: BafSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [retiredFilter, addClass],
                     ),
-                  ),
-                  const SizedBox(width: BafSpacing.sm),
-                  IconButton.filled(
-                    key: const ValueKey('asset-hierarchy-add-class'),
-                    tooltip: 'Add asset class',
-                    onPressed: onAddClass,
-                    style: IconButton.styleFrom(
-                      backgroundColor: BafColors.assets,
-                      foregroundColor: Colors.white,
-                      disabledBackgroundColor: BafColors.surfaceStrong,
-                      disabledForegroundColor: BafColors.textTertiary,
-                    ),
-                    icon: const Icon(Icons.add_rounded),
-                  ),
+                  ] else ...[
+                    Expanded(child: search),
+                    const SizedBox(width: BafSpacing.sm),
+                    retiredFilter,
+                    const SizedBox(width: BafSpacing.sm),
+                    addClass,
+                  ],
                 ],
               ),
             );

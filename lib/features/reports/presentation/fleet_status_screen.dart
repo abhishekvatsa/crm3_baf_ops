@@ -200,85 +200,91 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
           ),
         ],
       ),
-      body: reportAsync.when(
-        loading: () => const BafLoadingPanel(
-          label: 'Building operations report',
-          color: BafColors.planned,
-        ),
-        error: (error, _) => _ErrorState(
-          message: error.toString(),
-          onRetry: () => _invalidateReportSources(ref, reportScope),
-        ),
-        data: (report) => RefreshIndicator(
-          onRefresh: () async {
-            _invalidateReportSources(ref, reportScope);
-          },
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
-            children: [
-              ReportLibraryBand(onOpen: createPdfReport),
-              const SizedBox(height: BafSpacing.md),
-              _ReportFilters(
-                classes: classes,
-                assets: assets,
-                innerCovers: innerCovers,
-                assetClassId: selection.assetClassId,
-                assetInstanceId: selection.assetInstanceId,
-                startDate: _startDate,
-                endDate: _endDate,
-                onClassChanged: (value) {
-                  setState(() {
-                    _assetClassId = value;
-                    _assetInstanceId = null;
-                  });
-                },
-                onAssetChanged: (value) =>
-                    setState(() => _assetInstanceId = value),
-                onDatesChanged: (start, end) {
-                  setState(() {
-                    _startDate = start;
-                    _endDate = end;
-                  });
-                },
-              ),
-              if (selection.requiresHistoricalReview) ...[
-                const SizedBox(height: BafSpacing.sm),
-                const BafSectionSurface(
-                  padding: EdgeInsets.all(BafSpacing.sm),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.history_toggle_off_outlined,
-                        color: BafColors.warning,
-                        size: 18,
-                      ),
-                      SizedBox(width: BafSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          'This scope refers to a retired physical identity. '
-                          'The report remains limited to that identity for historical review; it has not been broadened to the whole class.',
-                          style: TextStyle(fontSize: 11, height: 1.3),
-                        ),
-                      ),
-                    ],
+      body: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1100),
+          child: reportAsync.when(
+            loading: () => const BafLoadingPanel(
+              label: 'Building operations report',
+              color: BafColors.planned,
+            ),
+            error: (error, _) => _ErrorState(
+              message: error.toString(),
+              onRetry: () => _invalidateReportSources(ref, reportScope),
+            ),
+            data: (report) => RefreshIndicator(
+              onRefresh: () async {
+                _invalidateReportSources(ref, reportScope);
+              },
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+                children: [
+                  ReportLibraryBand(onOpen: createPdfReport),
+                  const SizedBox(height: BafSpacing.md),
+                  _ReportFilters(
+                    classes: classes,
+                    assets: assets,
+                    innerCovers: innerCovers,
+                    assetClassId: selection.assetClassId,
+                    assetInstanceId: selection.assetInstanceId,
+                    startDate: _startDate,
+                    endDate: _endDate,
+                    onClassChanged: (value) {
+                      setState(() {
+                        _assetClassId = value;
+                        _assetInstanceId = null;
+                      });
+                    },
+                    onAssetChanged: (value) =>
+                        setState(() => _assetInstanceId = value),
+                    onDatesChanged: (start, end) {
+                      setState(() {
+                        _startDate = start;
+                        _endDate = end;
+                      });
+                    },
                   ),
-                ),
-              ],
-              const SizedBox(height: BafSpacing.md),
-              OperationsReportViewSelector(
-                selected: _view,
-                onChanged: (view) => setState(() => _view = view),
+                  if (selection.requiresHistoricalReview) ...[
+                    const SizedBox(height: BafSpacing.sm),
+                    const BafSectionSurface(
+                      padding: EdgeInsets.all(BafSpacing.sm),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.history_toggle_off_outlined,
+                            color: BafColors.warning,
+                            size: 18,
+                          ),
+                          SizedBox(width: BafSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              'This scope refers to a retired physical identity. '
+                              'The report remains limited to that identity for historical review; it has not been broadened to the whole class.',
+                              style: TextStyle(fontSize: 11, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: BafSpacing.md),
+                  OperationsReportViewSelector(
+                    selected: _view,
+                    onChanged: (view) => setState(() => _view = view),
+                  ),
+                  const SizedBox(height: BafSpacing.lg),
+                  ..._buildReportView(
+                    report: report,
+                    classes: classes,
+                    selection: selection,
+                  ),
+                  const SizedBox(height: 20),
+                  _SourceWindowNotice(report: report),
+                ],
               ),
-              const SizedBox(height: BafSpacing.lg),
-              ..._buildReportView(
-                report: report,
-                classes: classes,
-                selection: selection,
-              ),
-              const SizedBox(height: 20),
-              _SourceWindowNotice(report: report),
-            ],
+            ),
           ),
         ),
       ),
@@ -343,6 +349,11 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                     .firstOrNull ??
                 'Selected class',
     ),
+    if (!report.inventoryEvidenceComplete)
+      Text(
+        'Inventory evidence incomplete: ${report.unknownAssetCount} recorded assets have unverified condition. Counts describe readable identities; no fleet availability percentage can be certified.',
+        style: const TextStyle(color: BafColors.warning, fontSize: 12),
+      ),
     const SizedBox(height: BafSpacing.sm),
     _MetricGrid(
       metrics: [

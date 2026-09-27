@@ -150,19 +150,27 @@ Future<void> connectCrm3Emulators() async {
     );
   }
   if (_connected) return;
-  _connected = true;
-
+  // The launcher already selects an explicit host and forwards USB ports.
+  // Firebase's Android default rewrites loopback to 10.0.2.2 even on a physical
+  // phone; that emulator-only address makes all three services unreachable.
   FirebaseFirestore.instance.useFirestoreEmulator(
     crm3EmulatorHost,
     crm3FirestoreEmulatorPort,
+    automaticHostMapping: false,
   );
   await FirebaseAuth.instance.useAuthEmulator(
     crm3EmulatorHost,
     crm3AuthEmulatorPort,
+    automaticHostMapping: false,
   );
   FirebaseFunctions.instanceFor(
     region: crm3CallableRegion,
-  ).useFunctionsEmulator(crm3EmulatorHost, crm3FunctionsEmulatorPort);
+  ).useFunctionsEmulator(
+    crm3EmulatorHost,
+    crm3FunctionsEmulatorPort,
+    automaticHostMapping: false,
+  );
+  _connected = true;
 
   debugPrint(
     '🧪 CRM-III DEV: project=$projectId '
@@ -196,7 +204,9 @@ Future<UserCredential> signInToCrm3AuthEmulator() async {
     if (error.code != 'user-not-found' && error.code != 'invalid-credential') {
       rethrow;
     }
-    debugPrint('🧪 CRM-III DEV: creating $crm3DevSignInEmail in the Auth emulator');
+    debugPrint(
+      '🧪 CRM-III DEV: creating $crm3DevSignInEmail in the Auth emulator',
+    );
     final created = await auth.createUserWithEmailAndPassword(
       email: crm3DevSignInEmail,
       password: crm3DevSignInSecret,

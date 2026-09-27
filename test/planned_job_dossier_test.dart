@@ -17,35 +17,33 @@ void main() {
     test('preserves execution, module and diary evidence in a PDF', () async {
       final createdAt = DateTime.utc(2026, 8, 28, 8);
       final execution = _execution(createdAt);
-      final module =
-          JobModuleInstance()
-            ..firestoreId = 'module-1'
-            ..jobExecutionFirestoreId = 'execution-1'
-            ..moduleTitle = 'Burner block condition'
-            ..moduleCode = 'F-BB-01'
-            ..assetType = AssetType.furnace
-            ..assetNumber = 1
-            ..status = JobModuleStatus.accepted
-            ..discipline = JobModuleDiscipline.mechanical
-            ..createdAt = createdAt.add(const Duration(hours: 1))
-            ..updatedAt = createdAt.add(const Duration(hours: 2))
-            ..acceptedAt = createdAt.add(const Duration(hours: 2))
-            ..acceptedByName = 'Shift Supervisor'
-            ..isSynced = true;
-      final diary =
-          JobDiaryEntry()
-            ..firestoreId = 'diary-1'
-            ..jobExecutionFirestoreId = 'execution-1'
-            ..assetType = AssetType.furnace
-            ..assetNumber = 1
-            ..kind = JobDiaryKind.observation
-            ..discipline = JobDiaryDiscipline.instrumentation
-            ..title = 'UV detector checked'
-            ..note = 'Flame signal remained stable after cleaning.'
-            ..createdByName = 'I&A Technician'
-            ..createdAt = createdAt.add(const Duration(minutes: 30))
-            ..updatedAt = createdAt.add(const Duration(minutes: 30))
-            ..isSynced = true;
+      final module = JobModuleInstance()
+        ..firestoreId = 'module-1'
+        ..jobExecutionFirestoreId = 'execution-1'
+        ..moduleTitle = 'Burner block condition'
+        ..moduleCode = 'F-BB-01'
+        ..assetType = AssetType.furnace
+        ..assetNumber = 1
+        ..status = JobModuleStatus.accepted
+        ..discipline = JobModuleDiscipline.mechanical
+        ..createdAt = createdAt.add(const Duration(hours: 1))
+        ..updatedAt = createdAt.add(const Duration(hours: 2))
+        ..acceptedAt = createdAt.add(const Duration(hours: 2))
+        ..acceptedByName = 'Shift Supervisor'
+        ..isSynced = true;
+      final diary = JobDiaryEntry()
+        ..firestoreId = 'diary-1'
+        ..jobExecutionFirestoreId = 'execution-1'
+        ..assetType = AssetType.furnace
+        ..assetNumber = 1
+        ..kind = JobDiaryKind.observation
+        ..discipline = JobDiaryDiscipline.instrumentation
+        ..title = 'UV detector checked'
+        ..note = 'Flame signal remained stable after cleaning.'
+        ..createdByName = 'I&A Technician'
+        ..createdAt = createdAt.add(const Duration(minutes: 30))
+        ..updatedAt = createdAt.add(const Duration(minutes: 30))
+        ..isSynced = true;
 
       final report = buildPlannedJobDossier(
         execution: execution,
@@ -69,6 +67,12 @@ void main() {
           'Governed lanes and compliance',
           'Record assurance',
         ]),
+      );
+      expect(
+        report.sections
+            .expand((section) => section.fields)
+            .map((field) => field.value),
+        contains('28-08-2026 13:30'),
       );
       final bytes = await StructuredReportPdfService.build(report);
       expect(ascii.decode(bytes.take(5).toList()), '%PDF-');
@@ -139,20 +143,19 @@ void main() {
     test('retains evidence beyond screen limits and removed child records', () {
       final createdAt = DateTime.utc(2026, 8, 28, 8);
       final modules = List<JobModuleInstance>.generate(101, (index) {
-        final module =
-            JobModuleInstance()
-              ..id = index + 1
-              ..firestoreId = 'module-${index + 1}'
-              ..jobExecutionFirestoreId = 'execution-1'
-              ..moduleTitle = 'Module evidence ${index + 1}'
-              ..moduleCode = 'M-${index + 1}'
-              ..assetType = AssetType.furnace
-              ..assetNumber = 1
-              ..status = JobModuleStatus.inProgress
-              ..discipline = JobModuleDiscipline.mechanical
-              ..createdAt = createdAt.add(Duration(minutes: index))
-              ..updatedAt = createdAt.add(Duration(minutes: index))
-              ..isSynced = true;
+        final module = JobModuleInstance()
+          ..id = index + 1
+          ..firestoreId = 'module-${index + 1}'
+          ..jobExecutionFirestoreId = 'execution-1'
+          ..moduleTitle = 'Module evidence ${index + 1}'
+          ..moduleCode = 'M-${index + 1}'
+          ..assetType = AssetType.furnace
+          ..assetNumber = 1
+          ..status = JobModuleStatus.inProgress
+          ..discipline = JobModuleDiscipline.mechanical
+          ..createdAt = createdAt.add(Duration(minutes: index))
+          ..updatedAt = createdAt.add(Duration(minutes: index))
+          ..isSynced = true;
         if (index == 100) {
           module
             ..isDeleted = true
@@ -163,21 +166,20 @@ void main() {
         return module;
       });
       final diaryEntries = List<JobDiaryEntry>.generate(51, (index) {
-        final entry =
-            JobDiaryEntry()
-              ..id = index + 1
-              ..firestoreId = 'diary-${index + 1}'
-              ..jobExecutionFirestoreId = 'execution-1'
-              ..assetType = AssetType.furnace
-              ..assetNumber = 1
-              ..kind = JobDiaryKind.note
-              ..discipline = JobDiaryDiscipline.shared
-              ..title = 'Diary evidence ${index + 1}'
-              ..note = 'Preserved report evidence ${index + 1}'
-              ..createdByName = 'Maintenance User'
-              ..createdAt = createdAt.add(Duration(minutes: index))
-              ..updatedAt = createdAt.add(Duration(minutes: index))
-              ..isSynced = true;
+        final entry = JobDiaryEntry()
+          ..id = index + 1
+          ..firestoreId = 'diary-${index + 1}'
+          ..jobExecutionFirestoreId = 'execution-1'
+          ..assetType = AssetType.furnace
+          ..assetNumber = 1
+          ..kind = JobDiaryKind.note
+          ..discipline = JobDiaryDiscipline.shared
+          ..title = 'Diary evidence ${index + 1}'
+          ..note = 'Preserved report evidence ${index + 1}'
+          ..createdByName = 'Maintenance User'
+          ..createdAt = createdAt.add(Duration(minutes: index))
+          ..updatedAt = createdAt.add(Duration(minutes: index))
+          ..isSynced = true;
         if (index == 50) {
           entry
             ..isDeleted = true
@@ -221,15 +223,14 @@ void main() {
   });
 }
 
-JobExecution _execution(DateTime createdAt) =>
-    JobExecution()
-      ..firestoreId = 'execution-1'
-      ..templateFirestoreId = 'template-1'
-      ..templateName = 'Furnace planned maintenance'
-      ..assetType = AssetType.furnace
-      ..assetNumber = 1
-      ..assignedByName = 'Planner'
-      ..assignedAgencies = <String>['mechanical', 'instrumentation']
-      ..createdAt = createdAt
-      ..updatedAt = createdAt.add(const Duration(hours: 2))
-      ..isSynced = true;
+JobExecution _execution(DateTime createdAt) => JobExecution()
+  ..firestoreId = 'execution-1'
+  ..templateFirestoreId = 'template-1'
+  ..templateName = 'Furnace planned maintenance'
+  ..assetType = AssetType.furnace
+  ..assetNumber = 1
+  ..assignedByName = 'Planner'
+  ..assignedAgencies = <String>['mechanical', 'instrumentation']
+  ..createdAt = createdAt
+  ..updatedAt = createdAt.add(const Duration(hours: 2))
+  ..isSynced = true;

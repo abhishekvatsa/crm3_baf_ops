@@ -3,18 +3,26 @@ part of 'sync_service.dart';
 extension _SyncServiceDirectivesAbnormalities on SyncService {
   Future<void> _syncDirectives() async {
     final ordinaryOwner = OrdinaryDirectiveCommands(
-      actorUid: _rejectionOwnerUidLookup,
+      actorUid: () {
+        _checkRunCurrent();
+        return _rejectionOwnerUidLookup();
+      },
     );
     final outcomes = _directiveRepo is IsarDirectiveRepository
-        ? await ordinaryOwner.checkAll()
+        ? await ordinaryOwner.checkAll(runGuard: _runGuard)
         : (succeeded: 0, failed: 0);
+    _checkRunCurrent();
     lastSuccessCount += outcomes.succeeded;
     lastFailureCount += outcomes.failed;
     final ownedIds = _directiveRepo is IsarDirectiveRepository
         ? await ordinaryOwner.ownedDirectiveIds()
         : const <String>{};
+    _checkRunCurrent();
     final unsynced = <OperationalDirective>[];
-    for (final record in await _directiveRepo.getUnsyncedDirectives()) {
+    for (final record in await _guardedPushAwait(
+      () async => _directiveRepo.getUnsyncedDirectives(),
+    )) {
+      _checkRunCurrent();
       if (_directiveRepo is IsarDirectiveRepository &&
           record.firestoreId != null &&
           ownedIds.contains(record.firestoreId!)) {
@@ -29,11 +37,13 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 1) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(i, i + 1);
       final activeBatchRecords = await _recordsEligibleForAutomaticPush(
         entityType: 'directive',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -48,7 +58,10 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         remoteList = await _firestoreDirective.getDirectivesByFirestoreIds(
           firestoreIds,
         );
+        _checkRunCurrent();
       } catch (error) {
+        rethrowIfSyncRunMustAbort(error);
+        _checkRunCurrent();
         lastFailureCount += activeBatchRecords.length;
         _recordPushFailuresForBatch(
           entityType: 'directive',
@@ -64,6 +77,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       final convergedRecords = <OperationalDirective>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -117,11 +131,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           try {
             final result = await _directiveRepo
                 .applyTombstoneFromDirectiveRemote(remote);
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'directive',
-              record: record,
-              entityLabel: 'directive',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'directive',
+                record: record,
+                entityLabel: 'directive',
+              ),
             )) {
               continue;
             }
@@ -131,11 +148,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               evidence:
                   'The canonical remote directive tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for directive ${record.id}',
             );
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for directive ${record.id}: $e',
@@ -152,6 +172,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local directive ${record.id} and did not overwrite newer remote data',
@@ -168,11 +189,15 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         try {
           await _retry(() async {
             await _firestoreDirective.batchUpsertDirectives(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
 
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'directive',
@@ -193,18 +218,21 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _directiveRepo.markDirectivesSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'directive',
           records: convergedRecords,
           evidence:
               'The remote directive write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
 
   Future<void> _syncAbnormalityTypes() async {
     final unsynced = await _abnormalityRepo.getUnsyncedTypes();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -212,6 +240,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -220,6 +249,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         entityType: 'abnormality_type',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -232,6 +262,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       final remoteList = await _firestoreAbnormality.getTypesByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <AbnormalityType>[];
@@ -239,6 +270,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
       final convergedRecords = <AbnormalityType>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -281,11 +313,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             final result = await _abnormalityRepo.applyTombstoneFromTypeRemote(
               remote,
             );
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'abnormality_type',
-              record: record,
-              entityLabel: 'abnormality type',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'abnormality_type',
+                record: record,
+                entityLabel: 'abnormality type',
+              ),
             )) {
               continue;
             }
@@ -295,11 +330,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               evidence:
                   'The canonical remote abnormality-type tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for abnormality type ${record.id}',
             );
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for abnormality type ${record.id}: $e',
@@ -316,6 +354,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local abnormality type ${record.id} and did not overwrite newer remote data',
@@ -332,11 +371,15 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         try {
           await _retry(() async {
             await _firestoreAbnormality.batchUpsertTypes(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
 
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount += recordsToPush.length;
           _recordPushFailuresForBatch(
             entityType: 'abnormality_type',
@@ -357,18 +400,21 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _abnormalityRepo.markTypesSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'abnormality_type',
           records: convergedRecords,
           evidence:
               'The remote abnormality-type write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
 
   Future<void> _syncChargeAbnormalities() async {
     final unsynced = await _abnormalityRepo.getUnsyncedAbnormalities();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -376,6 +422,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -384,6 +431,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         entityType: 'charge_abnormality',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
@@ -395,12 +443,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
 
       final remoteList = await _firestoreAbnormality
           .getAbnormalitiesByFirestoreIds(firestoreIds);
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final skippedButSyncedSnapshots = <SyncPushSnapshot>[];
       final convergedRecords = <ChargeAbnormality>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -429,6 +479,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               remote: null,
               operation: ChargeAbnormalityMutationOperation.create,
             );
+            _checkRunCurrent();
           }
           continue;
         }
@@ -440,6 +491,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           continue;
         }
@@ -457,6 +509,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             remote: remote,
             operation: ChargeAbnormalityMutationOperation.softDelete,
           );
+          _checkRunCurrent();
           continue;
         }
 
@@ -464,11 +517,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           try {
             final result = await _abnormalityRepo
                 .applyTombstoneFromAbnormalityRemote(remote);
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'charge_abnormality',
-              record: record,
-              entityLabel: 'charge abnormality',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'charge_abnormality',
+                record: record,
+                entityLabel: 'charge abnormality',
+              ),
             )) {
               continue;
             }
@@ -478,11 +534,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               evidence:
                   'The canonical remote charge-abnormality tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for charge abnormality ${record.id}',
             );
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for charge abnormality ${record.id}: $e',
@@ -500,6 +559,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
                 expectedLocal: snapshot,
                 expectedLocalSynced: record.isSynced,
               );
+          _checkRunCurrent();
           if (!adopted) {
             lastFailureCount++;
             _recordPushFailureDetail(
@@ -516,6 +576,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             evidence:
                 'Exact governed charge-abnormality state was read from the server and adopted locally.',
           );
+          _checkRunCurrent();
           lastSuccessCount++;
           continue;
         }
@@ -527,6 +588,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local charge abnormality ${record.id} and did not overwrite newer remote data',
@@ -539,6 +601,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
           remote: remote,
           operation: ChargeAbnormalityMutationOperation.update,
         );
+        _checkRunCurrent();
       }
 
       final snapshotsToMark = <SyncPushSnapshot>[...skippedButSyncedSnapshots];
@@ -547,12 +610,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         await _abnormalityRepo.markAbnormalitiesSyncedIfUnchanged(
           snapshotsToMark,
         );
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'charge_abnormality',
           records: convergedRecords,
           evidence:
               'The remote charge-abnormality create or exact absence readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
@@ -571,6 +636,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         localSnapshot: local.toAuditMap(),
         remoteSnapshot: remote?.toAuditMap() ?? const {},
       );
+      _checkRunCurrent();
       lastFailureCount++;
       debugPrint(
         '⚠️ GOVERNED PUSH CONFLICT: Charge abnormality $firestoreId '
@@ -598,6 +664,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               abnormality: local,
               requestId: requestId,
             );
+            _checkRunCurrent();
             return;
           }
           if (operation == ChargeAbnormalityMutationOperation.softDelete) {
@@ -607,6 +674,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
               reason: rawReason,
               requestId: requestId,
             );
+            _checkRunCurrent();
             return;
           }
           result = await _abnormalityCommands.update(
@@ -615,12 +683,14 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             reason: rawReason,
             requestId: requestId,
           );
+          _checkRunCurrent();
         },
         shouldRetry: (error) {
           return error is! ChargeAbnormalityMutationException ||
               !error.isDurableRejection;
         },
       );
+      _checkRunCurrent();
       final accepted = result;
       if (accepted == null) {
         throw const ChargeAbnormalityMutationException(
@@ -635,6 +705,7 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
             expectedLocal: snapshot,
             expectedLocalSynced: local.isSynced,
           );
+      _checkRunCurrent();
       if (!adopted) {
         throw StateError(
           'The governed abnormality mutation was accepted, but newer local '
@@ -647,8 +718,11 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
         evidence:
             'The governed charge-abnormality callable returned an accepted server receipt that was adopted locally.',
       );
+      _checkRunCurrent();
       lastSuccessCount++;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       lastFailureCount++;
       _recordPushFailureDetail(
         entityType: 'charge_abnormality',
@@ -666,20 +740,6 @@ extension _SyncServiceDirectivesAbnormalities on SyncService {
     ChargeAbnormality local,
     ChargeAbnormality remote,
   ) {
-    return sameChargeAbnormalityIdentity(local, remote) &&
-        local.version == remote.version &&
-        local.abnormalityTypeId == remote.abnormalityTypeId &&
-        local.severity == remote.severity &&
-        encodeAffectedAssets(local.affectedAssets) ==
-            encodeAffectedAssets(remote.affectedAssets) &&
-        local.component == remote.component &&
-        local.observedReason == remote.observedReason &&
-        local.description == remote.description &&
-        local.possibleRootReasonCategory == remote.possibleRootReasonCategory &&
-        local.possibleRootReasonNotes == remote.possibleRootReasonNotes &&
-        local.reannealingStatus == remote.reannealingStatus &&
-        local.reannealedToChargeNo == remote.reannealedToChargeNo &&
-        local.isDeleted == remote.isDeleted &&
-        local.deleteReason == remote.deleteReason;
+    return sameChargeAbnormalitySyncContent(local, remote);
   }
 }

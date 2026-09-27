@@ -40,6 +40,7 @@ import '../../quality/data/quality_warning.dart';
 import '../../quality/providers/quality_provider.dart';
 import '../domain/operations_report_asset_inventory.dart';
 import '../domain/operations_report_query_plan.dart';
+import '../domain/report_population_policy.dart';
 import '../models/operations_report.dart';
 
 export '../../../core/providers/operations_report_clock_provider.dart';
@@ -157,7 +158,11 @@ final operationsReportProvider = Provider.autoDispose
       final plan = filter.queryPlan;
       final periodScope = (
         actorUid: scope.actorUid,
-        startInclusive: filter.startInclusive,
+        startInclusive:
+            filter.maintenancePeriodBasis ==
+                MaintenanceReportPeriodBasis.completedDuring
+            ? filter.startInclusive.subtract(const Duration(microseconds: 1))
+            : filter.startInclusive,
         endExclusive: filter.endExclusive,
       );
       final tickets = plan.includes(OperationsReportSource.issues)

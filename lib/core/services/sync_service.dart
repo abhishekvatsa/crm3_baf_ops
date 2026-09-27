@@ -14,6 +14,7 @@ import 'app_logger.dart';
 import 'sync_failure_classifier.dart';
 import 'sync_push_snapshot.dart';
 import 'sync_remote_freshness_policy.dart';
+import 'sync_run_guard.dart';
 import 'remote_tombstone_apply_result.dart';
 
 import '../../features/maintenance/data/maintenance_model.dart';
@@ -32,6 +33,7 @@ import '../../features/planned_maintenance/data/job_template_model.dart';
 import '../../features/planned_maintenance/data/job_diary_model.dart';
 import '../../features/planned_maintenance/data/job_module_model.dart';
 import '../../features/planned_maintenance/data/template_governance_model.dart';
+import '../../features/planned_maintenance/domain/template_publication_readiness.dart';
 import '../../features/planned_maintenance/providers/planned_maintenance_provider.dart';
 import '../../features/planned_maintenance/services/planned_job_server_completion_service.dart';
 import '../../features/planned_maintenance/services/runtime_job_module_population_service.dart';
@@ -193,6 +195,9 @@ class SyncService {
   final String? Function() _rejectionOwnerUidLookup;
 
   bool _isSyncing = false;
+  SyncRunGuard? _runGuard;
+  final List<Future<({Object? error, StackTrace? stack})>>
+  _pendingRejectionWrites = [];
   bool _recheckPermanentRejections = false;
   final Set<int> _permanentRejectionIdsUnderRecheck = <int>{};
 
@@ -261,7 +266,13 @@ class SyncService {
   /// rather than a copy of it. Delegates to the same private implementation
   /// `syncAll` uses; it adds no behaviour of its own.
   @visibleForTesting
-  Future<void> syncTicketsForTest() => _syncTickets();
+  Future<void> syncTicketsForTest() async {
+    try {
+      await _syncTickets();
+    } finally {
+      await _flushPushDiagnostics();
+    }
+  }
 
   @visibleForTesting
   Future<void> syncJobModulesForTest({
@@ -272,6 +283,7 @@ class SyncService {
     try {
       await _syncJobModules();
     } finally {
+      await _flushPushDiagnostics();
       _recheckPermanentRejections = false;
       _permanentRejectionIdsUnderRecheck.clear();
     }
@@ -319,11 +331,26 @@ class SyncService {
   // MAIN ENTRY
   // ─────────────────────────────────────────────────────────────
 
-  Future<void> syncAll({bool recheckPermanentRejections = false}) async {
+  Future<void> syncAll({
+    bool recheckPermanentRejections = false,
+    SyncRunGuard? runGuard,
+  }) async {
     if (_isSyncing) {
       return;
     }
 
+    final originatingUid = runGuard == null
+        ? _authentication.currentUser?.uid.trim()
+        : null;
+    _runGuard =
+        runGuard ??
+        SyncRunGuard(() {
+          if (originatingUid == null ||
+              originatingUid.isEmpty ||
+              _authentication.currentUser?.uid.trim() != originatingUid) {
+            throw const SyncRunAborted('The signed-in account changed.');
+          }
+        });
     _isSyncing = true;
     _recheckPermanentRejections = recheckPermanentRejections;
     _permanentRejectionIdsUnderRecheck.clear();
@@ -338,31 +365,60 @@ class SyncService {
     final start = _now();
 
     try {
-      await _syncTickets();
-      await _syncTemplates();
-      await _syncTemplateGovernance();
-      await _syncKnowledgeBase();
+      await _runPushStage('maintenance', () async {
+        await _syncTickets();
+      });
+      if (await _runPushStage('job_template', () async {
+        await _syncTemplates();
+      })) {
+        await _runPushStage('template_governance', () async {
+          await _syncTemplateGovernance();
+        });
+      }
+      await _runPushStage('baf_knowledge_row', () async {
+        await _syncKnowledgeBase();
+      });
       // Push open/non-completion execution edits first so new assigned jobs exist.
       // Completed execution pushes are deferred until after job_modules are
       // pushed; the server closure function validates canonical remote modules.
-      await _syncExecutions(skipCompletedClosures: true);
-      await _syncJobDiaryEntries();
-      // ORDER DEPENDENCY: job modules must reach Firestore before completed
-      // execution closures are submitted through the Cloud Function. The
-      // callable validates canonical remote module state before accepting job
-      // completion, so swapping the next two calls can create false server
-      // rejections and must be treated as a sync/no-loss behavior change.
-      await _syncJobModules();
-      await _syncCompletedExecutionClosures();
-      await _syncDirectives();
+      if (await _runPushStage('job_execution', () async {
+            await _syncExecutions(skipCompletedClosures: true);
+          }) &&
+          await _runPushStage('job_diary', () async {
+            await _syncJobDiaryEntries();
+          }) &&
+          await _runPushStage('job_module', () async {
+            // ORDER DEPENDENCY: job modules must reach Firestore before completed
+            // execution closures are submitted through the Cloud Function. The
+            // callable validates canonical remote module state before accepting job
+            // completion, so swapping the next two calls can create false server
+            // rejections and must be treated as a sync/no-loss behavior change.
+            await _syncJobModules();
+          })) {
+        await _runPushStage('job_execution_closure', () async {
+          await _syncCompletedExecutionClosures();
+        });
+      }
+      await _runPushStage('directive', () async {
+        await _syncDirectives();
+      });
 
       // Master data first, then event records.
-      await _syncAbnormalityTypes();
-      await _syncChargeAbnormalities();
+      if (await _runPushStage('abnormality_type', () async {
+        await _syncAbnormalityTypes();
+      })) {
+        await _runPushStage('charge_abnormality', () async {
+          await _syncChargeAbnormalities();
+        });
+      }
 
       if (!kIsWeb) {
         try {
-          final auditResult = await _auditRepo.syncPendingAuditEvents();
+          _checkRunCurrent();
+          final auditResult = await _auditRepo.syncPendingAuditEvents(
+            runGuard: _runGuard,
+          );
+          _checkRunCurrent();
           lastSuccessCount += auditResult.synced;
           if (auditResult.failed > 0) {
             lastFailureCount += auditResult.failed;
@@ -376,6 +432,8 @@ class SyncService {
             );
           }
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           lastFailureCount++;
           _recordPushFailureDetail(
             entityType: 'audit_event',
@@ -398,6 +456,8 @@ class SyncService {
           );
         }
       }
+      await _flushPushDiagnostics();
+      _checkRunCurrent();
     } catch (e, stackTrace) {
       debugPrint('❌ Fatal error during syncAll: $e');
       debugPrintStack(stackTrace: stackTrace);
@@ -412,10 +472,17 @@ class SyncService {
 
       rethrow;
     } finally {
-      _isSyncing = false;
-      _recheckPermanentRejections = false;
-      _permanentRejectionIdsUnderRecheck.clear();
-      lastSyncTime = _now();
+      // Diagnostic writes belong to this run too. Observe them before releasing
+      // the guard; a later account/run must never inherit this pending work.
+      try {
+        await _flushPushDiagnostics();
+      } finally {
+        _isSyncing = false;
+        _runGuard = null;
+        _recheckPermanentRejections = false;
+        _permanentRejectionIdsUnderRecheck.clear();
+        lastSyncTime = _now();
+      }
 
       final duration = _now().difference(start).inMilliseconds;
 

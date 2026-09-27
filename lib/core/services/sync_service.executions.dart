@@ -3,6 +3,7 @@ part of 'sync_service.dart';
 extension _SyncServiceExecutions on SyncService {
   Future<void> _syncExecutions({bool skipCompletedClosures = false}) async {
     final unsynced = await _plannedRepo.getUnsyncedExecutions();
+    _checkRunCurrent();
     if (unsynced.isEmpty) {
       return;
     }
@@ -10,6 +11,7 @@ extension _SyncServiceExecutions on SyncService {
     _sortDeletesFirst(unsynced);
 
     for (var i = 0; i < unsynced.length; i += 500) {
+      _checkRunCurrent();
       final batchRecords = unsynced.sublist(
         i,
         i + 500 > unsynced.length ? unsynced.length : i + 500,
@@ -18,19 +20,20 @@ extension _SyncServiceExecutions on SyncService {
         entityType: 'job_execution',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((e) => e.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((e) => e.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestorePlanned.getExecutionsByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {for (var r in remoteList) r.firestoreId: r};
 
       final recordsToPush = <JobExecution>[];
@@ -38,6 +41,7 @@ extension _SyncServiceExecutions on SyncService {
       final convergedRecords = <JobExecution>[];
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         if (record.firestoreId == null) {
           lastFailureCount++;
           _recordPushFailureDetail(
@@ -101,6 +105,7 @@ extension _SyncServiceExecutions on SyncService {
               localSnapshot: record.toMap(),
               remoteSnapshot: remote!.toMap(),
             );
+            _checkRunCurrent();
 
             final rebased = await _plannedRepo
                 .applyExecutionServerReadbackIfUnchanged(
@@ -111,6 +116,7 @@ extension _SyncServiceExecutions on SyncService {
                       'Rules reject local job-execution tombstones. '
                       'The local snapshot was preserved in audit before rebasing.',
                 );
+            _checkRunCurrent();
             if (!rebased) {
               lastFailureCount++;
               _recordPushFailureDetail(
@@ -128,6 +134,7 @@ extension _SyncServiceExecutions on SyncService {
               evidence:
                   'The canonical remote execution was adopted after preserving the rejected local tombstone in audit.',
             );
+            _checkRunCurrent();
 
             lastSuccessCount++;
             debugPrint(
@@ -146,11 +153,14 @@ extension _SyncServiceExecutions on SyncService {
             final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
               remote,
             );
-            if (await _retainHoldForPreservedLocalTombstone(
-              result: result,
-              entityType: 'job_execution',
-              record: record,
-              entityLabel: 'job execution',
+            _checkRunCurrent();
+            if (await _guardedPushAwait(
+              () async => _retainHoldForPreservedLocalTombstone(
+                result: result,
+                entityType: 'job_execution',
+                record: record,
+                entityLabel: 'job execution',
+              ),
             )) {
               continue;
             }
@@ -160,11 +170,14 @@ extension _SyncServiceExecutions on SyncService {
               evidence:
                   'The canonical remote job-execution tombstone was adopted locally.',
             );
+            _checkRunCurrent();
             lastSuccessCount++;
             debugPrint(
               '📥 Applied remote tombstone for execution ${record.id}',
             );
           } catch (e, stackTrace) {
+            rethrowIfSyncRunMustAbort(e);
+            _checkRunCurrent();
             lastFailureCount++;
             debugPrint(
               '❌ Failed to apply remote tombstone for execution ${record.id}: $e',
@@ -183,6 +196,7 @@ extension _SyncServiceExecutions on SyncService {
             record,
             remote,
           );
+          _checkRunCurrent();
           if (serverCompleted) {
             lastSuccessCount++;
           }
@@ -199,6 +213,7 @@ extension _SyncServiceExecutions on SyncService {
             localSnapshot: record.toAuditMap(),
             remoteSnapshot: remote.toAuditMap(),
           );
+          _checkRunCurrent();
           lastFailureCount++;
           debugPrint(
             '⚠️ PUSH CONFLICT: Preserved local execution ${record.id} and did not overwrite newer remote data',
@@ -215,21 +230,28 @@ extension _SyncServiceExecutions on SyncService {
         try {
           await _retry(() async {
             await _firestorePlanned.batchUpsertExecutions(recordsToPush);
+            _checkRunCurrent();
           });
+          _checkRunCurrent();
 
           pushSuccess = true;
           lastSuccessCount += recordsToPush.length;
         } catch (e, stackTrace) {
+          rethrowIfSyncRunMustAbort(e);
+          _checkRunCurrent();
           debugPrint(
             '❌ Execution batch sync failed; splitting batch for diagnostics: $e',
           );
           debugPrintStack(stackTrace: stackTrace);
 
           for (final record in recordsToPush) {
+            _checkRunCurrent();
             try {
               await _retry(() async {
                 await _firestorePlanned.batchUpsertExecutions([record]);
+                _checkRunCurrent();
               });
+              _checkRunCurrent();
 
               lastSuccessCount++;
               skippedButSyncedSnapshots.add(_syncPushSnapshot(record));
@@ -240,10 +262,11 @@ extension _SyncServiceExecutions on SyncService {
                 '(${_shortText(record.templateName ?? record.templateFirestoreId)})',
               );
             } catch (singleError, singleStackTrace) {
-              final remote =
-                  record.firestoreId == null
-                      ? null
-                      : remoteMap[record.firestoreId];
+              rethrowIfSyncRunMustAbort(singleError);
+              _checkRunCurrent();
+              final remote = record.firestoreId == null
+                  ? null
+                  : remoteMap[record.firestoreId];
 
               if (_shouldRebaseRejectedExecutionTombstone(record, remote)) {
                 await _recordPushConflict(
@@ -252,6 +275,7 @@ extension _SyncServiceExecutions on SyncService {
                   localSnapshot: record.toMap(),
                   remoteSnapshot: remote!.toMap(),
                 );
+                _checkRunCurrent();
 
                 final rebased = await _plannedRepo
                     .applyExecutionServerReadbackIfUnchanged(
@@ -262,6 +286,7 @@ extension _SyncServiceExecutions on SyncService {
                           'Rules rejected a dirty local job-execution tombstone. '
                           'The local snapshot was preserved in audit before rebasing.',
                     );
+                _checkRunCurrent();
                 if (!rebased) {
                   lastFailureCount++;
                   _recordPushFailureDetail(
@@ -279,6 +304,7 @@ extension _SyncServiceExecutions on SyncService {
                   evidence:
                       'The canonical remote execution was adopted after preserving the rejected local tombstone in audit.',
                 );
+                _checkRunCurrent();
 
                 lastSuccessCount++;
                 debugPrint(
@@ -314,34 +340,37 @@ extension _SyncServiceExecutions on SyncService {
 
       if (snapshotsToMark.isNotEmpty) {
         await _plannedRepo.markExecutionsSyncedIfUnchanged(snapshotsToMark);
+        _checkRunCurrent();
         await _resolveRecheckedPermanentRejectionsForRecords(
           entityType: 'job_execution',
           records: convergedRecords,
           evidence:
               'The remote job-execution write or exact readback completed and the local snapshot was reconciled.',
         );
+        _checkRunCurrent();
       }
     }
   }
 
   Future<void> _syncCompletedExecutionClosures() async {
     final unsynced = await _plannedRepo.getUnsyncedExecutions();
-    final completed =
-        unsynced
-            .where(
-              (execution) =>
-                  execution.isCompleted &&
-                  !execution.isDeleted &&
-                  execution.firestoreId != null &&
-                  execution.firestoreId!.trim().isNotEmpty,
-            )
-            .toList();
+    _checkRunCurrent();
+    final completed = unsynced
+        .where(
+          (execution) =>
+              execution.isCompleted &&
+              !execution.isDeleted &&
+              execution.firestoreId != null &&
+              execution.firestoreId!.trim().isNotEmpty,
+        )
+        .toList();
 
     if (completed.isEmpty) {
       return;
     }
 
     for (var i = 0; i < completed.length; i += 100) {
+      _checkRunCurrent();
       final batchRecords = completed.sublist(
         i,
         i + 100 > completed.length ? completed.length : i + 100,
@@ -350,28 +379,31 @@ extension _SyncServiceExecutions on SyncService {
         entityType: 'job_execution',
         records: batchRecords,
       );
+      _checkRunCurrent();
       if (activeBatchRecords.isEmpty) {
         continue;
       }
 
-      final firestoreIds =
-          activeBatchRecords
-              .map((execution) => execution.firestoreId)
-              .whereType<String>()
-              .toList();
+      final firestoreIds = activeBatchRecords
+          .map((execution) => execution.firestoreId)
+          .whereType<String>()
+          .toList();
 
       final remoteList = await _firestorePlanned.getExecutionsByFirestoreIds(
         firestoreIds,
       );
+      _checkRunCurrent();
       final remoteMap = {
         for (final remote in remoteList) remote.firestoreId: remote,
       };
 
       for (final record in activeBatchRecords) {
+        _checkRunCurrent();
         final accepted = await _syncCompletedExecutionThroughServer(
           record,
           remoteMap[record.firestoreId],
         );
+        _checkRunCurrent();
         if (accepted) {
           lastSuccessCount++;
         }
@@ -412,11 +444,14 @@ extension _SyncServiceExecutions on SyncService {
         final result = await _plannedRepo.applyTombstoneFromExecutionRemote(
           remote,
         );
-        if (await _retainHoldForPreservedLocalTombstone(
-          result: result,
-          entityType: 'job_execution',
-          record: local,
-          entityLabel: 'job execution',
+        _checkRunCurrent();
+        if (await _guardedPushAwait(
+          () async => _retainHoldForPreservedLocalTombstone(
+            result: result,
+            entityType: 'job_execution',
+            record: local,
+            entityLabel: 'job execution',
+          ),
         )) {
           return false;
         }
@@ -426,11 +461,14 @@ extension _SyncServiceExecutions on SyncService {
           evidence:
               'The canonical remote completed-execution tombstone was adopted locally.',
         );
+        _checkRunCurrent();
         debugPrint(
           '📥 Applied remote tombstone for completed execution ${local.id}',
         );
         return true;
       } catch (error, stackTrace) {
+        rethrowIfSyncRunMustAbort(error);
+        _checkRunCurrent();
         lastFailureCount++;
         _recordPushFailureDetail(
           entityType: 'job_execution',
@@ -451,6 +489,7 @@ extension _SyncServiceExecutions on SyncService {
         localSnapshot: local.toAuditMap(),
         remoteSnapshot: remote.toAuditMap(),
       );
+      _checkRunCurrent();
       final rebased = await _plannedRepo.applyExecutionServerReadbackIfUnchanged(
         remote,
         expectedLocal: _syncPushSnapshot(local),
@@ -459,6 +498,7 @@ extension _SyncServiceExecutions on SyncService {
             'Remote job execution is already server-completed. '
             'Local dirty completion snapshot was preserved in audit before rebasing.',
       );
+      _checkRunCurrent();
       if (!rebased) {
         lastFailureCount++;
         _recordPushFailureDetail(
@@ -476,6 +516,7 @@ extension _SyncServiceExecutions on SyncService {
         evidence:
             'The canonical server-completed execution was read and adopted locally after preserving conflict evidence.',
       );
+      _checkRunCurrent();
       debugPrint(
         '🛡️ Rebased local completed execution from canonical server completion: '
         '$firestoreId',
@@ -490,6 +531,7 @@ extension _SyncServiceExecutions on SyncService {
         localSnapshot: local.toAuditMap(),
         remoteSnapshot: remote.toAuditMap(),
       );
+      _checkRunCurrent();
       lastFailureCount++;
       return false;
     }
@@ -514,7 +556,10 @@ extension _SyncServiceExecutions on SyncService {
         jobExecutionFirestoreId: firestoreId,
         jobExecutionLocalId: local.id,
       );
+      _checkRunCurrent();
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       lastFailureCount++;
       _recordPushFailureDetail(
         entityType: 'job_execution',
@@ -532,8 +577,9 @@ extension _SyncServiceExecutions on SyncService {
       return false;
     }
 
-    final unsyncedModules =
-        localModules.where((module) => !module.isSynced).toList();
+    final unsyncedModules = localModules
+        .where((module) => !module.isSynced)
+        .toList();
     if (unsyncedModules.isNotEmpty) {
       lastFailureCount++;
       _recordPushFailureDetail(
@@ -555,6 +601,7 @@ extension _SyncServiceExecutions on SyncService {
         actions: local.actions,
         expectedCompletionVersion: local.version,
       );
+      _checkRunCurrent();
 
       final rebased = await _plannedRepo.applyExecutionServerReadbackIfUnchanged(
         completed,
@@ -563,6 +610,7 @@ extension _SyncServiceExecutions on SyncService {
         reason:
             'Local completed execution was accepted by server-side closure function.',
       );
+      _checkRunCurrent();
       if (!rebased) {
         throw StateError(
           'The server completed the planned job, but newer local work was '
@@ -575,6 +623,7 @@ extension _SyncServiceExecutions on SyncService {
         evidence:
             'The server completion callable returned an authoritative execution receipt that was adopted locally.',
       );
+      _checkRunCurrent();
 
       debugPrint(
         '✅ Server-side planned-job completion accepted during sync: '
@@ -582,6 +631,8 @@ extension _SyncServiceExecutions on SyncService {
       );
       return true;
     } catch (error, stackTrace) {
+      rethrowIfSyncRunMustAbort(error);
+      _checkRunCurrent();
       lastFailureCount++;
       _recordPushFailureDetail(
         entityType: 'job_execution',
@@ -666,61 +717,60 @@ extension _SyncServiceExecutions on SyncService {
     final remoteActionRead = remote?.actionsReadResult;
     final localResponseRead = local.responsesReadResult;
     final remoteResponseRead = remote?.responsesReadResult;
-    final buffer =
-        StringBuffer()
-          ..writeln('  currentAuthUid: $currentUid')
-          ..writeln('  firestoreId: ${local.firestoreId ?? 'null'}')
-          ..writeln('  localId: ${local.id}')
-          ..writeln(
-            '  template: ${_shortText(local.templateName ?? local.templateFirestoreId)}',
-          )
-          ..writeln(
-            '  local asset/version/isCompleted/isDeleted/isSynced: '
-            '${local.assetType.name}/${local.assetNumber}/${local.version}/'
-            '${local.isCompleted}/${local.isDeleted}/${local.isSynced}',
-          )
-          ..writeln(
-            '  remote asset/version/isCompleted/isDeleted: '
-            '${remote?.assetType.name ?? 'missing'}/'
-            '${remote?.assetNumber.toString() ?? 'missing'}/'
-            '${remote?.version.toString() ?? 'missing'}/'
-            '${remote?.isCompleted.toString() ?? 'missing'}/'
-            '${remote?.isDeleted.toString() ?? 'missing'}',
-          )
-          ..writeln(
-            '  local completedBy/completedAt: '
-            '${_uid(local.completedByUid)}/${_date(local.completedAt)}',
-          )
-          ..writeln(
-            '  remote completedBy/completedAt: '
-            '${_uid(remote?.completedByUid)}/${_date(remote?.completedAt)}',
-          )
-          ..writeln('  local updatedAt: ${_date(local.updatedAt)}')
-          ..writeln('  remote updatedAt: ${_date(remote?.updatedAt)}')
-          ..writeln(
-            '  local response/action counts: '
-            '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
-            '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
-          )
-          ..writeln(
-            '  remote response/action counts: '
-            '${remoteResponseRead == null
-                ? 'missing'
-                : remoteResponseRead.isValid
-                ? remoteResponseRead.entries.length
-                : 'invalid'}/'
-            '${remoteActionRead == null
-                ? 'missing'
-                : remoteActionRead.isValid
-                ? remoteActionRead.entries.length
-                : 'invalid'}',
-          )
-          ..writeln(
-            '  pinned-field comparison: ${_executionPinnedFieldDiff(local, remote)}',
-          )
-          ..writeln(
-            '  completion-field comparison: ${_executionCompletionFieldDiff(local, remote)}',
-          );
+    final buffer = StringBuffer()
+      ..writeln('  currentAuthUid: $currentUid')
+      ..writeln('  firestoreId: ${local.firestoreId ?? 'null'}')
+      ..writeln('  localId: ${local.id}')
+      ..writeln(
+        '  template: ${_shortText(local.templateName ?? local.templateFirestoreId)}',
+      )
+      ..writeln(
+        '  local asset/version/isCompleted/isDeleted/isSynced: '
+        '${local.assetType.name}/${local.assetNumber}/${local.version}/'
+        '${local.isCompleted}/${local.isDeleted}/${local.isSynced}',
+      )
+      ..writeln(
+        '  remote asset/version/isCompleted/isDeleted: '
+        '${remote?.assetType.name ?? 'missing'}/'
+        '${remote?.assetNumber.toString() ?? 'missing'}/'
+        '${remote?.version.toString() ?? 'missing'}/'
+        '${remote?.isCompleted.toString() ?? 'missing'}/'
+        '${remote?.isDeleted.toString() ?? 'missing'}',
+      )
+      ..writeln(
+        '  local completedBy/completedAt: '
+        '${_uid(local.completedByUid)}/${_date(local.completedAt)}',
+      )
+      ..writeln(
+        '  remote completedBy/completedAt: '
+        '${_uid(remote?.completedByUid)}/${_date(remote?.completedAt)}',
+      )
+      ..writeln('  local updatedAt: ${_date(local.updatedAt)}')
+      ..writeln('  remote updatedAt: ${_date(remote?.updatedAt)}')
+      ..writeln(
+        '  local response/action counts: '
+        '${localResponseRead.isValid ? localResponseRead.entries.length : 'invalid'}/'
+        '${localActionRead.isValid ? localActionRead.entries.length : 'invalid'}',
+      )
+      ..writeln(
+        '  remote response/action counts: '
+        '${remoteResponseRead == null
+            ? 'missing'
+            : remoteResponseRead.isValid
+            ? remoteResponseRead.entries.length
+            : 'invalid'}/'
+        '${remoteActionRead == null
+            ? 'missing'
+            : remoteActionRead.isValid
+            ? remoteActionRead.entries.length
+            : 'invalid'}',
+      )
+      ..writeln(
+        '  pinned-field comparison: ${_executionPinnedFieldDiff(local, remote)}',
+      )
+      ..writeln(
+        '  completion-field comparison: ${_executionCompletionFieldDiff(local, remote)}',
+      );
 
     return buffer.toString().trimRight();
   }
