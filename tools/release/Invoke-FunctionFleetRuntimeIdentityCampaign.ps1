@@ -390,7 +390,7 @@ switch ($Phase) {
       )
     $run = $runRaw | ConvertFrom-Json
     $expectedJobNames = @(
-      'Android emulator app-shell integration (not physical-device evidence)',
+      'Android emulator shell + business integration (not physical-device evidence)',
       'Android release package + cold-start proof (non-production)',
       'Cloud Functions host build + non-emulator tests',
       'Firestore Rules + governed callable emulator',

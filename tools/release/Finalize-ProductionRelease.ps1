@@ -28,6 +28,8 @@ param(
   [Parameter(Mandatory, ParameterSetName = 'FileSystem')][string]$BackupCustodyDirectory,
   [Parameter(Mandatory, ParameterSetName = 'PrivateGcs')][string]$BackupCustodyGsPrefix,
   [Parameter(ParameterSetName = 'PrivateGcs')][string]$GcloudCommand = 'gcloud',
+  [Parameter(ParameterSetName = 'PrivateGcs')][string]$PrivateCustodyApprovalCommit,
+  [Parameter(ParameterSetName = 'PrivateGcs')][string]$PrivateCustodyApprovalSha256,
   [Parameter(Mandatory)][string]$CustodyApprover,
   [Parameter(Mandatory)][string]$CustodyReference,
   [string]$OutputDirectory = "$HOME\Downloads"
@@ -242,10 +244,17 @@ function Copy-And-Verify {
 function Copy-BackupCustody {
   param([string]$SourcePath, [string]$ExpectedSha256, [string]$Purpose)
   if ($privateCloudCustody) {
+    $candidateCustodyArguments = @{}
+    if ($manifest.release.buildNumber -eq 30) {
+      $candidateCustodyArguments = @{
+        CandidateSourceCommit = $expected; ApprovalCommit = $PrivateCustodyApprovalCommit
+        ApprovalSha256 = $PrivateCustodyApprovalSha256
+      }
+    }
     $proof = Copy-PrivateGcsCustodyFile -RepositoryRoot $repo `
       -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber) `
       -SourcePath $SourcePath -ExpectedSha256 $ExpectedSha256 -Purpose $Purpose `
-      -GcloudCommand $GcloudCommand
+      -GcloudCommand $GcloudCommand @candidateCustodyArguments
     if (($proof.buildNumber -isnot [int] -and $proof.buildNumber -isnot [int64]) -or
         $proof.buildNumber -ne $manifest.release.buildNumber) {
       throw 'Private custody proof build number differs from the verified artifact.'
@@ -747,8 +756,15 @@ if ($null -ne $existingBuiltCommit -and
 $primaryRoot = [IO.Path]::GetFullPath($PrimaryCustodyDirectory)
 $backupRoot = $null
 if ($privateCloudCustody) {
+  $candidateCustodyArguments = @{}
+  if ($manifest.release.buildNumber -eq 30) {
+    $candidateCustodyArguments = @{
+      CandidateSourceCommit = $expected; ApprovalCommit = $PrivateCustodyApprovalCommit
+      ApprovalSha256 = $PrivateCustodyApprovalSha256
+    }
+  }
   $privateCloudApproval = Assert-PrivateGcsCustodyAuthority -RepositoryRoot $repo `
-    -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber)
+    -Prefix $BackupCustodyGsPrefix -BuildNumber ([int]$manifest.release.buildNumber) @candidateCustodyArguments
 } else {
   $backupRoot = [IO.Path]::GetFullPath($BackupCustodyDirectory)
 }

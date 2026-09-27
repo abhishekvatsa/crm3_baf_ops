@@ -592,6 +592,11 @@ if ([string]$versionApproval.reference -ne $ExpectedApprovalReference -or
 if ([int]$policy.release.buildNumber -ne $ExpectedBuildNumber) {
   throw 'Build-number input differs from policy.'
 }
+. (Join-Path $PSScriptRoot 'Production-AppCheckPolicy.ps1')
+$appCheckEvidence = $null
+if ($ExpectedBuildNumber -ge 30) {
+  $appCheckEvidence = Get-ProductionAppCheckRepositoryEvidence -RepositoryRoot $repo -Policy $policy
+}
 $constructionBoundary = $policy.artifactConstructionBoundary
 if ([string]$constructionBoundary.authority -ne
     'production-signed-pre-release-candidate' -or
@@ -813,6 +818,9 @@ $identityDefines = [ordered]@{
   EXPECTED_BACKEND_RELEASE_ID = [string]$authority.releaseId
   SOURCE_ARCHIVE_SHA256 = $archiveSha256
 }
+if ($null -ne $appCheckEvidence) {
+  $identityDefines['CRM3_APP_CHECK_ENABLED'] = $appCheckEvidence.dartDefine
+}
 
 $dartDefines = @()
 foreach ($entry in $identityDefines.GetEnumerator()) {
@@ -973,6 +981,11 @@ Export-ZipEntry `
   -ArchivePath $archivePath `
   -EntryPath $verifierEntry `
   -DestinationPath $packagedVerifier
+if ($null -ne $appCheckEvidence) {
+  Export-ZipEntry -ArchivePath $archivePath `
+    -EntryPath 'tools/release/Production-AppCheckPolicy.ps1' `
+    -DestinationPath (Join-Path $releaseDirectory 'Production-AppCheckPolicy.ps1')
+}
 
 $receiptFiles = @(
   'release/approvals/permanent-identity-approval.json'
@@ -987,6 +1000,7 @@ $receiptFiles = @(
 )
 
 $receiptHashes = [ordered]@{}
+if ($null -ne $appCheckEvidence) { $receiptFiles += $appCheckEvidence.approvalFile }
 foreach ($file in $receiptFiles) {
   $receiptHashes[$file] = Get-ZipEntrySha256 `
     -ArchivePath $archivePath `
@@ -1219,6 +1233,7 @@ $manifest = [ordered]@{
 
 $manifestPath =
   Join-Path $releaseDirectory 'production-release-manifest.json'
+if ($null -ne $appCheckEvidence) { $manifest['appCheckBuild'] = $appCheckEvidence }
 Write-Utf8NoBom `
   -Path $manifestPath `
   -Text (($manifest | ConvertTo-Json -Depth 50) + "`n")

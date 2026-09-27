@@ -36,6 +36,8 @@ test("campaign is exact-target, phased and clean-main bound", () => {
     assert.ok(source.includes(value), value);
   }
   assert.ok(source.includes("-DifferenceObject $actualJobNames -CaseSensitive"));
+  assert.ok(source.includes("'Android emulator shell + business integration (not physical-device evidence)'"));
+  assert.equal(source.includes("'Android emulator app-shell integration (not physical-device evidence)'"), false);
   for (const phase of [
     "Preflight",
     "Provision",
