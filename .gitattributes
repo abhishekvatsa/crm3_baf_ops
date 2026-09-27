@@ -30,3 +30,12 @@ release/evidence/build29-audit-index-prestage.json -text whitespace=blank-at-eol
 # Keep the measured Build29 private-custody proof and finalization closure byte-exact.
 release/evidence/build29-private-gcs-custody-readback.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
 release/evidence/build-29-finalization-closure.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Preserve the physical bytes of fresh Build30 evidence and decision records.
+release/evidence/build30-current-source-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build30-current-source-source-verification-build.log -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build30-source-options-runtime-modules.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/approvals/build30-*.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/approvals/build-number-30-successor-approval.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/approvals/public-repository-environment-reviewer-approval-build-30.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build30-private-gcs-custody-readback.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+release/evidence/build-30-finalization-closure.json -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
