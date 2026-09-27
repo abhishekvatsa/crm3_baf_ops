@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
+import '../../support/public_help_screen.dart';
 import '../providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -71,16 +72,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       width: double.infinity,
                       child: ElevatedButton.icon(
                         onPressed: _isSigningIn ? null : _signIn,
-                        icon:
-                            _isSigningIn
-                                ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                                : const Icon(Icons.login_rounded),
+                        icon: _isSigningIn
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.login_rounded),
                         label: Text(
                           _isSigningIn ? 'Signing in…' : 'Sign in with Google',
                         ),
@@ -113,7 +113,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: BafSpacing.md),
+                    const PublicHelpAccess(onDarkBackground: true),
+                    const SizedBox(height: 32),
                     const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

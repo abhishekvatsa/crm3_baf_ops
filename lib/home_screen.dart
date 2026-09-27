@@ -5,6 +5,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'features/support/public_help_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'features/maintenance/presentation/ticket_screen.dart';
@@ -1683,6 +1684,16 @@ class HomeMoreScreen extends StatelessWidget {
         ),
     ];
     final adminDestinations = <_MoreDestinationSpec>[
+      _MoreDestinationSpec(
+        icon: Icons.help_outline_rounded,
+        color: BafColors.info,
+        title: 'Privacy & support',
+        subtitle: 'Contact, privacy policy and account deletion requests',
+        keywords: 'help support privacy contact account deletion delete',
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const PublicHelpScreen()),
+        ),
+      ),
       if (appUser.isApproved)
         _MoreDestinationSpec(
           icon: Icons.sync_problem_outlined,

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../support/public_help_screen.dart';
 import '../data/user_model.dart';
 import '../presentation/login_screen.dart';
 import '../providers/auth_provider.dart';
@@ -115,55 +116,62 @@ class OnlineAccessGate extends ConsumerWidget {
             color: Theme.of(context).scaffoldBackgroundColor,
             child: SafeArea(
               child: Center(
-                child: Padding(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.lock_outline, size: 42),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'Online access check required',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 480),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.lock_outline, size: 42),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Online access check required',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        checking
-                            ? 'Checking current account access...'
-                            : 'Connect to the internet and check again. Saved work remains on this device. An Admin can restore withdrawn access after review.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 12),
-                      if (checking)
-                        const CircularProgressIndicator()
-                      else
-                        FilledButton(
-                          onPressed: () {
-                            if (authority.hasError) {
-                              ref.invalidate(currentAppUserProvider);
+                        const SizedBox(height: 12),
+                        Text(
+                          checking
+                              ? 'Checking current account access...'
+                              : 'Connect to the internet and check again. Saved work remains on this device. An Admin can restore withdrawn access after review.',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        if (checking)
+                          const CircularProgressIndicator()
+                        else
+                          FilledButton(
+                            onPressed: () {
+                              if (authority.hasError) {
+                                ref.invalidate(currentAppUserProvider);
+                              }
+                              ref.invalidate(onlineAccessCheckProvider);
+                            },
+                            child: const Text('Check access again'),
+                          ),
+                        TextButton(
+                          onPressed: () async {
+                            try {
+                              await ref.read(authServiceProvider).signOut();
+                            } catch (error) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.maybeOf(
+                                  context,
+                                )?.showSnackBar(
+                                  SnackBar(content: Text('$error')),
+                                );
+                              }
                             }
-                            ref.invalidate(onlineAccessCheckProvider);
                           },
-                          child: const Text('Check access again'),
+                          child: const Text('Sign out'),
                         ),
-                      TextButton(
-                        onPressed: () async {
-                          try {
-                            await ref.read(authServiceProvider).signOut();
-                          } catch (error) {
-                            if (context.mounted) {
-                              ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                                SnackBar(content: Text('$error')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Sign out'),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        const PublicHelpAccess(),
+                      ],
+                    ),
                   ),
                 ),
               ),

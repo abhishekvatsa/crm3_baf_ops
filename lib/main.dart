@@ -10,6 +10,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart'
     show debugPrint, kIsWeb, visibleForTesting;
 import 'package:flutter/material.dart';
+import 'features/support/public_help_screen.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
@@ -1888,6 +1889,8 @@ class _ProfileNameCompletionScreenState
                         ),
                       ],
                     ),
+                    const SizedBox(height: BafSpacing.md),
+                    const PublicHelpAccess(),
                   ],
                 ),
               ),
@@ -2057,6 +2060,8 @@ class _FullScreenStatus extends StatelessWidget {
                         ],
                       ),
                     ],
+                    const SizedBox(height: BafSpacing.md),
+                    const PublicHelpAccess(),
                   ],
                 ),
               ),

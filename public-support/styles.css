@@ -1,0 +1,32 @@
+:root { color-scheme: light; --ink:#142a32; --muted:#52656a; --teal:#086f72; --line:#d7e2e2; --paper:#fff; --wash:#f2f6f5; }
+* { box-sizing:border-box; }
+body { margin:0; color:var(--ink); background:var(--wash); font:17px/1.65 system-ui,-apple-system,"Segoe UI",sans-serif; }
+a { color:var(--teal); text-underline-offset:.2em; overflow-wrap:anywhere; }
+a:focus-visible { outline:3px solid #d58229; outline-offset:5px; border-radius:2px; }
+.skip { position:absolute; left:1rem; top:-5rem; background:white; padding:.6rem; }
+.skip:focus { top:1rem; }
+header { background:var(--ink); color:white; padding:1.4rem max(1.2rem,calc((100% - 1020px)/2)); }
+.brand { color:white; font-weight:750; text-decoration:none; font-size:1.12rem; }
+header p { margin:.1rem 0 1rem; color:#c5dbdc; font-size:.88rem; }
+nav { display:flex; flex-wrap:wrap; gap:.55rem 1.4rem; }
+nav a { color:#e1f3ef; font-size:.92rem; }
+nav a[aria-current=page] { font-weight:750; }
+main { max-width:1020px; margin:auto; padding:2.5rem 1.2rem 3.5rem; }
+.eyebrow { color:var(--teal); font-size:.77rem; font-weight:750; letter-spacing:.08em; text-transform:uppercase; }
+h1 { margin:.4rem 0 .7rem; font-size:clamp(2rem,5vw,3rem); line-height:1.15; letter-spacing:-.03em; }
+h2 { font-size:1.3rem; line-height:1.35; margin:0 0 .7rem; }
+h3 { font-size:1.05rem; margin:1.3rem 0 .3rem; }
+p { margin:.5rem 0 1rem; }
+.lead { font-size:1.13rem; max-width:760px; color:var(--muted); }
+.meta { color:var(--muted); font-size:.88rem; }
+.grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; margin:2rem 0; }
+.card,section { background:var(--paper); padding:1.65rem; border:1px solid var(--line); border-radius:14px; margin:1rem 0; }
+.grid .card { margin:0; }
+.card p { color:var(--muted); }
+.note { background:#e7f2ee; border-left:4px solid var(--teal); padding:1rem 1.2rem; border-radius:0 10px 10px 0; }
+.button { display:inline-block; background:var(--teal); color:white; padding:.65rem 1.05rem; border-radius:8px; text-decoration:none; font-weight:650; margin:.35rem .5rem .5rem 0; }
+li { padding:.12rem 0; }
+ul,ol { padding-left:1.3rem; }
+footer { max-width:1020px; margin:auto; padding:1.5rem 1.2rem 2rem; color:var(--muted); border-top:1px solid var(--line); font-size:.86rem; }
+@media(max-width:720px) { .grid { grid-template-columns:1fr; gap:.75rem; } main { padding-top:1.7rem; } .card,section { padding:1.2rem; } }
+@media print { body { background:white; font-size:11pt; } header,footer,.button,.skip { display:none; } main { padding:0; } section { border:0; padding:0; break-inside:avoid; } a { color:inherit; } }
