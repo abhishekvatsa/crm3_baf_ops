@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "decision": "PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE",
+  "observedAtUtc": "2026-09-27T18:48:14.7128093Z",
+  "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "functionCount": 19,
+  "uniqueArchiveCount": 3,
+  "expectedFileCount": 531,
+  "archives": [
+    {
+      "archiveSha256": "090889250B34044C7C8DC5C7FDA434DD3B87F7CFD3312859E9661BFAD59F792C",
+      "bytes": 2644670,
+      "functionNames": [
+        "assignPublishedTemplateVersion",
+        "assignPublishedTemplateVersionV2",
+        "beginGlobalPullRun",
+        "completePlannedJobExecution",
+        "executeMaintenanceWorkflowCommand",
+        "executeMaintenanceWorkflowCommandV2",
+        "getBackendReleaseIdentity",
+        "mutateAssetHierarchy",
+        "mutateAssetHierarchyV2",
+        "mutateChargeAbnormality",
+        "mutateChargeAbnormalityV2",
+        "mutateRuntimeJobModulePopulation",
+        "mutateUserAuthority"
+      ],
+      "sourceGeneration": "1790533078730026",
+      "fileCount": 531,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "481ADE7BB5FE6059AD88173BF7CF1CA87BF616BFA48F777D9D11F6E14729696B",
+      "bytes": 2644670,
+      "functionNames": [
+        "maintenanceWorkflowEscalationSweep"
+      ],
+      "sourceGeneration": "1790534216988966",
+      "fileCount": 531,
+      "allFileBytesMatchExactBuiltSource": true
+    },
+    {
+      "archiveSha256": "878C6A7EF2C00E16CBC0BC1FA6EFB902C5A802ED3DF45C6120909DC3EC905F85",
+      "bytes": 2644670,
+      "functionNames": [
+        "onJobAssigned",
+        "onMaintenanceWorkflowEventCreated",
+        "onTicketCreated",
+        "onTicketResolved",
+        "stampGlobalPullServerClock"
+      ],
+      "sourceGeneration": "1790534039787672",
+      "fileCount": 531,
+      "allFileBytesMatchExactBuiltSource": true
+    }
+  ],
+  "productionBusinessDataRead": false,
+  "productionMutationPerformed": false,
+  "localSourceVerificationBuild": {
+    "file": "source-archive-verification-build.txt",
+    "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+    "functionsTree": "4c55d62ec947b05a70e5f21967e3a73866c0aedd",
+    "exitCode": 0,
+    "sha256": "ADDCE0C8A6765DF23FED60A896C689E749D9DD411B5AB39B461EBEAB22684B8F"
+  }
+}

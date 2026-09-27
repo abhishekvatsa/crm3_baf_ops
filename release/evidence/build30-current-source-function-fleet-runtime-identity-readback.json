@@ -1,0 +1,632 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "function-fleet-runtime-identity-campaign-readback",
+  "phase": "FINAL",
+  "projectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "source": {
+    "before": {
+      "branch": "main",
+      "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+      "tree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5",
+      "originMain": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    },
+    "after": {
+      "branch": "main",
+      "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+      "tree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5",
+      "originMain": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+      "governedWorktreeClean": true,
+      "materialChangeCount": 0,
+      "materialPathSha256": []
+    }
+  },
+  "policy": {
+    "path": "release/function-fleet-runtime-identity-policy.json",
+    "policyId": "FUNCTION-FLEET-RUNTIME-IDENTITY-POLICY-V1",
+    "sha256": "F08BB9B62EC6162DA6249F3F92058A4914DF0EB878739D79B622B273C94477BA"
+  },
+  "outputs": {
+    "project": {
+      "projectNumber": "894346496105",
+      "lifecycleState": "ACTIVE"
+    },
+    "serviceAccounts": [
+      {
+        "email": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      },
+      {
+        "email": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "exists": true,
+        "disabled": false
+      }
+    ],
+    "customRole": {
+      "exists": true,
+      "name": "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+      "stage": "GA",
+      "deleted": false,
+      "includedPermissions": [
+        "cloudmessaging.messages.create"
+      ]
+    },
+    "projectRoles": {
+      "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.viewer",
+        "roles/firebaseappcheck.tokenVerifier"
+      ],
+      "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "projects/crm3-baf-ops-b8638/roles/crm3NotificationSender",
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user"
+      ],
+      "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.viewer"
+      ],
+      "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com": [
+        "roles/datastore.user",
+        "roles/eventarc.eventReceiver"
+      ],
+      "894346496105-compute@developer.gserviceaccount.com": [
+        "roles/cloudbuild.builds.builder"
+      ]
+    },
+    "defaultCompute": "894346496105-compute@developer.gserviceaccount.com",
+    "functions": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "assignpublishedtemplateversion",
+        "updateTime": "2026-09-27T18:18:08.344423211Z"
+      },
+      {
+        "name": "assignPublishedTemplateVersionV2",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "assignpublishedtemplateversionv2",
+        "updateTime": "2026-09-27T18:18:08.810019389Z"
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "beginglobalpullrun",
+        "updateTime": "2026-09-27T18:18:11.302355890Z"
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "completeplannedjobexecution",
+        "updateTime": "2026-09-27T18:18:08.534524011Z"
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "executemaintenanceworkflowcommand",
+        "updateTime": "2026-09-27T18:18:08.355371727Z"
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommandV2",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "executemaintenanceworkflowcommandv2",
+        "updateTime": "2026-09-27T18:18:09.181482422Z"
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "getbackendreleaseidentity",
+        "updateTime": "2026-09-27T18:18:08.932729078Z"
+      },
+      {
+        "name": "maintenanceWorkflowEscalationSweep",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "maintenanceworkflowescalationsweep",
+        "updateTime": "2026-09-27T18:37:46.063220909Z"
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutateassethierarchy",
+        "updateTime": "2026-09-27T18:18:07.724186358Z"
+      },
+      {
+        "name": "mutateAssetHierarchyV2",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutateassethierarchyv2",
+        "updateTime": "2026-09-27T18:18:07.835089502Z"
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutatechargeabnormality",
+        "updateTime": "2026-09-27T18:18:09.429997497Z"
+      },
+      {
+        "name": "mutateChargeAbnormalityV2",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutatechargeabnormalityv2",
+        "updateTime": "2026-09-27T18:18:11.407072969Z"
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutateruntimejobmodulepopulation",
+        "updateTime": "2026-09-27T18:18:12.237493478Z"
+      },
+      {
+        "name": "mutateUserAuthority",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "mutateuserauthority",
+        "updateTime": "2026-09-27T18:18:08.755196608Z"
+      },
+      {
+        "name": "onJobAssigned",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "onjobassigned",
+        "updateTime": "2026-09-27T18:34:07.579623349Z"
+      },
+      {
+        "name": "onMaintenanceWorkflowEventCreated",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "onmaintenanceworkfloweventcreated",
+        "updateTime": "2026-09-27T18:34:08.491628213Z"
+      },
+      {
+        "name": "onTicketCreated",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "onticketcreated",
+        "updateTime": "2026-09-27T18:34:06.735825454Z"
+      },
+      {
+        "name": "onTicketResolved",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "onticketresolved",
+        "updateTime": "2026-09-27T18:34:07.934883240Z"
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "state": "ACTIVE",
+        "environment": "GEN_2",
+        "firebaseFunctionsHash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "runService": "stampglobalpullserverclock",
+        "updateTime": "2026-09-27T18:25:37.272639196Z"
+      }
+    ],
+    "cloudRunBindings": [
+      {
+        "functionName": "maintenanceWorkflowEscalationSweep",
+        "runService": "maintenanceworkflowescalationsweep",
+        "expectedServiceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      },
+      {
+        "functionName": "onJobAssigned",
+        "runService": "onjobassigned",
+        "expectedServiceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      },
+      {
+        "functionName": "onMaintenanceWorkflowEventCreated",
+        "runService": "onmaintenanceworkfloweventcreated",
+        "expectedServiceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      },
+      {
+        "functionName": "onTicketCreated",
+        "runService": "onticketcreated",
+        "expectedServiceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      },
+      {
+        "functionName": "onTicketResolved",
+        "runService": "onticketresolved",
+        "expectedServiceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      },
+      {
+        "functionName": "stampGlobalPullServerClock",
+        "runService": "stampglobalpullserverclock",
+        "expectedServiceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "roles": [
+          "roles/run.invoker"
+        ]
+      }
+    ],
+    "scheduler": {
+      "name": "firebase-schedule-maintenanceWorkflowEscalationSweep-asia-south1",
+      "state": "ENABLED",
+      "schedule": "every 15 minutes",
+      "timeZone": "Asia/Kolkata",
+      "oidcServiceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+      "lastAttemptTime": "2026-09-27T18:40:05.390440Z",
+      "statusCode": null
+    },
+    "schedulerBacklog": {
+      "observedAtUtc": "2026-09-27T18:43:24.776Z",
+      "counts": {
+        "pendingLaneAcknowledgement": 0,
+        "raisedComplianceAcknowledgement": 0,
+        "activeComplianceCompletion": 0
+      },
+      "total": 0,
+      "documentIdsRetained": false,
+      "businessPayloadsRetained": false
+    },
+    "callableProbes": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "assignPublishedTemplateVersionV2",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommandV2",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateAssetHierarchyV2",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateChargeAbnormalityV2",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      },
+      {
+        "name": "mutateUserAuthority",
+        "httpStatus": 401,
+        "errorStatus": "UNAUTHENTICATED",
+        "returnedData": false,
+        "reachedCallableProtocol": true,
+        "safeNoSuccess": true
+      }
+    ]
+  },
+  "posture": {
+    "expectedFunctionCount": 19,
+    "deployedFunctionCount": 19,
+    "requiredFunctionNames": [
+      "assignPublishedTemplateVersion",
+      "assignPublishedTemplateVersionV2",
+      "beginGlobalPullRun",
+      "completePlannedJobExecution",
+      "executeMaintenanceWorkflowCommand",
+      "executeMaintenanceWorkflowCommandV2",
+      "getBackendReleaseIdentity",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateAssetHierarchy",
+      "mutateAssetHierarchyV2",
+      "mutateChargeAbnormality",
+      "mutateChargeAbnormalityV2",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "onJobAssigned",
+      "onMaintenanceWorkflowEventCreated",
+      "onTicketCreated",
+      "onTicketResolved",
+      "stampGlobalPullServerClock"
+    ],
+    "exactBindingNames": [
+      "assignPublishedTemplateVersion",
+      "assignPublishedTemplateVersionV2",
+      "beginGlobalPullRun",
+      "completePlannedJobExecution",
+      "executeMaintenanceWorkflowCommand",
+      "executeMaintenanceWorkflowCommandV2",
+      "getBackendReleaseIdentity",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateAssetHierarchy",
+      "mutateAssetHierarchyV2",
+      "mutateChargeAbnormality",
+      "mutateChargeAbnormalityV2",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "onJobAssigned",
+      "onMaintenanceWorkflowEventCreated",
+      "onTicketCreated",
+      "onTicketResolved",
+      "stampGlobalPullServerClock"
+    ],
+    "defaultComputeFunctionNames": [],
+    "broadRuntimeProjectGrants": []
+  },
+  "checks": {
+    "exactProjectAndRegion": true,
+    "projectActiveAndNumberPresent": true,
+    "policyMatchesTarget": true,
+    "sourceFunctionInventoryMatchesPolicy": true,
+    "sourceStable": true,
+    "sourceIsCleanMain": true,
+    "noUnexpectedLiveFunctions": true,
+    "deployedFunctionsPresent": true,
+    "allObservedFunctionsActiveGen2": true,
+    "allRuntimeAccountsReady": true,
+    "notificationCustomRoleExact": true,
+    "allRequiredProjectRolesPresent": true,
+    "noForbiddenRuntimeProjectRoles": true,
+    "defaultComputeBuildRolePresent": true,
+    "requiredFunctionBindingsActive": true,
+    "unauthenticatedCallableProbesDoNotSucceed": true,
+    "requiredCloudRunInvokerBindingsReady": true,
+    "completeFleetActive": true,
+    "schedulerControlPlaneReady": true,
+    "temporaryProjectRunInvokerRemoved": true,
+    "runtimeProjectRolesExact": true,
+    "defaultComputeNoLongerRunsFunctions": true,
+    "defaultComputeEditorRemoved": true,
+    "defaultComputeRolesReducedToBuildOnly": true
+  },
+  "failedChecks": [],
+  "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+  "mutationBoundary": {
+    "controlPlaneMutationPerformed": false,
+    "firestoreAggregationIsReadOnly": true,
+    "unauthenticatedCallableProbesPerformed": true,
+    "authenticatedBusinessOperationAttempted": false,
+    "serviceAccountsMutated": false,
+    "iamMutated": false,
+    "functionsDeployed": false,
+    "schedulerInvoked": false,
+    "firestoreDocumentsWritten": false,
+    "rulesOrIndexesDeployed": false,
+    "appCheckMutated": false,
+    "usersOrBusinessRecordsMutated": false
+  },
+  "privacyBoundary": {
+    "firestoreDocumentIdsRetained": false,
+    "businessPayloadsRetained": false,
+    "userIdentityRetained": false,
+    "callableResponseBodiesRetained": false
+  },
+  "capturedAtUtc": "2026-09-27T18:43:26.328Z",
+  "receiptSha256": "9b82bd7dc8a6f8139cb0a3d55554de91cf076759d39e04c6a3c7506759f3865b"
+}

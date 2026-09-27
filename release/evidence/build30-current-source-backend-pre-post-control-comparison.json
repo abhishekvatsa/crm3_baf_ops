@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "build30-existing-backend-controls-public-projection",
+  "decision": "PASS_EXISTING_19_BACKEND_CONTROLS_PRESERVED",
+  "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "approvalSha256": "4BE041F343A91F878A11315FB94D6FCF8E173083B87053B7206F029CDFC5546A",
+  "privateProofPhysicalSha256": "E8C34D5827AF4AC3113EE88597D8C939B77008DB6A48BCDE924EAA8AAB1D0392",
+  "privateProofReceiptSha256": "a67975b82d2fb924f7c8837e780c791d7cf3349987c69a2940cdab6b7b144cce",
+  "privateCustody": {
+    "schemaVersion": 1,
+    "provider": "gcs",
+    "purpose": "custodyRecord",
+    "buildNumber": 30,
+    "bucket": "crm3-baf-ops-b8638-firestore-restore",
+    "prefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-30/backend-2aa30de5-20260927",
+    "objectName": "release-custody/build-30/backend-2aa30de5-20260927/existing-controls-proof.json",
+    "objectUri": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-30/backend-2aa30de5-20260927/existing-controls-proof.json",
+    "generation": "1790537054380464",
+    "generationUri": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-30/backend-2aa30de5-20260927/existing-controls-proof.json#1790537054380464",
+    "bytes": 576810,
+    "sha256": "E8C34D5827AF4AC3113EE88597D8C939B77008DB6A48BCDE924EAA8AAB1D0392",
+    "downloadedBytes": 576810,
+    "downloadedSha256": "E8C34D5827AF4AC3113EE88597D8C939B77008DB6A48BCDE924EAA8AAB1D0392",
+    "createOnly": true,
+    "generationPinnedReadback": true,
+    "verified": true,
+    "uploadStartedAtUtc": "2026-09-27T19:24:06.0685430Z",
+    "uploadCompletedAtUtc": "2026-09-27T19:24:12.3643520Z",
+    "verifiedAtUtc": "2026-09-27T19:24:20.3463193Z",
+    "approval": {
+      "commit": "b7e820d96e08821e6da0463ca570f1858ba099d4",
+      "file": "release/approvals/build30-backend-metadata-custody-approval.json",
+      "sha256": "9CE3F050F18193A9B9A38956D6150964932B5E4F55684F61073BDC92B6D0CFC0"
+    },
+    "bucketControls": {
+      "bucket": "crm3-baf-ops-b8638-firestore-restore",
+      "location": "ASIA-SOUTH1",
+      "publicAccessPrevention": "enforced",
+      "uniformBucketLevelAccess": true,
+      "versioningEnabled": true,
+      "publicIamPrincipalsAbsent": true,
+      "retentionSeconds": 7776000,
+      "softDeleteSeconds": 604800,
+      "checkedAtUtc": "2026-09-27T19:24:06.0623627Z"
+    }
+  },
+  "before": {
+    "startedAtUtc": "2026-09-27T18:12:33.612Z",
+    "completedAtUtc": "2026-09-27T18:13:08.645Z",
+    "captureReceiptSha256": "57a9481a8b4518dec64a8a783edd4a9ab20a9a2e788ba4be694e29e93cbb6840",
+    "measurementSha256": "83210077B717F78AC3A203C01BDE5C656CDFA53CC43926B2A7C411DA0E03FBFA"
+  },
+  "after": {
+    "startedAtUtc": "2026-09-27T18:43:02.710Z",
+    "completedAtUtc": "2026-09-27T18:43:40.126Z",
+    "captureReceiptSha256": "1f193bf6b25629dc559ff4891bde3b4c9d19b19434b9f4b14a79a80d622cc47e",
+    "measurementSha256": "529459B094AB9B471067CEA512C4F97F1E910D8974A3DB9C22759EC5E2ACF981"
+  },
+  "functionCount": 19,
+  "existingFunctionCount": 19,
+  "newFunctionCount": 0,
+  "measuredProjectRunAndServiceAccountIamPreserved": true,
+  "allExistingFunctionEffectiveControlsPreserved": true,
+  "scalingObservations": [
+    {
+      "name": "assignPublishedTemplateVersion",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "assignPublishedTemplateVersionV2",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "beginGlobalPullRun",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommand",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "executeMaintenanceWorkflowCommandV2",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "getBackendReleaseIdentity",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "maintenanceWorkflowEscalationSweep",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateAssetHierarchy",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateAssetHierarchyV2",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateChargeAbnormality",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateChargeAbnormalityV2",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateRuntimeJobModulePopulation",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "mutateUserAuthority",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onJobAssigned",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onMaintenanceWorkflowEventCreated",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onTicketCreated",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "onTicketResolved",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    },
+    {
+      "name": "stampGlobalPullServerClock",
+      "cloudFunctionsMaxInstanceCount": 20,
+      "runServiceMaxInstanceCount": 20,
+      "runRevisionMaxInstanceCount": 20,
+      "effectiveMaxInstanceCount": 20
+    }
+  ],
+  "capRepresentationChanges": [],
+  "sourceOptionsFiles": {
+    "release/function-fleet-runtime-identity-policy.json": "F08BB9B62EC6162DA6249F3F92058A4914DF0EB878739D79B622B273C94477BA",
+    "functions/src/index.ts": "3966768FA9E74A1F6E0608208984E68E942ECA3AA6359EEADD4C7256838A5673",
+    "functions/src/maintenanceWorkflow/callable.ts": "ACC3D38CF66B9D7B217609AFE085FF4E596F4B7FBAE0C6CB5F1F68E183CA385F",
+    "functions/src/maintenanceWorkflow/escalationSweep.ts": "934F558C13046635472A84892CD0BD2FFEA3A813B4C22A825076DFF54BB67DF6",
+    "functions/src/maintenanceWorkflow/workflowNotificationTrigger.ts": "BD539F8C6C8A3AD0E5F8542A41691171283AFDA7808B14AB39B6CD742F65A6DC",
+    "functions/package.json": "129F7A8A43A8B298782709383E5492EF3B6BFBB128DE054BAC9D5477EF19E557",
+    "functions/package-lock.json": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D",
+    "functions/src/callableSecurityConfig.ts": "76C5A7A1A9C430D3E02B5106333D679D1FFF4AC3721241DA5096872496809E46",
+    "functions/src/stage2dSecurityConfig.ts": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F",
+    "functions/src/globalPullSecurityConfig.ts": "366CC67C322FC5F9A51C45EE8906746A31415F1FC6085E4783E429DF301DF0A3"
+  },
+  "unavailableRunRegions": [
+    {
+      "location": "me-central2",
+      "reason": "LOCATION_POLICY_VIOLATED",
+      "domain": "googleapis.com",
+      "consumer": "projects/894346496105"
+    }
+  ],
+  "supplementalComparison": {
+    "approval": {
+      "commit": "794192c2ec6b6a0ec6baab7761d2c7ea3cc2819c",
+      "file": "release/approvals/build30-control-comparison-compatibility-review.json",
+      "sha256": "B784779F52E7130F757E01DE7EB1A31BBBABF7C8E745AFFF6D1CF952596FE94F"
+    },
+    "adapterSha256": "D8A1BE49430255E0B59CC744325811A3A76BB7EC8F165332D598BFFD03EAB2C5",
+    "originalFailureSha256": "BD056B13393A344DB26CFCCFFFD9EED138E3A1579EB450A73016739DF16A2EE1",
+    "sourceArchiveProofSha256": "25925DA32EB2A81054A5A86023ECDAF8521F63382F7515A7971C50AEEBF4D65F",
+    "reviewedAtUtc": "2026-09-27T19:05:10.963Z",
+    "performedAtUtc": "2026-09-27T19:07:17.546Z",
+    "originalComparisonPassed": false
+  },
+  "normalizedDeploymentOutputs": {
+    "fields": [
+      "name",
+      "sourceLocation",
+      "imageUri"
+    ],
+    "validatedFunctionPairs": 38,
+    "changedFunctions": [
+      {
+        "name": "assignPublishedTemplateVersion",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "assignPublishedTemplateVersionV2",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "beginGlobalPullRun",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "completePlannedJobExecution",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommand",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "executeMaintenanceWorkflowCommandV2",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "getBackendReleaseIdentity",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "maintenanceWorkflowEscalationSweep",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "mutateAssetHierarchy",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "mutateAssetHierarchyV2",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "mutateChargeAbnormality",
+        "fields": [
+          "name",
+          "sourceLocation",
+          "imageUri"
+        ]
+      },
+      {
+        "name": "mutateChargeAbnormalityV2",
+        "fields": [
+          "name",
+          "sourceLocation",
+          "imageUri"
+        ]
+      },
+      {
+        "name": "mutateRuntimeJobModulePopulation",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "mutateUserAuthority",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "onJobAssigned",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "onMaintenanceWorkflowEventCreated",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "onTicketCreated",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "onTicketResolved",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      },
+      {
+        "name": "stampGlobalPullServerClock",
+        "fields": [
+          "name",
+          "sourceLocation"
+        ]
+      }
+    ]
+  },
+  "qualification": "Projection follows full private raw revalidation and generation-pinned custody readback. The original comparator failed; a separately approved supplementary comparison validates only correlated deployment build outputs. Offline readers can verify commitments, not re-observe hidden API responses. Scope is observed project/Run/service-account IAM and19 Function controls; Function-resource IAM and excluded regions are not claimed. Before/after observations do not exclude transient intervening changes.",
+  "receiptSha256": "aa5866ff7c4d03a7d18e4744420b4654153edacbb409d62e7174a349936ab335"
+}

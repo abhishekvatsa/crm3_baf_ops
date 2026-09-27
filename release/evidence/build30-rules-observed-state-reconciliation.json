@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "reviewed-firestore-rules-observed-state-reconciliation",
+  "decision": "PASS_APPROVED_RULES_OBSERVED_STATE_RECONCILED",
+  "projectId": "crm3-baf-ops-b8638",
+  "source": {
+    "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+    "tree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5"
+  },
+  "approvalAuthority": {
+    "commit": "009601a6d4a86fd7ebc0823b714cfc0b36e62855",
+    "file": "release/approvals/build30-current-source-backend-deployment-approval.json",
+    "sha256": "4BE041F343A91F878A11315FB94D6FCF8E173083B87053B7206F029CDFC5546A"
+  },
+  "methodApprovalAuthority": {
+    "commit": "f8244e7d2871bc39c21b1ff51068f021ca841ee2",
+    "file": "release/approvals/build30-rules-observed-state-method-approval.json",
+    "sha256": "2E560166E289CE086700CE8A5A02E3D3FA8E8A7366C67B284B0E40CDEFAA2D3F"
+  },
+  "failedCommand": {
+    "file": "release/evidence/build30-rules-attempt13-failed-command.json",
+    "physicalSha256": "746B12E1C211A40E4C8881D144B0D0F7478867B4E66E5350C3A956870F5CFEE9",
+    "canonicalReceiptSha256": "1d5d21f6b88148e9b11afd1903ccf39acbb722218fa51a0421fafbff84f559c8"
+  },
+  "recordedAtUtc": "2026-09-27T20:53:30.849Z",
+  "receiptSha256": "0ba5b49762129133dc855d91a081468d40d12cef636001f06fab4590e272e1e9"
+}

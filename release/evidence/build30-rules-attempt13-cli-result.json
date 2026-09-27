@@ -1,0 +1,4 @@
+{
+  "status": "error",
+  "error": "Request to https://firebaserules.googleapis.com/v1/projects/crm3-baf-ops-b8638/releases had HTTP Error: 409, Requested entity already exists"
+}
