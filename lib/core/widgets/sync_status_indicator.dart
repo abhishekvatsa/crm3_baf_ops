@@ -474,6 +474,11 @@ class _SyncStatusIndicatorState extends ConsumerState<SyncStatusIndicator> {
                       ),
                       if (conflictCount > 0)
                         _HealthRow('Conflicts', '$conflictCount'),
+                      if (runHealth.deferredRecordCount > 0)
+                        _HealthRow(
+                          'Waiting for related records',
+                          '${runHealth.deferredRecordCount} saved locally',
+                        ),
                       if (runHealth.workflowAttentionReason != null)
                         _HealthRow(
                           'Submitted work',

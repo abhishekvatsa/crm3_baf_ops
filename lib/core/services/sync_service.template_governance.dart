@@ -1150,6 +1150,9 @@ extension _SyncServiceTemplateGovernance on SyncService {
           remoteVersion,
           remotePackageById[record.packageFirestoreId],
         )) {
+          lastDeferredPushRecordKeys.add(
+            'template_publish_audit/${record.firestoreId}',
+          );
           debugPrint(
             '⏸️ Holding TemplateVersion audit until remote lifecycle and package dependencies are confirmed: '
             '${record.firestoreId} (action=${record.action.name}, '

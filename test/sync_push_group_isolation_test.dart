@@ -46,6 +46,109 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(initializeTestIsarCore);
   testWidgets(
+    'an individual audit dependency hold stays partial until exact reconciliation',
+    (tester) async {
+      final rig = _Rig()
+        ..pendingPublishAudit = _publicationAudit()
+        ..remoteTemplateVersion = (TemplateVersion()
+          ..firestoreId = 'published-version'
+          ..packageFirestoreId = 'published-package'
+          ..versionNumber = 1
+          ..status = TemplateVersionStatus.published);
+      final before = rig.pendingPublishAudit!.toMap();
+      final pull = _Pull();
+      final owner = Provider<SyncCoordinator>((ref) {
+        final coordinator = SyncCoordinator(
+          ref,
+          rig.service,
+          pull,
+          LocalRecoverySessionGuard(),
+          connectivity: _Connectivity(),
+          runGuardFactory: () => SyncRunGuard(() {}),
+        );
+        ref.onDispose(coordinator.dispose);
+        return coordinator;
+      });
+      final container = ProviderContainer(
+        overrides: [
+          currentAppUserProvider.overrideWith((ref) => Stream.value(null)),
+          workflowUncertainRetryServiceProvider.overrideWithValue(_Retry()),
+          workflowRepositoryProvider.overrideWithValue(_WorkflowRepository()),
+          workflowPullServiceProvider.overrideWithValue(_WorkflowPull()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final coordinator = container.read(owner);
+      // Only this row is waiting; successful pull and independent pushes must
+      // not hide it or invent a failed write. Repeated runs must not accumulate.
+      for (var run = 0; run < 2; run++) {
+        rig.visits.clear();
+        expect(
+          await coordinator.runFullSyncWithResult(force: true),
+          SyncRequestOutcome.partial,
+        );
+        expect(rig.visits, _allStages);
+        expect(pull.calls, run + 1);
+        expect(rig.publishAuditWrites, isEmpty);
+        expect(rig.publishAuditsMarked, 0);
+        expect(rig.pendingPublishAudit!.isSynced, isFalse);
+        expect(rig.pendingPublishAudit!.toMap(), before);
+        expect(rig.service.lastFailureCount, 0);
+        expect(rig.service.lastConflictCount, 0);
+        expect(rig.service.lastDeferredPushStages, isEmpty);
+        expect(rig.service.lastDeferredPushRecordKeys, {
+          'template_publish_audit/pending-publication-audit',
+        });
+        final health = container.read(syncRunHealthProvider);
+        expect(health.lastSucceeded, isFalse);
+        expect(health.lastPartiallySucceeded, isTrue);
+        expect(health.failureCount, 0);
+        expect(health.failureDetails, isEmpty);
+        expect(health.deferredStageCount, 0);
+        expect(health.deferredRecordCount, 1);
+        expect(
+          health.lastError,
+          contains('waiting for related server records'),
+        );
+        await tester.pump(const Duration(seconds: 6));
+        expect(container.read(syncStatusProvider), SyncStatus.partial);
+      }
+      rig.remoteTemplatePackage = TemplatePackage()
+        ..firestoreId = 'published-package'
+        ..latestVersionNumber = 1
+        ..lifecycleStatus = TemplatePackageLifecycleStatus.active;
+      expect(
+        await coordinator.runFullSyncWithResult(force: true),
+        SyncRequestOutcome.succeeded,
+      );
+      expect(rig.publishAuditWrites, [before]);
+      expect(rig.publishAuditsMarked, 1);
+      expect(rig.pendingPublishAudit!.isSynced, isTrue);
+      expect(rig.pendingPublishAudit!.toMap(), before);
+      expect(rig.service.lastDeferredPushRecordKeys, isEmpty);
+      expect(container.read(syncRunHealthProvider).deferredRecordCount, 0);
+      expect(container.read(syncRunHealthProvider).lastError, isNull);
+      expect(pull.calls, 3);
+      coordinator.dispose();
+    },
+  );
+  test(
+    'exact remote audit reconciles without waiting for old dependencies',
+    () async {
+      final rig = _Rig()
+        ..pendingPublishAudit = _publicationAudit()
+        ..remotePublishAudit = _publicationAudit();
+      final before = rig.pendingPublishAudit!.toMap();
+      await rig.service.syncAll();
+      expect(rig.publishAuditWrites, isEmpty);
+      expect(rig.publishAuditsMarked, 1);
+      expect(rig.pendingPublishAudit!.isSynced, isTrue);
+      expect(rig.pendingPublishAudit!.toMap(), before);
+      expect(rig.service.lastDeferredPushRecordKeys, isEmpty);
+      expect(rig.service.lastFailureCount, 0);
+    },
+  );
+  testWidgets(
     'B-held A abnormality does not stop independent audit and canonical pull',
     (tester) async {
       final rig = _Rig()
@@ -516,6 +619,19 @@ const _allStages = [
   'audit',
 ];
 
+TemplatePublishAudit _publicationAudit() => TemplatePublishAudit()
+  ..id = 51
+  ..firestoreId = 'pending-publication-audit'
+  ..packageFirestoreId = 'published-package'
+  ..versionFirestoreId = 'published-version'
+  ..action = TemplatePublishAuditAction.published
+  ..performedByUid = 'actor'
+  ..performedByName = 'Actor'
+  ..performedAt = DateTime.utc(2026, 9, 27)
+  ..updatedAt = DateTime.utc(2026, 9, 27)
+  ..afterHash = 'retained-content-hash'
+  ..payloadSnapshotJson = '{"original":"publication evidence"}';
+
 class _Rig {
   _Rig({this.retainedStore});
   final DurableSubmissionRepository? retainedStore;
@@ -543,6 +659,12 @@ class _Rig {
   int abnormalitiesMarked = 0;
   final moduleWrites = <Map<String, dynamic>>[];
   final audits = <AuditEvent>[];
+  TemplatePublishAudit? pendingPublishAudit;
+  TemplatePublishAudit? remotePublishAudit;
+  TemplateVersion? remoteTemplateVersion;
+  TemplatePackage? remoteTemplatePackage;
+  final publishAuditWrites = <Map<String, dynamic>>[];
+  int publishAuditsMarked = 0;
   late final auth = _Auth();
   late final service = SyncService(
     maintenanceRepo: _Maintenance(this),
@@ -655,7 +777,19 @@ class _Governance extends TemplateGovernanceRepository {
   @override
   Future<List<TemplateVersion>> getVersionsByFirestoreIds(
     List<String> ids,
-  ) async => [];
+  ) async =>
+      rig.remoteTemplateVersion == null ? [] : [rig.remoteTemplateVersion!];
+
+  @override
+  Future<List<TemplatePackage>> getPackagesByFirestoreIds(
+    List<String> ids,
+  ) async =>
+      rig.remoteTemplatePackage == null ? [] : [rig.remoteTemplatePackage!];
+
+  @override
+  Future<List<TemplatePublishAudit>> getAuditsByFirestoreIds(
+    List<String> ids,
+  ) async => rig.remotePublishAudit == null ? [] : [rig.remotePublishAudit!];
 
   @override
   Future<List<TemplatePackage>> getUnsyncedPackages() async {
@@ -666,7 +800,26 @@ class _Governance extends TemplateGovernanceRepository {
   @override
   Future<List<TemplatePublishAudit>> getUnsyncedAudits() async {
     rig.visit('publishAudits');
-    return [];
+    final record = rig.pendingPublishAudit;
+    return record != null && !record.isSynced ? [record] : [];
+  }
+
+  @override
+  Future<void> batchUpsertAudits(List<TemplatePublishAudit> records) async {
+    rig.publishAuditWrites.addAll(records.map((record) => record.toMap()));
+    rig.remotePublishAudit = records.single;
+  }
+
+  @override
+  Future<void> markAuditsSyncedIfUnchanged(
+    List<SyncPushSnapshot> snapshots,
+  ) async {
+    final record = rig.pendingPublishAudit!;
+    expect(snapshots.single.id, record.id);
+    expect(snapshots.single.version, record.version);
+    expect(snapshots.single.updatedAt, record.updatedAt);
+    rig.publishAuditsMarked += snapshots.length;
+    record.isSynced = true;
   }
 
   @override

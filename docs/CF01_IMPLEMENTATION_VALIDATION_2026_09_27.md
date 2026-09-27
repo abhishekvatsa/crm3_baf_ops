@@ -86,6 +86,14 @@ inventories passed. Eight Dart tests passed against four accepted records
 produced by the actual dispatcher, with backend fixture freshness enforced.
 The follow-up's exact-head CI must pass before its acceptance is claimed.
 
+At `483d3ffb`, backend validation, Flutter host (3,976 tests), Rules, packaging
+and CodeQL passed. Android business testing exposed a separate obsolete profile
+listener error during sign-out; the ownership pair was not reached in that run.
+The subsequent review also found unreported individual audit holds and a purge
+cleanup guard gap. Their bounded repairs and local proofs are recorded in
+[the follow-up review response](PR382_C949F514_REVIEW_FOLLOWUP_2026_09_27.md).
+The latest PR checks determine acceptance of the combined follow-up revision.
+
 ## Other PR repairs
 
 Secret-scanning alert #5 matched exactly the synthetic emulator placeholder at

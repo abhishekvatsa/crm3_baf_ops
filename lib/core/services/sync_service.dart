@@ -215,6 +215,10 @@ class SyncService {
   /// Stages deliberately not attempted because their prerequisite changed or
   /// failed. These are stage identities, not a count of failed/pending records.
   final Set<String> lastDeferredPushStages = <String>{};
+
+  /// Individual records whose remote prerequisites were not yet confirmed.
+  /// Keep these separate from failed writes and whole stages not attempted.
+  final Set<String> lastDeferredPushRecordKeys = <String>{};
   final List<SyncFailureDetail> lastFailureDetails = <SyncFailureDetail>[];
   DateTime? lastSyncTime;
 
@@ -267,9 +271,11 @@ class SyncService {
        _retainedRowMutations = retainedRowMutations ?? RetainedRowMutations(),
        _abnormalityCommands =
            abnormalityCommandService ?? ChargeAbnormalityCommandService(),
-       _abnormalityQueueGuard = abnormalityQueueGuard ??
+       _abnormalityQueueGuard =
+           abnormalityQueueGuard ??
            ChargeAbnormalityQueueGuard(
-             currentActorUid: () => (auth ?? FirebaseAuth.instance).currentUser?.uid,
+             currentActorUid: () =>
+                 (auth ?? FirebaseAuth.instance).currentUser?.uid,
            ),
        _knowledgeRepo = knowledgeRepo,
        _auditRepo = auditRepository,
@@ -376,6 +382,7 @@ class SyncService {
     lastFailureDetailOverflowCount = 0;
     lastConflictKeys.clear();
     lastDeferredPushStages.clear();
+    lastDeferredPushRecordKeys.clear();
     lastFailureDetails.clear();
 
     final start = _now();
@@ -516,7 +523,8 @@ class SyncService {
 
       debugPrint(
         '📊 Sync complete → $lastSuccessCount success, $lastFailureCount failed, '
-        '${lastDeferredPushStages.length} deferred stages (${duration}ms)',
+        '${lastDeferredPushStages.length} deferred stages, '
+        '${lastDeferredPushRecordKeys.length} deferred records (${duration}ms)',
       );
     }
   }

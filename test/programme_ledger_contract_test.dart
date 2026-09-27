@@ -763,7 +763,7 @@ void main() {
     // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      'DDAF8377D5628415BA21CF607D1591BAC81BA29C9386A52423640D8713497474',
+      '1475F60C8E7DFF4FBB9E28F607035E46670A1510232EF841B965536DD75B4513',
     );
     expect(_objects(a04Manifest['fields']), hasLength(55));
     expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(128));

@@ -61,6 +61,7 @@ extension _SyncServicePushInfrastructure on SyncService {
     _checkRunCurrent();
     final failuresBefore = lastFailureCount;
     final conflictsBefore = lastConflictCount;
+    final deferredRecordsBefore = lastDeferredPushRecordKeys.length;
     try {
       await operation();
       await _flushPushDiagnostics();
@@ -86,7 +87,8 @@ extension _SyncServicePushInfrastructure on SyncService {
     }
     final prerequisiteSucceeded =
         failuresBefore == lastFailureCount &&
-        conflictsBefore == lastConflictCount;
+        conflictsBefore == lastConflictCount &&
+        deferredRecordsBefore == lastDeferredPushRecordKeys.length;
     if (!prerequisiteSucceeded) {
       // A conflict may have been safely reconciled without a failed write.
       // Still account for the dependent stages this pass deliberately skips;

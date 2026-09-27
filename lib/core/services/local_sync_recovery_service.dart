@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:isar_community/isar.dart';
 
 import '../serialization/persisted_data_reader.dart';
+import 'sync_run_guard.dart';
 import '../../features/abnormalities/data/abnormality_model.dart';
 import '../../features/audit/models/audit_event_model.dart';
 import '../../features/auth/data/user_model.dart';
@@ -96,6 +97,14 @@ typedef LocalSyncRecoveryPurgeManifestReader =
       List<LocalPurgeCandidate> candidates,
     );
 
+typedef LocalSyncRecoveryPurgeDependencyReader =
+    Future<bool> Function(
+      Isar database, {
+      required String entityType,
+      required String? remoteId,
+      required int localId,
+    });
+
 class LocalPurgeCandidate {
   final String collectionId;
   final String documentId;
@@ -159,18 +168,21 @@ class LocalSyncRecoveryService {
     String? Function()? authenticatedUidLookup,
     LocalSyncRecoveryRemoteReader? remoteReader,
     LocalSyncRecoveryPurgeManifestReader? purgeManifestReader,
+    LocalSyncRecoveryPurgeDependencyReader? purgeDependencyReader,
   }) : _databaseLookup = databaseLookup ?? Isar.getInstance,
        _authenticatedUidLookup =
            authenticatedUidLookup ??
            (() => FirebaseAuth.instance.currentUser?.uid),
        _remoteReader = remoteReader ?? _readAuthoritativeRemote,
        _purgeManifestReader =
-           purgeManifestReader ?? _readAuthoritativePurgeManifests;
+           purgeManifestReader ?? _readAuthoritativePurgeManifests,
+       _purgeDependencyReader = purgeDependencyReader;
 
   final Isar? Function() _databaseLookup;
   final String? Function() _authenticatedUidLookup;
   final LocalSyncRecoveryRemoteReader _remoteReader;
   final LocalSyncRecoveryPurgeManifestReader _purgeManifestReader;
+  final LocalSyncRecoveryPurgeDependencyReader? _purgeDependencyReader;
 
   static Future<LocalSyncRecoveryRemoteDocument> _readAuthoritativeRemote(
     String collection,
@@ -231,15 +243,14 @@ class LocalSyncRecoveryService {
       throw StateError('The local device database is not available.');
     }
 
-    final rejections =
-        await database.syncRejections
-            .filter()
-            .isResolvedEqualTo(false)
-            .and()
-            .isLikelyPermanentEqualTo(true)
-            .sortByLastSeenAtDesc()
-            .limit(200)
-            .findAll();
+    final rejections = await database.syncRejections
+        .filter()
+        .isResolvedEqualTo(false)
+        .and()
+        .isLikelyPermanentEqualTo(true)
+        .sortByLastSeenAtDesc()
+        .limit(200)
+        .findAll();
 
     var restored = 0;
     var removed = 0;
@@ -274,21 +285,19 @@ class LocalSyncRecoveryService {
         final remoteId = _clean(
           rejection.firestoreId ?? adapter.remoteDocumentId(local),
         );
-        final remote =
-            remoteId == null
-                ? const LocalSyncRecoveryRemoteDocument.missing()
-                : await _remoteReader(adapter.collectionPath, remoteId);
+        final remote = remoteId == null
+            ? const LocalSyncRecoveryRemoteDocument.missing()
+            : await _remoteReader(adapter.collectionPath, remoteId);
 
-        final authoritative =
-            remote.exists
-                ? adapter.decode(
-                  remote.data ??
-                      (throw StateError(
-                        'The server returned an empty authoritative record.',
-                      )),
-                  remoteId!,
-                )
-                : null;
+        final authoritative = remote.exists
+            ? adapter.decode(
+                remote.data ??
+                    (throw StateError(
+                      'The server returned an empty authoritative record.',
+                    )),
+                remoteId!,
+              )
+            : null;
 
         if (authoritative == null &&
             await _hasDependentLocalRecords(
@@ -344,10 +353,9 @@ class LocalSyncRecoveryService {
           currentRejection.markResolved(
             resolvedByUid: actor.uid,
             resolvedByName: actor.name,
-            notes:
-                authoritative == null
-                    ? 'User discarded an owned rejected local-only record; no server record existed.'
-                    : 'User discarded an owned rejected local edit and restored authoritative server data.',
+            notes: authoritative == null
+                ? 'User discarded an owned rejected local-only record; no server record existed.'
+                : 'User discarded an owned rejected local edit and restored authoritative server data.',
           );
           await database.syncRejections.put(currentRejection);
           changed = true;
@@ -453,7 +461,11 @@ class LocalSyncRecoveryService {
   }
 
   Future<LocalPurgeReconciliationResult>
-  reconcileAuthoritativelyPurgedTombstones({required AppUser? actor}) async {
+  reconcileAuthoritativelyPurgedTombstones({
+    required AppUser? actor,
+    SyncRunGuard? runGuard,
+  }) async {
+    runGuard?.checkCurrent();
     if (actor == null || !actor.isApproved || actor.uid.trim().isEmpty) {
       return const LocalPurgeReconciliationResult();
     }
@@ -469,8 +481,10 @@ class LocalSyncRecoveryService {
     }
 
     final candidates = await _localPurgeCandidates(database);
+    runGuard?.checkCurrent();
     if (candidates.isEmpty) return const LocalPurgeReconciliationResult();
     final manifests = await _purgeManifestReader(candidates);
+    runGuard?.checkCurrent();
     var removed = 0;
     var quarantined = 0;
     var alreadyAbsent = 0;
@@ -478,6 +492,7 @@ class LocalSyncRecoveryService {
     final errors = <String>[];
 
     for (final manifest in manifests) {
+      runGuard?.checkCurrent();
       final entityType = _purgeManifestEntityTypes[manifest.collectionId];
       if (entityType == null) {
         preserved++;
@@ -493,6 +508,7 @@ class LocalSyncRecoveryService {
           database,
           manifest.documentId,
         );
+        runGuard?.checkCurrent();
         if (local == null) {
           alreadyAbsent++;
           continue;
@@ -506,10 +522,12 @@ class LocalSyncRecoveryService {
         final expectedUpdatedAt = local.updatedAt as DateTime;
         var disposition = _PurgeManifestDisposition.preserved;
         await database.writeTxn(() async {
+          runGuard?.checkCurrent();
           final current = await adapter.findByRemoteId(
             database,
             manifest.documentId,
           );
+          runGuard?.checkCurrent();
           if (current == null) {
             disposition = _PurgeManifestDisposition.alreadyAbsent;
             return;
@@ -521,24 +539,32 @@ class LocalSyncRecoveryService {
               _authenticatedUidLookup() != actor.uid) {
             return;
           }
-          if (await _hasDependentLocalRecords(
-            database,
-            entityType: entityType,
-            remoteId: manifest.documentId,
-            localId: expectedId,
-          )) {
+          final hasDependencies =
+              await (_purgeDependencyReader ?? _hasDependentLocalRecords)(
+                database,
+                entityType: entityType,
+                remoteId: manifest.documentId,
+                localId: expectedId,
+              );
+          // The same UID can remain signed in after its authority epoch or the
+          // owning coordinator ended. Fence the actual write, not just entry.
+          runGuard?.checkCurrent();
+          if (hasDependencies) {
             current
               ..isDeleted = true
               ..deletedAt ??= manifest.purgedAt
               ..version = manifest.sourceVersion
               ..isSynced = true;
             await adapter.put(database, current);
+            runGuard?.checkCurrent();
             disposition = _PurgeManifestDisposition.quarantined;
             return;
           }
           await adapter.delete(database, expectedId);
+          runGuard?.checkCurrent();
           disposition = _PurgeManifestDisposition.removed;
         });
+        runGuard?.checkCurrent();
         switch (disposition) {
           case _PurgeManifestDisposition.removed:
             removed++;
@@ -550,6 +576,10 @@ class LocalSyncRecoveryService {
             preserved++;
         }
       } catch (error) {
+        if (runGuard != null) {
+          rethrowIfSyncRunMustAbort(error);
+          runGuard.checkCurrent();
+        }
         preserved++;
         errors.add('${manifest.collectionId}/${manifest.documentId}: $error');
       }
@@ -565,18 +595,18 @@ class LocalSyncRecoveryService {
   }
 
   Future<List<LocalPurgeCandidate>> _localPurgeCandidates(Isar database) async {
-    final tickets =
-        await database.maintenanceRecords
-            .filter()
-            .isSyncedEqualTo(true)
-            .findAll();
-    final directives =
-        await database.operationalDirectives
-            .filter()
-            .isSyncedEqualTo(true)
-            .findAll();
-    final templates =
-        await database.jobTemplates.filter().isSyncedEqualTo(true).findAll();
+    final tickets = await database.maintenanceRecords
+        .filter()
+        .isSyncedEqualTo(true)
+        .findAll();
+    final directives = await database.operationalDirectives
+        .filter()
+        .isSyncedEqualTo(true)
+        .findAll();
+    final templates = await database.jobTemplates
+        .filter()
+        .isSyncedEqualTo(true)
+        .findAll();
     final candidates = <LocalPurgeCandidate>[];
     void add(String collectionId, String? documentId) {
       final normalized = documentId?.trim();
@@ -606,16 +636,14 @@ class LocalSyncRecoveryService {
   }) async {
     if (remoteId == null) {
       if (entityType != 'job_execution') return false;
-      final module =
-          await database.jobModuleInstances
-              .filter()
-              .jobExecutionLocalIdEqualTo(localId)
-              .findFirst();
-      final diary =
-          await database.jobDiaryEntrys
-              .filter()
-              .jobExecutionLocalIdEqualTo(localId)
-              .findFirst();
+      final module = await database.jobModuleInstances
+          .filter()
+          .jobExecutionLocalIdEqualTo(localId)
+          .findFirst();
+      final diary = await database.jobDiaryEntrys
+          .filter()
+          .jobExecutionLocalIdEqualTo(localId)
+          .findFirst();
       return module != null || diary != null;
     }
 
@@ -710,28 +738,24 @@ class LocalSyncRecoveryService {
     'maintenance_ticket' => _LocalRecoveryAdapter.typed<MaintenanceRecord>(
       collectionPath: 'maintenance_records',
       collection: (database) => database.maintenanceRecords,
-      findByRemoteId:
-          (database, id) =>
-              database.maintenanceRecords
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) => database.maintenanceRecords
+          .filter()
+          .firestoreIdEqualTo(id)
+          .findFirst(),
       decode: (data, id) => readRemoteMaintenanceRecord(data, documentId: id),
-      ownerUid:
-          (record) =>
-              record.deletedByUid ??
-              (record.isResolved ? record.closedByUid : null) ??
-              record.reopenedByUid ??
-              record.acknowledgedByUid ??
-              record.loggedByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ??
+          (record.isResolved ? record.closedByUid : null) ??
+          record.reopenedByUid ??
+          record.acknowledgedByUid ??
+          record.loggedByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'job_template' => _LocalRecoveryAdapter.typed<JobTemplate>(
       collectionPath: 'job_templates',
       collection: (database) => database.jobTemplates,
-      findByRemoteId:
-          (database, id) =>
-              database.jobTemplates.filter().firestoreIdEqualTo(id).findFirst(),
+      findByRemoteId: (database, id) =>
+          database.jobTemplates.filter().firestoreIdEqualTo(id).findFirst(),
       decode: JobTemplate.fromMap,
       ownerUid: (record) => record.deletedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
@@ -739,139 +763,102 @@ class LocalSyncRecoveryService {
     'job_execution' => _LocalRecoveryAdapter.typed<JobExecution>(
       collectionPath: 'job_executions',
       collection: (database) => database.jobExecutions,
-      findByRemoteId:
-          (database, id) =>
-              database.jobExecutions
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) =>
+          database.jobExecutions.filter().firestoreIdEqualTo(id).findFirst(),
       decode: JobExecution.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ??
-              record.cancelledByUid ??
-              record.completedByUid ??
-              record.assignedByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ??
+          record.cancelledByUid ??
+          record.completedByUid ??
+          record.assignedByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'job_diary_entry' => _LocalRecoveryAdapter.typed<JobDiaryEntry>(
       collectionPath: 'job_diary_entries',
       collection: (database) => database.jobDiaryEntrys,
-      findByRemoteId:
-          (database, id) =>
-              database.jobDiaryEntrys
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) =>
+          database.jobDiaryEntrys.filter().firestoreIdEqualTo(id).findFirst(),
       decode: JobDiaryEntry.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'job_module' => _LocalRecoveryAdapter.typed<JobModuleInstance>(
       collectionPath: 'job_modules',
       collection: (database) => database.jobModuleInstances,
-      findByRemoteId:
-          (database, id) =>
-              database.jobModuleInstances
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) => database.jobModuleInstances
+          .filter()
+          .firestoreIdEqualTo(id)
+          .findFirst(),
       decode: JobModuleInstance.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'directive' => _LocalRecoveryAdapter.typed<OperationalDirective>(
       collectionPath: 'directives',
       collection: (database) => database.operationalDirectives,
-      findByRemoteId:
-          (database, id) =>
-              database.operationalDirectives
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
-      decode:
-          (data, id) => readRemoteOperationalDirective(data, documentId: id),
-      ownerUid:
-          (record) =>
-              record.deletedByUid ??
-              record.closedByUid ??
-              record.acknowledgedByUid ??
-              record.issuedByUid ??
-              record.createdByUid,
+      findByRemoteId: (database, id) => database.operationalDirectives
+          .filter()
+          .firestoreIdEqualTo(id)
+          .findFirst(),
+      decode: (data, id) =>
+          readRemoteOperationalDirective(data, documentId: id),
+      ownerUid: (record) =>
+          record.deletedByUid ??
+          record.closedByUid ??
+          record.acknowledgedByUid ??
+          record.issuedByUid ??
+          record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'abnormality_type' => _LocalRecoveryAdapter.typed<AbnormalityType>(
       collectionPath: 'abnormality_types',
       collection: (database) => database.abnormalityTypes,
-      findByRemoteId:
-          (database, id) =>
-              database.abnormalityTypes
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) =>
+          database.abnormalityTypes.filter().firestoreIdEqualTo(id).findFirst(),
       decode: AbnormalityType.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ??
-              record.lastEditedByUid ??
-              record.createdByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.lastEditedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'charge_abnormality' => _LocalRecoveryAdapter.typed<ChargeAbnormality>(
       collectionPath: 'charge_abnormalities',
       collection: (database) => database.chargeAbnormalitys,
-      findByRemoteId:
-          (database, id) =>
-              database.chargeAbnormalitys
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) => database.chargeAbnormalitys
+          .filter()
+          .firestoreIdEqualTo(id)
+          .findFirst(),
       decode: ChargeAbnormality.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ?? record.updatedByUid ?? record.loggedByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.updatedByUid ?? record.loggedByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'template_package' => _LocalRecoveryAdapter.typed<TemplatePackage>(
       collectionPath: 'template_packages',
       collection: (database) => database.templatePackages,
-      findByRemoteId:
-          (database, id) =>
-              database.templatePackages
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) =>
+          database.templatePackages.filter().firestoreIdEqualTo(id).findFirst(),
       decode: TemplatePackage.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'template_version' => _LocalRecoveryAdapter.typed<TemplateVersion>(
       collectionPath: 'template_versions',
       collection: (database) => database.templateVersions,
-      findByRemoteId:
-          (database, id) =>
-              database.templateVersions
-                  .filter()
-                  .firestoreIdEqualTo(id)
-                  .findFirst(),
+      findByRemoteId: (database, id) =>
+          database.templateVersions.filter().firestoreIdEqualTo(id).findFirst(),
       decode: TemplateVersion.fromMap,
-      ownerUid:
-          (record) =>
-              record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
+      ownerUid: (record) =>
+          record.deletedByUid ?? record.updatedByUid ?? record.createdByUid,
       remoteDocumentId: (record) => record.firestoreId,
     ),
     'baf_knowledge_row' => _LocalRecoveryAdapter.typed<BafKnowledgeRow>(
       collectionPath: 'knowledge_base',
       collection: (database) => database.bafKnowledgeRows,
-      findByRemoteId:
-          (database, id) =>
-              database.bafKnowledgeRows.filter().rowCodeEqualTo(id).findFirst(),
+      findByRemoteId: (database, id) =>
+          database.bafKnowledgeRows.filter().rowCodeEqualTo(id).findFirst(),
       decode: BafKnowledgeRow.fromCloudMap,
       ownerUid: (record) => record.updatedByUid,
       remoteDocumentId: (record) => record.rowCode,
@@ -927,8 +914,8 @@ class _LocalRecoveryAdapter {
         final remoteId = _clean(rejection.firestoreId ?? identifier);
         return remoteId == null ? null : findByRemoteId(database, remoteId);
       },
-      findByRemoteId:
-          (database, remoteId) => findByRemoteId(database, remoteId),
+      findByRemoteId: (database, remoteId) =>
+          findByRemoteId(database, remoteId),
       put: (database, record) async {
         await collection(database).put(record as T);
       },

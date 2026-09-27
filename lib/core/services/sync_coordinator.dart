@@ -129,6 +129,7 @@ class SyncRunHealth {
   final int failureCount;
   final int conflictCount;
   final int deferredStageCount;
+  final int deferredRecordCount;
   final int runCount;
   final String? lastError;
   final List<SyncFailureDetail> failureDetails;
@@ -159,6 +160,7 @@ class SyncRunHealth {
     this.failureCount = 0,
     this.conflictCount = 0,
     this.deferredStageCount = 0,
+    this.deferredRecordCount = 0,
     this.runCount = 0,
     this.lastError,
     this.failureDetails = const <SyncFailureDetail>[],
@@ -185,6 +187,7 @@ class SyncRunHealth {
     int? failureCount,
     int? conflictCount,
     int? deferredStageCount,
+    int? deferredRecordCount,
     int? runCount,
     String? lastError,
     List<SyncFailureDetail>? failureDetails,
@@ -215,6 +218,7 @@ class SyncRunHealth {
       failureCount: failureCount ?? this.failureCount,
       conflictCount: conflictCount ?? this.conflictCount,
       deferredStageCount: deferredStageCount ?? this.deferredStageCount,
+      deferredRecordCount: deferredRecordCount ?? this.deferredRecordCount,
       runCount: runCount ?? this.runCount,
       lastError: clearLastError ? null : (lastError ?? this.lastError),
       failureDetails: failureDetails ?? this.failureDetails,
@@ -417,6 +421,7 @@ class SyncCoordinator {
       failureCount: 0,
       conflictCount: 0,
       deferredStageCount: 0,
+      deferredRecordCount: 0,
       failureDetails: const <SyncFailureDetail>[],
       failureDetailOverflowCount: 0,
       lastFailureLikelyPermanent: false,
@@ -480,7 +485,9 @@ class SyncCoordinator {
 
       final hasFailures = _sync.lastFailureCount > 0;
       final deferredStageCount = _sync.lastDeferredPushStages.length;
-      final hasIncompletePush = hasFailures || deferredStageCount > 0;
+      final deferredRecordCount = _sync.lastDeferredPushRecordKeys.length;
+      final hasIncompletePush =
+          hasFailures || deferredStageCount > 0 || deferredRecordCount > 0;
 
       _ref.read(syncStatusProvider.notifier).state = hasIncompletePush
           ? SyncStatus.partial
@@ -507,9 +514,13 @@ class SyncCoordinator {
         failureCount: _sync.lastFailureCount,
         conflictCount: conflictCount,
         deferredStageCount: deferredStageCount,
+        deferredRecordCount: deferredRecordCount,
         runCount: nextRunCount,
         lastError: hasFailures
             ? 'Pull completed; some changes still need attention.'
+            : deferredRecordCount > 0
+            ? 'Pull completed; saved work is waiting '
+                  'for related server records. Sync again to check remaining work.'
             : deferredStageCount > 0
             ? 'Pull completed; some sync steps were deferred after reconciliation. '
                   'Sync again to check remaining local work.'
@@ -535,6 +546,7 @@ class SyncCoordinator {
           failureCount: _sync.lastFailureCount,
           conflictCount: conflictCount,
           deferredStageCount: deferredStageCount,
+          deferredRecordCount: deferredRecordCount,
           runCount: nextRunCount,
           failureDetails: failureDetails,
           failureDetailOverflowCount: _sync.lastFailureDetailOverflowCount,
@@ -555,6 +567,7 @@ class SyncCoordinator {
             'sync_failure_count': _sync.lastFailureCount,
             'sync_conflict_count': conflictCount,
             'sync_deferred_stage_count': deferredStageCount,
+            'sync_deferred_record_count': deferredRecordCount,
             if (firstFailure != null)
               'sync_first_failure_entity_type': firstFailure.entityType,
             if (firstFailure?.errorCode != null)
@@ -594,6 +607,9 @@ class SyncCoordinator {
       final deferredStageCount = pushStarted
           ? _sync.lastDeferredPushStages.length
           : 0;
+      final deferredRecordCount = pushStarted
+          ? _sync.lastDeferredPushRecordKeys.length
+          : 0;
       final detailOverflow = pushStarted
           ? _sync.lastFailureDetailOverflowCount
           : 0;
@@ -610,6 +626,7 @@ class SyncCoordinator {
         failureCount: failureCount,
         conflictCount: conflictCount,
         deferredStageCount: deferredStageCount,
+        deferredRecordCount: deferredRecordCount,
         runCount: nextRunCount,
         lastError: '$error',
         failureDetails: failureDetails,
@@ -627,6 +644,7 @@ class SyncCoordinator {
           failureCount: failureCount,
           conflictCount: conflictCount,
           deferredStageCount: deferredStageCount,
+          deferredRecordCount: deferredRecordCount,
           runCount: nextRunCount,
           failureDetails: failureDetails,
           failureDetailOverflowCount: detailOverflow,
@@ -692,12 +710,15 @@ class SyncCoordinator {
     try {
       await _ref
           .read(localSyncRecoveryServiceProvider)
-          .reconcileAuthoritativelyPurgedTombstones(actor: actor);
+          .reconcileAuthoritativelyPurgedTombstones(
+            actor: actor,
+            runGuard: runGuard,
+          );
       runGuard.checkCurrent();
     } catch (error, stackTrace) {
-      if (_disposed) return;
       rethrowIfSyncRunMustAbort(error);
       runGuard.checkCurrent();
+      if (_disposed) return;
       // Local compaction is best-effort. A failed manifest read must not turn
       // an otherwise healthy business-data synchronization into a failure.
       debugPrint('Authoritative purge reconciliation deferred: $error');
@@ -988,6 +1009,7 @@ class SyncCoordinator {
       'sync_last_succeeded': false,
       'sync_last_partially_succeeded': false,
       'sync_deferred_stage_count': 0,
+      'sync_deferred_record_count': 0,
     });
     AppLogger.info(
       'Full sync started',
@@ -1009,6 +1031,7 @@ class SyncCoordinator {
     required int failureCount,
     required int conflictCount,
     required int deferredStageCount,
+    required int deferredRecordCount,
     required int runCount,
     required List<SyncFailureDetail> failureDetails,
     required int failureDetailOverflowCount,
@@ -1026,6 +1049,7 @@ class SyncCoordinator {
       'sync_last_failure_count': failureCount,
       'sync_last_conflict_count': conflictCount,
       'sync_deferred_stage_count': deferredStageCount,
+      'sync_deferred_record_count': deferredRecordCount,
       'sync_run_count': runCount,
       'sync_failure_detail_overflow': failureDetailOverflowCount,
       'sync_first_failure_entity_type': firstFailure?.entityType ?? '',

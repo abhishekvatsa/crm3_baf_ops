@@ -2124,17 +2124,30 @@
       "reArmCondition": "malformed provenance permits existing-store open"
     },
     {
-      "id": "profile-token-race-retry",
+      "id": "profile-snapshot-decoder-propagation",
       "file": "lib/features/auth/providers/auth_provider.dart",
-      "siteFingerprint": "c12b9501f490dd9930f2d63798e679955af7baaffa16f4dd3707e85fd97dbb54",
+      "siteFingerprint": "4de32447dec516d6e41e70f43955a69cc56e7775ef402b49eb55bf527cf9788f",
+      "classification": "FAIL_CLOSED_ERROR_PROPAGATION",
+      "purpose": "forward current-session profile decoding failures to the provider error stream without supplying an approved fallback",
+      "authorityBoundary": "live Firebase UID and the active profile listener generation; sign-out and replacement revoke the old listener",
+      "mutability": "no persisted profile mutation; authentication token refresh only for the existing eligible permission-denial retry",
+      "dataScope": "users/{uid} snapshot decoding through AppUser.fromFirestore",
+      "malformedDisposition": "profile format failures remain errors and close the active profile stream; only the existing eligible Firebase permission denial can retry once",
+      "regression": "test/auth_profile_session_lifecycle_test.dart; test/auth_profile_stream_replacement_test.dart; test/user_authority_schema_test.dart",
+      "reArmCondition": "malformed current profile becomes approved data, obsolete listener errors replace a new actor, or retry eligibility or budget broadens"
+    },
+    {
+      "id": "profile-listener-admission-retry",
+      "file": "lib/features/auth/providers/auth_provider.dart",
+      "siteFingerprint": "4040a10c482f3a4752be0272bbadc711f51158bee756f494e4538b4abe27ed55",
       "classification": "TRANSPORT_RETRY_ONLY",
-      "purpose": "retry one Firestore permission denial after forced token refresh",
-      "authorityBoundary": "current approved user profile",
-      "mutability": "authentication token refresh only",
-      "dataScope": "users/{uid} snapshot stream",
-      "malformedDisposition": "profile format failures escape; only eligible Firebase permission denial is retried",
-      "regression": "test/auth_profile_token_race_test.dart",
-      "reArmCondition": "profile format error is caught, authority is retained, or retry budget broadens"
+      "purpose": "route synchronous profile listener setup failures through the same bounded permission-denial retry and visible-error path",
+      "authorityBoundary": "live Firebase UID and the active listener generation; cancelled or replaced sessions cannot emit profile authority",
+      "mutability": "authentication token refresh only; no durable profile or business-data writes",
+      "dataScope": "users/{uid} snapshot listener setup",
+      "malformedDisposition": "noneligible and exhausted errors are propagated to the current provider and close its stream; no stale or fabricated profile is returned",
+      "regression": "test/auth_profile_token_race_test.dart; test/auth_profile_session_lifecycle_test.dart; test/auth_profile_stream_replacement_test.dart",
+      "reArmCondition": "listener failure becomes approved data, an old session is reattached, or retry eligibility or budget broadens"
     },
     {
       "id": "workflow-command-receipt-translation",

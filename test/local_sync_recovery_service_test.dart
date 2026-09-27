@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/services/local_sync_recovery_service.dart';
 import 'package:crm3_baf_ops/core/services/sync_rejection_service.dart';
+import 'package:crm3_baf_ops/core/services/sync_run_guard.dart';
 import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
@@ -61,15 +63,13 @@ void main() {
       await _withDatabase((database) async {
         final local = _directive(version: 4, isSynced: false);
         await _insert(database, local, _rejection());
-        final remote =
-            _directive(version: 5, isSynced: true)
-              ..title = 'Authoritative operations instruction'
-              ..updatedAt = DateTime.utc(2026, 8, 25, 11);
+        final remote = _directive(version: 5, isSynced: true)
+          ..title = 'Authoritative operations instruction'
+          ..updatedAt = DateTime.utc(2026, 8, 25, 11);
         final service = _service(
           database,
-          reader:
-              (collection, identifier) async =>
-                  LocalSyncRecoveryRemoteDocument.existing(remote.toMap()),
+          reader: (collection, identifier) async =>
+              LocalSyncRecoveryRemoteDocument.existing(remote.toMap()),
         );
 
         final result = await service.discardOwnRejectedChanges(actor: _actor());
@@ -96,8 +96,8 @@ void main() {
         await _insert(database, local, _rejection());
         final service = _service(
           database,
-          reader:
-              (_, _) async => const LocalSyncRecoveryRemoteDocument.missing(),
+          reader: (_, _) async =>
+              const LocalSyncRecoveryRemoteDocument.missing(),
         );
 
         final result = await service.discardOwnRejectedChanges(actor: _actor());
@@ -192,11 +192,10 @@ void main() {
       await _withDatabase((database) async {
         final local = _directive(isSynced: false);
         await _insert(database, local, _rejection(permanent: false));
-        final immutable =
-            _rejection()
-              ..entityType = 'audit_event'
-              ..entityId = 'audit-1'
-              ..firestoreId = 'audit-1';
+        final immutable = _rejection()
+          ..entityType = 'audit_event'
+          ..entityId = 'audit-1'
+          ..firestoreId = 'audit-1';
         await database.writeTxn(() => database.syncRejections.put(immutable));
         var reads = 0;
         final service = _service(
@@ -253,8 +252,8 @@ void main() {
         await _insert(database, local, _rejection());
         final service = _service(
           database,
-          reader:
-              (_, _) async => const LocalSyncRecoveryRemoteDocument.existing(
+          reader: (_, _) async =>
+              const LocalSyncRecoveryRemoteDocument.existing(
                 <String, dynamic>{},
               ),
         );
@@ -332,10 +331,9 @@ void main() {
       await _withDatabase((database) async {
         await database.writeTxn(() async {
           for (var index = 0; index < 8; index++) {
-            final rejection =
-                _rejection()
-                  ..entityId = 'directive-$index'
-                  ..firestoreId = 'directive-$index';
+            final rejection = _rejection()
+              ..entityId = 'directive-$index'
+              ..firestoreId = 'directive-$index';
             await database.syncRejections.put(rejection);
           }
         });
@@ -388,15 +386,14 @@ void main() {
         final service = LocalSyncRecoveryService(
           databaseLookup: () => database,
           authenticatedUidLookup: () => 'operator-1',
-          purgeManifestReader:
-              (_) async => <AuthoritativePurgeManifest>[
-                AuthoritativePurgeManifest(
-                  collectionId: 'directives',
-                  documentId: 'directive-1',
-                  sourceVersion: 4,
-                  purgedAt: DateTime.utc(2026, 8, 25, 12),
-                ),
-              ],
+          purgeManifestReader: (_) async => <AuthoritativePurgeManifest>[
+            AuthoritativePurgeManifest(
+              collectionId: 'directives',
+              documentId: 'directive-1',
+              sourceVersion: 4,
+              purgedAt: DateTime.utc(2026, 8, 25, 12),
+            ),
+          ],
         );
 
         final result = await service.reconcileAuthoritativelyPurgedTombstones(
@@ -421,15 +418,14 @@ void main() {
         final service = LocalSyncRecoveryService(
           databaseLookup: () => database,
           authenticatedUidLookup: () => 'operator-1',
-          purgeManifestReader:
-              (_) async => <AuthoritativePurgeManifest>[
-                AuthoritativePurgeManifest(
-                  collectionId: 'directives',
-                  documentId: 'directive-1',
-                  sourceVersion: 4,
-                  purgedAt: DateTime.utc(2026, 8, 25, 12),
-                ),
-              ],
+          purgeManifestReader: (_) async => <AuthoritativePurgeManifest>[
+            AuthoritativePurgeManifest(
+              collectionId: 'directives',
+              documentId: 'directive-1',
+              sourceVersion: 4,
+              purgedAt: DateTime.utc(2026, 8, 25, 12),
+            ),
+          ],
         );
 
         final result = await service.reconcileAuthoritativelyPurgedTombstones(
@@ -510,24 +506,22 @@ void main() {
     () async {
       await _withDatabase((database) async {
         final created = DateTime.utc(2026, 8, 25, 9);
-        final template =
-            JobTemplate()
-              ..firestoreId = 'template-1'
-              ..jobName = 'Governed maintenance template'
-              ..applicableAssetType = AssetType.furnace
-              ..createdAt = created
-              ..updatedAt = created
-              ..version = 3
-              ..isDeleted = false
-              ..isSynced = true;
-        final diary =
-            JobDiaryEntry()
-              ..firestoreId = 'diary-local-1'
-              ..templateFirestoreId = 'template-1'
-              ..note = 'Pending maintenance evidence must be retained.'
-              ..createdAt = created
-              ..updatedAt = created
-              ..isSynced = false;
+        final template = JobTemplate()
+          ..firestoreId = 'template-1'
+          ..jobName = 'Governed maintenance template'
+          ..applicableAssetType = AssetType.furnace
+          ..createdAt = created
+          ..updatedAt = created
+          ..version = 3
+          ..isDeleted = false
+          ..isSynced = true;
+        final diary = JobDiaryEntry()
+          ..firestoreId = 'diary-local-1'
+          ..templateFirestoreId = 'template-1'
+          ..note = 'Pending maintenance evidence must be retained.'
+          ..createdAt = created
+          ..updatedAt = created
+          ..isSynced = false;
         await database.writeTxn(() async {
           await database.jobTemplates.put(template);
           await database.jobDiaryEntrys.put(diary);
@@ -535,15 +529,14 @@ void main() {
         final service = LocalSyncRecoveryService(
           databaseLookup: () => database,
           authenticatedUidLookup: () => 'operator-1',
-          purgeManifestReader:
-              (_) async => <AuthoritativePurgeManifest>[
-                AuthoritativePurgeManifest(
-                  collectionId: 'job_templates',
-                  documentId: 'template-1',
-                  sourceVersion: 4,
-                  purgedAt: DateTime.utc(2026, 8, 25, 12),
-                ),
-              ],
+          purgeManifestReader: (_) async => <AuthoritativePurgeManifest>[
+            AuthoritativePurgeManifest(
+              collectionId: 'job_templates',
+              documentId: 'template-1',
+              sourceVersion: 4,
+              purgedAt: DateTime.utc(2026, 8, 25, 12),
+            ),
+          ],
         );
 
         final result = await service.reconcileAuthoritativelyPurgedTombstones(
@@ -558,12 +551,39 @@ void main() {
         expect(quarantined!.isDeleted, isTrue);
         expect(quarantined.isSynced, isTrue);
         expect(quarantined.version, 4);
-        expect(
-          quarantined.deletedAt?.toUtc(),
-          DateTime.utc(2026, 8, 25, 12),
-        );
+        expect(quarantined.deletedAt?.toUtc(), DateTime.utc(2026, 8, 25, 12));
         expect(await database.jobDiaryEntrys.get(diary.id), isNotNull);
       });
+    },
+  );
+
+  test(
+    'same-UID authority epoch loss during manifest read prevents deletion',
+    () async {
+      await _expectInvalidatedPurgePreservesRows(
+        pauseAtManifest: true,
+        hasDependentEvidence: false,
+        reason: 'account-or-authority-changed',
+      );
+    },
+  );
+
+  test('run disposal during dependency read prevents deletion', () async {
+    await _expectInvalidatedPurgePreservesRows(
+      pauseAtManifest: false,
+      hasDependentEvidence: false,
+      reason: 'run-owner-ended',
+    );
+  });
+
+  test(
+    'same-UID authority epoch loss during dependency read prevents quarantine',
+    () async {
+      await _expectInvalidatedPurgePreservesRows(
+        pauseAtManifest: false,
+        hasDependentEvidence: true,
+        reason: 'account-or-authority-changed',
+      );
     },
   );
 
@@ -643,25 +663,23 @@ void main() {
     () async {
       await _withDatabase((database) async {
         final created = DateTime.utc(2026, 8, 25, 9);
-        final template =
-            JobTemplate()
-              ..firestoreId = 'template-1'
-              ..jobName = 'Governed maintenance template'
-              ..applicableAssetType = AssetType.furnace
-              ..createdAt = created
-              ..updatedAt = created
-              ..deletedAt = created
-              ..version = 4
-              ..isDeleted = true
-              ..isSynced = true;
-        final diary =
-            JobDiaryEntry()
-              ..firestoreId = 'diary-local-1'
-              ..templateFirestoreId = 'template-1'
-              ..note = 'Pending maintenance evidence must be retained.'
-              ..createdAt = created
-              ..updatedAt = created
-              ..isSynced = false;
+        final template = JobTemplate()
+          ..firestoreId = 'template-1'
+          ..jobName = 'Governed maintenance template'
+          ..applicableAssetType = AssetType.furnace
+          ..createdAt = created
+          ..updatedAt = created
+          ..deletedAt = created
+          ..version = 4
+          ..isDeleted = true
+          ..isSynced = true;
+        final diary = JobDiaryEntry()
+          ..firestoreId = 'diary-local-1'
+          ..templateFirestoreId = 'template-1'
+          ..note = 'Pending maintenance evidence must be retained.'
+          ..createdAt = created
+          ..updatedAt = created
+          ..isSynced = false;
         await database.writeTxn(() async {
           await database.jobTemplates.put(template);
           await database.jobDiaryEntrys.put(diary);
@@ -713,6 +731,113 @@ Future<void> _withDatabase(Future<void> Function(Isar) operation) async {
     await database.close(deleteFromDisk: true);
     if (await directory.exists()) await directory.delete(recursive: true);
   }
+}
+
+Future<void> _expectInvalidatedPurgePreservesRows({
+  required bool pauseAtManifest,
+  required bool hasDependentEvidence,
+  required String reason,
+}) async {
+  await _withDatabase((database) async {
+    final created = DateTime.utc(2026, 8, 25, 9);
+    final template = JobTemplate()
+      ..firestoreId = 'guarded-template'
+      ..jobName = 'Synthetic retained template'
+      ..applicableAssetType = AssetType.furnace
+      ..createdAt = created
+      ..updatedAt = created
+      ..version = 3
+      ..isDeleted = false
+      ..isSynced = true;
+    final diary = JobDiaryEntry()
+      ..firestoreId = 'guarded-diary'
+      ..templateFirestoreId = template.firestoreId
+      ..note = 'Pending evidence must remain untouched.'
+      ..createdAt = created
+      ..updatedAt = created
+      ..isSynced = false;
+    await database.writeTxn(() async {
+      await database.jobTemplates.put(template);
+      if (hasDependentEvidence) await database.jobDiaryEntrys.put(diary);
+    });
+    final original = (await database.jobTemplates.get(template.id))!.toMap();
+    final paused = Completer<void>();
+    final resume = Completer<void>();
+    var authorityEpoch = 0;
+    var disposed = false;
+    final guard = SyncRunGuard(() {
+      if (disposed) throw const SyncRunAborted('run-owner-ended');
+      if (authorityEpoch != 0) {
+        throw const SyncRunAborted('account-or-authority-changed');
+      }
+    });
+    Future<void> pauseRead() async {
+      paused.complete();
+      await resume.future;
+    }
+
+    final service = LocalSyncRecoveryService(
+      databaseLookup: () => database,
+      // Authentication remains the same approved UID throughout this test.
+      authenticatedUidLookup: () => 'operator-1',
+      purgeManifestReader: (_) async {
+        if (pauseAtManifest) await pauseRead();
+        return [
+          AuthoritativePurgeManifest(
+            collectionId: 'job_templates',
+            documentId: template.firestoreId!,
+            sourceVersion: 4,
+            purgedAt: DateTime.utc(2026, 8, 25, 12),
+          ),
+        ];
+      },
+      purgeDependencyReader:
+          (
+            db, {
+            required entityType,
+            required remoteId,
+            required localId,
+          }) async {
+            expect(entityType, 'job_template');
+            expect(localId, template.id);
+            final dependency = await db.jobDiaryEntrys
+                .filter()
+                .templateFirestoreIdEqualTo(remoteId)
+                .findFirst();
+            if (!pauseAtManifest) await pauseRead();
+            return dependency != null;
+          },
+    );
+    final operation = service.reconcileAuthoritativelyPurgedTombstones(
+      actor: _actor(),
+      runGuard: guard,
+    );
+    final aborted = expectLater(
+      operation,
+      throwsA(
+        isA<SyncRunAborted>().having((error) => error.reason, 'reason', reason),
+      ),
+    );
+    await paused.future.timeout(const Duration(seconds: 5));
+    if (reason == 'run-owner-ended') {
+      disposed = true;
+    } else {
+      // A revoke/regrant changes the authority epoch even with the same UID.
+      authorityEpoch += 2;
+    }
+    resume.complete();
+    await aborted;
+    final retained = await database.jobTemplates.get(template.id);
+    expect(retained, isNotNull);
+    expect(retained!.toMap(), original);
+    expect(retained.isSynced, true);
+    if (hasDependentEvidence) {
+      final retainedDiary = await database.jobDiaryEntrys.get(diary.id);
+      expect(retainedDiary, isNotNull);
+      expect(retainedDiary!.note, diary.note);
+      expect(retainedDiary.isSynced, false);
+    }
+  });
 }
 
 Future<void> _insert(
@@ -794,14 +919,13 @@ OperationalDirective _directive({
     ..isSynced = isSynced;
 }
 
-SyncRejection _rejection({bool permanent = true}) =>
-    SyncRejection()
-      ..entityType = 'directive'
-      ..entityId = 'directive-1'
-      ..firestoreId = 'directive-1'
-      ..message = 'Rejected by the authoritative server.'
-      ..originatingUid = 'operator-1'
-      ..isLikelyPermanent = permanent
-      ..firstSeenAt = DateTime.utc(2026, 8, 25, 10)
-      ..lastSeenAt = DateTime.utc(2026, 8, 25, 10)
-      ..isResolved = false;
+SyncRejection _rejection({bool permanent = true}) => SyncRejection()
+  ..entityType = 'directive'
+  ..entityId = 'directive-1'
+  ..firestoreId = 'directive-1'
+  ..message = 'Rejected by the authoritative server.'
+  ..originatingUid = 'operator-1'
+  ..isLikelyPermanent = permanent
+  ..firstSeenAt = DateTime.utc(2026, 8, 25, 10)
+  ..lastSeenAt = DateTime.utc(2026, 8, 25, 10)
+  ..isResolved = false;

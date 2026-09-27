@@ -361,6 +361,8 @@ class _Push extends Fake implements SyncService {
   @override
   Set<String> get lastDeferredPushStages => {};
   @override
+  Set<String> get lastDeferredPushRecordKeys => {};
+  @override
   int get lastFailureDetailOverflowCount => 0;
   @override
   Set<String> get lastConflictKeys => {};
