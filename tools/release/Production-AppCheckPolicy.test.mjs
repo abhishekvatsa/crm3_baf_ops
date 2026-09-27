@@ -98,6 +98,14 @@ for (const field of ['approverName', 'approvalReference']) {
       'TO—DO123', 'T☀O+D★O APPROVER', 'ＴＯ－ＤＯ APPROVER', 'R E P L A C E_APPROVER',
       '**TODO**', '“FIX-TURE approval”', 'TODOA P P R O V E R', 'T O D O R E F E R E N C E',
       '🛠️ T🛠O🛠D🛠O APPROVER 🛠️', '...---', ' ☀ + — ', '🛠️💡', '** \t **',
+      'T\u0332O\u0332D\u0332O\u0332APPROVER',
+      'TÓDÓAPPROVER', 'FÍXTÚRÉREFERENCE', 'RÉPLACÉ APPROVER',
+      // Mn, Mc, Me and supplementary marks; acute also tests NFKC composition.
+      ...['\u0332', '\u0903', '\u20DD', '\u{1D185}', '\u0301'].flatMap((mark) =>
+        ['TODO', 'FIXTURE', 'REPLACE'].flatMap((stem) =>
+          ['', 'APPROVER', 'REFERENCE'].map((suffix) =>
+            [...(stem + suffix)].join(mark) + mark))),
+      '\u0332\u0903\u20DD\u{1D185}',
       ...['TODO', 'REPLACE', 'FIXTURE'].flatMap((stem) => [
         `${stem}123`, `${stem} 123`,
         ...['APPROVER', 'REFERENCE'].flatMap((suffix) => {
@@ -150,6 +158,8 @@ test('genuine approval identities pass without rewriting the retained identity',
     {approverName: 'Todorov Alexei', approvalReference: 'Todoist ticket 123'},
     {approverName: 'To-dor Ivanov', approvalReference: 'To-doist release review'},
     {approverName: 'Todor Ivanov', approvalReference: 'Replacement release review 30'},
+    {approverName: 'Tóḋor Ivanov', approvalReference: 'Réplacement release review 30'},
+    {approverName: 'अभिषेक वत्स', approvalReference: 'Owner review / Jose\u0301'},
     {approverName: 'علی\u200Cرضا', approvalReference: 'Owner decision 30 / 李\u{E0100}明'},
   ]};
   const result = run(t, input, `

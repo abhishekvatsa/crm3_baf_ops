@@ -48,11 +48,11 @@ function Get-ProductionAppCheckBuildEvidence {
     if ($identity -isnot [string] -or [string]::IsNullOrWhiteSpace($identity) -or $identity.Length -gt 4000) {
       throw 'App Check approval identity must be accountable non-placeholder text.'
     }
-    # Compare NFKC text without Unicode 16 Default_Ignorable_Code_Point ranges
+    # Compare NFKD text without Unicode 16 Default_Ignorable_Code_Point ranges
     # (DerivedCoreProperties.txt), then trim. .NET regex uses UTF-16 pairs for
     # the three supplementary ranges. Never rewrite hash-bound original text.
     $invisibleIdentityPattern = '[\u00AD\u034F\u061C\u115F-\u1160\u17B4-\u17B5\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\uFFF0-\uFFF8]|\uD82F[\uDCA0-\uDCA3]|\uD834[\uDD73-\uDD7A]|[\uDB40-\uDB43][\uDC00-\uDFFF]'
-    $normalizedIdentity = [regex]::Replace($identity.Normalize([Text.NormalizationForm]::FormKC), $invisibleIdentityPattern, '').Trim()
+    $normalizedIdentity = [regex]::Replace($identity.Normalize([Text.NormalizationForm]::FormKD), $invisibleIdentityPattern, '').Trim()
     # Compare presentation punctuation, symbols and whitespace as spaces,
     # including supplementary Unicode symbols. Retain word boundaries rather
     # than concatenating arbitrary names; never alter the approval's raw text.
@@ -63,6 +63,13 @@ function Get-ProductionAppCheckBuildEvidence {
           $offset + 1 -lt $normalizedIdentity.Length -and
           [char]::IsLowSurrogate($normalizedIdentity[$offset + 1])) { $width = 2 }
       $category = [Globalization.CharUnicodeInfo]::GetUnicodeCategory($normalizedIdentity, $offset)
+      # Combining decoration is comparison-only. Decomposition also makes
+      # canonically equivalent composed/decomposed decorated markers agree.
+      # Genuine names and the hash-bound original evidence remain untouched.
+      if ($category.ToString() -match 'Mark$') {
+        $offset += $width
+        continue
+      }
       if ([char]::IsWhiteSpace($normalizedIdentity, $offset) -or
           $category.ToString() -match '(Punctuation|Symbol)$') {
         [void]$identityComparison.Append(' ')
