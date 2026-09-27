@@ -1,0 +1,38 @@
+# Google Play distribution readiness — 27 September 2026
+
+Status: preparation only. **No upload, rollout, deployment, merge or version change is authorized by this document.** The source review and saved receipts establish useful readiness evidence, but do not establish that the current candidate is distributable.
+
+## Verified source and historical evidence
+
+| Area | Evidence and boundary |
+| --- | --- |
+| Package and version | Production package remains `in.co.sail.bsl.crm3.bafops`; [pubspec.yaml](../pubspec.yaml) still declares `1.0.0-rc.19+29`. Build 29 is already a consumed governed candidate. Keep source version unchanged until an actual successor candidate is allocated. |
+| Android target | [Android configuration](../android/app/build.gradle.kts) targets and compiles API36, meeting the ordinary Android submission target in the [current official guidance](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en). Verify the final artifact's merged manifest too. |
+| DEV isolation | Gradle requires the DEV package identity and emulator flag together and restricts them to explicit debug tasks. DEV installs under `.dev`; [runtime wiring](../lib/core/dev/dev_environment.dart) rejects release mode and non-demo projects. DEV business tests do not prove production Google sign-in or Play delivery. |
+| Signing configuration | Release builds require explicit production signing inputs and have no debug-signing fallback. **The original Play signing mismatch was resolved on 20 September.** The [completed import/readback receipt](../release/evidence/play-original-signing-key-import-20260920.json) records a downloaded Play app-signing certificate matching the verified legacy signer; the displayed upload certificate also matched. Do not restart key export/import based on the earlier preparation notes. Refresh current Console certificates before a candidate upload. |
+| Native packaging | Exact-head `d13a2049` CI passed non-production release-package native 16KB alignment and backup-policy checks. The release tools also require native alignment verification. This is neither the final production-signed AAB nor proof of its runtime behavior on a 16KB device. Follow [Android's alignment and runtime checks](https://developer.android.com/guide/practices/page-sizes) for the actual candidate. |
+| Installed production app | The authorized device readback reports production Build 29 with `installerPackageName=null`. This alone does not prove installer history or Play eligibility. No production app/data modification was made during this readiness work. The separate DEV app was used for the read-only Inner Cover tour. |
+| Backend compatibility | [Current successor state](../release/current-successor-state.json) records source awaiting governed deployment. New commands/Rules and client migration require a coordinated compatibility plan; source tests do not establish production deployment. [CF01 validation](CF01_IMPLEMENTATION_VALIDATION_2026_09_27.md) describes the retained-work boundary. |
+
+The signing receipt expressly leaves **a Play-delivered in-place update preserving local records and pending submissions unproved**. A matching certificate or a sideloaded installation is not that proof. Google's [Play App Signing guidance](https://support.google.com/googleplay/android-developer/answer/9842756?hl=en) distinguishes the upload certificate from the certificates on delivered APKs.
+
+## Current unknowns and product gaps
+
+Live Play Console inspection is currently unavailable: browser initialization failed twice because the Windows sandbox helper could not initialize. No Console state was changed. The [20 September preparation record](PLAY_DISTRIBUTION_PREPARATION_2026_09_20.md) contains dated observations, **not current setup counts, tester progress, certificate inventory or production-access status**.
+
+The focused current-source review found no user-facing privacy-policy/contact route or account-deletion request route. Google sign-in creates an app account and pending profile before approval, so this is not an account-free app. Google requires a [privacy policy in the app and Console](https://support.google.com/googleplay/android-developer/answer/10144311?hl=en) and, for applicable account-creating apps, an [in-app and external deletion-request path](https://support.google.com/googleplay/android-developer/answer/13327111?hl=en). Workplace use alone does not establish an exemption.
+
+Owner input is pending for the publisher/responsible organization, monitored contact address, and person/team handling deletion requests. The policy must describe actual retention and fulfillment; disabling access is not account deletion. Any justified retention of shared operational/audit evidence and treatment of local uncertain submissions must be explicit. No destructive deletion routine or unimplemented retention promise should be invented to complete a form.
+
+## Candidate checklist
+
+- [ ] Refresh Console read-only: app identity, full signing certificate/lineage set and upload certificate, highest used versionCode, current setup/policy tasks, protection settings, reviewer access, tester status and production eligibility. Record dated evidence.
+- [ ] Resolve the pending owner inputs; prepare a public policy and monitored request/contact resource, then implement accessible in-app privacy and account-deletion request routes with safe treatment of retained work.
+- [ ] Complete accurate listing/contact materials, branding rights, screenshots, app-content and Data safety declarations for actual production behavior. Include Firebase SDK collection, attributed operational records and notification identifiers; CI package-proof collection is intentionally disabled and is not representative. [Data safety guidance](https://support.google.com/googleplay/android-developer/answer/10787469?hl=en).
+- [ ] Exercise a working Google-sign-in reviewer arrangement with approval and necessary roles. Record instructions using the real app flow; do not substitute a nonexistent password login or weaken authority checks.
+- [ ] Freeze source and the client/Functions/Rules rollout plan. Obtain final combined-head acceptance evidence and allocate the next approved unused versionCode above supported installed/uploaded versions. Do not reuse Build 29 or reserve a number through this checklist. [Versioning requirements](https://developer.android.com/studio/publish/versioning).
+- [ ] Through the governed release process, build and inspect the exact signed AAB/APK: source/hash binding, package/version, final manifest and SDK graph, production Firebase/App Check configuration, signer continuity and native16KB compatibility. Retain receipts.
+- [ ] After separate authorization, test the intended Play internal-track delivery as an in-place update of a representative supported installation. Verify local database and pending-command preservation, Google sign-in, Firebase access, notification registration and representative business flows. Internal App Sharing alone is insufficient continuity evidence.
+- [ ] Confirm the account's actual closed-test and production-access requirements in Console. Real tester participation and elapsed-time requirements, where applicable, are separate from CI; meeting them permits an application, not automatic production approval. [Official testing guidance](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en).
+
+The next action is preparation and refreshed evidence, not distribution. Historical release approvals and signing receipts remain unchanged.
