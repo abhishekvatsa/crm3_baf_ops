@@ -272,13 +272,13 @@ class BusinessJourneyGateTest(unittest.TestCase):
                 self.assertEqual(timeout, 180)
             if command[0] == "flutter":
                 self.assertIn("--no-uninstall", command)
-            return HTTP_PROOF + "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS DEV_QUEUE_OWNERSHIP_PREPARED DEV_QUEUE_OWNERSHIP_PASS"
+            return HTTP_PROOF + "DEV_JOURNEY_PASS DEV_RESTART_PASS DEV_PLANNED_UI_PUBLISHED DEV_PLANNED_WORK_PASS DEV_ISSUE_QUALITY_PASS DEV_BURNER_PLANT_PASS DEV_QUEUE_OWNERSHIP_PREPARED DEV_QUEUE_OWNERSHIP_PASS"
         with tempfile.TemporaryDirectory() as folder, patch.object(runner, "OUTPUT", Path(folder)), \
                 patch.object(runner, "run_logged", side_effect=logged), \
                 patch.object(runner, "prepare_ci_journey", side_effect=lambda row, *args: events.append(Path(row["path"]).stem + "-prepare")) as prepare, \
                 patch.object(runner.subprocess, "run", side_effect=lambda *args, **kwargs: events.append("force-stop-dev")) as command:
             runner.execute_journeys("emulator-5554", manifest, {})
-            self.assertEqual(prepare.call_count, 3)
+            self.assertEqual(prepare.call_count, 5)
             self.assertEqual(command.call_count, 2)
             for invocation in command.call_args_list:
                 self.assertEqual(invocation.args[0], ["adb", "-s", "emulator-5554", "shell", "am", "force-stop", runner.DEV_APP])
@@ -286,11 +286,13 @@ class BusinessJourneyGateTest(unittest.TestCase):
             report = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
             self.assertEqual(report["status"], "passed")
             self.assertEqual(report["httpBoundary"], {"status": "passed", "tests": 7, "log": "cf01-http-boundary.log"})
-            self.assertEqual(len(report["journeys"]), 5)
+            self.assertEqual(len(report["journeys"]), 7)
             self.assertEqual(events, [
                 "seed", "cf01-http-boundary", "dev_abnormality_journey_test-prepare", "dev_abnormality_journey_test",
                 "force-stop-dev", "dev_restart_recovery_test",
                 "dev_planned_work_journey_test-prepare", "dev_planned_work_journey_test",
+                "dev_issue_quality_journey_test-prepare", "dev_issue_quality_journey_test",
+                "dev_burner_plant_journey_test-prepare", "dev_burner_plant_journey_test",
                 "dev_queue_ownership_journey_test-prepare", "dev_queue_ownership_journey_test",
                 "force-stop-dev", "dev_queue_ownership_resume_journey_test", "android-logcat",
             ])
@@ -338,7 +340,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
                          [row["path"] for row in runner.load_manifest()["journeys"] if not row["preserveAppData"]])
         for row in plan["preparations"]:
             self.assertEqual(row["steps"][-1][-2:], [runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
-        self.assertEqual(len(plan["commands"]), 5)
+        self.assertEqual(len(plan["commands"]), 7)
 
     def test_each_queue_ownership_process_requires_its_own_completion_marker(self):
         journeys = [row for row in runner.load_manifest()["journeys"]

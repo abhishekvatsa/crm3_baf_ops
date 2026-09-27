@@ -313,7 +313,7 @@ jobs:
           npm --prefix functions ci
           npm --prefix tooling/firebase-cli ci --ignore-scripts
           npm --prefix functions run build
-          python3 -m unittest discover -s tools/testing -p 'test_ci_business_journeys.py'
+          python3 -m unittest discover -s tools/testing -p 'test_*business_journey*.py'
 
       - name: Enable KVM
         shell: bash

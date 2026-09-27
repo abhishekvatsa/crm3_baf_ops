@@ -1,7 +1,7 @@
 # Android business journey CI gate
 
 The `android-emulator` job in `release-gate.yml` retains the C04 app-shell test
-and then runs the five suites declared in
+and then runs the seven suites declared in
 `governance/ci-business-journeys.json` against real local Auth, Firestore Rules,
 and Functions emulators. The gate is configuration for future CI runs, not a
 claim that an unexecuted Android run has passed.
@@ -27,12 +27,25 @@ asset, records worker responses, submits and independently accepts the module,
 adds a diary, closes the lane, and obtains governed server completion. Each
 process must exit successfully and emit its post-readback completion marker.
 The planned run must also prove publication occurred through its UI in that run.
-The fourth journey uses two separately authenticated Admin accounts and native
+The fourth journey raises two maintenance-origin Quality cases on one charge,
+records physical RA for one, and obtains separate SI adjudications with the
+exact entered reasons preserved. It also logs two distinct direct abnormalities
+on that charge, with and without completed RA. Canonical readback checks the
+selected historical RA instant, process/result classification, independent open
+cases and preservation of the unresolved physical maintenance records.
+
+The fifth journey creates a fresh eight-position burner survey. I&A responds to
+one resulting directive; the next round must attribute that fresh position and
+retain the other seven positions' original evidence and unresolved UV condition.
+It checks that no component installation was invented, the original survey is
+unchanged, and Home/plant totals match the canonical physical population.
+
+The sixth journey uses two separately authenticated Admin accounts and native
 Isar repositories. A saves catalogue, legacy template and existing job work;
 B cannot overwrite, send or acknowledge that work. It emits
 `DEV_QUEUE_OWNERSHIP_PREPARED` with B still signed in and the original commands
 pending, then exits. The runner force-stops only the DEV package without clearing
-its data. A fifth journey launches a separate Android process, verifies B and
+its data. A seventh journey launches a separate Android process, verifies B and
 the same pending rows survived, and proves refusal remains in force. It then
 returns to A to resume the original request, including a real accepted server
 response deliberately left unacknowledged locally. Exact replay must preserve
@@ -51,8 +64,9 @@ The runner creates the ignored debug native Firebase configuration for only
 this demo project and the DEV package, and refuses to overwrite a different
 existing developer configuration.
 
-The seed creates synthetic approved Operations, SI, Contract Supervisor and two Admin
-accounts, complete master data and one draft through SI-authenticated Rules.
+The seed creates synthetic approved Operations, SI, Contract Supervisor, senior
+Instrumentation and two Admin accounts, complete master data and one draft
+through SI-authenticated Rules.
 Owner authority is used only for synthetic identity/catalogue setup. Publication,
 assignment, worker acceptance, and closure are never seeded. A seed marker and
 create-only preconditions refuse existing evidence rather than overwriting it.
@@ -93,13 +107,13 @@ python3 tools/testing/run_ci_business_journeys.py --device-id emulator-5554
 CI uploads `output/ci-business-journeys` (per-suite logs and result JSON) plus
 Firebase/Firestore diagnostics even on failure. No automatic rerun masks a
 business failure. The job is bounded to 60 minutes to allow cold Android/backend
-setup, three permission-bootstrap debug builds, and six separate Flutter
+setup, five permission-bootstrap debug builds, and eight separate Flutter
 integration invocations; each business process
 also has its own shorter deadline.
 
-All twelve DEV suites are classified in the manifest. The seven excluded files
-cover account diagnostic tracing, additional burner or frequent-issue/PDF
-fixtures, population-sensitive paging, historical adjudication, and human visual
+All twelve DEV suites are classified in the manifest. The five excluded files
+cover account diagnostic tracing, frequent-issue/PDF fixtures,
+population-sensitive paging, historical adjudication, and human visual
 review. They are not silently included or represented as automated coverage.
 The gate does not certify physical-device behavior, production IAM/App Check,
 offline network loss, PDF appearance, or production distribution.

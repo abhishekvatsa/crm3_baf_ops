@@ -10,8 +10,8 @@ device offline storage, production IAM, App Check, or release builds.
 from __future__ import annotations
 
 import argparse
+import base64
 import copy
-import ipaddress
 import json
 import re
 import sys
@@ -22,6 +22,17 @@ import urllib.request
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+
+EMULATOR_PROFILES = {
+    "interactive": (9099, 8080, 5001),
+    "isolated-ci": (19099, 18080, 15001),
+}
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Business-journey emulator redirects are forbidden")
 
 
 class HttpFailure(RuntimeError):
@@ -87,15 +98,21 @@ def complete_asset_fixture(collection: str, fields: dict, actor: dict) -> dict:
 
 
 class Journey:
-    def __init__(self, project: str, prefix: str, output: Path):
+    def __init__(self, project: str, prefix: str, output: Path, *, emulator_profile="interactive"):
         if not re.fullmatch(r"demo-[a-z0-9-]+", project):
             raise ValueError("Only an isolated demo- project is permitted")
         if not re.fullmatch(r"hj-[a-z0-9-]{6,60}", prefix):
             raise ValueError("Fixture prefix must be hj- followed by 6-60 lowercase letters/digits/hyphens")
+        if emulator_profile not in EMULATOR_PROFILES:
+            raise ValueError("Unknown emulator profile")
+        if emulator_profile == "isolated-ci" and project != "demo-crm3-ci-journeys":
+            raise ValueError("The isolated CI ports require their exact demo project")
         self.project, self.prefix, self.output = project, prefix, output
-        self.auth = "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1"
-        self.fs = f"http://127.0.0.1:8080/v1/projects/{project}/databases/(default)/documents"
-        self.functions = f"http://127.0.0.1:5001/{project}/asia-south1"
+        self.emulator_profile = emulator_profile
+        auth_port, firestore_port, functions_port = EMULATOR_PROFILES[emulator_profile]
+        self.auth = f"http://127.0.0.1:{auth_port}/identitytoolkit.googleapis.com/v1"
+        self.fs = f"http://127.0.0.1:{firestore_port}/v1/projects/{project}/databases/(default)/documents"
+        self.functions = f"http://127.0.0.1:{functions_port}/{project}/asia-south1"
         self.users: dict[str, dict] = {}
         self.fixture_paths: list[str] = []
         self.business_paths: list[str] = []
@@ -105,17 +122,27 @@ class Journey:
 
     def http(self, method: str, url: str, data=None, token="owner"):
         parsed = urllib.parse.urlsplit(url)
-        if parsed.scheme != "http" or not ipaddress.ip_address(parsed.hostname).is_loopback:
-            raise ValueError("Only literal loopback HTTP emulator addresses are permitted")
-        if parsed.port not in (9099, 8080, 5001):
-            raise ValueError("Unexpected emulator port")
+        if (parsed.scheme != "http" or parsed.hostname != "127.0.0.1"
+                or parsed.username or parsed.password or parsed.fragment
+                or not (url.startswith(self.auth + "/") or url.startswith(self.fs + "/")
+                        or url in (self.fs + ":commit", self.fs + ":runQuery")
+                        or url.startswith(self.functions + "/"))):
+            raise ValueError("Only the selected literal loopback demo namespace is permitted")
+        if method not in ("GET", "POST", "PATCH"):
+            raise ValueError("Business-journey reset/deletion is forbidden")
+        if url.startswith(self.auth + "/") and method == "POST":
+            if token == "owner":
+                data = {**(data or {}), "targetProjectId": self.project}
+            elif data and "targetProjectId" in data:
+                raise ValueError("Auth targetProjectId requires an administrative fixture request")
         headers = {"Content-Type": "application/json"}
         if token is not None:
             headers["Authorization"] = f"Bearer {token}"
         request = urllib.request.Request(url, headers=headers, method=method,
                                          data=None if data is None else json.dumps(data).encode())
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
+            with urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect()).open(
+                    request, timeout=60) as response:
                 raw = response.read()
                 return json.loads(raw) if raw else {}
         except urllib.error.HTTPError as error:
@@ -205,6 +232,7 @@ class Journey:
     def write_report(self):
         self.output.parent.mkdir(parents=True, exist_ok=True)
         report = {"schemaVersion": 1, "project": self.project, "prefix": self.prefix,
+                  "emulatorProfile": self.emulator_profile,
                   "startedAt": self.started, "updatedAt": instant(),
                   "transport": "Auth emulator sign-in -> Functions callable HTTP -> persisted Firestore REST read",
                   "scope": "Backend and Firestore Rules integration; no Android UI/offline or production certification",
@@ -224,6 +252,10 @@ class Journey:
             self.http("POST", f"{self.auth}/accounts:update", {"localId": uid, "emailVerified": True})
             signed = self.http("POST", f"{self.auth}/accounts:signInWithPassword?key=emulator",
                                {"email": email, "password": password, "returnSecureToken": True}, token=None)
+            token_payload = signed["idToken"].split('.')[1]
+            claims = json.loads(base64.urlsafe_b64decode(token_payload + '=' * (-len(token_payload) % 4)))
+            self.check(claims.get("aud") == self.project and claims.get("sub") == uid,
+                       "Auth emulator returned a different project or fixture identity")
             self.users[role] = {"uid": uid, "name": display, "token": signed["idToken"]}
             self.seed(f"users/{uid}", {"uid": uid, "name": display, "email": email,
                        "isApproved": role != "pending", "roles": ["operations" if role == "pending" else role],
@@ -428,6 +460,7 @@ class Journey:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", default="demo-crm3-baf-ops")
+    parser.add_argument("--emulator-profile", choices=EMULATOR_PROFILES, default="interactive")
     parser.add_argument("--prefix", default=f"hj-{datetime.now(timezone.utc):%Y%m%d%H%M%S}-{uuid.uuid4().hex[:6]}")
     parser.add_argument("--output", type=Path, default=Path("tmp/http-journey/latest.json"))
     parser.add_argument("--groups", default="quality,directives,workflow,authority,inner_covers,burners,templates,inspections,manual_condition,maintenance_cadence", help="Comma-separated scenario groups")
@@ -437,7 +470,7 @@ def main() -> int:
                  "inspections", "manual_condition", "maintenance_cadence", "morning_review"}
     if not groups or groups - supported:
         parser.error(f"Choose groups from: {', '.join(sorted(supported))}")
-    journey = Journey(args.project, args.prefix, args.output)
+    journey = Journey(args.project, args.prefix, args.output, emulator_profile=args.emulator_profile)
     try:
         journey.step("isolated Auth sign-in and scoped master fixtures", journey.setup)
         journey.synchronization_journey()

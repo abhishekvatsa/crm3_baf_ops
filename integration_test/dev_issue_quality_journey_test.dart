@@ -1,5 +1,6 @@
 // Actual phone screens -> normal services -> local Firebase -> server readback.
-// Seed tool/dev/seed_quality_phone_actor.py before running this DEV-only test.
+// Local DEV: seed tool/dev/seed_quality_phone_actor.py before running.
+// CI: use the isolated catalogue plus CRM_QUALITY_SI_EMAIL for its existing SI.
 import 'dart:convert';
 import 'dart:ui' show PlatformDispatcher;
 
@@ -23,6 +24,28 @@ import 'dev_abnormality_journey_test.dart'
     show field, keyedPrefix, waitFor, goBack;
 
 const _server = GetOptions(source: Source.server);
+const _qualitySiEmail = String.fromEnvironment(
+  'CRM_QUALITY_SI_EMAIL',
+  defaultValue: 'dev.quality-si@example.invalid',
+);
+const _operationsEmail = 'dev.operations@example.invalid';
+
+Future<void> _waitForFeedback(WidgetTester tester) => waitFor(
+  tester,
+  () => find.byType(SnackBar).evaluate().isEmpty,
+  'Normal confirmation feedback must dismiss before bottom navigation.',
+  seconds: 20,
+);
+
+DateTime _physicalRaTime(Map<String, dynamic> record) {
+  final assessment = record['assessment'];
+  expect(assessment, isA<Map<String, dynamic>>());
+  final raw = (assessment as Map<String, dynamic>)['raPerformedAt'];
+  expect(raw, isNotNull, reason: 'Explicit physical RA time must persist.');
+  final value = raw is Timestamp ? raw.toDate() : DateTime.parse(raw as String);
+  expect(value.isAfter(DateTime.now()), isFalse);
+  return value.toUtc();
+}
 
 Future<void> showControl(WidgetTester tester, Finder target) async {
   FocusManager.instance.primaryFocus?.unfocus();
@@ -79,6 +102,42 @@ Future<void> enter(WidgetTester tester, String label, String text) async {
   await tester.pump(const Duration(milliseconds: 200));
 }
 
+Future<void> _submitAdjudicationEvidence(
+  WidgetTester tester,
+  String text,
+) async {
+  final dialog = find.byType(AlertDialog);
+  final evidence = find.descendant(
+    of: dialog,
+    matching: field('Decision evidence'),
+  );
+  expect(evidence, findsOneWidget);
+  await showControl(tester, evidence);
+  // Let the actual Android keyboard finish attaching before replacing the
+  // prefilled opinion. Injecting text during attachment can race its old value.
+  await tester.tap(evidence.hitTestable());
+  await tester.pumpAndSettle();
+  await tester.enterText(evidence, text);
+  await tester.pump();
+  expect(
+    tester.widget<TextField>(evidence).controller!.text,
+    text,
+    reason: 'The active adjudication field must contain the entered evidence.',
+  );
+  final submit = find.descendant(
+    of: dialog,
+    matching: find.text('Close warning'),
+  );
+  await showControl(tester, submit);
+  expect(
+    tester.widget<TextField>(evidence).controller!.text,
+    text,
+    reason: 'Decision evidence must survive keyboard dismissal before sending.',
+  );
+  await tester.tap(submit.hitTestable());
+  await tester.pump(const Duration(milliseconds: 500));
+}
+
 Future<void> select(WidgetTester tester, Finder control, String option) async {
   await tapControl(tester, control);
   final exact = find.descendant(
@@ -103,6 +162,7 @@ Future<void> openMore(WidgetTester tester, String label) async {
 }
 
 Future<void> openQuality(WidgetTester tester) async {
+  await _waitForFeedback(tester);
   await openMore(tester, 'Quality');
   await waitFor(
     tester,
@@ -116,12 +176,42 @@ Future<void> openQuality(WidgetTester tester) async {
 
 Future<void> filter(WidgetTester tester, String name) async {
   final control = find.descendant(
-    of: find.byWidgetPredicate(
-      (w) => w.runtimeType.toString().startsWith('SegmentedButton<'),
-    ),
+    of: find.byKey(const ValueKey('quality-warning-status-filter')),
     matching: find.text(name),
   );
   await tapControl(tester, control);
+}
+
+Future<void> _showWarning(WidgetTester tester, String reason) async {
+  final list = find.byKey(const ValueKey('quality-warnings-list'));
+  final target = find.descendant(of: list, matching: find.text(reason));
+  final scrollable = find
+      .descendant(of: list, matching: find.byType(Scrollable))
+      .first;
+  final position = tester.state<ScrollableState>(scrollable).position;
+  position.jumpTo(0);
+  await tester.pump();
+  // Retained local DEV data can contain more than the first 15 warnings. Use
+  // the ordinary Show more action; never widen the canonical provider query.
+  for (var step = 0; step < 200; step++) {
+    if (target.evaluate().isNotEmpty) {
+      await showControl(tester, target);
+      return;
+    }
+    final more = find.descendant(
+      of: list,
+      matching: find.byKey(const ValueKey('business-list-show-more')),
+    );
+    if (more.evaluate().isNotEmpty) {
+      await tapControl(tester, more);
+    } else {
+      final before = position.pixels;
+      await tester.drag(list, const Offset(0, -350));
+      await tester.pump(const Duration(milliseconds: 250));
+      if (position.pixels == before && position.atEdge) break;
+    }
+  }
+  throw TestFailure('Expected warning is absent from the filtered UI: $reason');
 }
 
 Finder card(String reason) => find
@@ -138,7 +228,7 @@ Future<void> warningAction(
   String reason,
   String action,
 ) async {
-  await showControl(tester, find.text(reason));
+  await _showWarning(tester, reason);
   final button = find.descendant(of: card(reason), matching: find.text(action));
   await waitFor(tester, () {
     if (button.evaluate().isEmpty) return false;
@@ -178,6 +268,7 @@ Future<String> raiseIssue(
   int charge,
   String reason,
 ) async {
+  await _waitForFeedback(tester);
   await openMore(tester, 'Raise issue');
   await waitFor(
     tester,
@@ -244,6 +335,13 @@ Future<String> raiseIssue(
   expect(ticket['qualityWarningId'], 'issue_$ticketId');
   expect(ticket['qualityAbnormalityId'], 'issue_quality_$ticketId');
   expect(ticket['isResolved'], isFalse);
+  expect(ticket['loggedByUid'], FirebaseAuth.instance.currentUser!.uid);
+  expect(abnormality['loggedByUid'], FirebaseAuth.instance.currentUser!.uid);
+  final assessment = abnormality['assessment'] as Map;
+  expect(assessment['observationKind'], 'processEquipment');
+  expect(assessment['candidateCauses'], isEmpty);
+  expect(assessment['raPerformedAt'], isNull);
+  expect(assessment['postRaResult'], 'notAssessed');
   debugPrint(
     'PHONE_QUALITY issue=$ticketId charge=$charge reason=$reason accepted',
   );
@@ -256,6 +354,7 @@ Future<String> logAbnormality(
   String reason, {
   int? ra,
 }) async {
+  await _waitForFeedback(tester);
   await openMore(tester, 'Abnormalities');
   await tester.enterText(find.byType(TextField).first, '$charge');
   await tester.tap(find.text('Open').first);
@@ -301,13 +400,14 @@ Future<String> logAbnormality(
     find.byKey(const ValueKey('abnormality-ra-decision')),
     ra == null ? 'Not Applicable' : 'Required',
   );
+  DateTime? chosenRaTime;
   if (ra != null) {
     await tapControl(
       tester,
       find.byKey(const ValueKey('abnormality-ra-performed')),
     );
     await enter(tester, 'New RA charge number', '$ra');
-    await confirmCurrentRaTime(tester);
+    chosenRaTime = await confirmCurrentRaTime(tester);
   }
   await tapControl(tester, find.text('Log abnormality'));
   await waitFor(
@@ -333,6 +433,15 @@ Future<String> logAbnormality(
         ra == null ? 'notApplicable' : 'completed',
       );
       expect(matching.single.data()['reannealedToChargeNo'], ra);
+      final assessment = matching.single.data()['assessment'] as Map;
+      expect(assessment['observationKind'], 'resultFinding');
+      expect(assessment['candidateCauses'], isEmpty);
+      expect(assessment['postRaResult'], 'notAssessed');
+      if (ra == null) {
+        expect(assessment['raPerformedAt'], isNull);
+      } else {
+        expect(_physicalRaTime(matching.single.data()), chosenRaTime);
+      }
     } else {
       await tester.pump(const Duration(seconds: 1));
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -340,24 +449,62 @@ Future<String> logAbnormality(
   }
   expect(id, isNotNull);
   expect((await read('quality_warnings/abnormality_$id'))['status'], 'open');
-  await showControl(tester, find.textContaining(reason).first);
+  // These terminal/not-applicable RA states are intentionally outside the
+  // default Open / RA pending list. Verify visibility through its real All filter.
+  await select(
+    tester,
+    find.byKey(const ValueKey('charge-abnormality-status-filter')),
+    'All',
+  );
+  await tester.scrollUntilVisible(
+    find.textContaining(reason).first,
+    300,
+    scrollable: find
+        .descendant(
+          of: find.byKey(const ValueKey('charge-abnormalities-scroll')),
+          matching: find.byType(Scrollable),
+        )
+        .first,
+  );
+  expect(find.textContaining(reason), findsOneWidget);
   await goBack(tester);
   await goBack(tester);
   debugPrint('PHONE_QUALITY direct=$id charge=$charge ra=$ra accepted');
   return id!;
 }
 
-Future<void> confirmCurrentRaTime(WidgetTester tester) async {
+Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
+  // Synthetic physical work recorded shortly afterwards: choose an explicit
+  // earlier minute so a server receipt timestamp cannot satisfy the assertion.
+  // Minute precision matches the public picker, including across midnight.
+  final earlier = DateTime.now().subtract(const Duration(minutes: 5));
+  final selected = DateTime(
+    earlier.year,
+    earlier.month,
+    earlier.day,
+    earlier.hour,
+    earlier.minute,
+  );
   await tapControl(tester, find.byKey(const ValueKey('ra-performed-at')));
   await waitFor(
     tester,
     () => find.byType(DatePickerDialog).evaluate().isNotEmpty,
     'Explicit RA date picker',
   );
+  final dateDialog = find.byType(DatePickerDialog);
+  final dateLabels = MaterialLocalizations.of(tester.element(dateDialog));
+  await tester.tap(find.byTooltip(dateLabels.inputDateModeButtonLabel));
+  await tester.pump(const Duration(milliseconds: 250));
+  final dateInput = find.descendant(
+    of: dateDialog,
+    matching: find.byType(TextField),
+  );
+  expect(dateInput, findsOneWidget);
+  await tester.enterText(dateInput, dateLabels.formatCompactDate(selected));
   await tester.tap(
     find.descendant(
-      of: find.byType(DatePickerDialog),
-      matching: find.text('OK'),
+      of: dateDialog,
+      matching: find.text(dateLabels.okButtonLabel),
     ),
   );
   await tester.pump(const Duration(milliseconds: 400));
@@ -366,13 +513,48 @@ Future<void> confirmCurrentRaTime(WidgetTester tester) async {
     () => find.byType(TimePickerDialog).evaluate().isNotEmpty,
     'Explicit RA time picker',
   );
+  final timeDialog = find.byType(TimePickerDialog);
+  final timeContext = tester.element(timeDialog);
+  final timeLabels = MaterialLocalizations.of(timeContext);
+  final use24Hours = MediaQuery.alwaysUse24HourFormatOf(timeContext);
+  await tester.tap(find.byTooltip(timeLabels.inputTimeModeButtonLabel));
+  await tester.pump(const Duration(milliseconds: 250));
+  final timeInputs = find.descendant(
+    of: timeDialog,
+    matching: find.byType(TextField),
+  );
+  expect(timeInputs, findsNWidgets(2));
+  final selectedTime = TimeOfDay.fromDateTime(selected);
+  await tester.enterText(
+    timeInputs.first,
+    timeLabels.formatHour(selectedTime, alwaysUse24HourFormat: use24Hours),
+  );
+  await tester.enterText(
+    timeInputs.last,
+    timeLabels.formatMinute(selectedTime),
+  );
+  final period = find.descendant(
+    of: timeDialog,
+    matching: find.text(
+      selectedTime.period == DayPeriod.am
+          ? timeLabels.anteMeridiemAbbreviation
+          : timeLabels.postMeridiemAbbreviation,
+    ),
+  );
+  if (period.evaluate().isNotEmpty) {
+    await tester.tap(period);
+  }
+  FocusManager.instance.primaryFocus?.unfocus();
+  await tester.pump(const Duration(milliseconds: 250));
   await tester.tap(
     find.descendant(
-      of: find.byType(TimePickerDialog),
-      matching: find.text('OK'),
+      of: timeDialog,
+      matching: find.text(timeLabels.okButtonLabel),
     ),
   );
   await tester.pump(const Duration(milliseconds: 400));
+  expect(find.byType(TimePickerDialog), findsNothing);
+  return selected.toUtc();
 }
 
 Future<void> switchActor(WidgetTester tester, String email) async {
@@ -441,7 +623,9 @@ void main() {
         FlutterError.onError = error;
         PlatformDispatcher.instance.onError = platformError;
       }
-      expect(Firebase.app().options.projectId, 'demo-crm3-baf-ops');
+      expect(crm3DemoProjectId, startsWith('demo-'));
+      expect(Firebase.app().options.projectId, crm3DemoProjectId);
+      expect(_qualitySiEmail, endsWith('@example.invalid'));
       await waitFor(
         tester,
         () =>
@@ -457,10 +641,13 @@ void main() {
         () => find.byType(HomeScreen).evaluate().isNotEmpty,
         'Approved Operations home.',
       );
-      if (FirebaseAuth.instance.currentUser?.email !=
-          'dev.operations@example.invalid') {
-        await switchActor(tester, 'dev.operations@example.invalid');
+      if (FirebaseAuth.instance.currentUser?.email != _operationsEmail) {
+        await switchActor(tester, _operationsEmail);
       }
+      final originalActor = FirebaseAuth.instance.currentUser!.uid;
+      final originalProfile = await read('users/$originalActor');
+      expect(originalProfile['isApproved'], isTrue);
+      expect(originalProfile['roles'], ['operations']);
       var charge = 70000 + DateTime.now().millisecondsSinceEpoch % 10000;
       while ((await FirebaseFirestore.instance
               .collection('charge_abnormalities')
@@ -477,7 +664,7 @@ void main() {
       final second = await raiseIssue(tester, charge, raReason);
 
       await openQuality(tester);
-      await showControl(tester, find.text(firstReason));
+      await _showWarning(tester, firstReason);
       expect(
         find.descendant(
           of: card(firstReason),
@@ -505,21 +692,22 @@ void main() {
         'Completion evidence',
         'PHONE $charge completed as charge ${charge + 1}',
       );
-      await confirmCurrentRaTime(tester);
+      final chosenIssueRaTime = await confirmCurrentRaTime(tester);
       await tapControl(tester, find.text('Record completion'));
       await awaitRecord(
         tester,
         'quality_warnings/issue_$second',
         (d) => d['status'] == 'closureRequested',
       );
-      expect(
-        (await read(
-          'charge_abnormalities/issue_quality_$second',
-        ))['reannealedToChargeNo'],
-        charge + 1,
+      final recordedRa = await read(
+        'charge_abnormalities/issue_quality_$second',
       );
+      expect(recordedRa['reannealedToChargeNo'], charge + 1);
+      final recordedRaTime = _physicalRaTime(recordedRa);
+      expect(recordedRaTime, chosenIssueRaTime);
+      expect((recordedRa['assessment'] as Map)['postRaResult'], 'notAssessed');
       await filter(tester, 'Review');
-      await showControl(tester, find.text(raReason));
+      await _showWarning(tester, raReason);
       expect(
         find.descendant(
           of: card(raReason),
@@ -543,21 +731,28 @@ void main() {
         'PHONE $charge independent with RA',
         ra: charge + 2,
       );
+      final independentRaTime = _physicalRaTime(
+        await read('charge_abnormalities/$completed'),
+      );
       expect((await read('quality_warnings/issue_$first'))['status'], 'open');
       expect(
         (await read('quality_warnings/issue_$second'))['status'],
         'closureRequested',
       );
-      await switchActor(tester, 'dev.quality-si@example.invalid');
+      await _waitForFeedback(tester);
+      await switchActor(tester, _qualitySiEmail);
+      final adjudicator = FirebaseAuth.instance.currentUser!.uid;
+      expect(adjudicator, isNot(originalActor));
+      final adjudicatorProfile = await read('users/$adjudicator');
+      expect(adjudicatorProfile['isApproved'], isTrue);
+      expect(adjudicatorProfile['roles'], ['si']);
       await openQuality(tester);
       await warningAction(tester, firstReason, 'Adjudicate');
       expect(find.text('Coil found acceptable'), findsOneWidget);
-      await enter(
+      await _submitAdjudicationEvidence(
         tester,
-        'Decision evidence',
         'PHONE $charge SI coil examination acceptable; no RA',
       );
-      await tapControl(tester, find.text('Close warning'));
       await awaitRecord(
         tester,
         'quality_warnings/issue_$first',
@@ -580,20 +775,18 @@ void main() {
         tester.widget<TextField>(field('RA charge number')).controller!.text,
         '${charge + 1}',
       );
-      await enter(
+      await _submitAdjudicationEvidence(
         tester,
-        'Decision evidence',
         'PHONE $charge SI verifies completed RA ${charge + 1}',
       );
-      await tapControl(tester, find.text('Close warning'));
       await awaitRecord(
         tester,
         'quality_warnings/issue_$second',
         (d) => d['status'] == 'closed',
       );
       await filter(tester, 'Closed');
-      await showControl(tester, find.text(firstReason));
-      await showControl(tester, find.text(raReason));
+      await _showWarning(tester, firstReason);
+      await _showWarning(tester, raReason);
       for (final id in [first, second]) {
         expect(
           (await read('maintenance_records/$id'))['isResolved'],
@@ -612,6 +805,22 @@ void main() {
         plain,
         completed,
       });
+      final finalPlain = allCases.docs.singleWhere((d) => d.id == plain).data();
+      expect(finalPlain['reannealingStatus'], 'notApplicable');
+      expect(finalPlain['reannealedToChargeNo'], isNull);
+      expect((finalPlain['assessment'] as Map)['raPerformedAt'], isNull);
+      expect((finalPlain['assessment'] as Map)['postRaResult'], 'notAssessed');
+      final finalIndependentRa = allCases.docs
+          .singleWhere((d) => d.id == completed)
+          .data();
+      expect(finalIndependentRa['reannealingStatus'], 'completed');
+      expect(finalIndependentRa['reannealedToChargeNo'], charge + 2);
+      expect(_physicalRaTime(finalIndependentRa), independentRaTime);
+      expect(
+        (finalIndependentRa['assessment'] as Map)['postRaResult'],
+        'notAssessed',
+        reason: 'Adjudicating another case must not inspect this RA result.',
+      );
       final allWarnings = await FirebaseFirestore.instance
           .collection('quality_warnings')
           .where('sourceChargeNo', isEqualTo: charge)
@@ -627,7 +836,6 @@ void main() {
       );
       final acceptableWarning = await read('quality_warnings/issue_$first');
       final raWarning = await read('quality_warnings/issue_$second');
-      final adjudicator = FirebaseAuth.instance.currentUser!.uid;
       expect(acceptableWarning['closureDisposition'], 'coilFoundAcceptable');
       expect(acceptableWarning['closedByUid'], adjudicator);
       expect(
@@ -646,13 +854,33 @@ void main() {
       );
       expect(completedCase['reannealingStatus'], 'completed');
       expect(completedCase['reannealedToChargeNo'], charge + 1);
+      expect(_physicalRaTime(completedCase), recordedRaTime);
+      expect(
+        (completedCase['assessment'] as Map)['postRaResult'],
+        'notAssessed',
+      );
+      for (final record in allCases.docs) {
+        expect(record.data()['loggedByUid'], originalActor);
+      }
+      expect(allWarnings.docs.map((d) => d.id).toSet(), {
+        'issue_$first',
+        'issue_$second',
+        'abnormality_$plain',
+        'abnormality_$completed',
+      });
       await goBack(tester);
-      await switchActor(tester, 'dev.operations@example.invalid');
+      await _waitForFeedback(tester);
+      await switchActor(tester, _operationsEmail);
+      expect(FirebaseAuth.instance.currentUser!.uid, originalActor);
       final probe = {
+        'projectId': crm3DemoProjectId,
+        'operationsUid': originalActor,
+        'adjudicatorUid': adjudicator,
         'chargeNo': charge,
         'maintenanceTickets': [first, second],
         'directAbnormalities': [plain, completed],
         'raChargeNos': [charge + 1, charge + 2],
+        'issueRaPerformedAt': recordedRaTime.toIso8601String(),
         'status': 'passed',
       };
       await (await SharedPreferences.getInstance()).setString(

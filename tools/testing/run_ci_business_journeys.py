@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -54,6 +55,7 @@ def flutter_command(journey, device):
             "--dart-define=CRM_FUNCTIONS_EMULATOR_PORT=15001",
             f"--dart-define=CRM_DEV_EMAIL={journey['actorEmail']}",
             f"--dart-define=CRM_DEV_DISPLAY_NAME={journey['actorName']}",
+            "--dart-define=CRM_QUALITY_SI_EMAIL=dev.usability-si@example.invalid",
             "--dart-define=CRM_DEV_SECRET=emulator-local-only"]
 
 
@@ -94,7 +96,8 @@ def run_logged(command, name, timeout, env):
     path = OUTPUT / f"{name}.log"
     print(f"CI business journey: {name}", flush=True)
     with path.open("w", encoding="utf-8") as log:
-        result = subprocess.run(command, cwd=ROOT, env=env, stdout=log,
+        executable = shutil.which(command[0], path=env.get("PATH")) or command[0]
+        result = subprocess.run([executable, *command[1:]], cwd=ROOT, env=env, stdout=log,
                                 stderr=subprocess.STDOUT, timeout=timeout, check=False)
     text = path.read_text(encoding="utf-8", errors="replace")
     if result.returncode:
@@ -177,8 +180,12 @@ def prepare_ci_journey(journey, device, env):
     if identities != [DEV_APP] or "application-debuggable" not in badging.splitlines():
         raise RuntimeError("Refusing to install a package other than the verified debug DEV app")
     clear_ci_app(device)
-    installed = subprocess.check_output(["adb", "-s", device, "install", "-r", "-t", str(apk)],
-                                        text=True, timeout=120, stderr=subprocess.STDOUT).strip()
+    try:
+        installed = subprocess.check_output(["adb", "-s", device, "install", "-r", "-t", str(apk)],
+                                            text=True, timeout=120, stderr=subprocess.STDOUT).strip()
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError("Verified DEV package installation failed: " +
+                           (error.output or "ADB returned no diagnostic output").strip()[-4000:]) from None
     if not installed or installed.splitlines()[-1] != "Success":
         raise RuntimeError("Could not install the verified DEV journey package")
     granted = subprocess.check_output(["adb", "-s", device, "shell", "pm", "grant", DEV_APP,
@@ -230,6 +237,10 @@ def execute_journeys(device, manifest, env):
 
 
 def main(argv=None):
+    # Flutter's failure report includes Unicode. On Windows a legacy console
+    # encoding must not hide the original assertion behind an encoding error.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--device-id", default="emulator-5554")
     parser.add_argument("--plan", action="store_true")
@@ -272,8 +283,10 @@ def main(argv=None):
     if params.exists() and params.read_text(encoding="utf-8") != expected:
         raise RuntimeError("Existing CI Functions parameters differ; refusing overwrite")
     params.write_text(expected, encoding="utf-8")
-    child = shlex.join([sys.executable, "tools/testing/run_ci_business_journeys.py",
-                        "--inside-emulators", "--device-id", device])
+    child_args = [sys.executable, "tools/testing/run_ci_business_journeys.py",
+                  "--inside-emulators", "--device-id", device]
+    child = (subprocess.list2cmdline(child_args) if os.name == "nt"
+             else shlex.join(child_args))
     command = ["node", str(CLI), "emulators:exec", "--config", manifest["firebaseConfig"],
                "--project", PROJECT, "--only", "auth,firestore,functions", "--non-interactive", child]
     return subprocess.run(command, cwd=ROOT, env=env, check=False).returncode

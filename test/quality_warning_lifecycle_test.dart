@@ -1121,6 +1121,96 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final status in [
+    ReannealingStatus.pendingDecision,
+    ReannealingStatus.completed,
+  ]) {
+    testWidgets(
+      'adjudication submits edited ${status.name} evidence after blur and layout change',
+      (tester) async {
+        final sent = <Map<String, dynamic>>[];
+        await _pumpQualityWarningScreen(
+          tester,
+          abnormalities: [_linkedIssueAbnormality(status)],
+          commands: QualityCommandService(
+            transport: (request) async {
+              sent.add(Map<String, dynamic>.from(request));
+              throw const QualityCommandException('Captured before transport.');
+            },
+          ),
+        );
+        await tester.ensureVisible(find.text('Adjudicate'));
+        await tester.tap(find.text('Adjudicate'));
+        await tester.pumpAndSettle();
+        final evidence = find.descendant(
+          of: find.byType(AlertDialog),
+          matching: _textFieldWithLabel('Decision evidence'),
+        );
+        expect(evidence, findsOneWidget);
+        expect(
+          tester.widget<TextField>(evidence).controller!.text,
+          'Atmosphere interruption may affect coil quality.',
+        );
+        const entered =
+            'SI examined the coil and retained this distinct decision.';
+        await tester.enterText(evidence, entered);
+        await tester.pump();
+        expect(tester.widget<TextField>(evidence).controller!.text, entered);
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        await tester.pumpAndSettle();
+        expect(tester.widget<TextField>(evidence).controller!.text, entered);
+        await tester.tap(find.text('Close warning'));
+        await tester.pumpAndSettle();
+        expect(sent, hasLength(1));
+        expect(sent.single['operation'], 'CLOSE_QUALITY_WARNING');
+        expect(sent.single['warningId'], 'issue_ticket-1');
+        expect(sent.single['reason'], entered);
+        expect(
+          sent.single['disposition'],
+          status == ReannealingStatus.completed
+              ? 'reannealingCompleted'
+              : 'coilFoundAcceptable',
+        );
+        expect(
+          sent.single['linkedReannealingChargeNos'],
+          status == ReannealingStatus.completed ? [13001] : isEmpty,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('adjudication refuses empty edited evidence without sending', (
+    tester,
+  ) async {
+    final sent = <Map<String, dynamic>>[];
+    await _pumpQualityWarningScreen(
+      tester,
+      abnormalities: [
+        _linkedIssueAbnormality(ReannealingStatus.pendingDecision),
+      ],
+      commands: QualityCommandService(
+        transport: (request) async {
+          sent.add(request);
+          throw const QualityCommandException('Unexpected transport.');
+        },
+      ),
+    );
+    await tester.ensureVisible(find.text('Adjudicate'));
+    await tester.tap(find.text('Adjudicate'));
+    await tester.pumpAndSettle();
+    await tester.enterText(_textFieldWithLabel('Decision evidence'), '   ');
+    FocusManager.instance.primaryFocus?.unfocus();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Close warning'));
+    await tester.pumpAndSettle();
+    expect(find.text('Decision evidence is required.'), findsOneWidget);
+    expect(find.text('Adjudicate quality warning'), findsOneWidget);
+    expect(sent, isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('connected RA completion accepts exactly one target charge', (
     tester,
   ) async {
@@ -1410,6 +1500,7 @@ Future<void> _pumpQualityWarningScreen(
   AppUser? actor,
   Size screenSize = const Size(480, 1000),
   Map<String, dynamic>? warningData,
+  QualityCommandService? commands,
 }) async {
   await tester.binding.setSurfaceSize(screenSize);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1432,6 +1523,8 @@ Future<void> _pumpQualityWarningScreen(
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
+        if (commands != null)
+          qualityCommandServiceProvider.overrideWithValue(commands),
         currentAppUserProvider.overrideWith(
           (ref) => Stream.value(currentActor),
         ),
