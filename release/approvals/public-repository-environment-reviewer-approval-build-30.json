@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "receiptType": "public-repository-required-reviewer-control",
   "approved": true,
-  "approvedAtUtc": "2026-09-28T17:24:20.326027Z",
+  "approvedAtUtc": "2026-09-28T20:42:03.088909Z",
   "evidenceBoundAtUtc": "2026-09-28T02:51:42.124512Z",
   "approverName": "Codex acting under project-owner delegation",
   "approvalReference": "BAF-GH-ENV-026",
@@ -10,8 +10,8 @@
     "authorityType": "owner-delegated agent decision",
     "projectOwnerName": "Abhishek Vatsa",
     "recordedBy": "Codex acting under project-owner delegation",
-    "recordedAtUtc": "2026-09-28T17:24:20.326027Z",
-    "delegatedDecisionAtUtc": "2026-09-28T17:24:20.326027Z",
+    "recordedAtUtc": "2026-09-28T20:42:03.088909Z",
+    "delegatedDecisionAtUtc": "2026-09-28T20:42:03.088909Z",
     "timestampSource": "Actual agent decision and recording time; no owner-message timestamp or identifier inferred.",
     "quotedEvidenceScope": "Only instructionExcerpts is quoted owner wording; the decision and scope are explicitly the agent's interpretation.",
     "instructionExcerpts": [
@@ -31,8 +31,8 @@
         "sha256": "7D6D4CCCB1C42A10A7BFE43EA7B5DD9F5C10870BB63A0CC4BAC7C5EBEA5C7FF1"
       },
       "artifactSourceCi": {
-        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/metadata/merged-main-0b8edda8-36453538317/merged-source-ci.json",
-        "sha256": "96E296270783F2DBDAAA2592A75043F724DCA960AE86346E4A6F5DB86FCAB52D"
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/metadata/merged-main-ac2e6310-36476115921/merged-source-ci.json",
+        "sha256": "A26E63A4364B63C2C95429AFC9BA32E88DCF6EAB2B401ACE45C2D2F2DA79A45C"
       },
       "allocation": {
         "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/environment-readback-20260928/remote-build-tags.json",
@@ -146,8 +146,8 @@
       "exactCreatedCloudGenerationReadbackRequired": true,
       "packageAndSidecarBeforeBuiltTagRequired": true,
       "allSixProofsBeforeFinalSuccessRequired": true,
-      "approvalCommit": "c7a0243b8008058441b3e42e443aa949af489378",
-      "approvalSha256": "BDBE698E8D85F3128F066F61550AD9AA1045A10EA149983FE1CB2802D320500D"
+      "approvalCommit": "e2e252817cda9419d461221a98cb88b3c37542cb",
+      "approvalSha256": "0DFD0EE0D94D1D54768947C610A74CA225A595D88EA8B800EE8B01A4C026C8EA"
     }
   },
   "postBuildPilotIntent": {

@@ -32,7 +32,7 @@
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
       "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-30.json",
-      "approvalReceiptSha256": "856C7D1088BBDDBD825BE050C24109F398DA82F3D195F7D638D673550C7684BF",
+      "approvalReceiptSha256": "73D26BC098D9FA79E9F85FD6B0AC5DF48DB52C9327ABD08E312CBA8E6EE49FDF",
       "approvalReference": "BAF-GH-ENV-026",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
@@ -601,8 +601,8 @@
       "exactCreatedCloudGenerationReadbackRequired": true,
       "packageAndSidecarBeforeBuiltTagRequired": true,
       "allSixProofsBeforeFinalSuccessRequired": true,
-      "approvalCommit": "c7a0243b8008058441b3e42e443aa949af489378",
-      "approvalSha256": "BDBE698E8D85F3128F066F61550AD9AA1045A10EA149983FE1CB2802D320500D"
+      "approvalCommit": "e2e252817cda9419d461221a98cb88b3c37542cb",
+      "approvalSha256": "0DFD0EE0D94D1D54768947C610A74CA225A595D88EA8B800EE8B01A4C026C8EA"
     }
   },
   "signing": {
