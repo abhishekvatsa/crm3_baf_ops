@@ -3,7 +3,7 @@
   "receiptType": "version-and-build-policy",
   "reference": "BUILD30-OWNER-DELEGATED-20260928",
   "sourceDocumentFile": "release/approvals/build-number-30-successor-approval.json",
-  "sourceDocumentSha256": "8EEA85A9CACBD3324430C948A45042345AEF252AD7E005C682798187C3A74261",
+  "sourceDocumentSha256": "1CA8ABE3974251D51D5D0C9A484A4135893C2F54F499F2397E31A2E925C6A56B",
   "recordedAtUtc": "2026-09-28T02:51:42.124512Z",
   "remoteReservationTag": "crm3-build-reserved/30",
   "buildNumber": 30,
