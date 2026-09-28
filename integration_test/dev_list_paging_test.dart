@@ -114,7 +114,7 @@ void main() {
       'Normal DEV access gate',
     );
     if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-      await tester.tap(find.text('Sign in with Google'));
+      await tapControl(tester, find.text('Sign in with Google'));
     }
     await waitFor(
       tester,
@@ -127,7 +127,7 @@ void main() {
     }
     final checks = <Map<String, Object>>[];
 
-    await tester.tap(find.text('Issues'));
+    await tapControl(tester, find.text('Issues'));
     await tester.pump(const Duration(seconds: 1));
     checks.add(await _checkList(tester, 'Issues Open'));
     await tapControl(tester, find.byKey(const ValueKey('issues-status-all')));

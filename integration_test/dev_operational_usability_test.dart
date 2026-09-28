@@ -20,7 +20,8 @@ import 'package:crm3_baf_ops/features/reports/presentation/operations_report_pdf
 import 'package:crm3_baf_ops/home_screen.dart';
 import 'package:crm3_baf_ops/main.dart' as app;
 
-import 'dev_abnormality_journey_test.dart' show keyedPrefix, waitFor, goBack;
+import 'dev_abnormality_journey_test.dart'
+    show keyedPrefix, waitFor, goBack, openAbnormalityForm;
 import 'dev_issue_quality_journey_test.dart'
     show
         showControl,
@@ -52,7 +53,7 @@ Future<void> _boot(WidgetTester tester) async {
     'Normal approval gate',
   );
   if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-    await tester.tap(find.text('Sign in with Google'));
+    await tapControl(tester, find.text('Sign in with Google'));
   }
   await waitFor(
     tester,
@@ -69,7 +70,7 @@ Future<void> _home(WidgetTester tester) async {
   while (find.byType(HomeScreen).evaluate().isEmpty) {
     await goBack(tester);
   }
-  await tester.tap(find.text('Home'));
+  await tapControl(tester, find.text('Home'));
   await tester.pump(const Duration(milliseconds: 500));
 }
 
@@ -155,7 +156,7 @@ Future<String> _logAssessment(
   await _home(tester);
   await openMore(tester, 'Abnormalities');
   await tester.enterText(find.byType(TextField).first, '$charge');
-  await tester.tap(find.text('Open').first);
+  await tapControl(tester, find.text('Open').first);
   await waitFor(
     tester,
     () => find
@@ -164,9 +165,9 @@ Future<String> _logAssessment(
         .isNotEmpty,
     'Charge workspace',
   );
-  await tapControl(
+  await openAbnormalityForm(
     tester,
-    find.byKey(const ValueKey('charge-abnormalities-create')),
+    requiredTypeCode: result ? 'DEV-COLOUR' : 'BURN-FAULT',
   );
   await waitFor(
     tester,

@@ -8,7 +8,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:crm3_baf_ops/core/dev/dev_environment.dart';
 import 'package:crm3_baf_ops/home_screen.dart';
 import 'package:crm3_baf_ops/main.dart' as app;
-import 'dev_abnormality_journey_test.dart' show waitFor, goBack;
+import 'dev_abnormality_journey_test.dart'
+    show waitFor, goBack, openAbnormalityForm;
 import 'dev_issue_quality_journey_test.dart' as journey;
 
 class _Errors extends ProviderObserver {
@@ -66,7 +67,7 @@ void main() {
         'Reach approved home or sign-in',
       );
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await journey.tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,
@@ -84,7 +85,7 @@ void main() {
       await goBack(tester);
       await journey.openMore(tester, 'Abnormalities');
       await tester.enterText(find.byType(TextField).first, '76575');
-      await tester.tap(find.text('Open').first);
+      await journey.tapControl(tester, find.text('Open').first);
       await waitFor(
         tester,
         () => find
@@ -93,12 +94,9 @@ void main() {
             .isNotEmpty,
         'Charge workspace',
       );
-      await journey.tapControl(
-        tester,
-        find.byKey(const ValueKey('charge-abnormalities-create')),
-      );
+      await openAbnormalityForm(tester, requiredTypeCode: 'SURF-SCALE');
       await tester.pump(const Duration(seconds: 1));
-      await tester.tap(find.byTooltip('Close'));
+      await journey.tapControl(tester, find.byTooltip('Close'));
       await tester.pump(const Duration(milliseconds: 700));
       await goBack(tester);
       await goBack(tester);

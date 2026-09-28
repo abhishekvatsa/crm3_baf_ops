@@ -21,7 +21,10 @@ import 'package:crm3_baf_ops/home_screen.dart';
 import 'package:crm3_baf_ops/main.dart' as app;
 
 import 'dev_abnormality_journey_test.dart'
-    show field, keyedPrefix, waitFor, goBack;
+    show field, keyedPrefix, waitFor, goBack, openAbnormalityForm;
+import 'support/journey_pointer.dart';
+
+export 'support/journey_pointer.dart' show showControl, tapControl;
 
 const _server = GetOptions(source: Source.server);
 const _qualitySiEmail = String.fromEnvironment(
@@ -47,64 +50,6 @@ DateTime _physicalRaTime(Map<String, dynamic> record) {
   return value.toUtc();
 }
 
-Future<void> showControl(WidgetTester tester, Finder target) async {
-  FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pump(const Duration(milliseconds: 350));
-  if (target.evaluate().isEmpty) {
-    final scrollable = find
-        .descendant(
-          of: find.byType(ListView).last,
-          matching: find.byType(Scrollable),
-        )
-        .first;
-    // A user may have left the list at any position. Reset only navigation.
-    tester.state<ScrollableState>(scrollable).position.jumpTo(0);
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.scrollUntilVisible(
-      target,
-      300,
-      scrollable: scrollable,
-      maxScrolls: 100,
-    );
-  }
-  await Scrollable.ensureVisible(tester.element(target), alignment: 0.4);
-  await tester.pump(const Duration(milliseconds: 450));
-}
-
-Future<void> tapControl(WidgetTester tester, Finder target) async {
-  for (var attempt = 0; attempt < 5; attempt++) {
-    await showControl(tester, target);
-    // The real, movable safety shortcut can overlap a form control. Reposition
-    // it using the user gesture rather than tapping through it or hiding it.
-    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
-    if (launcher.evaluate().isNotEmpty &&
-        tester.getRect(launcher).contains(tester.getCenter(target))) {
-      final size = tester.view.physicalSize / tester.view.devicePixelRatio;
-      final current = tester.getCenter(launcher);
-      final destination = Offset(
-        current.dx > size.width / 2 ? 36 : size.width - 36,
-        120,
-      );
-      await tester.drag(launcher, destination - current);
-      await tester.pump(const Duration(milliseconds: 500));
-      expect(
-        tester.getRect(launcher).contains(tester.getCenter(target)),
-        isFalse,
-        reason:
-            'The safety shortcut must move clear before tapping the control.',
-      );
-    }
-    // Android keyboard metrics can resize the dialog after ensureVisible.
-    // Reveal again if its mounted tile is now clipped behind the modal barrier.
-    // Never suppress a missed tap or invoke the control's callback directly.
-    if (target.hitTestable().evaluate().isEmpty) continue;
-    await tester.tap(target);
-    await tester.pump(const Duration(milliseconds: 500));
-    return;
-  }
-  fail('Control remained unreachable after five reveal attempts: $target');
-}
-
 Future<void> enter(WidgetTester tester, String label, String text) async {
   await showControl(tester, field(label));
   await tester.enterText(field(label), text);
@@ -124,7 +69,7 @@ Future<void> _submitAdjudicationEvidence(
   await showControl(tester, evidence);
   // Let the actual Android keyboard finish attaching before replacing the
   // prefilled opinion. Injecting text during attachment can race its old value.
-  await tester.tap(evidence.hitTestable());
+  await tapControl(tester, evidence);
   await tester.pumpAndSettle();
   await tester.enterText(evidence, text);
   await tester.pump();
@@ -143,7 +88,7 @@ Future<void> _submitAdjudicationEvidence(
     text,
     reason: 'Decision evidence must survive keyboard dismissal before sending.',
   );
-  await tester.tap(submit.hitTestable());
+  await tapControl(tester, submit);
   await tester.pump(const Duration(milliseconds: 500));
 }
 
@@ -165,7 +110,7 @@ Future<void> select(WidgetTester tester, Finder control, String option) async {
 }
 
 Future<void> openMore(WidgetTester tester, String label) async {
-  await tester.tap(find.text('More'));
+  await tapControl(tester, find.text('More'));
   await tester.pump(const Duration(milliseconds: 500));
   await tapControl(tester, find.text(label));
 }
@@ -366,7 +311,7 @@ Future<String> logAbnormality(
   await _waitForFeedback(tester);
   await openMore(tester, 'Abnormalities');
   await tester.enterText(find.byType(TextField).first, '$charge');
-  await tester.tap(find.text('Open').first);
+  await tapControl(tester, find.text('Open').first);
   await waitFor(
     tester,
     () => find
@@ -375,15 +320,7 @@ Future<String> logAbnormality(
         .isNotEmpty,
     'Charge workspace must open.',
   );
-  await tapControl(
-    tester,
-    find.byKey(const ValueKey('charge-abnormalities-create')),
-  );
-  await waitFor(
-    tester,
-    () => find.text('Log charge abnormality').evaluate().isNotEmpty,
-    'Real abnormality form must open.',
-  );
+  await openAbnormalityForm(tester);
   await select(tester, keyedPrefix('abnormality-type-'), 'SURF-SCALE');
   await showControl(
     tester,
@@ -502,7 +439,16 @@ Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
   );
   final dateDialog = find.byType(DatePickerDialog);
   final dateLabels = MaterialLocalizations.of(tester.element(dateDialog));
-  await tester.tap(find.byTooltip(dateLabels.inputDateModeButtonLabel));
+  // A picker can be mounted while its route or keyboard layout still blocks
+  // pointer input. Use the same bounded readiness check as the form controls;
+  // each picker action still sends exactly one real tap.
+  await tapControl(
+    tester,
+    find.descendant(
+      of: dateDialog,
+      matching: find.byTooltip(dateLabels.inputDateModeButtonLabel),
+    ),
+  );
   await tester.pump(const Duration(milliseconds: 250));
   final dateInput = find.descendant(
     of: dateDialog,
@@ -510,7 +456,8 @@ Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
   );
   expect(dateInput, findsOneWidget);
   await tester.enterText(dateInput, dateLabels.formatCompactDate(selected));
-  await tester.tap(
+  await tapControl(
+    tester,
     find.descendant(
       of: dateDialog,
       matching: find.text(dateLabels.okButtonLabel),
@@ -526,7 +473,13 @@ Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
   final timeContext = tester.element(timeDialog);
   final timeLabels = MaterialLocalizations.of(timeContext);
   final use24Hours = MediaQuery.alwaysUse24HourFormatOf(timeContext);
-  await tester.tap(find.byTooltip(timeLabels.inputTimeModeButtonLabel));
+  await tapControl(
+    tester,
+    find.descendant(
+      of: timeDialog,
+      matching: find.byTooltip(timeLabels.inputTimeModeButtonLabel),
+    ),
+  );
   await tester.pump(const Duration(milliseconds: 250));
   final timeInputs = find.descendant(
     of: timeDialog,
@@ -551,11 +504,12 @@ Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
     ),
   );
   if (period.evaluate().isNotEmpty) {
-    await tester.tap(period);
+    await tapControl(tester, period);
   }
   FocusManager.instance.primaryFocus?.unfocus();
   await tester.pump(const Duration(milliseconds: 250));
-  await tester.tap(
+  await tapControl(
+    tester,
     find.descendant(
       of: timeDialog,
       matching: find.text(timeLabels.okButtonLabel),
@@ -569,7 +523,7 @@ Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
 Future<void> switchActor(WidgetTester tester, String email) async {
   // Sign out through the actual UI, pumping frames while cleanup runs so the
   // normal signing-out gate can tear down the old account's screen listeners.
-  await tester.tap(find.text('Home'));
+  await tapControl(tester, find.text('Home'));
   await tester.pump(const Duration(milliseconds: 400));
   final container = ProviderScope.containerOf(
     tester.element(find.byType(HomeScreen)),
@@ -643,7 +597,7 @@ void main() {
         'Reach the real approval gate.',
       );
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,
