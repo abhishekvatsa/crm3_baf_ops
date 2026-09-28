@@ -19,6 +19,7 @@ import 'package:crm3_baf_ops/main.dart' as app;
 import 'dev_abnormality_journey_test.dart' show waitFor, goBack;
 import 'dev_issue_quality_journey_test.dart'
     show showControl, tapControl, openMore, switchActor;
+import 'support/journey_pointer.dart' show currentRouteLists;
 
 Future<Map<String, Object>> _checkList(
   WidgetTester tester,
@@ -190,10 +191,7 @@ void main() {
     await tapControl(tester, status);
     await tapControl(
       tester,
-      find.descendant(
-        of: find.byType(ListView).last,
-        matching: find.text('All'),
-      ),
+      find.descendant(of: currentRouteLists(), matching: find.text('All')),
     );
     checks.add(await _checkList(tester, 'Abnormalities All'));
     debugPrint('DEV_LIST_PAGING_PASS ${jsonEncode(checks)}');

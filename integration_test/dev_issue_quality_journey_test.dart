@@ -24,7 +24,8 @@ import 'dev_abnormality_journey_test.dart'
     show field, keyedPrefix, waitFor, goBack, openAbnormalityForm;
 import 'support/journey_pointer.dart';
 
-export 'support/journey_pointer.dart' show showControl, tapControl;
+export 'support/journey_pointer.dart'
+    show showControl, tapControl, currentRouteLists;
 
 const _server = GetOptions(source: Source.server);
 const _qualitySiEmail = String.fromEnvironment(
@@ -95,7 +96,7 @@ Future<void> _submitAdjudicationEvidence(
 Future<void> select(WidgetTester tester, Finder control, String option) async {
   await tapControl(tester, control);
   final exact = find.descendant(
-    of: find.byType(ListView).last,
+    of: currentRouteLists(),
     matching: find.text(option),
   );
   await tapControl(
@@ -103,7 +104,7 @@ Future<void> select(WidgetTester tester, Finder control, String option) async {
     exact.evaluate().isNotEmpty
         ? exact
         : find.descendant(
-            of: find.byType(ListView).last,
+            of: currentRouteLists(),
             matching: find.textContaining(option),
           ),
   );
@@ -139,9 +140,7 @@ Future<void> filter(WidgetTester tester, String name) async {
 Future<void> _showWarning(WidgetTester tester, String reason) async {
   final list = find.byKey(const ValueKey('quality-warnings-list'));
   final target = find.descendant(of: list, matching: find.text(reason));
-  final scrollable = find
-      .descendant(of: list, matching: find.byType(Scrollable))
-      .first;
+  final scrollable = await waitForScrollable(tester, list);
   final position = tester.state<ScrollableState>(scrollable).position;
   position.jumpTo(0);
   await tester.pump();
@@ -402,15 +401,14 @@ Future<String> logAbnormality(
     find.byKey(const ValueKey('charge-abnormality-status-filter')),
     'All',
   );
+  final scrollable = await waitForScrollable(
+    tester,
+    find.byKey(const ValueKey('charge-abnormalities-scroll')),
+  );
   await tester.scrollUntilVisible(
-    find.textContaining(reason).first,
+    find.textContaining(reason),
     300,
-    scrollable: find
-        .descendant(
-          of: find.byKey(const ValueKey('charge-abnormalities-scroll')),
-          matching: find.byType(Scrollable),
-        )
-        .first,
+    scrollable: scrollable,
   );
   expect(find.textContaining(reason), findsOneWidget);
   await goBack(tester);

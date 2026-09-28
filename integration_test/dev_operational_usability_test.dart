@@ -24,6 +24,7 @@ import 'dev_abnormality_journey_test.dart'
     show keyedPrefix, waitFor, goBack, openAbnormalityForm;
 import 'dev_issue_quality_journey_test.dart'
     show
+        currentRouteLists,
         showControl,
         tapControl,
         enter,
@@ -247,7 +248,7 @@ Future<String> _logAssessment(
     await tapControl(
       tester,
       find.descendant(
-        of: find.byType(ListView).last,
+        of: currentRouteLists(),
         matching: find.text(processObservation!),
       ),
     );

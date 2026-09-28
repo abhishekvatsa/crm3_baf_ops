@@ -1,5 +1,6 @@
 // Runs the actual application against the demo Firebase suite on Android.
 // No provider, repository, callable, or success result is substituted.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PlatformDispatcher;
 
@@ -119,25 +120,8 @@ Future<void> openAbnormalityForm(
   }
 }
 
-Future<void> reveal(WidgetTester tester, Finder target) async {
-  FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pump(const Duration(milliseconds: 500));
-  await tester.scrollUntilVisible(
-    target,
-    250,
-    // The dialog retains its underlying route. Use the current ListView,
-    // not that route or an editable field's internal viewport.
-    scrollable: find
-        .descendant(
-          of: find.byType(ListView).last,
-          matching: find.byType(Scrollable),
-        )
-        .first,
-    maxScrolls: 30,
-  );
-  await Scrollable.ensureVisible(tester.element(target), alignment: 0.4);
-  await tester.pump(const Duration(milliseconds: 600));
-}
+Future<void> reveal(WidgetTester tester, Finder target) =>
+    showControl(tester, target, maxScrolls: 30, scrollDelta: 250);
 
 Finder field(String label) => find.byWidgetPredicate(
   (widget) => widget is TextField && widget.decoration?.labelText == label,
@@ -159,25 +143,45 @@ Future<void> chooseDropdown(
   await tester.pump(const Duration(milliseconds: 600));
   // The popup lazily builds a long catalogue. Select through its real viewport
   // instead of assuming every fixture is already rendered.
-  final menuItem = find.descendant(
-    of: find.byType(ListView).last,
-    matching: item,
-  );
+  final menuItem = find.descendant(of: currentRouteLists(), matching: item);
   await reveal(tester, menuItem);
   await tapControl(tester, menuItem);
   await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> goBack(WidgetTester tester) async {
-  await waitFor(
-    tester,
-    () => find.byTooltip('Back').hitTestable().evaluate().isNotEmpty,
-    'The current route must expose a reachable Back button.',
-    seconds: 10,
+  final reachableBack = find.byTooltip('Back').hitTestable();
+  for (
+    var attempt = 0;
+    attempt < 50 && reachableBack.evaluate().isEmpty;
+    attempt++
+  ) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  expect(
+    reachableBack.evaluate(),
+    isNotEmpty,
+    reason: 'The current route must expose a reachable Back button.',
   );
-  await tapControl(tester, find.byTooltip('Back').hitTestable().first);
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 700));
+  final back = reachableBack.first;
+  final route = ModalRoute.of(tester.element(back));
+  expect(route, isNotNull, reason: 'Back must belong to the current route.');
+  var removed = false;
+  unawaited(
+    route!.completed.then<void>((_) {
+      removed = true;
+    }),
+  );
+  await tapControl(tester, back);
+  for (var attempt = 0; attempt < 50 && !removed; attempt++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  expect(
+    removed,
+    isTrue,
+    reason:
+        'The popped route must finish leaving before revealing its destination.',
+  );
 }
 
 void main() {

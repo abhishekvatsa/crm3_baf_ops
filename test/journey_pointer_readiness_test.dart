@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../integration_test/dev_abnormality_journey_test.dart' as abnormality;
 import '../integration_test/support/journey_pointer.dart' as pointer;
 
 void main() {
@@ -237,6 +238,317 @@ void main() {
     expect(find.byType(Dialog), findsNothing);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'route return waits for a delayed list before revealing its row',
+    (tester) async {
+      final listReady = ValueNotifier(false);
+      addTearDown(listReady.dispose);
+      var opened = 0;
+      await _returnToLoadingList(tester, listReady, () => opened++);
+      final target = find.text('Abnormalities');
+      expect(find.byType(ListView), findsNothing);
+      expect(target, findsNothing);
+      final load = Timer(const Duration(milliseconds: 1200), () {
+        listReady.value = true;
+      });
+      addTearDown(load.cancel);
+
+      await abnormality.reveal(tester, target);
+
+      expect(listReady.value, isTrue);
+      expect(target.hitTestable(), findsOneWidget);
+      expect(opened, 0, reason: 'Revealing a row must not invoke its action.');
+      await pointer.tapControl(tester, target);
+      expect(opened, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('route return fails boundedly when its list never mounts', (
+    tester,
+  ) async {
+    final listReady = ValueNotifier(false);
+    addTearDown(listReady.dispose);
+    var opened = 0;
+    await _returnToLoadingList(tester, listReady, () => opened++);
+    final target = find.text('Abnormalities');
+    final started = tester.binding.clock.now();
+    Object? failure;
+    try {
+      await abnormality.reveal(tester, target);
+    } catch (error) {
+      failure = error;
+    }
+
+    expect(failure, isA<TestFailure>());
+    expect('$failure', contains('Abnormalities'));
+    expect(
+      tester.binding.clock.now().difference(started),
+      lessThanOrEqualTo(const Duration(seconds: 10)),
+    );
+    expect(find.byType(ListView), findsNothing);
+    expect(target, findsNothing);
+    expect(opened, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('reveal accepts a mounted control without any ListView', (
+    tester,
+  ) async {
+    var opened = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: ElevatedButton(
+              onPressed: () => opened++,
+              child: const Text('Open mounted control'),
+            ),
+          ),
+        ),
+      ),
+    );
+    final target = find.text('Open mounted control');
+    expect(find.byType(ListView), findsNothing);
+
+    await abnormality.reveal(tester, target);
+
+    expect(target.hitTestable(), findsOneWidget);
+    expect(opened, 0);
+    await pointer.tapControl(tester, target);
+    expect(opened, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'popup waits for its own list and leaves the retained list alone',
+    (tester) async {
+      final listReady = ValueNotifier(false);
+      final underlying = ScrollController(initialScrollOffset: 224);
+      final popup = ScrollController();
+      addTearDown(listReady.dispose);
+      addTearDown(underlying.dispose);
+      addTearDown(popup.dispose);
+      var selected = 0;
+      var underlyingActions = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView.builder(
+              key: const Key('retained-list'),
+              controller: underlying,
+              itemCount: 40,
+              itemExtent: 56,
+              itemBuilder: (context, index) => ListTile(
+                title: Text('Underlying $index'),
+                onTap: () => underlyingActions++,
+              ),
+            ),
+            floatingActionButton: Builder(
+              builder: (context) => FloatingActionButton(
+                key: const Key('open-list-popup'),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => Dialog(
+                    child: SizedBox(
+                      width: 300,
+                      height: 280,
+                      child: ValueListenableBuilder<bool>(
+                        valueListenable: listReady,
+                        builder: (context, ready, child) => ready
+                            ? ListView.builder(
+                                key: const Key('popup-list'),
+                                controller: popup,
+                                itemCount: 40,
+                                itemExtent: 56,
+                                itemBuilder: (context, index) => ListTile(
+                                  title: Text(
+                                    index == 25
+                                        ? 'Popup choice'
+                                        : 'Choice $index',
+                                  ),
+                                  onTap: index == 25 ? () => selected++ : null,
+                                ),
+                              )
+                            : const Center(child: Text('Loading choices')),
+                      ),
+                    ),
+                  ),
+                ),
+                child: const Icon(Icons.list),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pointer.tapControl(
+        tester,
+        find.byKey(const Key('open-list-popup')),
+      );
+      await tester.pumpAndSettle();
+      final originalOffset = underlying.offset;
+      expect(originalOffset, greaterThan(0));
+      expect(find.byKey(const Key('retained-list')), findsOneWidget);
+      expect(find.byType(ListView), findsOneWidget);
+      expect(pointer.currentRouteLists(), findsNothing);
+      final target = find.descendant(
+        of: pointer.currentRouteLists(),
+        matching: find.text('Popup choice'),
+      );
+      expect(target, findsNothing);
+      final load = Timer(const Duration(milliseconds: 1200), () {
+        listReady.value = true;
+      });
+      addTearDown(load.cancel);
+
+      // Even a broad list scope must wait for the popup's viewport rather than
+      // returning the still-mounted page underneath its modal barrier.
+      final viewport = await pointer.waitForScrollable(
+        tester,
+        find.byType(ListView),
+      );
+      expect(
+        tester.state<ScrollableState>(viewport).position,
+        same(popup.position),
+      );
+      await abnormality.reveal(tester, target);
+
+      expect(target.hitTestable(), findsOneWidget);
+      expect(popup.offset, greaterThan(0));
+      expect(underlying.offset, originalOffset);
+      expect(selected, 0);
+      expect(underlyingActions, 0);
+      await pointer.tapControl(tester, target);
+      expect(selected, 1);
+      expect(underlyingActions, 0);
+      expect(underlying.offset, originalOffset);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'missing popup target fails without scrolling the retained list',
+    (tester) async {
+      final underlying = ScrollController(initialScrollOffset: 224);
+      addTearDown(underlying.dispose);
+      var underlyingActions = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView.builder(
+              key: const Key('retained-list'),
+              controller: underlying,
+              itemCount: 40,
+              itemExtent: 56,
+              itemBuilder: (context, index) => ListTile(
+                title: Text('Underlying $index'),
+                onTap: () => underlyingActions++,
+              ),
+            ),
+            floatingActionButton: Builder(
+              builder: (context) => FloatingActionButton(
+                key: const Key('open-missing-popup'),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => const Dialog(
+                    child: SizedBox(
+                      width: 300,
+                      height: 280,
+                      child: Center(child: Text('Loading choices')),
+                    ),
+                  ),
+                ),
+                child: const Icon(Icons.list),
+              ),
+            ),
+          ),
+        ),
+      );
+      await pointer.tapControl(
+        tester,
+        find.byKey(const Key('open-missing-popup')),
+      );
+      await tester.pumpAndSettle();
+      final originalOffset = underlying.offset;
+      expect(originalOffset, greaterThan(0));
+      expect(find.byType(ListView), findsOneWidget);
+      expect(pointer.currentRouteLists(), findsNothing);
+      final target = find.descendant(
+        of: pointer.currentRouteLists(),
+        matching: find.text('Missing popup choice'),
+      );
+      final started = tester.binding.clock.now();
+      Object? failure;
+      try {
+        await abnormality.reveal(tester, target);
+      } catch (error) {
+        failure = error;
+      }
+
+      expect(failure, isA<TestFailure>());
+      expect('$failure', contains('Missing popup choice'));
+      expect(
+        tester.binding.clock.now().difference(started),
+        lessThanOrEqualTo(const Duration(seconds: 10)),
+      );
+      expect(target, findsNothing);
+      expect(underlying.offset, originalOffset);
+      expect(underlyingActions, 0);
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+}
+
+Future<void> _returnToLoadingList(
+  WidgetTester tester,
+  ValueNotifier<bool> listReady,
+  VoidCallback onOpen,
+) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(title: const Text('More')),
+        body: ValueListenableBuilder<bool>(
+          valueListenable: listReady,
+          builder: (context, ready, child) => ready
+              ? ListView.builder(
+                  itemCount: 40,
+                  itemExtent: 56,
+                  itemBuilder: (context, index) => index == 25
+                      ? ListTile(
+                          title: const Text('Abnormalities'),
+                          onTap: onOpen,
+                        )
+                      : ListTile(title: Text('Destination $index')),
+                )
+              : const Center(child: Text('Loading destinations')),
+        ),
+        floatingActionButton: Builder(
+          builder: (context) => FloatingActionButton(
+            key: const Key('open-quality'),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => Scaffold(
+                  appBar: AppBar(title: const Text('Quality')),
+                  body: const Center(child: Text('Warning verified')),
+                ),
+              ),
+            ),
+            child: const Icon(Icons.fact_check),
+          ),
+        ),
+      ),
+    ),
+  );
+  await pointer.tapControl(tester, find.byKey(const Key('open-quality')));
+  await tester.pumpAndSettle();
+  expect(find.text('Quality'), findsOneWidget);
+  await abnormality.goBack(tester);
+  await tester.pumpAndSettle();
+  expect(find.text('Quality'), findsNothing);
+  expect(find.text('Loading destinations'), findsOneWidget);
 }
 
 Future<void> _expectBlocked(WidgetTester tester, Finder target) async {
