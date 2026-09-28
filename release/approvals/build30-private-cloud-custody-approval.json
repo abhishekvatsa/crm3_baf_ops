@@ -2,11 +2,11 @@
   "schemaVersion": 2,
   "documentType": "candidate-specific-private-release-backup-custody-decision",
   "approved": true,
-  "approvedAtUtc": "2026-09-28T02:45:11.157527Z",
+  "approvedAtUtc": "2026-09-28T02:50:59.277231Z",
   "approverName": "Codex acting under project-owner delegation",
   "authorityType": "owner-delegated agent decision",
-  "sourceBaselineCommit": "cc87d30af4f098276ff895bee32396113d9c76ae",
-  "candidateLedgerGitBlob": "e3b789cc30b1663a6fb8a25991980f63a82de2f1",
+  "sourceBaselineCommit": "7169b45dfa0233ea05033f89c735701f35a1aec4",
+  "candidateLedgerGitBlob": "6a8fc3a95c8c08ff072a664ebbfaa11a76cbcfce",
   "buildNumber": 30,
   "reservationId": "CRM3_BUILD30_20260928-30",
   "releaseId": "crm3-baf-ops-1.0.0-rc.20-b30",
@@ -19,8 +19,8 @@
     "authorityType": "owner-delegated agent decision",
     "projectOwnerName": "Abhishek Vatsa",
     "recordedBy": "Codex acting under project-owner delegation",
-    "recordedAtUtc": "2026-09-28T02:45:11.157527Z",
-    "delegatedDecisionAtUtc": "2026-09-28T02:45:11.157527Z",
+    "recordedAtUtc": "2026-09-28T02:50:59.277231Z",
+    "delegatedDecisionAtUtc": "2026-09-28T02:50:59.277231Z",
     "timestampSource": "Actual agent decision and recording time; no owner-message timestamp or identifier inferred.",
     "quotedEvidenceScope": "Only instructionExcerpts is quoted owner wording; the decision and scope are explicitly the agent's interpretation.",
     "instructionExcerpts": [
@@ -60,7 +60,7 @@
   "ownerInstruction": {
     "text": "do you need any authorizations? i am going to sleep - phone is connected and i expect a build by 0300AM",
     "reference": "The owner requested the governed candidate and subsequently stated: Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process. Current conversation; no message time or identifier inferred.",
-    "recordedAtUtc": "2026-09-28T02:45:11.157527Z",
+    "recordedAtUtc": "2026-09-28T02:50:59.277231Z",
     "timestampMeaning": "Actual recording time, not an inferred owner-message time."
   },
   "backup": {
