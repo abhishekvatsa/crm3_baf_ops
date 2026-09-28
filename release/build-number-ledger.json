@@ -1637,8 +1637,8 @@
       "status": "source-reserved-awaiting-remote-consumption",
       "failedOrWithdrawnBuildConsumesNumber": true,
       "versionApprovalReference": "BUILD30-OWNER-DELEGATED-20260928",
-      "versionApprovalDocumentSha256": "AC9A0FE72C8E566FC0F1F62C1BE732E20581C88B0B8CE03D8FD106BA2E04E94E",
-      "reservedAtUtc": "2026-09-28T02:39:09.094605Z",
+      "versionApprovalDocumentSha256": "8EEA85A9CACBD3324430C948A45042345AEF252AD7E005C682798187C3A74261",
+      "reservedAtUtc": "2026-09-28T02:49:54.909425Z",
       "distributionPerformed": false
     }
   ]
