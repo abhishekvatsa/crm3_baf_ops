@@ -78,7 +78,8 @@
       "appliesToBuild26": false,
       "appliesToBuild27": true,
       "appliesToBuild28": false,
-      "appliesToBuild29": false
+      "appliesToBuild29": false,
+      "appliesToBuild30": false
     },
     "historicalControlledPilot": {
       "buildNumber": 11,
