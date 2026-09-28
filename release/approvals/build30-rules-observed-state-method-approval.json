@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-rules-observed-state-method-approval",
+  "intendedBuildNumber": 30,
+  "projectId": "crm3-baf-ops-b8638",
+  "releaseName": "projects/crm3-baf-ops-b8638/releases/cloud.firestore",
+  "source": {
+    "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+    "tree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5"
+  },
+  "deploymentApprovalAuthority": {
+    "commit": "009601a6d4a86fd7ebc0823b714cfc0b36e62855",
+    "file": "release/approvals/build30-current-source-backend-deployment-approval.json",
+    "sha256": "4BE041F343A91F878A11315FB94D6FCF8E173083B87053B7206F029CDFC5546A"
+  },
+  "reviewedVerifier": {
+    "commit": "ffc593a4d4ab7377ed0b2d4250377722f19684da",
+    "files": {
+      "tools/release/collectFirestoreRulesIndexesReadback.js": "5B6BB547590455E04750DCE0D937FA3147412EFF71AB4D2057D6482FB38CFE1D",
+      "tools/release/collectFunctionFleetRuntimeIdentityReadback.js": "FB2CD34D75F51A7F09AD1EB134A96065236DEF9CF112F179DD9D38756C12DEA1",
+      "tools/release/collectFunctionsIamDependenciesReadback.js": "D66DDF8BBD19F2EBE83C30C1A77ABDEADD7BC3E584B9538C18BEE95268290ABD",
+      "tools/release/collectProductionGlobalPullBackend.js": "98DD50B9793A5205DACE342907B7A990351023F4B06BE62E1CA5CDC716F704B6",
+      "tools/release/deploymentFleetContract.js": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06",
+      "tools/release/reviewedBackendControls.js": "AF7D64B470B21826F869E13CE83CE56D8D57C71514553094FCEC9DAD759C276F",
+      "tools/release/reviewedBackendVerifierAuthority.js": "263E063AEFC880F29F679D2151B24F3FFBBF2B087A63D5A5D6A80DBA42A38137",
+      "tools/release/reviewedFirestoreRulesDeployment.js": "4044F78ADE276E61533F9D3D45FA2DA3DD47377F7B5891D7914A47B7674F75DF",
+      "tools/release/reviewedRulesReconciliation.js": "B580958532AEDF554022823445DC6B4B552987433C648136628F69D4E6496953",
+      "tools/release/reviewedRulesRuntime.js": "1AF5892FEED2EEC9676007EB4BDCE7F40B9DF33F88A0384F274C33BE00DECDD4",
+      "tools/release/reviewedRulesRuntimeCollector.js": "3B07F6FCC7346FB9D0D2E301E8241BA33191F9E85A3E964E5DF9A1F57C15298E",
+      "tools/release/scopedCallableInvokerIam.js": "0CCF35EE2AE349377A262CD7079553AA0E3FDA82A4FC738D4B6D32DB74548822",
+      "tools/release/scopedCallableInvokerIamPublic.js": "3C6D6F17C0AF3525B0BAC2186AE785EEEC90AAE91C7C77BA056141CF9ED6A596",
+      "tools/release/stagedPromotionSourceAuthority.js": "499439C5D64D4AF9D461455AC2ECBC9DD1BC817F83E2D1A2CFDD624A89358468"
+    },
+    "reviewReference": "Independent source review retained privately, SHA-256 468765C432BF8CF895816589E9EE1854A543FE4980F1F4C5D8B2F0585B093F1B; source method described in docs/BUILD30_RULES_OBSERVED_STATE_RECONCILIATION.md"
+  },
+  "failedCommand": {
+    "file": "release/evidence/build30-rules-attempt13-failed-command.json",
+    "physicalSha256": "746B12E1C211A40E4C8881D144B0D0F7478867B4E66E5350C3A956870F5CFEE9",
+    "canonicalReceiptSha256": "1d5d21f6b88148e9b11afd1903ccf39acbb722218fa51a0421fafbff84f559c8"
+  },
+  "retainedSourceEvidence": {
+    "measurementsSha256": "5777D1AF4B322EF70739AE2EF077F1448205E024AF738D0C1B6649D79231D59B",
+    "measurementsProjectionSha256": "0EC97728FFD23F41E5D5B8271587C335A500F05BB1ACD5B812A11ECE51BCC801",
+    "processResultSha256": "DD0C4DAD17D7F4FA04DE433215FA740BF73CBB1CF1F8C1CF01E02E0AAA7930B7",
+    "privacyReviewReference": "Release operator reviewed actual retained attempt 13; independent reviewer reviewed the derivation and privacy code. Public measurements omit the three local filesystem paths; process/CLI/before-readback evidence contains no credentials, signing material or business records.",
+    "derivationReviewReference": "Release operator rederived the exact public projection from unchanged private measurements using the committed verifier, compared all referenced physical hashes, and retained CLI exit 1. No reconstruction of private bytes from the projection is claimed."
+  },
+  "acceptedRulesetName": "projects/crm3-baf-ops-b8638/rulesets/d8d08162-f911-450d-b313-6d66440f6216",
+  "acceptedRulesetCreateTime": "2026-09-27T19:49:39.617135Z",
+  "furtherMutationAuthorized": false,
+  "cliSuccessClaimed": false,
+  "approved": true,
+  "approvedBy": "Codex, acting under Abhishek Vatsa’s explicit build delegation",
+  "ownerInstruction": "ok can you leave this method and use something else?",
+  "ownerInstructionReference": "Current build conversation: owner-directed change from retries to another method, under the separately retained complete-build delegation. User-message timestamp and identifier were not supplied.",
+  "decidedAtUtc": "2026-09-27T20:45:33.381Z",
+  "recordedAtUtc": "2026-09-27T20:45:33.381Z"
+}

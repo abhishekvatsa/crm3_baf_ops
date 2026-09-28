@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "documentType": "source-specific-backend-metadata-custody-decision",
+  "approved": true,
+  "intendedBuildNumber": 30,
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "region": "asia-south1",
+  "scope": "private-backend-metadata-only",
+  "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "sourceTree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5",
+  "functionsTree": "4c55d62ec947b05a70e5f21967e3a73866c0aedd",
+  "backendApproval": {
+    "commit": "009601a6d4a86fd7ebc0823b714cfc0b36e62855",
+    "file": "release/approvals/build30-current-source-backend-deployment-approval.json",
+    "sha256": "4BE041F343A91F878A11315FB94D6FCF8E173083B87053B7206F029CDFC5546A"
+  },
+  "privateProof": {
+    "physicalSha256": "E8C34D5827AF4AC3113EE88597D8C939B77008DB6A48BCDE924EAA8AAB1D0392",
+    "canonicalReceiptSha256": "a67975b82d2fb924f7c8837e780c791d7cf3349987c69a2940cdab6b7b144cce",
+    "bytes": 576810
+  },
+  "ownerInstruction": {
+    "text": "do you need any authorizations? i am going to sleep - phone is connected and i expect a build by 0300AM",
+    "reference": "Current owner request in this conversation on 27 September 2026 for a candidate by 03:00 AM, followed by explicit total authorization for the complete governed build process; the supplied messages have no timestamp or message identifier, and none is inferred."
+  },
+  "pauseConfirmationReference": "Current explicit owner answer: Yes—all users are stopped and will wait. The answered question included older and offline phones and remaining stopped until the compatible update is ready.",
+  "authorityType": "owner-delegated agent decision",
+  "approverName": "Codex acting under Abhishek Vatsa project-owner delegation",
+  "approvedAtUtc": "2026-09-27T19:13:11.222Z",
+  "recordedAtUtc": "2026-09-27T19:13:11.222Z",
+  "privacyReview": {
+    "reviewer": "Codex independent reviewer /root/current_dev_profile_review",
+    "reviewedAtUtc": "2026-09-27T19:10:43.793Z",
+    "actualFileSha256": "E8C34D5827AF4AC3113EE88597D8C939B77008DB6A48BCDE924EAA8AAB1D0392",
+    "credentialValuesAbsent": true,
+    "signingMaterialAbsent": true,
+    "businessPayloadsAbsent": true,
+    "privateMetadataCustodyApproved": true
+  },
+  "backup": {
+    "bucket": "crm3-baf-ops-b8638-firestore-restore",
+    "prefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-30/backend-2aa30de5-20260927",
+    "location": "ASIA-SOUTH1",
+    "publicAccessPrevention": "enforced",
+    "uniformBucketLevelAccessRequired": true,
+    "publicIamPrincipalsProhibited": true,
+    "versioningRequired": true,
+    "existingRetentionSeconds": 7776000,
+    "existingSoftDeleteSeconds": 604800,
+    "acceptExistingRetentionAndOrdinaryStorageCharges": true,
+    "createOnlyGenerationPreconditionRequired": true,
+    "overwriteOrDeleteAuthorized": false,
+    "accessControlOrBucketConfigurationMutationAuthorized": false
+  },
+  "controlBoundary": {
+    "artifactConstructionAuthorized": false,
+    "artifactAllocationAuthorized": false,
+    "deploymentAuthorized": false,
+    "iamMutationAuthorized": false,
+    "bucketConfigurationMutationAuthorized": false,
+    "businessDataReadAuthorized": false,
+    "businessDataWriteAuthorized": false,
+    "schedulerInvocationAuthorized": false
+  }
+}

@@ -639,8 +639,8 @@ test('Build29 candidate cannot borrow either form of otherwise valid historical2
 
 // Synthetic command observations exercise the production verifier with real
 // immutable Git approval/CI custody. They are never operational evidence.
-function successorRulesFixture(t) {
-  const f = successorDelegatedFixture(t, {sourceCommit: '30330c72ca2a92cb0a485e0ced7e3c21f0479292', childDirectory: 'release/evidence'});
+function successorRulesFixture(t, options = {}) {
+  const f = successorDelegatedFixture(t, {sourceCommit: '30330c72ca2a92cb0a485e0ced7e3c21f0479292', childDirectory: 'release/evidence', ...options});
   const rulesProof = require('./reviewedFirestoreRulesDeployment.js');
   const rulesCollector = require('./collectFirestoreRulesIndexesReadback.js');
   const a = f.currentApproval, r = f.currentReceipt;
@@ -715,7 +715,10 @@ function successorRulesFixture(t) {
     install.stdout = {file:'release/evidence/fixture-npm-ci-stdout.json',
       physicalSha256:f.write('release/evidence/fixture-npm-ci-stdout.json',npmStdout)};
     declaration.runtimeAuthority = point('release/evidence/fixture-cli-clean-install.json',install);
-    if (commitApproval) f.commitCustody();
+    if (commitApproval) {
+      if (f.owner) f.owner.approvedDeployment = structuredClone(a.approvedDeployment);
+      f.commitCustody();
+    }
     command.approvalAuthority = structuredClone(r.approvalAuthority);
     command.ciAuthority = {file:a.sourceAuthority.requiredPostMergeReleaseGateEvidence.file,
       sha256:a.sourceAuthority.requiredPostMergeReleaseGateEvidence.sha256,commit:r.approvalAuthority.commit};
@@ -734,6 +737,183 @@ test('new successor Rules-only proof passes actual shared Git/CI/receipt verific
   assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
   assert.equal(f.receipt.controlBoundary.securityRulesMutated,false);
   assert.equal(f.receipt.firestoreDeployment.rulesDeploymentPerformed,false);
+});
+
+// The alternative is a post-execution, read-only acceptance decision. Every
+// source/approval/verifier/method object below is genuinely committed in an
+// isolated Git repository; no fixture claims a real deployment or owner act.
+function reconciliationFixture(t) {
+  const f = successorRulesFixture(t, {delegationBuild:30,
+    sourceCommit:'2aa30de56cfdb960da3eeefd8956d8cbbae57b46'});
+  const tool=require('./reviewedRulesReconciliation.js'), r=f.currentReceipt;
+  const a=f.currentApproval, failed=f.command;
+  Object.assign(failed,{evidenceType:'reviewed-firestore-rules-failed-command',
+    decision:'ACTUAL_RULES_CLI_RELEASE_CONFLICT',attemptNumber:13,exitCode:1,
+    measurementsSha256:sha('synthetic retained measurements'),processResultSha256:sha('synthetic retained process')});
+  Object.assign(f.cliResult,{status:'error',error:tool.CONFLICT});delete f.cliResult.result;
+  const rawMeasurements=Buffer.from(JSON.stringify({executionRoot:fs.realpathSync(f.root),
+    authorityRoot:f.root,evidenceRoot:f.root,sourceCommit:failed.source.commit,sourceTree:failed.source.tree,
+    functionsTree:r.sourceAuthority.functionsGitObjectId,approvalAuthority:failed.approvalAuthority,
+    startedAtUtc:failed.startedAtUtc,completedAtUtc:failed.completedAtUtc,exitCode:1,
+    command:failed.command,runtime:failed.runtime,before:failed.executionSource.before,after:failed.executionSource.after}));
+  const projected=tool.projectRetainedMeasurements(rawMeasurements);
+  failed.measurementsSha256=projected.sourceMeasurementsSha256;
+  const processResult={startedAtUtc:failed.startedAtUtc,completedAtUtc:failed.completedAtUtc,exitCode:1,
+    status:'ACTUAL_PROCESS_RESULT_NOT_COMPLETION_EVIDENCE',resolvedNode:structuredClone(failed.command.resolvedNode)};
+  const originalA=structuredClone(r.approvalAuthority);
+  function commit(parent, files, time, label) {
+    f.git('read-tree',parent);
+    for(const file of files) {
+      const blob=f.git('hash-object','-w',file);
+      f.git('update-index','--add','--cacheinfo',`100644,${blob},${file}`);
+    }
+    return execFileSync('git',['-C',f.root,'-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+      'commit-tree',f.git('write-tree'),'-p',parent,'-m',label],{encoding:'utf8',windowsHide:true,
+      env:{...process.env,GIT_AUTHOR_DATE:time,GIT_COMMITTER_DATE:time}}).trim();
+  }
+  const files={};
+  for(const file of tool.VERIFIER_FILES) {
+    fs.mkdirSync(path.dirname(path.join(f.root,file)),{recursive:true});
+    const raw=fs.readFileSync(path.join(repositoryRoot,file));
+    fs.writeFileSync(path.join(f.root,file),raw); files[file]=sha(raw);
+  }
+  const toolingCommit=commit(originalA.commit,tool.VERIFIER_FILES,f.at(125),'Synthetic reviewed verifier');
+  f.git('update-ref','HEAD',toolingCommit);
+  const method={schemaVersion:1,documentType:'governed-rules-observed-state-method-approval',
+    approved:true,intendedBuildNumber:30,projectId:PROJECT,releaseName:`projects/${PROJECT}/releases/cloud.firestore`,
+    source:structuredClone(failed.source),deploymentApprovalAuthority:originalA,
+    reviewedVerifier:{commit:toolingCommit,files,reviewReference:'SYNTHETIC-REVIEW-ONLY'},failedCommand:null,retainedSourceEvidence:null,
+    acceptedRulesetName:f.final.outputs.rules.rulesetName,acceptedRulesetCreateTime:f.final.outputs.rules.rulesetCreateTime,
+    approvedBy:'Synthetic owner',ownerInstruction:'Synthetic fixture: accept this observed outcome without another deployment.',
+    ownerInstructionReference:'SYNTHETIC-METHOD-DECISION',decidedAtUtc:f.at(130),recordedAtUtc:f.at(131),
+    furtherMutationAuthorized:false,cliSuccessClaimed:false};
+  const reconciliation={schemaVersion:1,evidenceType:'reviewed-firestore-rules-observed-state-reconciliation',
+    decision:'PASS_APPROVED_RULES_OBSERVED_STATE_RECONCILED',projectId:PROJECT,source:structuredClone(failed.source),
+    approvalAuthority:originalA,methodApprovalAuthority:null,failedCommand:null,recordedAtUtc:f.at(160)};
+  f.final.collectionStartedAtUtc=f.at(150);f.final.capturedAtUtc=f.at(151);r.recordedAtUtc=f.at(161);
+  function point(file,value){const sealed=sealReceipt(value);return {file,physicalSha256:f.write(file,sealed),canonicalReceiptSha256:sealed.receiptSha256};}
+  function persist({recommit=true}={}) {
+    failed.cliResult={file:'release/evidence/fixture-rules-failed-cli.json',physicalSha256:f.write('release/evidence/fixture-rules-failed-cli.json',f.cliResult)};
+    failed.beforeReadback=point('release/evidence/fixture-rules-failed-before.json',f.before);
+    failed.measurements={file:'release/evidence/fixture-rules-projected-measurements.json',physicalSha256:f.write('release/evidence/fixture-rules-projected-measurements.json',projected)};
+    failed.processResult={file:'release/evidence/fixture-rules-process.json',physicalSha256:f.write('release/evidence/fixture-rules-process.json',processResult)};
+    failed.processResultSha256=failed.processResult.physicalSha256;
+    reconciliation.failedCommand=point('release/evidence/fixture-rules-failed-command.json',failed);
+    if(recommit) {
+      method.failedCommand=structuredClone(reconciliation.failedCommand);
+      method.retainedSourceEvidence={privacyReviewReference:'SYNTHETIC-PRIVACY-REVIEW',derivationReviewReference:'SYNTHETIC-DERIVATION-REVIEW',
+        ...method.retainedSourceEvidence,measurementsSha256:failed.measurementsSha256,
+        measurementsProjectionSha256:failed.measurements.physicalSha256,processResultSha256:failed.processResultSha256};
+      const hash=f.write(tool.METHOD_FILE,method);
+      const methodCommit=commit(toolingCommit,[tool.METHOD_FILE],f.at(140),'Synthetic distinct observed-state method decision');
+      reconciliation.methodApprovalAuthority={commit:methodCommit,file:tool.METHOD_FILE,sha256:hash};
+    }
+    delete r.firestoreDeployment.rulesDeploymentEvidence;
+    r.firestoreDeployment.rulesReconciliationEvidence=point(tool.EVIDENCE_FILE,reconciliation);
+    f.persistCurrent();
+    f.persistCandidate();
+  }
+  persist();
+  const validate=()=>tool.validateBoundaryInput({repoRoot:f.root,evidenceRoot:f.root,methodAuthorityRoot:f.root,
+    approval:a,receipt:r,expectedBuildNumber:30});
+  const retainArtifact=()=>{const parent=reconciliation.methodApprovalAuthority.commit;
+    const artifact=commit(parent,[],f.at(145),'Synthetic artifact descendant retaining method custody');
+    f.git('update-ref','HEAD',artifact);return artifact;};
+  return {...f,tool,failed,method,reconciliation,toolingCommit,originalA,projected,processResult,rawMeasurements,persistReconciliation:persist,validate,retainArtifact};
+}
+
+test('Rules reconciliation admits separately committed method and fresh strict state while retaining real exit1', async (t) => {
+  const f=reconciliationFixture(t);
+  assert.deepEqual(f.validate(),{ok:true,decision:'PASS_REVIEWED_RULES_OBSERVED_STATE_RECONCILIATION'});
+  assert.equal(f.failed.exitCode,1);assert.equal(f.cliResult.status,'error');
+  assert.equal(f.git('rev-parse','HEAD'),f.toolingCommit,'read-only preparation runs at exact T before artifact N');
+  assert.deepEqual(f.currentReceipt.approvalAuthority,f.originalA,'original A is unchanged');
+  assert.equal(f.receipt.firestoreDeployment.rulesDeploymentPerformed,false,'historical receipt unchanged');
+  assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+  const baseline=structuredClone({failed:f.failed,method:f.method,reconciliation:f.reconciliation,
+    before:f.before,final:f.final,cli:f.cliResult,receipt:f.currentReceipt,projected:f.projected,processResult:f.processResult});
+  const restore=()=>{
+    for(const [target,key] of [[f.failed,'failed'],[f.method,'method'],[f.reconciliation,'reconciliation'],
+      [f.before,'before'],[f.final,'final'],[f.cliResult,'cli'],[f.currentReceipt,'receipt'],[f.projected,'projected'],[f.processResult,'processResult']]) {
+      for(const name of Object.keys(target))delete target[name];Object.assign(target,structuredClone(baseline[key]));
+    }
+  };
+  const cases=[
+    ['compile503',()=>{f.cliResult.error=f.tool.CONFLICT.replace('409','503');},/release409/],
+    ['wrong endpoint409',()=>{f.cliResult.error=f.tool.CONFLICT.replace('/releases','/rulesets');},/release409/],
+    ['wrong project409',()=>{f.cliResult.error=f.tool.CONFLICT.replace(PROJECT,'another-project');},/release409/],
+    ['forged success JSON',()=>{delete f.cliResult.error;Object.assign(f.cliResult,{status:'success',result:{}});},/release409/],
+    ['fabricated exit0',()=>{f.failed.exitCode=0;},/attempt13 exit1/],
+    ['another attempt',()=>{f.failed.attemptNumber=12;},/attempt13 exit1/],
+    ['changed command source',()=>{f.failed.source.commit='0'.repeat(40);},/source\/approval/],
+    ['changed original CI',()=>{f.failed.ciAuthority.sha256='0'.repeat(64);},/original CI/],
+    ['unapproved command argument',()=>{f.failed.command.arguments.push('--force');},/invocation/],
+    ['dirty execution',()=>{f.failed.executionSource.before.governedWorktreeClean=false;},/clean main/],
+    ['projected source mutation',()=>{f.projected.measurements.sourceCommit='0'.repeat(40);},/projected source/],
+    ['projected raw hash mutation',()=>{f.projected.sourceMeasurementsSha256='0'.repeat(64);},/raw hash/],
+    ['projected extra path',()=>{f.projected.measurements.executionRoot='C:/private';},/projected measurement fields/],
+    ['projected omitted field',()=>{delete f.projected.measurements.runtime;},/projected measurement fields/],
+    ['projected command time mutation',()=>{f.projected.measurements.completedAtUtc=f.at(122);},/projected command/],
+    ['actual process exit mutation',()=>{f.processResult.exitCode=0;},/actual process window/],
+    ['actual process missing field',()=>{delete f.processResult.resolvedNode;},/actual process fields/],
+    ['runtime changed',()=>{f.failed.runtime.after.identity.node.sha256='0'.repeat(64);},/runtime|identity/i],
+    ['before already new',()=>{f.before.outputs.rules.rulesetName=f.final.outputs.rules.rulesetName;},/old\/new/],
+    ['method permits mutations',()=>{f.method.furtherMutationAuthorized=true;},/method scope/],
+    ['method claims CLI success',()=>{f.method.cliSuccessClaimed=true;},/method scope/],
+    ['method wrong source',()=>{f.method.source.commit='0'.repeat(40);},/method source/],
+    ['method before verifier custody',()=>{f.method.decidedAtUtc=f.at(125.5);},/chronology/],
+    ['method recorded after custody',()=>{f.method.recordedAtUtc=f.at(142);},/chronology/],
+    ['method no owner evidence',()=>{f.method.ownerInstructionReference=' ';},/instruction/],
+    ['placeholder approver',()=>{f.method.approvedBy='TODOAPPROVER';},/non-placeholder/],
+    ['decorated placeholder reference',()=>{f.method.ownerInstructionReference='T\u0332O\u0332-D\u0332O\u0332';},/non-placeholder/],
+    ['placeholder verifier review',()=>{f.method.reviewedVerifier.reviewReference='TODOREFERENCE details';},/placeholder/],
+    ['placeholder privacy review',()=>{f.method.retainedSourceEvidence.privacyReviewReference='TO-DO';},/privacy review/],
+    ['invisible derivation review',()=>{f.method.retainedSourceEvidence.derivationReviewReference='\u200b\u2060';},/privacy review/],
+    ['ruleset existed before command',()=>{f.method.acceptedRulesetCreateTime=f.at(120);},/within actual/],
+    ['ruleset created after command',()=>{f.method.acceptedRulesetCreateTime=f.at(122);},/within actual/],
+    ['accepted unrelated ruleset',()=>{f.method.acceptedRulesetName=`projects/${PROJECT}/rulesets/unrelated`;},/expressly accepted/],
+    ['postdecision OBSERVE relabel refusal',()=>{f.final.mode='OBSERVE';},/type\/mode/],
+    ['strict started before R custody',()=>{f.final.collectionStartedAtUtc=f.at(140.5);},/fresh STRICT/],
+    ['final Rules bytes mismatch',()=>{f.final.outputs.rules.activeSha256='0'.repeat(64);},/old\/new/],
+    ['final indexes changed',()=>{f.final.outputs.indexes.apiSetSha256='0'.repeat(64);},/drift|adjudication|control/],
+    ['future final read',()=>{f.final.capturedAtUtc='2999-01-01T00:00:00Z';},/future/],
+    ['recorded before final read',()=>{f.reconciliation.recordedAtUtc=f.at(150);},/honest closure/],
+    ['missing method',()=>{f.reconciliation.methodApprovalAuthority=null;},/pointer shape/],
+  ];
+  for(const [label,mutate,pattern] of cases) await t.test(label,()=>{
+    restore();mutate();f.persistReconciliation({recommit:label!=='missing method'});
+    assert.throws(f.validate,pattern);
+  });
+  restore();f.persistReconciliation();
+  await t.test('dual pointer remains ambiguous',()=>{
+    f.currentReceipt.firestoreDeployment.rulesDeploymentEvidence={};
+    assert.throws(f.validate,/mutually exclusive/);delete f.currentReceipt.firestoreDeployment.rulesDeploymentEvidence;
+  });
+  await t.test('loaded transitive verifier bytes cannot change after T review',()=>{
+    const file=path.join(f.root,'tools/release/reviewedRulesRuntime.js'),raw=fs.readFileSync(file);
+    fs.appendFileSync(file,'\n// unreviewed');assert.throws(f.validate,/verifier bytes/);fs.writeFileSync(file,raw);
+  });
+  assert.equal(f.validate().ok,true,'original complete proof still valid after refusal checks');
+  await t.test('genuine approver named Todor is retained without rewriting',()=>{
+    f.method.approvedBy='Todor';f.persistReconciliation();assert.equal(f.validate().ok,true);
+    assert.equal(f.method.approvedBy,'Todor');
+  });
+  await t.test('privacy projection changes only the three declared path fields',()=>{
+    const raw=JSON.parse(f.rawMeasurements),p=f.tool.projectRetainedMeasurements(f.rawMeasurements);
+    for(const field of ['executionRoot','authorityRoot','evidenceRoot']) {
+      assert.equal(p.measurements[`${field}Sha256`],sha(raw[field].replaceAll('\\','/')));
+      assert.equal(Object.hasOwn(p.measurements,field),false);delete raw[field];delete p.measurements[`${field}Sha256`];
+    }
+    assert.deepEqual(p.measurements,raw);
+    assert.equal(p.sourceMeasurementsSha256,sha(f.rawMeasurements));
+    assert.throws(()=>f.tool.projectRetainedMeasurements(Buffer.from(JSON.stringify({...raw,extra:'unreviewed'}))),/field inventory/);
+  });
+  await t.test('public staged authority accepts artifact descendant with tooling T and deployed backend F separate',()=>{
+    f.retainArtifact();f.version.sourceBaseline.commit=f.toolingCommit;f.persistCandidate();
+    assert.equal(f.validate().ok,true);
+    assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+    assert.notEqual(f.version.sourceBaseline.commit,f.currentReceipt.sourceAuthority.commit);
+  });
 });
 
 test('Rules command refuses a coherently retained ignored installed CLI mutation', (t) => {

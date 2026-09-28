@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "source-options-runtime-dependency-observation",
+  "reviewComplete": false,
+  "sourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "sourceTree": "a0524fce9ec6cca01a8c02c5d8b5e035213ddcd5",
+  "functionsTree": "4c55d62ec947b05a70e5f21967e3a73866c0aedd",
+  "functionsPackageSha256": "129F7A8A43A8B298782709383E5492EF3B6BFBB128DE054BAC9D5477EF19E557",
+  "functionsLockSha256": "7ACB3832C3FFC3078047CF5708C33CEFAC58E1FA7C7E45B1196989C888D1751D",
+  "scalingAssessment": {
+    "file": "release/evidence/build30-current-source-scaling-assessment-attempt2.json",
+    "physicalSha256": "ADF1B60BF5410379E4925EFF18F11DF991D682D93C11EEED1F02F113EAE23D1D"
+  },
+  "installedDependencyLog": {
+    "file": "functions-dependency-install.log",
+    "physicalSha256": "52E4C48E820C2F63D68EFBA5BB44E1A7A2FD4549B8BC460AFC828A44FDA21632"
+  },
+  "observedAtUtc": "2026-09-27T17:58:22.775Z",
+  "networkRequestsPerformed": 0,
+  "sourceValidatorModules": [
+    {
+      "file": "tools/release/reviewedBackendControls.js",
+      "bytes": 30380,
+      "sha256": "AF7D64B470B21826F869E13CE83CE56D8D57C71514553094FCEC9DAD759C276F"
+    }
+  ],
+  "modules": [
+    {
+      "file": "functions/node_modules/firebase-functions/lib/_virtual/rolldown_runtime.js",
+      "bytes": 1187,
+      "sha256": "3849BBE698CE2DE08948FCDB909158111FA0FFF764ED7DE130594BF047DC63BA"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/common/options.js",
+      "bytes": 846,
+      "sha256": "0D760D987D3B867C8FF7905CCDE5CD788BA570699AB9D39E7B3EA901670A51AE"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/common/trace.js",
+      "bytes": 2631,
+      "sha256": "DDF2EC475C0FC7B71351F1FFC1DB5A63C54943C4A6D34A2C90B9FEEC06C56F61"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/logger/common.js",
+      "bytes": 475,
+      "sha256": "5F20C270F15AC3BCB01B6E98F35C6C12467D795976B1F3DBFEC8C8CE9D232D28"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/logger/index.js",
+      "bytes": 4339,
+      "sha256": "10F1FC19FE0DF2A01FFE3A1616365EBE1A363F432AABFA51AA98335863B09168"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/params/index.js",
+      "bytes": 7665,
+      "sha256": "26E4DE532E3739F0546D3B484B7BC5F56B9F3964E44F48F70E01457EA7961435"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/params/types.js",
+      "bytes": 15867,
+      "sha256": "3A66C9FB62E31AB35744C6070EA5F13EDED9BCA9A5A22E7461B46E693DC258B7"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/lib/runtime/manifest.js",
+      "bytes": 3730,
+      "sha256": "98784FE5BB13D6593FCA2B9DC7A3B57C3F22E9F35464A169BDB25AABCF396F46"
+    },
+    {
+      "file": "functions/node_modules/firebase-functions/package.json",
+      "bytes": 20845,
+      "sha256": "9BA1816191685A061CE626A761FE48C403A6A56C62DB5C582AABEB0AD23C165E"
+    },
+    {
+      "file": "functions/node_modules/typescript/lib/typescript.js",
+      "bytes": 9112572,
+      "sha256": "3AE902C92CC44DACE175C0E69E13A4B0899F6983C6121D76B9AB8DD5795E7675"
+    },
+    {
+      "file": "functions/node_modules/typescript/package.json",
+      "bytes": 3620,
+      "sha256": "822EF7CA6452205657B6288B066481ECF508BFBF43455D715CF7D3EC457561E6"
+    }
+  ],
+  "qualification": "Observed only from sourceOptions on the freshly installed locked execution checkout and reconciled to the successful source-bound scaling assessment. Discovery grants no trust; exact bytes require independent review and immutable backend approval before the validator guard can admit them."
+}

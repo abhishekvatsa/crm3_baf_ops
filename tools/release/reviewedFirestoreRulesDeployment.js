@@ -137,13 +137,15 @@ function validateRulesPreflight({repoRoot, sourceCommit, sourceTree, declaration
   const source = declareRules({repoRoot, sourceCommit, sourceTree, declaration});
   return validateObservation(readback, {sourceCommit, sourceTree, declaration, source, before: true});
 }
-function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, approval, receipt, successorDecision = null}) {
+function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, methodAuthorityRoot = repoRoot, approval, receipt, successorDecision = null}) {
   const scope = approval.approvedDeployment, deployed = receipt.firestoreDeployment, boundary = receipt.controlBoundary;
   const declaration = scope?.reviewedRulesDeployment;
   const pointer = deployed?.rulesDeploymentEvidence;
+  const reconciliation = deployed?.rulesReconciliationEvidence;
+  need(!(pointer !== undefined && reconciliation !== undefined), "command and reconciliation evidence are mutually exclusive");
   if (scope?.firestoreRulesMutationAuthorized === false) {
     need(deployed?.rulesDeploymentPerformed === false && boundary?.securityRulesMutated === false &&
-      declaration === undefined && pointer === undefined, "unchanged Rules path cannot hide a mutation/proof");
+      declaration === undefined && pointer === undefined && reconciliation === undefined, "unchanged Rules path cannot hide a mutation/proof");
     return {ok: true, decision: "PASS_NO_RULES_MUTATION"};
   }
   need(successorDecision?.ok === true && scope?.firestoreRulesMutationAuthorized === true &&
@@ -162,6 +164,12 @@ function validateRulesDeploymentBoundary({repoRoot, evidenceRoot = repoRoot, app
   const preflight = readBound(evidenceRoot, declaration.preflight);
   const beforeApproval = validateObservation(preflight, {sourceCommit, sourceTree, declaration, source, before: true});
   need(beforeApproval.end <= instant(successorDecision.decisionAtUtc), "preflight postdates approval");
+  if (reconciliation !== undefined) {
+    return require("./reviewedRulesReconciliation.js").validateRulesReconciliation({
+      repoRoot, evidenceRoot, methodAuthorityRoot, approval, receipt, successorDecision, declaration, source, runtimeAuthority,
+      readBound, validateObservation,
+    });
+  }
   need(pointer?.file === declaration.commandEvidenceFile, "unapproved command evidence path");
   const command = readBound(evidenceRoot, pointer);
   keys(command, ["schemaVersion", "evidenceType", "decision", "projectId", "source", "approvalAuthority", "ciAuthority",
