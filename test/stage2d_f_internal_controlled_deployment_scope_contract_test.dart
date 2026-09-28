@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Map<String, dynamic> _readJson(String path) {
@@ -181,9 +182,6 @@ void main() {
     final artifactSource = File(
       'tools/release/New-ProductionArtifact.ps1',
     ).readAsStringSync();
-    final policy = _readJson('release/production-release-policy.json');
-    expect(_object(policy['release'])['buildNumber'], 29);
-    expect(policy.containsKey('appCheckBuild'), isFalse);
     final appCheckBuildSource = File(
       'tools/release/Production-AppCheckPolicy.ps1',
     ).readAsStringSync();
@@ -237,5 +235,89 @@ void main() {
       'android',
     ]);
     expect(_strings(platformScope['futurePlatforms']), <String>['web']);
+  });
+
+  test('the signed Build29 policy retains its absent App Check choice', () {
+    // Use the immutable policy that produced Build29, not the moving candidate.
+    final historical = Process.runSync('git', <String>[
+      '--no-replace-objects',
+      'show',
+      '770f1745f7f4440e92ad5ff409e124a48baa107e:'
+          'release/production-release-policy.json',
+    ], stdoutEncoding: null);
+    expect(historical.exitCode, 0, reason: '${historical.stderr}');
+    final bytes = historical.stdout as List<int>;
+    expect(
+      sha256.convert(bytes).toString().toUpperCase(),
+      '8061338763C4E6A80E241C844733576F6F867D45577B7AE3FA8EB93AFC7B1088',
+    );
+    final policy = _object(jsonDecode(utf8.decode(bytes)));
+    expect(_object(policy['release'])['buildNumber'], 29);
+    expect(policy.containsKey('appCheckBuild'), isFalse);
+  });
+
+  test('current candidate explicitly preserves the approved deferral', () {
+    final policy = _readJson('release/production-release-policy.json');
+    final release = _object(policy['release']);
+    expect(release['buildNumber'], 30);
+    final choice = _object(policy['appCheckBuild']);
+    expect(choice['clientEnabled'], isFalse);
+    expect(choice['androidProvider'], 'disabled');
+    expect(
+      choice['approvalFile'],
+      'release/approvals/build30-app-check-client-approval.json',
+    );
+    final approvalFile = choice['approvalFile'] as String;
+    expect(
+      sha256
+          .convert(File(approvalFile).readAsBytesSync())
+          .toString()
+          .toUpperCase(),
+      choice['approvalSha256'],
+    );
+    final approval = _readJson(approvalFile);
+    expect(approval['approved'], isTrue);
+    expect(
+      approval['documentType'],
+      'governed-app-check-client-build-approval',
+    );
+    expect(
+      approval['approvalReference'],
+      'BUILD30-APP-CHECK-DISABLED-20260928',
+    );
+    expect(approval['intendedBuildNumber'], release['buildNumber']);
+    expect(approval['releaseId'], release['releaseId']);
+    expect(
+      approval['reservationId'],
+      _object(policy['versionPolicy'])['reservationId'],
+    );
+    expect(approval['applicationId'], policy['permanentApplicationId']);
+    expect(approval['firebaseProjectId'], policy['firebaseProjectId']);
+    expect(approval['clientEnabled'], choice['clientEnabled']);
+    expect(approval['androidProvider'], choice['androidProvider']);
+    expect(approval['enforcementChangeAuthorized'], isFalse);
+
+    final finalization = _object(policy['finalization']);
+    final backendFile =
+        finalization['exactFunctionFleetDeploymentReceiptFile'] as String;
+    final backendHash = sha256
+        .convert(File(backendFile).readAsBytesSync())
+        .toString()
+        .toUpperCase();
+    expect(
+      backendHash,
+      finalization['exactFunctionFleetDeploymentReceiptSha256'],
+    );
+    expect(approval['backendReceiptSha256'], backendHash);
+    final backend = _readJson(backendFile);
+    expect(
+      approval['backendSourceCommit'],
+      _object(backend['sourceAuthority'])['commit'],
+    );
+    expect(approval['serverEnforcementAtBuild'], isFalse);
+    expect(
+      approval['serverEnforcementAtBuild'],
+      _object(backend['deployment'])['appCheckEnforcement'],
+    );
   });
 }
