@@ -38,10 +38,11 @@ and Firestore Rules are verified against deployed source `2aa30de5`; all 67
 indexes are ready. The original failed Rules command remains recorded as a
 failure, with a separately reviewed method decision and strict live readback
 establishing the deployed state. Existing permissions and limits are preserved.
-The candidate's release-contract test repairs require a new, approved artifact
-source baseline after merge and successful CI. Signed construction remains
-blocked until that binding and its custody records are complete. No Build 30
-artifact or remote build-number reservation is claimed. Protected signing,
+The candidate is bound to merged source `6156e39d`, which passed its five-job
+main release gate and security checks. Its source rebind and refreshed private
+custody records still require their normal review and release gates before
+signing. No Build 30 artifact or remote build-number reservation is claimed.
+Protected signing,
 independent finalization, exact-device retention and business-flow validation,
 and a separate pilot decision remain required. Play delivery must be proved
 through an actual in-place update before compatible updates are promised.
