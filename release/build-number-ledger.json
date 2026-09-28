@@ -1632,12 +1632,12 @@
       "reservationId": "CRM3_BUILD30_20260928-30",
       "remoteReservationTag": "crm3-build-reserved/30",
       "remoteBuiltTag": "crm3-build-built/30",
-      "baselineCommit": "6156e39d03b2aa7ea7a50658ac7915cba00488e2",
+      "baselineCommit": "0b8edda899d94e3832644549e448fa7bc287970d",
       "reservedForBranch": "codex/build30-candidate-a9d6c611",
       "status": "source-reserved-awaiting-remote-consumption",
       "failedOrWithdrawnBuildConsumesNumber": true,
       "versionApprovalReference": "BUILD30-OWNER-DELEGATED-20260928",
-      "versionApprovalDocumentSha256": "1CA8ABE3974251D51D5D0C9A484A4135893C2F54F499F2397E31A2E925C6A56B",
+      "versionApprovalDocumentSha256": "49ADA6B28F5889D3888CD2D7A2A7BF77D46A659F40AA971150779C294EB75BC1",
       "reservedAtUtc": "2026-09-28T02:49:54.909425Z",
       "distributionPerformed": false
     }
