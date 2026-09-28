@@ -72,28 +72,37 @@ Future<void> showControl(WidgetTester tester, Finder target) async {
 }
 
 Future<void> tapControl(WidgetTester tester, Finder target) async {
-  await showControl(tester, target);
-  // The real, movable safety shortcut can overlap a form control. Reposition
-  // it using the user gesture rather than tapping through it or hiding it.
-  final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
-  if (launcher.evaluate().isNotEmpty &&
-      tester.getRect(launcher).contains(tester.getCenter(target))) {
-    final size = tester.view.physicalSize / tester.view.devicePixelRatio;
-    final current = tester.getCenter(launcher);
-    final destination = Offset(
-      current.dx > size.width / 2 ? 36 : size.width - 36,
-      120,
-    );
-    await tester.drag(launcher, destination - current);
+  for (var attempt = 0; attempt < 5; attempt++) {
+    await showControl(tester, target);
+    // The real, movable safety shortcut can overlap a form control. Reposition
+    // it using the user gesture rather than tapping through it or hiding it.
+    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+    if (launcher.evaluate().isNotEmpty &&
+        tester.getRect(launcher).contains(tester.getCenter(target))) {
+      final size = tester.view.physicalSize / tester.view.devicePixelRatio;
+      final current = tester.getCenter(launcher);
+      final destination = Offset(
+        current.dx > size.width / 2 ? 36 : size.width - 36,
+        120,
+      );
+      await tester.drag(launcher, destination - current);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(
+        tester.getRect(launcher).contains(tester.getCenter(target)),
+        isFalse,
+        reason:
+            'The safety shortcut must move clear before tapping the control.',
+      );
+    }
+    // Android keyboard metrics can resize the dialog after ensureVisible.
+    // Reveal again if its mounted tile is now clipped behind the modal barrier.
+    // Never suppress a missed tap or invoke the control's callback directly.
+    if (target.hitTestable().evaluate().isEmpty) continue;
+    await tester.tap(target);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(
-      tester.getRect(launcher).contains(tester.getCenter(target)),
-      isFalse,
-      reason: 'The safety shortcut must move clear before tapping the control.',
-    );
+    return;
   }
-  await tester.tap(target);
-  await tester.pump(const Duration(milliseconds: 500));
+  fail('Control remained unreachable after five reveal attempts: $target');
 }
 
 Future<void> enter(WidgetTester tester, String label, String text) async {
