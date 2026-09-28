@@ -43,13 +43,13 @@ Future<void> _home(WidgetTester tester) async {
   while (find.byType(HomeScreen).evaluate().isEmpty) {
     await goBack(tester);
   }
-  await tester.tap(find.text('Home'));
+  await tapControl(tester, find.text('Home'));
   await tester.pump(const Duration(milliseconds: 500));
 }
 
 Future<void> _openJob(WidgetTester tester, String id) async {
   await _home(tester);
-  await tester.tap(find.text('Work'));
+  await tapControl(tester, find.text('Work'));
   await tester.pump(const Duration(milliseconds: 500));
   await showControl(tester, find.byKey(ValueKey('open-job-$id')));
   await tapControl(tester, find.byKey(ValueKey('open-job-$id')));
@@ -107,7 +107,7 @@ Future<bool> _recheckHeldWorkIfPresent(WidgetTester tester) async {
           (tester.widget(recheck) as ButtonStyleButton).onPressed != null,
       'Explicit retry waits for any current sync to finish.',
     );
-    await tester.tap(recheck);
+    await tapControl(tester, recheck);
     requested = true;
     await tester.pump(const Duration(milliseconds: 500));
     debugPrint('DEV_PLANNED_ORIGIN_ACTOR_RECHECK_REQUESTED');
@@ -169,7 +169,7 @@ void main() {
         'Normal access gate',
       );
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,
@@ -203,7 +203,7 @@ void main() {
               (tester.widget(recheck) as ButtonStyleButton).onPressed != null,
           'Initial automatic sync must finish before explicit recovery.',
         );
-        await tester.tap(recheck);
+        await tapControl(tester, recheck);
         await tester.pump(const Duration(milliseconds: 350));
         await awaitRecord(
           tester,
@@ -308,7 +308,7 @@ void main() {
         seconds: 20,
       );
       await _home(tester);
-      await tester.tap(find.text('Work'));
+      await tapControl(tester, find.text('Work'));
       await tester.pump(const Duration(milliseconds: 500));
       final assignPublished = find.text('Assign Published');
       await showControl(tester, assignPublished);
@@ -362,7 +362,7 @@ void main() {
           () => tester.widget<FilledButton>(retryButton).onPressed != null,
           'Saved evidence must finish refreshing before retry.',
         );
-        await tester.tap(retryButton);
+        await tapControl(tester, retryButton);
         await tester.pump(const Duration(milliseconds: 350));
       } else if (existingWork.isNotEmpty) {
         final original = existingWork.single.data();

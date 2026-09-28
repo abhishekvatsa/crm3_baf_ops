@@ -16,6 +16,7 @@ import 'package:crm3_baf_ops/home_screen.dart';
 import 'package:crm3_baf_ops/main.dart' as app;
 
 import 'dev_abnormality_journey_test.dart' show waitFor, reveal;
+import 'support/journey_pointer.dart' show tapControl;
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -74,16 +75,16 @@ void main() {
           .doc(probe['warningId'] as String)
           .get(const GetOptions(source: Source.server));
       expect(warning.exists, isTrue);
-      await tester.tap(find.text('More'));
+      await tapControl(tester, find.text('More'));
       await tester.pump(const Duration(milliseconds: 400));
       await reveal(tester, find.text('Abnormalities'));
-      await tester.tap(find.text('Abnormalities'));
+      await tapControl(tester, find.text('Abnormalities'));
       await tester.pump(const Duration(seconds: 1));
       await tester.enterText(
         find.byType(TextField).first,
         '${probe['chargeNo']}',
       );
-      await tester.tap(find.text('Open').first);
+      await tapControl(tester, find.text('Open').first);
       await waitFor(
         tester,
         () => find

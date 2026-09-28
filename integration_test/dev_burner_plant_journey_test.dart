@@ -101,7 +101,7 @@ Future<void> _home(WidgetTester tester) async {
   while (find.byType(HomeScreen).evaluate().isEmpty) {
     await goBack(tester);
   }
-  await tester.tap(find.text('Home'));
+  await tapControl(tester, find.text('Home'));
   await tester.pump(const Duration(milliseconds: 500));
 }
 
@@ -175,7 +175,7 @@ Future<void> _bulk<T>(WidgetTester tester, String tooltip, String label) async {
     () => option.evaluate().isNotEmpty,
     'The $tooltip menu must be open.',
   );
-  await tester.tap(option);
+  await tapControl(tester, option);
   await waitFor(
     tester,
     () => find.byType(PopupMenuItem<T>).evaluate().isEmpty,
@@ -272,7 +272,7 @@ void main() {
         'Normal access gate',
       );
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,

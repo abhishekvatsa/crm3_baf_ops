@@ -38,7 +38,7 @@ void main() {
         'Reach approved home or sign-in',
       );
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await journey.tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,

@@ -1,5 +1,6 @@
 // Runs the actual application against the demo Firebase suite on Android.
 // No provider, repository, callable, or success result is substituted.
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PlatformDispatcher;
 
@@ -20,6 +21,8 @@ import 'package:crm3_baf_ops/features/abnormalities/presentation/charge_abnormal
 import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
 import 'package:crm3_baf_ops/home_screen.dart';
 import 'package:crm3_baf_ops/main.dart' as app;
+
+import 'support/journey_pointer.dart';
 
 Future<void> waitFor(
   WidgetTester tester,
@@ -117,25 +120,8 @@ Future<void> openAbnormalityForm(
   }
 }
 
-Future<void> reveal(WidgetTester tester, Finder target) async {
-  FocusManager.instance.primaryFocus?.unfocus();
-  await tester.pump(const Duration(milliseconds: 500));
-  await tester.scrollUntilVisible(
-    target,
-    250,
-    // The dialog retains its underlying route. Use the current ListView,
-    // not that route or an editable field's internal viewport.
-    scrollable: find
-        .descendant(
-          of: find.byType(ListView).last,
-          matching: find.byType(Scrollable),
-        )
-        .first,
-    maxScrolls: 30,
-  );
-  await Scrollable.ensureVisible(tester.element(target), alignment: 0.4);
-  await tester.pump(const Duration(milliseconds: 600));
-}
+Future<void> reveal(WidgetTester tester, Finder target) =>
+    showControl(tester, target, maxScrolls: 30, scrollDelta: 250);
 
 Finder field(String label) => find.byWidgetPredicate(
   (widget) => widget is TextField && widget.decoration?.labelText == label,
@@ -153,23 +139,49 @@ Future<void> chooseDropdown(
   Finder item,
 ) async {
   await reveal(tester, dropdown);
-  await tester.tap(dropdown);
+  await tapControl(tester, dropdown);
   await tester.pump(const Duration(milliseconds: 600));
   // The popup lazily builds a long catalogue. Select through its real viewport
   // instead of assuming every fixture is already rendered.
-  final menuItem = find.descendant(
-    of: find.byType(ListView).last,
-    matching: item,
-  );
+  final menuItem = find.descendant(of: currentRouteLists(), matching: item);
   await reveal(tester, menuItem);
-  await tester.tap(menuItem);
+  await tapControl(tester, menuItem);
   await tester.pump(const Duration(milliseconds: 600));
 }
 
 Future<void> goBack(WidgetTester tester) async {
-  await tester.tap(find.byTooltip('Back').hitTestable().first);
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 700));
+  final reachableBack = find.byTooltip('Back').hitTestable();
+  for (
+    var attempt = 0;
+    attempt < 50 && reachableBack.evaluate().isEmpty;
+    attempt++
+  ) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  expect(
+    reachableBack.evaluate(),
+    isNotEmpty,
+    reason: 'The current route must expose a reachable Back button.',
+  );
+  final back = reachableBack.first;
+  final route = ModalRoute.of(tester.element(back));
+  expect(route, isNotNull, reason: 'Back must belong to the current route.');
+  var removed = false;
+  unawaited(
+    route!.completed.then<void>((_) {
+      removed = true;
+    }),
+  );
+  await tapControl(tester, back);
+  for (var attempt = 0; attempt < 50 && !removed; attempt++) {
+    await tester.pump(const Duration(milliseconds: 200));
+  }
+  expect(
+    removed,
+    isTrue,
+    reason:
+        'The popped route must finish leaving before revealing its destination.',
+  );
 }
 
 void main() {
@@ -204,7 +216,7 @@ void main() {
       );
       expect(Firebase.app().options.projectId, startsWith('demo-'));
       if (find.text('Sign in with Google').evaluate().isNotEmpty) {
-        await tester.tap(find.text('Sign in with Google'));
+        await tapControl(tester, find.text('Sign in with Google'));
       }
       await waitFor(
         tester,
@@ -212,12 +224,12 @@ void main() {
         'Seeded approved Operations account must reach home.',
       );
 
-      await tester.tap(find.text('More'));
+      await tapControl(tester, find.text('More'));
       await tester.pump(const Duration(milliseconds: 400));
       debugPrint('PHONE_STEP More workspace');
       final abnormalityEntry = find.text('Abnormalities');
       await reveal(tester, abnormalityEntry);
-      await tester.tap(abnormalityEntry);
+      await tapControl(tester, abnormalityEntry);
       debugPrint('PHONE_STEP Abnormalities');
       await waitFor(
         tester,
@@ -227,7 +239,7 @@ void main() {
       final chargeNo = 80000 + DateTime.now().millisecondsSinceEpoch % 10000;
       final observation = 'DEV phone journey $chargeNo';
       await tester.enterText(find.byType(TextField).first, '$chargeNo');
-      await tester.tap(find.text('Open').first);
+      await tapControl(tester, find.text('Open').first);
       await waitFor(
         tester,
         () => find
@@ -267,10 +279,10 @@ void main() {
         find.textContaining('Furnace 01'),
       );
       await reveal(tester, find.text('Add affected equipment'));
-      await tester.tap(find.text('Add affected equipment'));
+      await tapControl(tester, find.text('Add affected equipment'));
       await tester.pump(const Duration(seconds: 2));
       await reveal(tester, find.text('Log abnormality'));
-      await tester.tap(find.text('Log abnormality'));
+      await tapControl(tester, find.text('Log abnormality'));
       await waitFor(
         tester,
         () => find.text('Log charge abnormality').evaluate().isEmpty,
@@ -310,7 +322,7 @@ void main() {
       await goBack(tester);
       await goBack(tester);
       await reveal(tester, find.text('Quality'));
-      await tester.tap(find.text('Quality'));
+      await tapControl(tester, find.text('Quality'));
       await waitFor(
         tester,
         () => find.byType(QualityHomeScreen).evaluate().isNotEmpty,
@@ -339,10 +351,10 @@ void main() {
       // Reopening the charge must retain the case after the form has been destroyed.
       await goBack(tester);
       await reveal(tester, find.text('Abnormalities'));
-      await tester.tap(find.text('Abnormalities'));
+      await tapControl(tester, find.text('Abnormalities'));
       await tester.pump(const Duration(seconds: 1));
       await tester.enterText(find.byType(TextField).first, '$chargeNo');
-      await tester.tap(find.text('Open').first);
+      await tapControl(tester, find.text('Open').first);
       await waitFor(
         tester,
         () =>
