@@ -1621,6 +1621,25 @@
       "physicalInstallationReceiptSha256": null,
       "pilotPromotionReceiptFile": "release/evidence/build-27-staged-controlled-pilot-authorization.json",
       "pilotPromotionReceiptSha256": "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B"
+    },
+    {
+      "buildNumber": 30,
+      "versionName": "1.0.0-rc.20",
+      "releaseId": "crm3-baf-ops-1.0.0-rc.20-b30",
+      "releaseTag": "crm3-baf-ops-v1.0.0-rc.20",
+      "releaseChannel": "production-candidate",
+      "campaignId": "CRM3_BUILD30_20260928",
+      "reservationId": "CRM3_BUILD30_20260928-30",
+      "remoteReservationTag": "crm3-build-reserved/30",
+      "remoteBuiltTag": "crm3-build-built/30",
+      "baselineCommit": "a9d6c61179bd6fdacf885dddd4a1908db97e9188",
+      "reservedForBranch": "codex/build30-candidate-a9d6c611",
+      "status": "source-reserved-awaiting-remote-consumption",
+      "failedOrWithdrawnBuildConsumesNumber": true,
+      "versionApprovalReference": "BUILD30-OWNER-DELEGATED-20260928",
+      "versionApprovalDocumentSha256": "AC9A0FE72C8E566FC0F1F62C1BE732E20581C88B0B8CE03D8FD106BA2E04E94E",
+      "reservedAtUtc": "2026-09-28T02:39:09.094605Z",
+      "distributionPerformed": false
     }
   ]
 }
