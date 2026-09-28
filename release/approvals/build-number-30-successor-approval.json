@@ -17,7 +17,7 @@
       "do you need any authorizations? i am going to sleep - phone is connected and i expect a build by 0300AM"
     ],
     "ownerReference": "The owner requested the governed candidate and subsequently stated: Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process. Current conversation; no message time or identifier inferred.",
-    "supportingPauseReference": "The owner explicitly answered Yes—all users are stopped and will wait for this coordinated update. Current conversation; no message time inferred.",
+    "supportingPauseReference": "The owner explicitly answered Yes\u2014all users are stopped and will wait for this coordinated update. Current conversation; no message time inferred.",
     "agentDecision": "Record one unused Build30 source allocation after the exact source backend closure and successful main CI. Construction remains conditional on fresh committed custody and complete construction gates.",
     "scopeInterpretation": "No business-data mutation, App Check activation, manual scheduler invocation, bucket/IAM changes or unrestricted distribution.",
     "evidenceReferences": {
@@ -51,8 +51,8 @@
   "authorityBasis": "Record one unused Build30 source allocation after the exact source backend closure and successful main CI. Construction remains conditional on fresh committed custody and complete construction gates.",
   "approvalScope": "One Build30 source allocation with separate committed custody and construction gates; no completed artifact or distribution is asserted.",
   "sourceBaseline": {
-    "commit": "a9d6c61179bd6fdacf885dddd4a1908db97e9188",
-    "tree": "1315f18e63c7953238671acb8a35c232c29c4917"
+    "commit": "6156e39d03b2aa7ea7a50658ac7915cba00488e2",
+    "tree": "b666686ebe99bd2d5ba03dc9ee2416ec4b660575"
   },
   "consumedBuild": {
     "buildNumber": 29,
@@ -892,5 +892,22 @@
     "New private custody must be committed before construction. Its later hash must not rewrite this immutable allocation.",
     "Preserve every historical artifact/ledger entry and all retained device data.",
     "Any remote reservation consumes30 permanently even if construction later fails."
-  ]
+  ],
+  "artifactBaselineRebind": {
+    "previousBaselineCommit": "a9d6c61179bd6fdacf885dddd4a1908db97e9188",
+    "targetCommit": "6156e39d03b2aa7ea7a50658ac7915cba00488e2",
+    "decisionFile": "build30-artifact-source-rebind-decision-6156e39d.json",
+    "decisionSha256": "23D09628B0E0BDC8730F5CDBC0D703210F35D672328E2812EB5E39841528B7AB",
+    "decisionCustodyPath": "release/approvals/build30-artifact-source-rebind-decision-6156e39d.json",
+    "sourceApprovalShaAtDecision": "8EEA85A9CACBD3324430C948A45042345AEF252AD7E005C682798187C3A74261",
+    "decisionDocumentType": "governed-artifact-source-rebind-decision",
+    "ownerStatementInOwnWords": "Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process",
+    "confirmedAtUtc": "2026-09-28T15:00:29.810526Z",
+    "deployedBackendCommitUnchanged": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+    "postMergeEvidence": {
+      "runId": 36436341956,
+      "headSha": "6156e39d03b2aa7ea7a50658ac7915cba00488e2",
+      "conclusion": "success"
+    }
+  }
 }

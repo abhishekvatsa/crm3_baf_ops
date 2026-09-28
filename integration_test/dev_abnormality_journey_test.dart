@@ -6,11 +6,15 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crm3_baf_ops/core/dev/dev_environment.dart';
+import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
+import 'package:crm3_baf_ops/features/auth/domain/current_actor_access.dart';
+import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/abnormalities/presentation/abnormalities_home_screen.dart';
 import 'package:crm3_baf_ops/features/abnormalities/presentation/charge_abnormalities_screen.dart';
 import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
@@ -29,6 +33,88 @@ Future<void> waitFor(
     await Future<void>.delayed(const Duration(milliseconds: 100));
   }
   expect(ready(), isTrue, reason: reason);
+}
+
+// A mounted button is not evidence that startup sync or route/keyboard layout
+// has finished. Wait for the real prerequisites, then send exactly one tap.
+// This helper never seeds data, retries the action or bypasses its actor guard.
+Future<void> openAbnormalityForm(
+  WidgetTester tester, {
+  String requiredTypeCode = 'SURF-SCALE',
+  int readinessSeconds = 90,
+}) async {
+  final target = find.byKey(const ValueKey('charge-abnormalities-create'));
+  expect(target, findsOneWidget);
+  final container = ProviderScope.containerOf(tester.element(target));
+  final catalogue = container.listen(activeAbnormalityTypesProvider, (_, _) {});
+  Rect? previousRect;
+  String lastState = 'not checked';
+  FocusManager.instance.primaryFocus?.unfocus();
+  try {
+    await waitFor(
+      tester,
+      () {
+        final types = container.read(activeAbnormalityTypesProvider);
+        final actor = CurrentActorAccess.resolve(
+          container.read(currentAppUserProvider),
+        ).actor;
+        final hasType =
+            types.asData?.value.any((type) => type.code == requiredTypeCode) ==
+            true;
+        final elements = target.evaluate().toList();
+        final route = elements.length == 1
+            ? ModalRoute.of(elements.single)
+            : null;
+        final routeReady =
+            route?.isCurrent == true &&
+            route?.animation?.status == AnimationStatus.completed &&
+            route?.secondaryAnimation?.status == AnimationStatus.dismissed;
+        final keyboardClosed = tester.view.viewInsets.bottom == 0;
+        final reachable =
+            elements.length == 1 && target.hitTestable().evaluate().length == 1;
+        lastState =
+            'catalogueLoading=${types.isLoading}, '
+            'catalogueError=${types.hasError}, requiredTypePresent=$hasType, '
+            'actorAllowed=${actor?.canLogChargeAbnormality == true}, '
+            'routeReady=$routeReady, keyboardClosed=$keyboardClosed, '
+            'reachable=$reachable';
+        if (!hasType ||
+            actor?.canLogChargeAbnormality != true ||
+            !routeReady ||
+            !keyboardClosed ||
+            !reachable) {
+          previousRect = null;
+          return false;
+        }
+        final rect = tester.getRect(target);
+        final stable = previousRect == rect;
+        previousRect = rect;
+        return stable;
+      },
+      'Abnormality catalogue, account and visible control must be ready.',
+      seconds: readinessSeconds,
+    );
+    await tester.tap(target);
+    await waitFor(
+      tester,
+      () => find.text('Log charge abnormality').evaluate().isNotEmpty,
+      'Real abnormality form opens with synced master data.',
+      seconds: readinessSeconds,
+    );
+  } catch (_) {
+    debugPrint('ABNORMALITY_FORM_ENTRY_FAILURE $lastState');
+    // This journey runs only with demo data. Preserve visible refusal/guard
+    // feedback so a future CI timeout identifies the failed business step.
+    debugPrint(
+      tester
+          .widgetList<Text>(find.byType(Text))
+          .map((text) => text.data ?? '')
+          .join(' | '),
+    );
+    rethrow;
+  } finally {
+    catalogue.close();
+  }
 }
 
 Future<void> reveal(WidgetTester tester, Finder target) async {
@@ -150,14 +236,7 @@ void main() {
             .isNotEmpty,
         'Operations may log an abnormality.',
       );
-      await tester.tap(
-        find.byKey(const ValueKey('charge-abnormalities-create')),
-      );
-      await waitFor(
-        tester,
-        () => find.text('Log charge abnormality').evaluate().isNotEmpty,
-        'Real abnormality form opens with synced master data.',
-      );
+      await openAbnormalityForm(tester);
       await chooseDropdown(
         tester,
         keyedPrefix('abnormality-type-'),
