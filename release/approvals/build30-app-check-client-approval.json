@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-app-check-client-build-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-09-28T02:51:42.124512Z",
+  "approverName": "Codex acting under project-owner delegation",
+  "approvalReference": "BUILD30-APP-CHECK-DISABLED-20260928",
+  "approvalEvidence": {
+    "authorityType": "owner-delegated agent decision",
+    "projectOwnerName": "Abhishek Vatsa",
+    "recordedBy": "Codex acting under project-owner delegation",
+    "recordedAtUtc": "2026-09-28T02:51:42.124512Z",
+    "delegatedDecisionAtUtc": "2026-09-28T02:51:42.124512Z",
+    "timestampSource": "Actual agent decision and recording time; no owner-message timestamp or identifier inferred.",
+    "quotedEvidenceScope": "Only instructionExcerpts is quoted owner wording; the decision and scope are explicitly the agent's interpretation.",
+    "instructionExcerpts": [
+      "do you need any authorizations? i am going to sleep - phone is connected and i expect a build by 0300AM"
+    ],
+    "ownerReference": "The owner requested the governed candidate and subsequently stated: Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process. Current conversation; no message time or identifier inferred.",
+    "supportingPauseReference": "The owner explicitly answered Yes—all users are stopped and will wait for this coordinated update. Current conversation; no message time inferred.",
+    "agentDecision": "Record the exact candidate metadata, protected-environment review, and disabled App Check compiler choice after committed allocation and custody. Signing, device proof, internal distribution and Play rollout remain separate actual execution evidence.",
+    "scopeInterpretation": "No business-data mutation, App Check activation, manual scheduler invocation, bucket/IAM changes or unrestricted distribution.",
+    "evidenceReferences": {
+      "actualBackendClosure": {
+        "file": "release/evidence/build30-current-source-backend-deployment-closure.json",
+        "sha256": "3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45"
+      },
+      "sourceCi": {
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/release/evidence/build30-current-source-backend-ci.json",
+        "sha256": "7D6D4CCCB1C42A10A7BFE43EA7B5DD9F5C10870BB63A0CC4BAC7C5EBEA5C7FF1"
+      },
+      "artifactSourceCi": {
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/metadata/merged-main-a9d6c611-36368575456/merged-source-ci.json",
+        "sha256": "B78BBA9390A1922AE08C7DF933CD3F437F357AADF7CCCE264DD395FAC8B539D3"
+      },
+      "allocation": {
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/environment-readback-20260928/remote-build-tags.json",
+        "sha256": "BF351FEF087A7475EF3B2A5C468152ACC9E7B39E1A168560DCED6CDEF912B418"
+      },
+      "environment": {
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/environment-readback-20260928/normalized.json",
+        "sha256": "A2402C49C9A2EC970091AEB67129218D3DFAB8D988F52CC131817C45765A0BDD"
+      },
+      "play": {
+        "path": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build30-preparation/play-allocation-20260928/observation.json",
+        "sha256": "2E723D227EB1A8E56C294C9CAAD65FAD7FD38D10925757989092083186873902"
+      }
+    }
+  },
+  "intendedBuildNumber": 30,
+  "releaseId": "crm3-baf-ops-1.0.0-rc.20-b30",
+  "reservationId": "CRM3_BUILD30_20260928-30",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "applicationId": "in.co.sail.bsl.crm3.bafops",
+  "clientEnabled": false,
+  "androidProvider": "disabled",
+  "enforcementChangeAuthorized": false,
+  "serverEnforcementAtBuild": false,
+  "backendSourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "backendReceiptSha256": "3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45"
+}

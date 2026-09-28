@@ -285,6 +285,9 @@ try {
  if(input.mutation==='iam-proof-hash')receipt.deployment.newCallableInvokerIamEvidence.physicalSha256='A'.repeat(64);
  if(input.mutation==='unapproved-rules')approval.approvedDeployment.firestoreRulesMutationAuthorized=false;
  if(input.mutation==='hidden-rules')receipt.controlBoundary.securityRulesMutated=false;
+ if(input.mutation==='reconciliation-hash')receipt.firestoreDeployment.rulesReconciliationEvidence.physicalSha256='A'.repeat(64);
+ if(input.mutation==='mixed-rules')receipt.firestoreDeployment.rulesDeploymentEvidence=receipt.firestoreDeployment.rulesReconciliationEvidence;
+ if(input.mutation==='missing-reconciliation')delete receipt.firestoreDeployment.rulesReconciliationEvidence;
  stage='fleet-counts';
  assert.equal(fleetTool.deploymentCountsMatch(fleet,receipt.deployment),true,'Deployment counts differ from exact source policy');
  for(const kind of ['functionFleet','iamDependencies']){
@@ -340,6 +343,8 @@ String _backendExecutionEvidenceShape(Map<String, dynamic> closure) {
   final iamEvidence = deployment['newCallableInvokerIamEvidence'];
   final iamMutated =
       (closure['controlBoundary'] as Map?)?['iamMutated'] == true;
+  final firestore = (closure['firestoreDeployment'] as Map?)
+      ?.cast<String, dynamic>();
   // New-callable IAM evidence is carried exactly when IAM was mutated. A
   // current-scoped deployment that adds no callables carries none, and one
   // that mutated IAM without publishing the evidence is not a valid layout.
@@ -353,9 +358,15 @@ String _backendExecutionEvidenceShape(Map<String, dynamic> closure) {
       deployment['cohorts'] is List &&
       deployment['controlComparison'] is Map &&
       deployment['deployedCodeByteComparison'] is Map &&
-      (closure['firestoreDeployment'] as Map?)?['rulesDeploymentEvidence']
-          is Map) {
-    return 'current-scoped';
+      firestore != null) {
+    if (firestore['rulesDeploymentEvidence'] is Map &&
+        !firestore.containsKey('rulesReconciliationEvidence')) {
+      return 'current-scoped';
+    }
+    if (firestore['rulesReconciliationEvidence'] is Map &&
+        !firestore.containsKey('rulesDeploymentEvidence')) {
+      return 'current-reconciled';
+    }
   }
   throw StateError(
     'Expected exactly one complete historical or current backend evidence layout.',
@@ -415,7 +426,7 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
   final code = (deployment['deployedCodeByteComparison'] as Map)
       .cast<String, dynamic>();
   final links = <Map<String, dynamic>>[...cohorts, controls, code];
-  if (shape == 'current-scoped') {
+  if (shape == 'current-scoped' || shape == 'current-reconciled') {
     final iamEvidence = deployment['newCallableInvokerIamEvidence'];
     expect(
       iamEvidence is Map,
@@ -426,11 +437,36 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
     if (iamEvidence is Map) {
       links.add(iamEvidence.cast<String, dynamic>());
     }
-    links.add(
-      ((closure['firestoreDeployment'] as Map)['rulesDeploymentEvidence']
-              as Map)
-          .cast<String, dynamic>(),
-    );
+    final rulesPointer =
+        ((closure['firestoreDeployment'] as Map)[shape == 'current-scoped'
+                    ? 'rulesDeploymentEvidence'
+                    : 'rulesReconciliationEvidence']
+                as Map)
+            .cast<String, dynamic>();
+    links.add(rulesPointer);
+    if (shape == 'current-reconciled') {
+      final reconciliation = _readObject(rulesPointer['file'] as String);
+      expect(
+        reconciliation['decision'],
+        'PASS_APPROVED_RULES_OBSERVED_STATE_RECONCILED',
+      );
+      final failedPointer = (reconciliation['failedCommand'] as Map)
+          .cast<String, dynamic>();
+      links.add(failedPointer);
+      final failed = _readObject(failedPointer['file'] as String);
+      // Reconciliation preserves the actual failed CLI outcome; it never
+      // converts a failed attempt into a successful deployment command.
+      expect(failed['decision'], 'ACTUAL_RULES_CLI_RELEASE_CONFLICT');
+      expect(failed['exitCode'], 1);
+      for (final field in <String>[
+        'cliResult',
+        'beforeReadback',
+        'measurements',
+        'processResult',
+      ]) {
+        links.add((failed[field] as Map).cast<String, dynamic>());
+      }
+    }
     links.add(
       (code['expectedBuiltSourceInventory'] as Map).cast<String, dynamic>(),
     );
@@ -453,13 +489,14 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
   }
   // The sealed comparator cannot pass a real redeploy, because its control
   // view keeps Cloud Run buildConfig fields that change on every legitimate
-  // deployment. Build 29 admits the adjudicated decision under the owner's
-  // confirmed amendment; both are exact preservation outcomes.
+  // deployment. Builds 29 and 30 retain their reviewed preservation outcomes
+  // and the full shared authority check above revalidates their approvals.
   expect(
     controls['decision'],
     anyOf(
       'PASS_BACKEND_PRE_POST_CONTROL_COMPARISON',
       'PASS_EXISTING_19_BACKEND_CONTROLS_PRESERVED_WITH_ADJUDICATED_DEPLOYMENT_METADATA',
+      'PASS_EXISTING_19_BACKEND_CONTROLS_PRESERVED',
     ),
   );
   expect(code['decision'], 'PASS_DEPLOYED_CODE_ARCHIVES_EXACT_BUILT_SOURCE');
@@ -602,6 +639,46 @@ void main() {
     expect(verdict['stage'], 'iam');
     expect(verdict['reason'], contains('unscoped IAM mutation is prohibited'));
   });
+  const reconciledClosure =
+      'release/evidence/build30-current-source-backend-deployment-closure.json';
+  test(
+    'Build 30 reconciles the failed Rules command with immutable authority',
+    () {
+      final proof = _backendEvidenceProbe(
+        reconciledClosure,
+        expectedBuildNumber: 30,
+      );
+      expect(proof['ok'], isTrue, reason: proof['reason'] as String?);
+      expect(proof['fleet']['functionCount'], 19);
+      expect(proof['iamDecision'], 'PASS_NO_IAM_MUTATION');
+      expect(
+        proof['rulesDecision'],
+        'PASS_REVIEWED_RULES_OBSERVED_STATE_RECONCILIATION',
+      );
+      final closure = _readObject(reconciledClosure);
+      expect(_backendExecutionEvidenceShape(closure), 'current-reconciled');
+      _expectBackendExecutionEvidence(closure);
+    },
+  );
+  for (final entry in <String, String>{
+    'reconciliation-hash': 'physical evidence hash differs',
+    'mixed-rules': 'command and reconciliation evidence are mutually exclusive',
+    'missing-reconciliation': 'unapproved command evidence path',
+    'unapproved-rules': 'unchanged Rules path cannot hide a mutation/proof',
+  }.entries) {
+    test('reconciled Rules proof refuses ${entry.key}', () {
+      final before = _sha256(reconciledClosure);
+      final verdict = _backendEvidenceProbe(
+        reconciledClosure,
+        mutation: entry.key,
+        expectedBuildNumber: 30,
+      );
+      expect(verdict['ok'], isFalse);
+      expect(verdict['stage'], 'rules');
+      expect(verdict['reason'], contains(entry.value));
+      expect(_sha256(reconciledClosure), before);
+    });
+  }
   test('missing or mixed external evidence layouts fail closed', () {
     final current = _readObject(currentClosure);
     (current['deployment'] as Map).remove('newCallableInvokerIamEvidence');
@@ -617,6 +694,23 @@ void main() {
     (legacy['privacySafeExternalEvidence'] as Map)['byteComparisonLog'] =
         <String, dynamic>{};
     expect(() => _backendExecutionEvidenceShape(legacy), throwsStateError);
+    for (final key in <String>[
+      'rulesDeploymentEvidence',
+      'rulesReconciliationEvidence',
+    ]) {
+      final reconciled = _readObject(reconciledClosure);
+      final firestore = reconciled['firestoreDeployment'] as Map;
+      if (key == 'rulesReconciliationEvidence') {
+        firestore.remove(key);
+      } else {
+        // Even a null duplicate must not disguise mixed acceptance methods.
+        firestore[key] = null;
+      }
+      expect(
+        () => _backendExecutionEvidenceShape(reconciled),
+        throwsStateError,
+      );
+    }
   });
   test('backend source-drift expectations cover every parity branch', () {
     expect(
