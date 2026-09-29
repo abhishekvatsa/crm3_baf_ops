@@ -72,6 +72,13 @@ jobs:
       - name: Artifact baseline re-bind contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_rebind_*.py'
 
+      - name: Laboratory dependency guard rejection contracts
+        shell: pwsh
+        run: ./tools/v4/Test-FirebaseCliLabPins.ps1
+
+      - name: Ultimate source and dependency audit
+        run: python3 tools/v4/v4_2_ultimate_audit.py
+
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
