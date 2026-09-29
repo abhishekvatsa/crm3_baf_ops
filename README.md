@@ -38,14 +38,11 @@ and Firestore Rules are verified against deployed source `2aa30de5`; all 67
 indexes are ready. The original failed Rules command remains recorded as a
 failure, with a separately reviewed method decision and strict live readback
 establishing the deployed state. Existing permissions and limits are preserved.
-The previous candidate baseline is merged source `0b8edda8`, which passed all
-five main release checks and security analysis. The subsequent merged-main run
-at `75338d2d` failed on an unreachable time-picker control in the Quality/RA
-journey. A targeted sweep applies shared pointer readiness to pickers, menus,
-charge opening, navigation and recovery actions. Return navigation also waits
-for its route to finish and its destination viewport to become available,
-including temporary profile loading. These test repairs require
-fresh review and CI, then an
+The candidate baseline `ac2e6310` passed all five main release checks and
+security analysis. Newly published advisories now block the Firebase CLI
+dependency audit. A targeted update patches its URI parser, IP classifier,
+access logger and HTTP client while retaining the pinned CLI version and
+strict audit gate. The tooling repair requires fresh review and CI, then an
 artifact-source rebind and updated custody records before signing. Construction
 authority is withheld until that process completes. No Build 30 artifact or
 remote build-number reservation is claimed.

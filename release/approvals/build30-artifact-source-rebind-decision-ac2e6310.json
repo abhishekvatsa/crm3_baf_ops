@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-artifact-source-rebind-decision",
+  "confirmed": true,
+  "authorityType": "owner-delegated agent decision",
+  "recordedBy": "Codex acting under project-owner delegation",
+  "deployedBackendCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "decisionScope": "Bind only the reviewed and merged test-source successor to this unconsumed Build30 candidate. Preserve deployed business/native/Functions/Rules/index source, failed evidence, original allocation history and separate signing/device/distribution gates. Fresh candidate custody must bind the resulting ledger before construction.",
+  "recordedAtUtc": "2026-09-28T20:33:35.072921Z",
+  "previousBaselineCommit": "0b8edda899d94e3832644549e448fa7bc287970d",
+  "targetCommit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
+  "sourceApprovalSha256AtDecision": "49ADA6B28F5889D3888CD2D7A2A7BF77D46A659F40AA971150779C294EB75BC1",
+  "custodyPath": "release/approvals/build30-artifact-source-rebind-decision-ac2e6310.json",
+  "ownerConfirmation": {
+    "confirmed": true,
+    "confirmationBasis": "Standing explicit owner delegation for the complete governed build, renewed for overnight execution on 29 September IST. This is the agent decision applying that delegation, not a new owner response.",
+    "confirmedByName": "Codex acting under project-owner delegation",
+    "ownerStatementInOwnWords": "Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process",
+    "confirmedAtUtc": "2026-09-28T20:33:35.072921Z",
+    "timestampMeaning": "Actual delegated decision time, not an inferred owner-message timestamp."
+  },
+  "reviewedDelta": {
+    "fromCommit": "0b8edda899d94e3832644549e448fa7bc287970d",
+    "toCommit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
+    "paths": {
+      "test": {
+        "before": "44d2a078f6032e9582e192e24d2c20d0a4ef2f68",
+        "after": "ad17034de8beb5a70f84300491c541ea6de50b72"
+      },
+      "integration_test": {
+        "before": "65831a24a4185ae5e97f7425f31bb43e6b19d22a",
+        "after": "3aa5ac86ec5a6b0c508870cf744dc19dd7f7a027"
+      }
+    }
+  },
+  "reviewEvidence": {
+    "pullRequest": 387,
+    "mergeCommit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
+    "reviewedHead": "ce1c20e141b094303f02f9b38848bec321b27748",
+    "cleanBotReviewCommentId": 5877059294,
+    "mainReleaseGateRunId": 36476115921,
+    "mainReleaseGateConclusion": "success",
+    "mainSecurityRunId": 36476116033,
+    "mainSecurityConclusion": "success",
+    "retainedCiObservationSha256": "A26E63A4364B63C2C95429AFC9BA32E88DCF6EAB2B401ACE45C2D2F2DA79A45C",
+    "retainedCanonicalAuditSha256": "0CB23E50CE3C9FDC2684DD1F87995D9C820C1291A1C37EFEF267825E46BA8AD9",
+    "retainedSecurityRunSha256": "A761B6E543084E03488A7FE9CC233DC073DE6A295B7CA9CB104544125D20283A"
+  },
+  "productionMutationPerformed": false,
+  "artifactConstructed": false,
+  "distributionApproved": false
+}

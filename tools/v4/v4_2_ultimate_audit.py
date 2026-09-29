@@ -97,10 +97,10 @@ check(
 adapter = text("functions/src/maintenanceWorkflow/firebaseStore.ts")
 adapter_tests = text("functions/test/maintenanceWorkflowFirebaseStore.test.js")
 native_types = [
-    "admin.firestore.Timestamp",
-    "admin.firestore.GeoPoint",
-    "admin.firestore.DocumentReference",
-    "admin.firestore.FieldValue",
+    "Timestamp",
+    "GeoPoint",
+    "DocumentReference",
+    "FieldValue",
     "Uint8Array",
 ]
 check(
@@ -108,7 +108,8 @@ check(
     "if (isNativeFirestoreValue(value)) return value;" in adapter
     and adapter.index("if (isNativeFirestoreValue(value)) return value;")
     < adapter.index('if (value != null && typeof value === "object")')
-    and all(t in adapter for t in native_types),
+    and 'import {DocumentReference, FieldValue, GeoPoint, Timestamp} from "firebase-admin/firestore";' in adapter
+    and all(f"value instanceof {t}" in adapter for t in native_types),
 )
 check(
     "Native-value and command-path persistence regressions are directly tested",
@@ -217,6 +218,8 @@ tooling_versions = {
     "hono": lock_version("tooling/firebase-cli/package-lock.json", "hono"),
     "ip-address": lock_version("tooling/firebase-cli/package-lock.json", "ip-address"),
     "js-yaml": lock_version("tooling/firebase-cli/package-lock.json", "js-yaml"),
+    "morgan": lock_version("tooling/firebase-cli/package-lock.json", "morgan"),
+    "undici": lock_version("tooling/firebase-cli/package-lock.json", "undici"),
     "re2": lock_version("tooling/firebase-cli/package-lock.json", "re2"),
 }
 check(
@@ -226,8 +229,8 @@ check(
     and functions_versions["body-parser"] == "1.20.6"
     and root_versions["brace-expansion"] == "5.0.9"
     and functions_versions["brace-expansion"] == "5.0.9"
-    and root_versions["js-yaml"] == "3.15.1"
-    and functions_versions["js-yaml"] == "3.15.1",
+    and root_versions["js-yaml"] == "3.15.2"
+    and functions_versions["js-yaml"] == "3.15.2",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
@@ -237,11 +240,13 @@ check(
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.9"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.6"
-    and tooling_versions["hono"] == "4.12.34"
-    and tooling_versions["ip-address"] == "10.4.0"
-    and tooling_versions["js-yaml"] == "4.3.1"
-    and tooling_versions["re2"] == "1.26.1",
+    and tooling_versions["fast-uri"] == "3.1.7"
+    and tooling_versions["hono"] == "4.13.7"
+    and tooling_versions["ip-address"] == "10.5.1"
+    and tooling_versions["js-yaml"] == "4.3.2"
+    and tooling_versions["re2"] == "1.26.1"
+    and tooling_versions["morgan"] == "1.12.1"
+    and tooling_versions["undici"] == "8.10.2",
     str(tooling_versions),
 )
 

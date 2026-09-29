@@ -32,7 +32,7 @@
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
       "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-30.json",
-      "approvalReceiptSha256": "856C7D1088BBDDBD825BE050C24109F398DA82F3D195F7D638D673550C7684BF",
+      "approvalReceiptSha256": "73D26BC098D9FA79E9F85FD6B0AC5DF48DB52C9327ABD08E312CBA8E6EE49FDF",
       "approvalReference": "BAF-GH-ENV-026",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
@@ -63,7 +63,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-30-successor-approval.json",
-    "sourceDocumentSha256": "49ADA6B28F5889D3888CD2D7A2A7BF77D46A659F40AA971150779C294EB75BC1",
+    "sourceDocumentSha256": "FF7E60A9EFD22422AA7021DB90E164227CB8F789D74A115BA0134C135B8E6C93",
     "remoteReservationTag": "crm3-build-reserved/30",
     "remoteBuiltTag": "crm3-build-built/30",
     "failedOrWithdrawnBuildConsumesNumber": true
@@ -601,8 +601,8 @@
       "exactCreatedCloudGenerationReadbackRequired": true,
       "packageAndSidecarBeforeBuiltTagRequired": true,
       "allSixProofsBeforeFinalSuccessRequired": true,
-      "approvalCommit": "c7a0243b8008058441b3e42e443aa949af489378",
-      "approvalSha256": "BDBE698E8D85F3128F066F61550AD9AA1045A10EA149983FE1CB2802D320500D"
+      "approvalCommit": "e2e252817cda9419d461221a98cb88b3c37542cb",
+      "approvalSha256": "0DFD0EE0D94D1D54768947C610A74CA225A595D88EA8B800EE8B01A4C026C8EA"
     }
   },
   "signing": {
@@ -707,7 +707,7 @@
     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
     "firebaseToolsVersion": "15.22.4",
     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
-    "firebaseToolsLockfileSha256": "DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF",
+    "firebaseToolsLockfileSha256": "97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781",
     "linuxIsarCoreSha256": "142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259",
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-community-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",

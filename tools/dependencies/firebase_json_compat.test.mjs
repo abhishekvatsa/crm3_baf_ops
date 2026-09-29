@@ -34,13 +34,48 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   assert.equal(entries.length, 2);
   for (const [, value] of entries) assert.equal(value.version, '3.5.0');
   assert.equal(lock.packages['node_modules/stream-json'].resolved, 'file:../stream-json-compat');
-  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.6');
+  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.7');
+  assert.equal(lock.packages['node_modules/ip-address'].version, '10.5.1');
+  assert.equal(lock.packages['node_modules/morgan'].version, '1.12.1');
+  assert.equal(lock.packages['node_modules/undici'].version, '8.10.2');
   assert.equal(lock.packages['node_modules/qs'].version, '6.16.0');
   for (const dir of [root, path.join(root, 'functions')]) {
     const otherLock = JSON.parse(fs.readFileSync(path.join(dir, 'package-lock.json')));
     assert.ok(!Object.keys(otherLock.packages).some(key => /stream-json/.test(key)),
       'The parser adapter must remain confined to Firebase CLI tooling');
   }
+});
+
+test('URI parsing rejects an unclosed host bracket and retains valid IPv6', () => {
+  const uri = require('fast-uri');
+  for (const value of ['https://[example.com/', 'http://[127.0.0.1/']) {
+    assert.ok(uri.parse(value).error, `Malformed host must be rejected: ${value}`);
+  }
+  assert.equal(uri.parse('https://[::1]/').error, undefined);
+  assert.equal(uri.parse('https://example.com/').host, 'example.com');
+});
+
+test('IPv6 classifiers recognize the full link-local and NAT64 local-use ranges', () => {
+  const {Address6} = require('ip-address');
+  for (const value of ['fe80::1', 'fe81::1', 'febf::1', 'fe80:0:0:1::1']) {
+    assert.equal(new Address6(value).isLinkLocal(), true, value);
+  }
+  for (const value of ['64:ff9b:1::7f00:1', '64:ff9b:1:7f00:0:100::']) {
+    assert.equal(new Address6(value).isPrivate(), true, value);
+  }
+  assert.equal(new Address6('2001:4860:4860::8888').isLinkLocal(), false);
+  assert.equal(new Address6('2001:4860:4860::8888').isPrivate(), false);
+});
+
+test('quoted access-log tokens cannot inject a new field', () => {
+  const morgan = require('morgan');
+  const format = morgan.compile('":url"');
+  for (const url of ['/demo" forged', '/demo\\" forged', '/demo"\r\nforged']) {
+    const line = format(morgan, {url}, {});
+    assert.equal(JSON.parse(line), url,
+      'The quoted token must remain exactly one escaped field');
+  }
+  assert.equal(format(morgan, {url: '/demo'}, {}), '"/demo"');
 });
 
 test('auth import retains regex selection, array records, and streaming composition', async () => {

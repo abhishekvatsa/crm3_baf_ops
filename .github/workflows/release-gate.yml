@@ -72,6 +72,13 @@ jobs:
       - name: Artifact baseline re-bind contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_rebind_*.py'
 
+      - name: Laboratory dependency guard rejection contracts
+        shell: pwsh
+        run: ./tools/v4/Test-FirebaseCliLabPins.ps1
+
+      - name: Ultimate source and dependency audit
+        run: python3 tools/v4/v4_2_ultimate_audit.py
+
       - name: Canonical source and authority audit
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
@@ -307,7 +314,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
+          expected_lock_sha="97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -374,7 +381,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="DB5D4EC7A42FBF7A4B442742CA0AC564EA7CF44713EC6A0205AF9797581782FF"
+          expected_lock_sha="97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
