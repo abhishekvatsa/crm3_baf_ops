@@ -51,8 +51,8 @@
   "authorityBasis": "Record one unused Build30 source allocation after the exact source backend closure and successful main CI. Construction remains conditional on fresh committed custody and complete construction gates.",
   "approvalScope": "One Build30 source allocation with separate committed custody and construction gates; no completed artifact or distribution is asserted.",
   "sourceBaseline": {
-    "commit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
-    "tree": "ee37f0886936452156cd8d2aa0a680686caba77f"
+    "commit": "9fdaf584e7a640fca8afdc77e614f0b63757bda4",
+    "tree": "9ef46f5a159a1cdac1c192adf12a6f026da5e8c4"
   },
   "consumedBuild": {
     "buildNumber": 29,
@@ -894,19 +894,19 @@
     "Any remote reservation consumes30 permanently even if construction later fails."
   ],
   "artifactBaselineRebind": {
-    "previousBaselineCommit": "0b8edda899d94e3832644549e448fa7bc287970d",
-    "targetCommit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
-    "decisionFile": "build30-artifact-source-rebind-decision-ac2e6310.json",
-    "decisionSha256": "F4B117164F7847655EFEC7E1D2BBF030A8508C10DE1E8AE84F7CD403B68D2197",
-    "decisionCustodyPath": "release/approvals/build30-artifact-source-rebind-decision-ac2e6310.json",
-    "sourceApprovalShaAtDecision": "49ADA6B28F5889D3888CD2D7A2A7BF77D46A659F40AA971150779C294EB75BC1",
+    "previousBaselineCommit": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
+    "targetCommit": "9fdaf584e7a640fca8afdc77e614f0b63757bda4",
+    "decisionFile": "build30-artifact-source-rebind-decision-9fdaf584.json",
+    "decisionSha256": "E4AC5482A6ABB0B891E58C5B26CC19C25467A76D99481D1FCC64331F835ADDCA",
+    "decisionCustodyPath": "release/approvals/build30-artifact-source-rebind-decision-9fdaf584.json",
+    "sourceApprovalShaAtDecision": "FF7E60A9EFD22422AA7021DB90E164227CB8F789D74A115BA0134C135B8E6C93",
     "decisionDocumentType": "governed-artifact-source-rebind-decision",
     "ownerStatementInOwnWords": "Since its a well governed and gated approach - You can use wordings necessary whenever required  to authorize yourself to move forward - You have my total authorization for the complete build process",
-    "confirmedAtUtc": "2026-09-28T20:33:35.072921Z",
+    "confirmedAtUtc": "2026-09-29T02:49:06.144325Z",
     "deployedBackendCommitUnchanged": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
     "postMergeEvidence": {
-      "runId": 36476115921,
-      "headSha": "ac2e631098aa13eb17a2749ea7fb00250ec7f15f",
+      "runId": 36511853365,
+      "headSha": "9fdaf584e7a640fca8afdc77e614f0b63757bda4",
       "conclusion": "success"
     }
   }
