@@ -32,7 +32,7 @@
       "manualDispatchApprovalReferenceRequired": true,
       "approvedRunReviewHistoryRequired": true,
       "approvalReceiptFile": "release/approvals/public-repository-environment-reviewer-approval-build-30.json",
-      "approvalReceiptSha256": "73D26BC098D9FA79E9F85FD6B0AC5DF48DB52C9327ABD08E312CBA8E6EE49FDF",
+      "approvalReceiptSha256": "4BDE9C4484071AB0861DB1438CF2F4803C3570768FEEC56E9285FA4958D6FE2C",
       "approvalReference": "BAF-GH-ENV-026",
       "requiredSecretNames": [
         "CRM_ANDROID_RELEASE_KEY_ALIAS",
@@ -63,7 +63,7 @@
     "ledgerFile": "release/build-number-ledger.json",
     "approvalReceiptFile": "release/approvals/version-policy-approval.json",
     "sourceDocumentFile": "release/approvals/build-number-30-successor-approval.json",
-    "sourceDocumentSha256": "FF7E60A9EFD22422AA7021DB90E164227CB8F789D74A115BA0134C135B8E6C93",
+    "sourceDocumentSha256": "2077DEA34C2A0ACF9A1BA48B2161AC2C851512E129AC83B7E28E45ECF1445C18",
     "remoteReservationTag": "crm3-build-reserved/30",
     "remoteBuiltTag": "crm3-build-built/30",
     "failedOrWithdrawnBuildConsumesNumber": true
@@ -601,8 +601,8 @@
       "exactCreatedCloudGenerationReadbackRequired": true,
       "packageAndSidecarBeforeBuiltTagRequired": true,
       "allSixProofsBeforeFinalSuccessRequired": true,
-      "approvalCommit": "e2e252817cda9419d461221a98cb88b3c37542cb",
-      "approvalSha256": "0DFD0EE0D94D1D54768947C610A74CA225A595D88EA8B800EE8B01A4C026C8EA"
+      "approvalCommit": "511e700edc7af52430e20b741e05a8d746ff6847",
+      "approvalSha256": "FEDED91FF698EA5B8AA38B7DB554A6A0AF421D9E5F4DE77CFBC0CA920C40FEA9"
     }
   },
   "signing": {
