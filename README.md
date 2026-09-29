@@ -38,11 +38,14 @@ and Firestore Rules are verified against deployed source `2aa30de5`; all 67
 indexes are ready. The original failed Rules command remains recorded as a
 failure, with a separately reviewed method decision and strict live readback
 establishing the deployed state. Existing permissions and limits are preserved.
-The candidate is bound to merged source `ac2e6310`, which passed all five
-main release checks and security analysis, including the repaired Android
-business journeys. Its refreshed source and custody records require normal review
-and release gates before signing. No Build 30 artifact or remote build-number
-reservation is claimed.
+The candidate baseline `ac2e6310` passed all five main release checks and
+security analysis. Newly published advisories now block the Firebase CLI
+dependency audit. A targeted update patches its URI parser, IP classifier,
+access logger and HTTP client while retaining the pinned CLI version and
+strict audit gate. The tooling repair requires fresh review and CI, then an
+artifact-source rebind and updated custody records before signing. Construction
+authority is withheld until that process completes. No Build 30 artifact or
+remote build-number reservation is claimed.
 Protected signing,
 independent finalization, exact-device retention and business-flow validation,
 and a separate pilot decision remain required. Play delivery must be proved

@@ -3107,6 +3107,7 @@ hono_runtime = firebase_cli_packages.get("node_modules/hono", {})
 ip_address = firebase_cli_packages.get("node_modules/ip-address", {})
 js_yaml = firebase_cli_packages.get("node_modules/js-yaml", {})
 morgan = firebase_cli_packages.get("node_modules/morgan", {})
+undici = firebase_cli_packages.get("node_modules/undici", {})
 brace_expansion = firebase_cli_packages.get("node_modules/brace-expansion", {})
 brace_expansion_upstream = firebase_cli_packages.get("node_modules/brace-expansion-modern", {})
 tar = firebase_cli_packages.get("node_modules/tar", {})
@@ -3117,7 +3118,7 @@ check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.6"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.7"
     and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.0"
     and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
     and firebase_cli_package.get("overrides", {}).get("stream-json") == "$stream-json"
@@ -3126,32 +3127,33 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.5.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-dobB7zipGW8o11PvdRljQSWuyMxifADLvoHeA4elwNWOTbZo6+BlNa+P6aCq7Y9jRiWTy2Ucu2xSv0Y2/T+/kQ=="
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.7"
-    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.4.0"
+    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.5.1"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
-    and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.0"
+    and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.1"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
     and firebase_cli_package.get("overrides", {}).get("re2") == "1.26.1"
+    and firebase_cli_package.get("overrides", {}).get("undici") == "8.10.2"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.6"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.6.tgz"
-    and fast_uri.get("integrity") == "sha512-7Ical1vFEMr0onbVzEDIreM22I4khW+fzyQPwvAFWBp1iwdshSZRsL4jjRvPG9JP1uiqMHRto+YU6R2/CzDz5Q=="
+    and fast_uri.get("version") == "3.1.7"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz"
+    and fast_uri.get("integrity") == "sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg=="
     and hono_runtime.get("version") == "4.13.7"
     and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.7.tgz"
     and hono_runtime.get("integrity") == "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="
-    and ip_address.get("version") == "10.4.0"
-    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.4.0.tgz"
-    and ip_address.get("integrity") == "sha512-oSK96Grm3aP6OrS263xVxbNDGVL7rzBtYdpGqlDG8iQdoenDoTs/nkki+DflYbAEE8Xl6o5YxhxlrKvI3nqKXQ=="
+    and ip_address.get("version") == "10.5.1"
+    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.5.1.tgz"
+    and ip_address.get("integrity") == "sha512-EXujUp9jyOI/chPgtqk6uy7fDq8AeCB/WlfEuPg9LN0fN9lzKAKfuDYi60SMhHwgUiEhZvVYsbGZN+RUU1INiA=="
     and js_yaml.get("version") == "4.3.2"
     and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz"
     and js_yaml.get("integrity") == "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
-    and morgan.get("version") == "1.12.0"
-    and morgan.get("resolved") == "https://registry.npmjs.org/morgan/-/morgan-1.12.0.tgz"
-    and morgan.get("integrity") == "sha512-OHpTRQwn2ezasILW8iKe+Yww1XsfWsZIpUOLF7RDb2g5GwO3trPaRwi7+8BDiJ7HFx2Kg2mfUdCBcVhwYlOz2g=="
+    and morgan.get("version") == "1.12.1"
+    and morgan.get("resolved") == "https://registry.npmjs.org/morgan/-/morgan-1.12.1.tgz"
+    and morgan.get("integrity") == "sha512-tljKC0ex20AjO58Ob/eZ53JloycbVswbVNCHx6V6VLGzqt/w8dIynVGL0G8qVjNKwiA7sYSogCrN6QtJ82IV+g=="
     and brace_expansion.get("version") == "5.0.9"
     and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
     and brace_expansion_upstream.get("name") == "brace-expansion"
@@ -3164,6 +3166,9 @@ check(
     and re2.get("version") == "1.26.1"
     and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.26.1.tgz"
     and re2.get("integrity") == "sha512-oi79a4h6EO3PAwNsDMWgeCcsRGQEUa52DIgOiFTZGDEZocEXG9h+oXy0qZqndo47huUeJuVWSoOJIEhOupqOcg=="
+    and undici.get("version") == "8.10.2"
+    and undici.get("resolved") == "https://registry.npmjs.org/undici/-/undici-8.10.2.tgz"
+    and undici.get("integrity") == "sha512-/y4/bH9YNU5hi9NIrpOuvGXFcxrj3CMrV+/AYpowAYTpHn8gX/XPFjNy766FPoYY0miQhdW977JFWKGNhBdwyQ=="
     and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
 )
 brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
