@@ -35,9 +35,72 @@ void main() {
     expect(report['dynamicValueFieldCount'], 6);
     expect(report['extensionBagCount'], 3);
     expect(report['registeredExtensionFieldCount'], 0);
-    expect(report['inheritedDecoderSurfaceCount'], 128);
+    expect(report['inheritedDecoderSurfaceCount'], 129);
     expect(report['failures'], isEmpty);
   });
+
+  test(
+    'Inner Cover workflow evidence inherits the exact reviewed A-05 policy',
+    () {
+      final a04 =
+          jsonDecode(
+                File(
+                  'governance/a04-persisted-schema-v1.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final a05 =
+          jsonDecode(
+                File(
+                  'governance/a05-persisted-decoder-surface-v1.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      const id = 'inner-cover-workflow-serial-evidence';
+      final declared = (a05['surfaces'] as List).cast<Map>().singleWhere(
+        (row) => row['id'] == id,
+      );
+      final inherited = (a04['inheritedDecoderSurfaces'] as List)
+          .cast<Map>()
+          .singleWhere((row) => row['id'] == id);
+      expect(inherited, {
+        for (final key in const [
+          'id',
+          'file',
+          'classification',
+          'authorityBoundary',
+          'malformedDisposition',
+          'compatibility',
+          'regression',
+        ])
+          key: declared[key],
+      });
+      expect(inherited['classification'], 'REMOTE_WORKFLOW_RECORD');
+      expect(
+        inherited['file'],
+        'lib/features/assets/data/inner_cover_workflow_evidence.dart',
+      );
+      expect(
+        a04['a05ManifestSha256'],
+        canonicalTextSha256File(
+          File('governance/a05-persisted-decoder-surface-v1.json'),
+        ),
+      );
+      // A derived remote reader adds no persisted schema field or extension key.
+      expect(
+        (a04['fields'] as List).where(
+          (row) => row['path'] == inherited['file'],
+        ),
+        isEmpty,
+      );
+      expect((a04['extensionPolicy'] as Map)['registeredFields'], isEmpty);
+      expect(
+        (a04['extensionPolicy']
+            as Map)['authorityOrBusinessInvariantFieldsAllowed'],
+        isFalse,
+      );
+    },
+  );
 
   test('legacy nested payloads canonicalize without losing typed values', () {
     final action = ComponentAction.fromMap(<String, dynamic>{

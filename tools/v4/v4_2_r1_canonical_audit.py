@@ -13200,9 +13200,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 128
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 129
     and a04_inventory_report.get("inventoryDigest")
-        == "185C1A811F3F9217AFF48BBC5A2F03D5DDD4A8542522B9EC9A12CB6F0EC68DA6"
+        == "57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13210,8 +13210,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 128
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 128
+    and len(a04_inherited_decoders) == 129
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 129
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}

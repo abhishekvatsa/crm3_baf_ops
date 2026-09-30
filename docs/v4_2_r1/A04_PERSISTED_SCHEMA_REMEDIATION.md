@@ -292,3 +292,22 @@ Counts remain 55 schema fields and 122 inherited decoder surfaces. The A05 risk
 inventory increases from 538 to 539 for the explicit false result when an error
 has no verified refusal pair; this preserves uncertainty. Prior schema fields,
 catch policies, timestamp readers and historical evidence remain unchanged.
+
+
+## Inner Cover read-model inheritance — 30 September 2026
+
+The current inventory retains exactly 55 persisted fields: 49 JSON strings,
+six dynamic values and three bounded extension bags with zero registered
+extension fields. It now inherits 129 reviewed A-05 decoder surfaces, digest
+`57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426`.
+The added read-only Inner Cover workflow projection is the sole inherited row
+change. It carries the exact A-05 authority, malformed-data, compatibility and
+regression declarations; all prior 128 inherited rows and all field policies
+remain unchanged. Its strict active serial and original-host evidence does not
+introduce a new persisted field, migration, write or extension namespace.
+
+The A-04 manifest pins the current A-05 manifest bytes and projected inventory.
+This refresh records that dependency change, not a new historical closure,
+production reconciliation, deployment or installed-client acceptance. All
+original closure hashes, counts and authority remain evidence for their
+original snapshots.
