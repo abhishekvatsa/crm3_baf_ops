@@ -57,6 +57,12 @@ and channel approval remain required. Current modified source has no artifact
 construction or distribution authority. A missing recorded Inner Cover link is
 a reconciliation warning, not proof that a Base is physically without a cover.
 
+The dependency repair updates development-only entries in the Functions lockfile.
+The complete current Functions tree therefore differs from deployed `2aa30de5`;
+that deployed fleet and its historical receipts remain unchanged. The pending
+source status withholds construction until the new source has a governed
+compatibility decision. It does not authorize or require a backend redeployment.
+
 The pending tester source also makes Abnormality report totals actionable and
 shows repeated RA as a connected history of recorded old/new charge links.
 Undated stages use the plant's lower-charge-number-first convention; missing
