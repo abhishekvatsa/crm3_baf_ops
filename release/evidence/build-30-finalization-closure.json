@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "evidenceType": "production-build-finalization-closure",
+  "status": "passed-non-distributable",
+  "recordingTiming": "AT_FINALIZATION",
+  "release": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.20-b30",
+    "releaseChannel": "production-candidate",
+    "versionName": "1.0.0-rc.20",
+    "buildNumber": 30,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "distributionAuthority": "production-signed-pre-release-candidate"
+  },
+  "sourceAuthority": {
+    "commit": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
+    "tree": "1578313eb9a858bde0b88a53d739b7fe9cd8f7bb",
+    "pullRequestNumber": 390
+  },
+  "workflow": {
+    "provider": "github-actions",
+    "workflow": ".github/workflows/production-artifact.yml",
+    "runId": 36577226874,
+    "runAttempt": 1,
+    "url": "https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/36577226874",
+    "startedAtUtc": "2026-09-29T13:43:36Z",
+    "completedAtUtc": "2026-09-29T14:18:01Z",
+    "conclusion": "success",
+    "actor": "abhishekvatsa",
+    "actorId": 213690022,
+    "triggeringActor": "abhishekvatsa",
+    "dispatchApprovalReference": "BUILD30-OWNER-DELEGATED-20260928",
+    "environmentReviewControlMode": "public-repository-required-reviewer",
+    "secretNamesVerified": 4,
+    "secretValuesInspected": false,
+    "environment": "crm3-baf-ops-production-signing",
+    "environmentApprovalReference": "BAF-GH-ENV-026"
+  },
+  "githubArtifact": {
+    "id": 11039688859,
+    "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.20-b30-7ed87824447f1349cb0481c448e0b21c3fa5856f-run-36577226874",
+    "sizeBytes": 180986954,
+    "digest": "sha256:05ccae1737e9158f9cc7d0c43c90a8faef0ae069ed0f4ee06c170a02a7396a64"
+  },
+  "governedPackage": {
+    "sha256": "43D4CBC181BFBEA98AAA72BF68D8ACC557C3EB471089C643FDFEF116E407175A",
+    "sidecarSha256": "D4A4E4AC3B0CA86E76D3F5670F3E33B0527F6EAF014B2D3811C3E8F8660D6169",
+    "manifestSha256": "ADC1D858C0B1E1FB6AAC09EE75C09E654F79EFD4988D33BB57C24ABB1333A774",
+    "apkSha256": "8A3EC37DC799D8DD0E4B03C3728344490FDED192A3691BA946FBA98C985F5ABE",
+    "apkSizeBytes": 102611327,
+    "aabSha256": "EDECD47F0F654947E768D800F2C54F292C0E20E654D46B43190885832F3AFBA0",
+    "aabSizeBytes": 95107995,
+    "applicationId": "in.co.sail.bsl.crm3.bafops",
+    "version": "1.0.0-rc.20+30",
+    "certificateSha256": "6E005FDEFFA62B03FC83177CC8699C4905B7A22B08B2EADC1B69DF0C25F0B47C",
+    "independentVerificationCompleted": true
+  },
+  "remoteAuthority": {
+    "reservationTag": "crm3-build-reserved/30",
+    "reservationTagObjectSha": "9fb33f76373485f3525bd7b6bf4a0025a0ffd41c",
+    "reservationTagCommit": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
+    "builtTag": "crm3-build-built/30",
+    "builtTagObjectSha": "6e526785c53c27913081d30d0cafb4b2a7949854",
+    "builtTagCommit": "7ed87824447f1349cb0481c448e0b21c3fa5856f"
+  },
+  "dualCustody": {
+    "status": "passed",
+    "mode": "local-primary-private-gcs-backup",
+    "governedPackageCompletedAtUtc": "2026-09-29T14:30:28.6472351Z",
+    "closureArchiveCompletedAtUtc": "2026-09-29T14:33:58.3829680Z",
+    "distinctVolumes": false,
+    "independentlyStored": true,
+    "allFileHashesMatched": true,
+    "backupVerification": {
+      "file": "release/evidence/build30-private-gcs-custody-readback.json",
+      "sha256": "47A561EF02E89B396F1340F5D7EE7D6A4293B44E5607A6131D839234E2783F07"
+    }
+  },
+  "closure": {
+    "decisionAtUtc": "2026-09-29T14:30:40.9992209Z",
+    "closurePackageSha256": "3FE1CD458D34C42C379DA9734DB344F928AB4D0771A942310529499218C7F1F3",
+    "closurePackageSidecarSha256": "DFFC46FF395908D521B311AAFA9C44B52FC87DF0C7318F90749390D4F13DD8B1",
+    "custodyRecordSha256": "3EB56433B617F9ADA4689D02E6BF8E2E76655EA96D9A614FDD7F2858D539519D"
+  },
+  "runtimeAdjudication": {
+    "status": "not-adjudicated-by-build-finalization",
+    "runtimeValidationPassed": false,
+    "physicalTargetCount": 0,
+    "emulatorTargetCount": 0,
+    "appDataClearPerformed": false,
+    "liveBusinessFlowValidationCompleted": false,
+    "qualification": "This receipt adopts the retained Build 30 production-signed construction and six-proof private custody result only. Runtime, device and full business-flow acceptance were not adjudicated by this finalization. Later owner-only Play publication and in-place device delivery are separate observations and do not change these finalization-time releaseBoundary fields."
+  },
+  "releaseBoundary": {
+    "firebaseBackendDeploymentPerformed": false,
+    "controlledPilotApproved": false,
+    "unrestrictedPlantReleaseApproved": false,
+    "distributionPerformed": false,
+    "runtimeValidationPassed": false,
+    "fullBusinessFlowValidationPassed": false
+  },
+  "recoveryIncident": {
+    "occurred": false,
+    "forceUsed": false
+  }
+}
