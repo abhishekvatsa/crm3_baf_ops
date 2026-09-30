@@ -195,7 +195,9 @@ void main() {
     (320.0, 1.0),
     (390.0, 1.0),
     (390.0, 1.8),
+    (320.0, 1.8),
     (320.0, 2.5),
+    (390.0, 2.5),
   ]) {
     testWidgets('compact Home surfaces fit $scenario without truncation', (
       tester,
@@ -296,6 +298,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final attentionTitle = tester.getRect(find.text('Needs attention'));
+      final attentionBadge = tester.getRect(find.text('3 queues'));
+      expect(attentionTitle.left, greaterThanOrEqualTo(0));
+      expect(attentionTitle.right, lessThanOrEqualTo(scenario.$1));
+      expect(attentionBadge.right, lessThanOrEqualTo(scenario.$1));
+      expect(attentionTitle.width, greaterThan(100));
+      expect(attentionTitle.overlaps(attentionBadge), isFalse);
+      if (scenario.$2 >= 1.8) {
+        expect(attentionBadge.top, greaterThanOrEqualTo(attentionTitle.bottom));
+      }
       for (final paragraph in tester.renderObjectList<RenderParagraph>(
         find.byType(RichText),
       )) {

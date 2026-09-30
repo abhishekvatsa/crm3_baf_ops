@@ -1237,33 +1237,49 @@ class _HomeSectionHeader extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Container(
-        width: 30,
-        height: 30,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: BafColors.surfaceRaised,
-          borderRadius: BorderRadius.circular(BafRadius.small),
-          border: Border.all(color: BafColors.border),
-          boxShadow: BafShadows.subtle,
-        ),
-        child: Icon(icon, size: 17, color: BafColors.steel),
-      ),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(
-        child: Text(
-          title,
-          style: const TextStyle(
-            color: BafColors.textPrimary,
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final headingScale = MediaQuery.textScalerOf(context).scale(17) / 17;
+      final stacked =
+          trailing != null && constraints.maxWidth / headingScale < 240;
+      final heading = Row(
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: BafColors.surfaceRaised,
+              borderRadius: BorderRadius.circular(BafRadius.small),
+              border: Border.all(color: BafColors.border),
+              boxShadow: BafShadows.subtle,
+            ),
+            child: Icon(icon, size: 17, color: BafColors.steel),
           ),
-        ),
-      ),
-      if (trailing != null) trailing!,
-    ],
+          const SizedBox(width: BafSpacing.sm),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: BafColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          if (trailing != null && !stacked) trailing!,
+        ],
+      );
+      if (!stacked) return heading;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          heading,
+          const SizedBox(height: BafSpacing.xs),
+          trailing!,
+        ],
+      );
+    },
   );
 }
 
