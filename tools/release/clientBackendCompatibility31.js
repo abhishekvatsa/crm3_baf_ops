@@ -1,3 +1,4 @@
+// Verifies bounded Build31 source compatibility; creates no approval evidence.
 "use strict";
 
 const fs = require("node:fs");
@@ -38,6 +39,15 @@ const CLIENT31_SCOPE = Object.freeze({clientConstructionOnly: true,
   backendDeploymentAuthorized: false, backendSourceChanged: false,
   firestoreRulesOrIndexesChanged: false, iamOrEnforcementChangeAuthorized: false,
   distributionAuthorized: false});
+
+const BUILD31_DEV_COMPATIBILITY = Object.freeze({...BUILD31_COMPATIBILITY,
+  file: "release/approvals/build31-client-development-tool-compatibility-approval.json",
+  ownerFile: "release/approvals/build31-client-development-tool-owner-authorization.json"});
+const CLIENT31_DEV_SCOPE = Object.freeze({clientConstructionOnly: true,
+  backendDeploymentAuthorized: false, backendRuntimeChanged: false,
+  backendBuildTestDependenciesChanged: true, firestoreRulesOrIndexesChanged: false,
+  iamOrEnforcementChangeAuthorized: false, distributionAuthorized: false});
+
 
 
 function explicitUtcInstant(value) {
@@ -230,8 +240,16 @@ function verifyReadbackDecision(repoRoot, receipt, key, child, observationSource
 
 
 function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, backendReceipt}) {
-  const contract = BUILD31_COMPATIBILITY;
   const pointer = releasePolicy.clientBackendCompatibility;
+  const developmentTools = pointer?.file === BUILD31_DEV_COMPATIBILITY.file;
+  const contract = developmentTools ? BUILD31_DEV_COMPATIBILITY : BUILD31_COMPATIBILITY;
+  const expectedScope = developmentTools ? CLIENT31_DEV_SCOPE : CLIENT31_SCOPE;
+  const expectedDocumentType = developmentTools
+    ? "governed-client-existing-backend-development-tool-compatibility-approval"
+    : "governed-client-existing-backend-compatibility-approval";
+  const expectedDelegationId = developmentTools
+    ? "BUILD31-CLIENT-EXISTING-BACKEND-DEVELOPMENT-TOOL-COMPATIBILITY"
+    : "BUILD31-CLIENT-EXISTING-BACKEND-COMPATIBILITY";
   requireEvidence(releasePolicy.versionPolicy?.buildNumber === 31 && releasePolicy.release?.buildNumber === 31 &&
     pointer?.file === contract.file && COMMIT.test(pointer.commit ?? "") && SHA256.test(pointer.sha256 ?? "") &&
     isDeepStrictEqual(pointer, version.requiredSource?.clientBackendCompatibility),
@@ -239,18 +257,26 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
   const decisionRead = readChild(repoRoot, pointer.file, pointer.sha256, "Build31 compatibility");
   readApprovalCustody(repoRoot, pointer.commit, pointer, "Build31 compatibility");
   const approval = decisionRead.value, source = approval.sourceAuthority;
+  const exactFields = (value, names, label) => requireEvidence(value != null && typeof value === "object" && !Array.isArray(value) && isDeepStrictEqual(Object.keys(value).sort(), [...names].sort()), `${label}: exact schema fields required.`);
+  if (developmentTools) {
+    exactFields(approval, ["schemaVersion", "documentType", "approved", "intendedBuildNumber", "firebaseProjectId", "approverName", "approvedAtUtc", "sourceAuthority", "existingBackend", "scope", "approvalEvidence", "liveBackendReadbacks", "developmentToolingChange", "runtimeCompatibilityEvidence"], "Build31 development decision");
+    exactFields(source, ["commit", "tree", "functionsGitObjectId", "pullRequestNumber", "postMergeReleaseGateRunId", "postMergeSecurityRunId", "mainCi", "securityCi"], "Build31 development source");
+    exactFields(approval.approvalEvidence, ["authorityType", "delegationPolicyId", "delegatedDecisionAtUtc", "recordedAtUtc", "ownerReference", "instructionExcerpts", "ownerAuthorization"], "Build31 development delegation");
+    exactFields(approval.liveBackendReadbacks, ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"], "Build31 development readback inventory");
+  }
+
   const decision = explicitUtcInstant(approval.approvedAtUtc);
   const recorded = explicitUtcInstant(approval.approvalEvidence?.recordedAtUtc);
   const tree = commitTree(repoRoot, source?.commit, "Build31 client source");
-  requireEvidence(approval.schemaVersion === 1 &&
-    approval.documentType === "governed-client-existing-backend-compatibility-approval" &&
+  requireEvidence(approval.schemaVersion === (developmentTools ? 2 : 1) &&
+    approval.documentType === expectedDocumentType &&
     approval.approved === true && approval.intendedBuildNumber === 31 && approval.firebaseProjectId === PROJECT &&
     approval.approverName === "Codex acting under project-owner delegation" &&
     approval.approvalEvidence?.authorityType === "owner-delegated agent decision" &&
-    approval.approvalEvidence.delegationPolicyId === "BUILD31-CLIENT-EXISTING-BACKEND-COMPATIBILITY" &&
+    approval.approvalEvidence.delegationPolicyId === expectedDelegationId &&
     ["messageReceivedAtUtc", "ownerInstructionReceivedAtUtc", "codexMessageId", "instructionVerbatim"]
       .every((key) => !Object.hasOwn(approval.approvalEvidence, key)) &&
-    isDeepStrictEqual(approval.scope, CLIENT31_SCOPE) && source.tree === tree &&
+    isDeepStrictEqual(approval.scope, expectedScope) && source.tree === tree &&
     version.sourceBaseline?.commit === source.commit && version.sourceBaseline?.tree === tree &&
     decision != null && recorded != null && decision <= recorded && recorded <= BigInt(Date.now()) * 1000000n &&
     explicitUtcInstant(approval.approvalEvidence.delegatedDecisionAtUtc) === decision,
@@ -275,7 +301,17 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
   "Build31 compatibility: original Build30 deployment receipt and source must remain separate and immutable.");
   const original = readChild(repoRoot, contract.backendFile, contract.backendSha256, "Build31 original backend").value;
   requireEvidence(isDeepStrictEqual(original, backendReceipt), "Build31 compatibility: supplied backend is not the original closure.");
-  for (const file of ["functions", "firestore.rules", "firestore.indexes.json"]) {
+  if (developmentTools) {
+    const {verifyGitDevelopmentTooling} = require("./clientBuildToolingGitSnapshots31.cjs");
+    const proof = verifyGitDevelopmentTooling({repoRoot, candidateCommit: source.commit});
+    const functionsObject = execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${source.commit}:functions`], {encoding: "utf8", windowsHide: true}).trim();
+    requireEvidence(source.functionsGitObjectId === functionsObject && isDeepStrictEqual(approval.developmentToolingChange, {
+      baselineCommit: proof.baselineCommit, baselineTree: proof.baselineTree,
+      candidateCommit: proof.candidateCommit, candidateTree: proof.candidateTree,
+      protectedInventorySha256: proof.inventorySha256, protectedFileCount: proof.protectedFileCount,
+      changedFiles: proof.changedFiles, backendRuntimeChanged: false, backendBuildTestDependenciesChanged: true,
+    }), "Build31 development tools: exact complete Git/source delta differs from decision.");
+  } else for (const file of ["functions", "firestore.rules", "firestore.indexes.json"]) {
     const objectAt = (commit) => execFileSync("git", ["--no-replace-objects", "-C", repoRoot, "rev-parse", "--verify", `${commit}:${file}`],
       {encoding: "utf8", windowsHide: true, stdio: ["ignore", "pipe", "pipe"]}).trim();
     const deployedObject = objectAt(contract.backendCommit);
@@ -288,11 +324,14 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
     "Build31 compatibility: fresh source-specific owner authorization is required.");
   readApprovalCustody(repoRoot, pointer.commit, ownerPointer, "Build31 owner authorization");
   const owner = readChild(repoRoot, ownerPointer.file, ownerPointer.sha256, "Build31 owner authorization").value;
+  if (developmentTools) exactFields(owner, ["schemaVersion", "documentType", "approved", "intendedBuildNumber", "firebaseProjectId", "sourceCommit", "sourceTree", "existingBackend", "scope", "ownerInstruction", "ownerReference", "recordedBy", "authorizedAtUtc", "recordedAtUtc"], "Build31 development owner record");
   const authorized = explicitUtcInstant(owner.authorizedAtUtc), ownerRecorded = explicitUtcInstant(owner.recordedAtUtc);
-  requireEvidence(owner.schemaVersion === 1 && owner.documentType === "source-specific-client-existing-backend-owner-authorization" &&
+  requireEvidence(owner.schemaVersion === (developmentTools ? 2 : 1) && owner.documentType === (developmentTools
+      ? "source-specific-client-existing-backend-development-tool-owner-authorization"
+      : "source-specific-client-existing-backend-owner-authorization") &&
     owner.approved === true && owner.intendedBuildNumber === 31 && owner.firebaseProjectId === PROJECT &&
     owner.sourceCommit === source.commit && owner.sourceTree === tree &&
-    isDeepStrictEqual(owner.existingBackend, approval.existingBackend) && isDeepStrictEqual(owner.scope, CLIENT31_SCOPE) &&
+    isDeepStrictEqual(owner.existingBackend, approval.existingBackend) && isDeepStrictEqual(owner.scope, expectedScope) &&
     typeof owner.ownerInstruction === "string" && canonicalOwnerInstruction(owner.ownerInstruction).length > 0 &&
     typeof owner.ownerReference === "string" && owner.ownerReference.trim().length > 0 &&
     typeof owner.recordedBy === "string" && owner.recordedBy.trim().length > 0 &&
@@ -301,6 +340,7 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
     authorized != null && ownerRecorded != null && authorized <= ownerRecorded && ownerRecorded <= decision,
   "Build31 compatibility: owner instruction/source/scope/chronology is not bound to this decision.");
   let lastCiCompletion = 0n;
+  const exactCi = {};
   for (const [key, file, type, workflow, expectedJobs] of [
     ["mainCi", contract.ciFile, "github-exact-main-release-gate", ".github/workflows/release-gate.yml", CURRENT_EXACT_MAIN_JOBS],
     ["securityCi", contract.securityFile, "github-exact-main-codeql", ".github/workflows/codeql.yml",
@@ -329,11 +369,24 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
         return Number.isSafeInteger(job.id) && job.id > 0 && job.run_id === run.id && job.head_sha === source.commit &&
           job.status === "completed" && job.conclusion === "success" && time != null && started <= time && time <= completed;
       }), `Build31 ${key}: exact merged source and every successful main job must precede the decision.`);
+    exactCi[key] = ci;
     if (completed > lastCiCompletion) lastCiCompletion = completed;
+  }
+  if (developmentTools) {
+    const runtimePointer = approval.runtimeCompatibilityEvidence;
+    requireEvidence(runtimePointer?.file === "release/evidence/build31-development-tool-runtime-proof.json" && SHA256.test(runtimePointer.sha256 ?? ""), "Build31 development tools: actual fixed runtime-proof child required.");
+    readApprovalCustody(repoRoot, pointer.commit, runtimePointer, "Build31 development-tool runtime proof");
+    const runtime = readChild(repoRoot, runtimePointer.file, runtimePointer.sha256, "Build31 development-tool runtime proof").value;
+    const {verifyRuntimeProof31} = require("./collectClientBuildToolingRuntime31.cjs");
+    const runtimeResult = verifyRuntimeProof31({repoRoot, candidateCommit: source.commit, receipt: runtime,
+      releaseCi: exactCi.mainCi, securityCi: exactCi.securityCi, decisionAtUtc: approval.approvedAtUtc});
+    requireEvidence(runtimeResult.ok === true, "Build31 development tools: runtime proof did not pass.");
   }
   for (const key of ["functionFleet", "iamDependencies", "firestoreRulesAndIndexes"]) {
     const readbackPointer = approval.liveBackendReadbacks?.[key];
-    const file = `release/evidence/build31-client-compatibility-${key}.json`;
+    const file = developmentTools && key === "iamDependencies"
+      ? "release/evidence/build31-client-development-tool-iam-dependencies.json"
+      : `release/evidence/build31-client-compatibility-${key}.json`;
     requireEvidence(readbackPointer?.file === file && SHA256.test(readbackPointer.sha256 ?? ""),
       `Build31 ${key}: fresh fixed-path readback is required.`);
     readApprovalCustody(repoRoot, pointer.commit, readbackPointer, `Build31 ${key}`);
@@ -351,7 +404,13 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
     }
     // The observation truthfully uses current main M. The immutable backend
     // policy, dependencies, source hash and deployment times remain those of F.
-    verifyReadbackDecision(repoRoot, original, key, child, source);
+    if (developmentTools && key === "iamDependencies") {
+      const {verifyDualSourceIamReceipt} = require("./clientBuildToolingReadbacks31.cjs");
+      const lastCompletion = [exactCi.mainCi.run.updated_at, exactCi.securityCi.run.updated_at]
+        .sort((a,b)=>explicitUtcInstant(a)<explicitUtcInstant(b)?-1:1).at(-1);
+      verifyDualSourceIamReceipt({repoRoot, candidateCommit: source.commit, receipt: child,
+        lastCiCompletionAtUtc: lastCompletion, decisionAtUtc: approval.approvedAtUtc});
+    } else verifyReadbackDecision(repoRoot, original, key, child, source);
   }
   return {file: pointer.file, sha256: decisionRead.hash, commit: pointer.commit, sourceCommit: source.commit};
 }

@@ -11,7 +11,7 @@ import {fileURLToPath} from 'node:url';
 const require = createRequire(import.meta.url);
 const {verifyBuild31ClientCompatibility, verifyClientBackendSourceAuthority: verifyStagedPromotionSourceAuthority} = require('./clientBackendCompatibility31.js');
 const {sealReceipt} = require('./collectProductionGlobalPullBackend.js');
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const root = execFileSync('git', ['-C', path.dirname(fileURLToPath(import.meta.url)), 'rev-parse', '--show-toplevel'], {encoding:'utf8',windowsHide:true}).trim();
 const baseline = '7ed87824447f1349cb0481c448e0b21c3fa5856f';
 const backendFile = 'release/evidence/build30-current-source-backend-deployment-closure.json';
 const backendSha256 = '3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45';

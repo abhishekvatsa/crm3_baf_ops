@@ -413,6 +413,7 @@ jobs:
           npm run test:functions-live-readback-custody
           npm run test:function-fleet-runtime-campaign
           npm run test:distribution-readback-custody
+          node --test --test-concurrency=2 tools/release/clientBackendCompatibility31.development-tool.test.mjs tools/release/clientBuildToolingCompatibility31.test.cjs tools/release/clientBuildToolingGitSnapshots31.test.cjs tools/release/collectClientBuildToolingRuntime31.test.cjs tools/release/clientBuildToolingReadbacks31.test.cjs tools/release/collectClientDevelopmentToolIam31.test.cjs
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 
