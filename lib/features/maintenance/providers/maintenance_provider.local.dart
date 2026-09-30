@@ -100,6 +100,13 @@ class IsarMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Stream<List<MaintenanceRecord>> watchTicketsIncludingDeleted() =>
+      isar.maintenanceRecords
+          .where()
+          .sortByCreatedAtDesc()
+          .watch(fireImmediately: true);
+
+  @override
   Stream<List<MaintenanceRecord>> watchTicketsForAsset(
     AssetType type,
     int number, {

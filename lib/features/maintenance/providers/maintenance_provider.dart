@@ -265,6 +265,10 @@ abstract class MaintenanceRepository {
   Stream<List<MaintenanceRecord>> watchOpenTickets();
   Stream<List<MaintenanceRecord>> watchPlantConditionTickets();
   Stream<List<MaintenanceRecord>> watchAllTickets({int? limit});
+
+  /// Administrative history, including retained soft-deleted rows. Ordinary
+  /// ticket lists must continue to use [watchAllTickets].
+  Stream<List<MaintenanceRecord>> watchTicketsIncludingDeleted();
   Stream<List<MaintenanceRecord>> watchContinuations(String issueId) =>
       Stream.error(UnsupportedError('Linked-work reads are unavailable.'));
 

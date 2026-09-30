@@ -23,13 +23,11 @@ class StructuredReportPdfService {
   static const PdfColor _muted = PdfColor(0.333, 0.404, 0.435);
 
   static Future<Uint8List> build(StructuredReportDocument report) async {
-    final sailData = await rootBundle.load(BafBrand.sailMarkAsset);
     final manmithasData = await rootBundle.load(BafBrand.markAsset);
     final regularFontData = await rootBundle.load(BafBrand.reportFontAsset);
     final mediumFontData = await rootBundle.load(
       BafBrand.reportFontMediumAsset,
     );
-    final sailLogo = pw.MemoryImage(_assetBytes(sailData));
     final manmithasLogo = pw.MemoryImage(_assetBytes(manmithasData));
     final regularFont = pw.Font.ttf(regularFontData);
     final mediumFont = pw.Font.ttf(mediumFontData);
@@ -38,7 +36,7 @@ class StructuredReportPdfService {
       author: report.generatedByName,
       creator: '${BafBrand.productName} | ${BafBrand.makerName}',
       subject: '${report.title} ${report.reportId}',
-      keywords: 'BAF, maintenance, operations, SAIL, CRM-III',
+      keywords: 'BAF, maintenance, operations, CRM-III',
     );
     final pageFormat =
         report.orientation == StructuredReportOrientation.landscape
@@ -50,11 +48,7 @@ class StructuredReportPdfService {
         pageFormat: pageFormat,
         theme: pw.ThemeData.withFont(base: regularFont, bold: mediumFont),
         margin: const pw.EdgeInsets.fromLTRB(28, 30, 28, 30),
-        header: (_) => _header(
-          report: report,
-          sailLogo: sailLogo,
-          manmithasLogo: manmithasLogo,
-        ),
+        header: (_) => _header(report: report, manmithasLogo: manmithasLogo),
         footer: (context) => _footer(context, report),
         build: (_) => <pw.Widget>[
           _identity(report),
@@ -72,7 +66,6 @@ class StructuredReportPdfService {
 
   static pw.Widget _header({
     required StructuredReportDocument report,
-    required pw.MemoryImage sailLogo,
     required pw.MemoryImage manmithasLogo,
   }) => pw.Container(
     padding: const pw.EdgeInsets.only(bottom: 9),
@@ -82,18 +75,12 @@ class StructuredReportPdfService {
     ),
     child: pw.Row(
       children: <pw.Widget>[
-        pw.SizedBox(
-          width: 74,
-          height: 35,
-          child: pw.Image(sailLogo, fit: pw.BoxFit.contain),
-        ),
-        pw.SizedBox(width: 12),
         pw.Expanded(
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: <pw.Widget>[
               pw.Text(
-                BafBrand.plantName,
+                BafBrand.productName,
                 style: const pw.TextStyle(
                   color: _graphite,
                   fontSize: 10,
@@ -102,7 +89,7 @@ class StructuredReportPdfService {
               ),
               pw.SizedBox(height: 2),
               pw.Text(
-                '${BafBrand.productName}  |  ${report.title}',
+                '${BafBrand.independentAppLabel}  |  ${report.title}',
                 style: const pw.TextStyle(color: _muted, fontSize: 8),
               ),
             ],

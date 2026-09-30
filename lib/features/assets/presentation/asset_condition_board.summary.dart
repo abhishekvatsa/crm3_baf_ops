@@ -1,9 +1,10 @@
 part of 'asset_condition_board.dart';
 
 class _PlantClassConditionSummary extends StatelessWidget {
-  const _PlantClassConditionSummary(this.summary);
+  const _PlantClassConditionSummary(this.summary, {this.stock});
 
   final PlantAssetClassSummary summary;
+  final InnerCoverStockSummary? stock;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +71,7 @@ class _PlantClassConditionSummary extends StatelessWidget {
                 ),
               );
               final registered = Text(
-                '${summary.total} registered',
+                '${summary.total} ${stock != null && !stock!.inventoryConfirmed ? 'observed' : 'registered'}',
                 textAlign: TextAlign.end,
                 style: const TextStyle(
                   color: BafColors.textSecondary,
@@ -141,7 +142,9 @@ class _PlantClassConditionSummary extends StatelessWidget {
             },
           ),
           const SizedBox(height: BafSpacing.xs),
-          if (metrics.isEmpty && summary.available == summary.total)
+          if (stock == null &&
+              metrics.isEmpty &&
+              summary.available == summary.total)
             const Text(
               'All registered assets are in the available state.',
               style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
@@ -152,14 +155,8 @@ class _PlantClassConditionSummary extends StatelessWidget {
               runSpacing: BafSpacing.xs,
               children: metrics,
             ),
-          for (final cover in summary.innerCovers)
-            Text(
-              'Inner Cover ${cover.profile.serialNumber}: ${cover.profile.lifecycleState.label}${cover.evidenceWarnings.isEmpty ? '' : ' · evidence unverified'}',
-              style: const TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 12,
-              ),
-            ),
+          if (summary.innerCovers.isNotEmpty || stock != null)
+            _innerCoverSummary(),
         ],
       ),
     );
@@ -169,6 +166,69 @@ class _PlantClassConditionSummary extends StatelessWidget {
     '$label $count',
     style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w800),
   );
+
+  Widget _innerCoverSummary() {
+    if (stock case final value?) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InnerCoverStockPanel(summary: value),
+          const Text(
+            'Open Plant condition for all inner covers.',
+            style: TextStyle(color: BafColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      );
+    }
+    final covers = summary.innerCovers;
+    final review = covers.where((cover) => !cover.isAvailable).toList()
+      ..sort(
+        (left, right) =>
+            left.profile.serialNumber.compareTo(right.profile.serialNumber),
+      );
+    final unverified = covers
+        .where((cover) => cover.hasUnverifiedEvidence)
+        .length;
+    final available = covers.length - review.length;
+    final unavailable = review.length - unverified;
+    const style = TextStyle(color: BafColors.textSecondary, fontSize: 12);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (review.isNotEmpty)
+          ExpansionTile(
+            key: ValueKey('plant-inner-cover-review-${summary.assetClass.id}'),
+            tilePadding: EdgeInsets.zero,
+            childrenPadding: const EdgeInsets.only(bottom: BafSpacing.xs),
+            expandedCrossAxisAlignment: CrossAxisAlignment.start,
+            expandedAlignment: Alignment.centerLeft,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            title: Text(
+              'Review ${review.length} inner cover${review.length == 1 ? '' : 's'}',
+              style: const TextStyle(
+                color: BafColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              '$available available · $unavailable unavailable${unverified == 0 ? '' : ' · $unverified unverified'}',
+              style: style,
+            ),
+            children: [
+              for (final cover in review)
+                Text(
+                  'Inner Cover ${cover.profile.serialNumber}: ${cover.conditionSummary}',
+                  style: style,
+                ),
+            ],
+          ),
+        const Text('Open Plant condition for all inner covers.', style: style),
+      ],
+    );
+  }
 
   Widget? _statusMetric({
     required String label,

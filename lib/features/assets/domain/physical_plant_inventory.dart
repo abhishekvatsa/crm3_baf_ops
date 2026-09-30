@@ -1,6 +1,8 @@
 import '../data/asset_hierarchy_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import 'plant_asset_overview.dart';
+import 'base_cover_reconciliation.dart';
+import 'inner_cover_stock_summary.dart';
 
 /// Physical population shared by Home, Plant condition and reporting. Numbered
 /// Inner Cover positions are not extra covers: serial lifecycle profiles are
@@ -13,6 +15,8 @@ PlantAssetOverview physicalPlantInventory({
   List<String> coverPopulationWarnings = const [],
   Set<String> rejectedProfiles = const {},
   Set<String> rejectedClasses = const {},
+  BaseCoverReconciliation? baseCoverReconciliation,
+  InnerCoverStockSummary? innerCoverStock,
 }) {
   final coverClassIds = classes
       .where((c) => c.legacyAssetTypeKey == 'innerCover')
@@ -87,6 +91,9 @@ PlantAssetOverview physicalPlantInventory({
     innerCovers: List.unmodifiable(covers),
     innerCoverEvidenceWarnings: List.unmodifiable(coverSourceWarnings),
     hasQualifiedInnerCoverInventory: true,
+    innerCoverStock: innerCoverStock ?? overview.innerCoverStock,
+    baseCoverReconciliation:
+        baseCoverReconciliation ?? overview.baseCoverReconciliation,
     evidenceWarnings: List.unmodifiable(warnings.toSet().toList()..sort()),
     classes: [
       for (final cls in uniqueClasses.values)

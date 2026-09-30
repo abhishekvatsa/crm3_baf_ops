@@ -286,7 +286,12 @@ void main() {
       expect(report.assetAvailabilityRate, 1);
       expect(conditionRows, hasLength(1));
       expect(conditionRows.single[0], contains('Inner Cover GR4'));
-      expect(conditionRows.single[1], 'Installed');
+      expect(conditionRows.single[1], contains('Recorded: Installed'));
+      expect(
+        conditionRows.single[1],
+        contains('Current condition not qualified'),
+      );
+      expect(conditionRows.single.join(' '), isNot(contains('In service')));
       expect(conditionRows.single[2], contains('owner-declared'));
       expect(conditionRows.single[3], contains('Base 201'));
       expect(conditionRows.single[4], contains('RED fabrication shop'));

@@ -26,6 +26,25 @@ function fixture(enabled = true) {
   return {policy, backend, approval, hash, backendHash};
 }
 
+function client31Fixture() {
+  const f = fixture(true);
+  f.policy.release = {buildNumber: 31, releaseId: 'synthetic-build31'};
+  f.policy.versionPolicy.reservationId = 'synthetic-reservation31';
+  f.policy.appCheckBuild.approvalFile = 'release/approvals/build31-app-check-client-approval.json';
+  f.backendHash = '3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45';
+  f.backend.sourceAuthority.commit = '2aa30de56cfdb960da3eeefd8956d8cbbae57b46';
+  f.policy.finalization.exactFunctionFleetDeploymentReceiptFile = 'release/evidence/build30-current-source-backend-deployment-closure.json';
+  f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256 = f.backendHash;
+  Object.assign(f.approval, {intendedBuildNumber: 31, releaseId: f.policy.release.releaseId,
+    reservationId: f.policy.versionPolicy.reservationId, backendReceiptSha256: f.backendHash,
+    backendSourceCommit: f.backend.sourceAuthority.commit,
+    serverEnforcementScopesAtBuild: {defaultMutatingEnforced: false,
+      identityCallable: 'getBackendReleaseIdentity', identityCallableEnforced: true,
+      identitySourceFile: 'functions/src/stage2dSecurityConfig.ts',
+      identitySourceSha256: '1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F'}});
+  return f;
+}
+
 function run(t, input, extra = '') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-app-check-test-'));
   t.after(() => { assert.equal(path.dirname(fs.realpathSync(dir)), fs.realpathSync(os.tmpdir())); fs.rmSync(dir, {recursive: true}); });
@@ -52,6 +71,43 @@ for (const enabled of [true, false]) {
     assert.equal(value.dartDefine, String(enabled));
     assert.equal(value.enforcementChangedByBuild, false);
     assert.equal(value.tokenValidationEvidence, 'not-proved-by-artifact-construction');
+  });
+}
+
+test('Build31 requires Play Integrity and records separately enforced identity scope without claiming token proof', t => {
+  const result = run(t, client31Fixture(), `
+$manifest=[pscustomobject]@{appIdentity=[pscustomobject]@{CRM3_APP_CHECK_ENABLED='true'};appCheckBuild=($result | ConvertTo-Json -Depth 20 | ConvertFrom-Json)}
+Assert-ProductionAppCheckManifest -Manifest $manifest -Expected $result
+$manifest.appCheckBuild.serverEnforcementScopesAtBuild.identityCallableEnforced=$false
+$refused=$false
+try { Assert-ProductionAppCheckManifest -Manifest $manifest -Expected $result } catch { $refused=$true }
+if(-not $refused){throw 'Archive accepted incorrect identity enforcement'}
+`);
+  assert.equal(result.status, 0, result.stderr);
+  const value = JSON.parse(result.stdout);
+  assert.equal(value.clientEnabled, true);
+  assert.equal(value.serverEnforcementAtBuild, false);
+  assert.equal(value.serverEnforcementScopesAtBuild.identityCallableEnforced, true);
+  assert.equal(value.tokenValidationEvidence, 'not-proved-by-artifact-construction');
+});
+
+for (const [label, mutate] of [
+  ['disabled client', f => { f.policy.appCheckBuild.clientEnabled = f.approval.clientEnabled = false;
+    f.policy.appCheckBuild.androidProvider = f.approval.androidProvider = 'disabled'; }],
+  ['missing identity scope', f => { delete f.approval.serverEnforcementScopesAtBuild; }],
+  ['identity enforcement omitted by default-only decision', f => { f.approval.serverEnforcementScopesAtBuild.identityCallableEnforced = false; }],
+  ['string identity enforcement', f => { f.approval.serverEnforcementScopesAtBuild.identityCallableEnforced = 'true'; }],
+  ['mutating enforcement relabelled', f => { f.approval.serverEnforcementScopesAtBuild.defaultMutatingEnforced = true; }],
+  ['different identity source hash', f => { f.approval.serverEnforcementScopesAtBuild.identitySourceSha256 = '0'.repeat(64); }],
+  ['different identity function', f => { f.approval.serverEnforcementScopesAtBuild.identityCallable = 'mutateQuality'; }],
+  ['new backend source', f => { f.backend.sourceAuthority.commit = f.approval.backendSourceCommit = 'c'.repeat(40); }],
+  ['different backend hash', f => { f.backendHash = f.approval.backendReceiptSha256 = f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256 = 'C'.repeat(64); }],
+  ['Build30 approval path', f => { f.policy.appCheckBuild.approvalFile = 'release/approvals/build30-app-check-client-approval.json'; }],
+  ['unadmitted32', f => { f.policy.release.buildNumber = f.approval.intendedBuildNumber = 32; }],
+]) {
+  test(`Build31 App Check refuses ${label}`, t => {
+    const f = client31Fixture(); mutate(f); const result = run(t, f);
+    assert.notEqual(result.status, 0, result.stdout);
   });
 }
 

@@ -74,8 +74,7 @@ void main() {
                     plantOverview: const AsyncData(
                       PlantAssetOverview(classes: [], assets: []),
                     ),
-                    actionCount: 2,
-                    assuranceCount: 0,
+
                     dataUnavailable: false,
                     onOpenReports: () {},
                     onPlantCondition: () {},
@@ -106,8 +105,8 @@ void main() {
 
       expect(find.text('Management pulse'), findsOneWidget);
       expect(find.text('Availability'), findsOneWidget);
-      expect(find.text('Action queue'), findsOneWidget);
-      expect(find.text('Assurance'), findsOneWidget);
+      expect(find.text('Action queues'), findsOneWidget);
+      expect(find.text('Assurance queues'), findsOneWidget);
       expect(find.byTooltip('Open operations reports'), findsOneWidget);
       expect(find.text('2 directives remain active.'), findsOneWidget);
       await tester.tap(find.text('2 directives remain active.'));
@@ -133,8 +132,7 @@ void main() {
                 plantOverview: const AsyncData(
                   PlantAssetOverview(classes: [], assets: []),
                 ),
-                actionCount: 0,
-                assuranceCount: 0,
+
                 dataUnavailable: true,
                 onOpenReports: () {},
                 onPlantCondition: () {},
@@ -189,8 +187,7 @@ void main() {
                 plantOverview: const AsyncData(
                   PlantAssetOverview(classes: [], assets: []),
                 ),
-                actionCount: 0,
-                assuranceCount: 2,
+
                 dataUnavailable: false,
                 onOpenReports: () {},
                 onPlantCondition: () {},
@@ -242,8 +239,7 @@ void main() {
               plantOverview: const AsyncData(
                 PlantAssetOverview(classes: [], assets: []),
               ),
-              actionCount: 1,
-              assuranceCount: 2,
+
               dataUnavailable: false,
               onOpenReports: () {},
               onPlantCondition: () {},
@@ -500,54 +496,87 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('management readout remains legible at phone width', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(320, 720));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    final now = DateTime.utc(2026, 8, 22, 12, 30);
-    final report = OperationsReport(
-      filter: OperationsReportFilter(startDate: now, endDate: now),
-      asOf: now,
-      tickets: const [],
-      executions: const [],
-      events: const [],
-      eventOccurrences: const [],
-      dueStates: const [],
-      inspectionFindings: const [],
-      assetStates: const [],
-      classSummaries: const [],
-      topComponents: const [],
-      topSubsystemPaths: const [],
-      sourceTicketCount: 0,
-      sourceExecutionCount: 0,
-      sourceEventCount: 0,
-      sourceDueStateCount: 0,
-      sourceInspectionFindingCount: 0,
-      disruptionCount: 0,
-      openDisruptionCount: 0,
-      disruptionDuration: Duration.zero,
-    );
+  for (final viewport in [
+    (width: 320.0, scale: 1.0),
+    (width: 390.0, scale: 1.8),
+    (width: 800.0, scale: 1.0),
+  ]) {
+    testWidgets(
+      'management readout separates timestamp at ${viewport.width} / ${viewport.scale}',
+      (tester) async {
+        await tester.binding.setSurfaceSize(Size(viewport.width, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 8, 22, 12, 30);
+        final report = OperationsReport(
+          filter: OperationsReportFilter(startDate: now, endDate: now),
+          asOf: now,
+          tickets: const [],
+          executions: const [],
+          events: const [],
+          eventOccurrences: const [],
+          dueStates: const [],
+          inspectionFindings: const [],
+          assetStates: const [],
+          classSummaries: const [],
+          topComponents: const [],
+          topSubsystemPaths: const [],
+          sourceTicketCount: 0,
+          sourceExecutionCount: 0,
+          sourceEventCount: 0,
+          sourceDueStateCount: 0,
+          sourceInspectionFindingCount: 0,
+          disruptionCount: 0,
+          openDisruptionCount: 0,
+          disruptionDuration: Duration.zero,
+        );
 
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: BafAppTheme.light,
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(BafSpacing.md),
-              child: OperationsManagementReadout(report: report),
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: BafAppTheme.light,
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(viewport.scale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Padding(
+                  padding: const EdgeInsets.all(BafSpacing.md),
+                  child: OperationsManagementReadout(report: report),
+                ),
+              ),
             ),
           ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-    expect(find.text('Management readout'), findsOneWidget);
-    expect(find.text('Availability'), findsOneWidget);
-    expect(find.text('Assurance due'), findsOneWidget);
-    expect(find.textContaining('No active exception'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
+        expect(find.text('Management readout'), findsOneWidget);
+        expect(find.text('Availability'), findsOneWidget);
+        expect(find.text('Assurance due'), findsOneWidget);
+        expect(find.textContaining('No active exception'), findsOneWidget);
+        final subtitle = tester.getRect(
+          find.text('Decision signals for the selected scope'),
+        );
+        final timestamp = tester.getRect(find.text('As of 22 Aug, 12:30'));
+        expect(subtitle.overlaps(timestamp), isFalse);
+        expect(timestamp.right, lessThanOrEqualTo(viewport.width));
+        if (viewport.width < 560 || viewport.scale > 1.33) {
+          expect(timestamp.top - subtitle.bottom, greaterThanOrEqualTo(8));
+        } else {
+          expect(timestamp.left - subtitle.right, greaterThanOrEqualTo(12));
+        }
+        final layoutError = tester.takeException();
+        expect(
+          layoutError,
+          isNull,
+          reason: layoutError is FlutterError
+              ? layoutError.diagnostics
+                    .map((node) => node.toStringDeep())
+                    .join('\n')
+              : null,
+        );
+      },
+    );
+  }
 }

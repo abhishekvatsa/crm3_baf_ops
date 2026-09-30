@@ -70,6 +70,7 @@ import 'core/providers/sync_status_provider.dart';
 import 'core/services/sync_coordinator.dart';
 
 part 'home_insight_widgets.dart';
+part 'home_attention_widgets.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -968,17 +969,133 @@ class _DashboardHome extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final totalAttention =
-        ticketCount +
-        executionCount +
-        directiveCount +
-        workflowAttentionCount +
-        openOperationalEventCount +
-        openQualityWarningCount +
-        activeQualityMonitoringCount +
-        overdueMaintenanceCount +
-        activeInspectionFindingCount +
-        activeCriticalAlarmCount;
+    final queues = <HomeQueueItem>[
+      HomeQueueItem(
+        kind: HomeQueueKind.qualityWarnings,
+        title: openQualityWarningCount > 0
+            ? 'Review quality warnings'
+            : 'Quality warnings',
+        detail: qualityWarningsUnavailable
+            ? 'Count unavailable · open quality'
+            : openQualityWarningCount > 0
+            ? 'Disposition required'
+            : 'No open warnings',
+        icon: Icons.verified_user_outlined,
+        color: BafColors.danger,
+        count: qualityWarningsUnavailable ? null : openQualityWarningCount,
+        unavailable: qualityWarningsUnavailable,
+        needsAction: qualityWarningsUnavailable || openQualityWarningCount > 0,
+        onTap: onQuality,
+      ),
+      HomeQueueItem(
+        kind: HomeQueueKind.operationalEvents,
+        title: openOperationalEventCount > 0
+            ? 'Review plant disruptions'
+            : 'Plant disruptions',
+        detail: operationalEventsUnavailable
+            ? 'Count unavailable · open disruptions'
+            : openOperationalEventCount > 0
+            ? 'Open events affecting the plant'
+            : 'No open disruptions',
+        icon: Icons.crisis_alert_outlined,
+        color: BafColors.warning,
+        count: operationalEventsUnavailable ? null : openOperationalEventCount,
+        unavailable: operationalEventsUnavailable,
+        needsAction:
+            operationalEventsUnavailable || openOperationalEventCount > 0,
+        onTap: onOperationalEvents,
+      ),
+      if (ticketCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.issues,
+          title: 'Review open issues',
+          detail: 'Acknowledge, resolve or follow up',
+          icon: Icons.report_problem_outlined,
+          color: BafColors.maintenance,
+          count: ticketCount,
+          needsAction: true,
+          onTap: onIssues,
+        ),
+      if (overdueMaintenanceCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.overdueMaintenance,
+          title: 'Review overdue maintenance',
+          detail: 'Asset counters past their due point',
+          icon: Icons.event_busy_outlined,
+          color: BafColors.danger,
+          count: overdueMaintenanceCount,
+          needsAction: true,
+          onTap: onMaintenanceRhythm,
+        ),
+      if (executionCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.plannedJobs,
+          title: 'Continue planned jobs',
+          detail: 'Active work awaiting completion',
+          icon: Icons.work_outline_rounded,
+          color: BafColors.planned,
+          count: executionCount,
+          needsAction: true,
+          onTap: onWork,
+        ),
+      if (workflowAttentionCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.workflow,
+          title: 'Review workflow tasks',
+          detail: 'Lane or compliance actions for your role',
+          icon: Icons.account_tree_outlined,
+          color: BafColors.warning,
+          count: workflowAttentionCount,
+          needsAction: true,
+          onTap: onWork,
+        ),
+      if (directiveCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.directives,
+          title: 'Review active directives',
+          detail: 'Acknowledge or follow through',
+          icon: Icons.assignment_late_outlined,
+          color: BafColors.directives,
+          count: directiveCount,
+          needsAction: true,
+          onTap: onDirectives,
+        ),
+      if (activeInspectionFindingCount > 0)
+        HomeQueueItem(
+          kind: HomeQueueKind.inspectionFindings,
+          title: 'Follow up inspection findings',
+          detail: 'Conditions awaiting action or verification',
+          icon: Icons.fact_check_outlined,
+          color: BafColors.maintenance,
+          count: activeInspectionFindingCount,
+          needsAction: true,
+          onTap: onInspectionProgrammes,
+        ),
+      HomeQueueItem(
+        kind: HomeQueueKind.qualityMonitoring,
+        title: 'Cycle monitoring',
+        detail: qualityMonitoringUnavailable
+            ? 'Count unavailable · open monitoring'
+            : 'Quality requests in progress',
+        icon: Icons.monitor_heart_outlined,
+        color: BafColors.instrument,
+        count: qualityMonitoringUnavailable
+            ? null
+            : activeQualityMonitoringCount,
+        unavailable: qualityMonitoringUnavailable,
+        needsAction: false,
+        onTap: onQualityMonitoring,
+      ),
+      HomeQueueItem(
+        kind: HomeQueueKind.abnormalities,
+        title: 'Cycle abnormalities',
+        detail: 'Review recorded observations',
+        icon: Icons.memory_outlined,
+        color: BafColors.instrument,
+        needsAction: false,
+        onTap: onAbnormalities,
+      ),
+    ];
 
     return SafeArea(
       bottom: false,
@@ -1026,17 +1143,6 @@ class _DashboardHome extends StatelessWidget {
               const SizedBox(height: BafSpacing.lg),
               HomeManagementPulsePanel(
                 plantOverview: plantOverview,
-                actionCount:
-                    ticketCount +
-                    executionCount +
-                    directiveCount +
-                    workflowAttentionCount +
-                    openOperationalEventCount +
-                    openQualityWarningCount,
-                assuranceCount:
-                    overdueMaintenanceCount +
-                    activeInspectionFindingCount +
-                    activeQualityMonitoringCount,
                 dataUnavailable: attentionDataUnavailable,
                 onOpenReports: onReports,
                 onPlantCondition: onPlantCondition,
@@ -1058,67 +1164,11 @@ class _DashboardHome extends StatelessWidget {
                 activeInspectionFindingCount: activeInspectionFindingCount,
               ),
               const SizedBox(height: BafSpacing.lg),
-              _HomeSectionHeader(
-                title: 'Needs attention',
-                icon: Icons.rule_folder_outlined,
-                trailing: StatusBadge(
-                  label: attentionDataUnavailable
-                      ? 'Incomplete'
-                      : totalAttention == 0
-                      ? 'All clear'
-                      : '$totalAttention',
-                  color: attentionDataUnavailable
-                      ? BafColors.danger
-                      : totalAttention == 0
-                      ? BafColors.success
-                      : BafColors.warning,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              BafSectionSurface(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: BafSpacing.md,
-                  vertical: BafSpacing.xs,
-                ),
-                child: _AttentionPanel(
-                  ticketCount: ticketCount,
-                  executionCount: executionCount,
-                  directiveCount: directiveCount,
-                  workflowAttentionCount: workflowAttentionCount,
-                  openOperationalEventCount: openOperationalEventCount,
-                  openQualityWarningCount: openQualityWarningCount,
-                  activeQualityMonitoringCount: activeQualityMonitoringCount,
-                  overdueMaintenanceCount: overdueMaintenanceCount,
-                  activeInspectionFindingCount: activeInspectionFindingCount,
-                  attentionDataUnavailable: attentionDataUnavailable,
-                  onIssues: onIssues,
-                  onWork: onWork,
-                  onDirectives: onDirectives,
-                  onOperationalEvents: onOperationalEvents,
-                  onQuality: onQuality,
-                  onQualityMonitoring: onQualityMonitoring,
-                  onMaintenanceRhythm: onMaintenanceRhythm,
-                  onInspectionProgrammes: onInspectionProgrammes,
-                  onRetry: onManualSync,
-                ),
-              ),
-              const SizedBox(height: BafSpacing.lg),
-              const _HomeSectionHeader(
-                title: 'Operational watch',
-                icon: Icons.monitor_heart_outlined,
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              _OperationalWatch(
-                operationalEventCount: openOperationalEventCount,
-                qualityWarningCount: openQualityWarningCount,
-                qualityMonitoringCount: activeQualityMonitoringCount,
-                operationalEventsUnavailable: operationalEventsUnavailable,
-                qualityWarningsUnavailable: qualityWarningsUnavailable,
-                qualityMonitoringUnavailable: qualityMonitoringUnavailable,
-                onOperationalEvents: onOperationalEvents,
-                onQuality: onQuality,
-                onQualityMonitoring: onQualityMonitoring,
-                onAbnormalities: onAbnormalities,
+              HomeAttentionQueues(
+                attentionTitle: 'Needs attention',
+                items: queues,
+                dataUnavailable: attentionDataUnavailable,
+                onRetry: onManualSync,
               ),
             ],
           ),
@@ -1214,146 +1264,6 @@ class _HomeSectionHeader extends StatelessWidget {
       ),
       if (trailing != null) trailing!,
     ],
-  );
-}
-
-class _OperationalWatch extends StatelessWidget {
-  final int operationalEventCount;
-  final int qualityWarningCount;
-  final int qualityMonitoringCount;
-  final bool operationalEventsUnavailable;
-  final bool qualityWarningsUnavailable;
-  final bool qualityMonitoringUnavailable;
-  final VoidCallback onOperationalEvents;
-  final VoidCallback onQuality;
-  final VoidCallback onQualityMonitoring;
-  final VoidCallback onAbnormalities;
-
-  const _OperationalWatch({
-    required this.operationalEventCount,
-    required this.qualityWarningCount,
-    required this.qualityMonitoringCount,
-    required this.operationalEventsUnavailable,
-    required this.qualityWarningsUnavailable,
-    required this.qualityMonitoringUnavailable,
-    required this.onOperationalEvents,
-    required this.onQuality,
-    required this.onQualityMonitoring,
-    required this.onAbnormalities,
-  });
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 560 ? 4 : 2;
-      final width =
-          (constraints.maxWidth - BafSpacing.sm * (columns - 1)) / columns;
-      final tiles = <Widget>[
-        _WatchTile(
-          icon: Icons.crisis_alert_outlined,
-          color: operationalEventsUnavailable
-              ? BafColors.danger
-              : BafColors.warning,
-          value: operationalEventsUnavailable
-              ? 'Unavailable'
-              : '$operationalEventCount',
-          label: 'Events',
-          onTap: onOperationalEvents,
-        ),
-        _WatchTile(
-          icon: Icons.verified_user_outlined,
-          color: qualityWarningsUnavailable
-              ? BafColors.danger
-              : BafColors.charges,
-          value: qualityWarningsUnavailable
-              ? 'Unavailable'
-              : '$qualityWarningCount',
-          label: 'Warnings',
-          onTap: onQuality,
-        ),
-        _WatchTile(
-          icon: Icons.monitor_heart_outlined,
-          color: qualityMonitoringUnavailable
-              ? BafColors.danger
-              : BafColors.instrument,
-          value: qualityMonitoringUnavailable
-              ? 'Unavailable'
-              : '$qualityMonitoringCount',
-          label: 'Monitoring',
-          onTap: onQualityMonitoring,
-        ),
-        _WatchTile(
-          icon: Icons.memory_outlined,
-          color: BafColors.instrument,
-          value: 'Review',
-          label: 'Abnormalities',
-          onTap: onAbnormalities,
-        ),
-      ];
-      return Wrap(
-        spacing: BafSpacing.sm,
-        runSpacing: BafSpacing.sm,
-        children: [
-          for (final tile in tiles) SizedBox(width: width, child: tile),
-        ],
-      );
-    },
-  );
-}
-
-class _WatchTile extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String value;
-  final String label;
-  final VoidCallback onTap;
-
-  const _WatchTile({
-    required this.icon,
-    required this.color,
-    required this.value,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) => BafRecordSurface(
-    onTap: onTap,
-    accent: color,
-    padding: EdgeInsets.zero,
-    child: SizedBox(
-      height: 96,
-      child: Padding(
-        padding: const EdgeInsets.all(BafSpacing.sm),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 23),
-            const SizedBox(height: BafSpacing.xs),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: color,
-                fontSize: value.length > 6 ? 10 : 15,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
   );
 }
 
@@ -1819,236 +1729,6 @@ class HomeMoreScreen extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _AttentionPanel extends StatelessWidget {
-  final int ticketCount;
-  final int executionCount;
-  final int directiveCount;
-  final int workflowAttentionCount;
-  final int openOperationalEventCount;
-  final int openQualityWarningCount;
-  final int activeQualityMonitoringCount;
-  final int overdueMaintenanceCount;
-  final int activeInspectionFindingCount;
-  final bool attentionDataUnavailable;
-  final VoidCallback onIssues;
-  final VoidCallback onWork;
-  final VoidCallback onDirectives;
-  final VoidCallback onOperationalEvents;
-  final VoidCallback onQuality;
-  final VoidCallback onQualityMonitoring;
-  final VoidCallback onMaintenanceRhythm;
-  final VoidCallback onInspectionProgrammes;
-  final VoidCallback onRetry;
-
-  const _AttentionPanel({
-    required this.ticketCount,
-    required this.executionCount,
-    required this.directiveCount,
-    required this.workflowAttentionCount,
-    required this.openOperationalEventCount,
-    required this.openQualityWarningCount,
-    required this.activeQualityMonitoringCount,
-    required this.overdueMaintenanceCount,
-    required this.activeInspectionFindingCount,
-    required this.attentionDataUnavailable,
-    required this.onIssues,
-    required this.onWork,
-    required this.onDirectives,
-    required this.onOperationalEvents,
-    required this.onQuality,
-    required this.onQualityMonitoring,
-    required this.onMaintenanceRhythm,
-    required this.onInspectionProgrammes,
-    required this.onRetry,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final rows = <Widget>[
-      if (attentionDataUnavailable)
-        _AttentionRow(
-          icon: Icons.sync_problem_outlined,
-          color: BafColors.danger,
-          title: 'Live attention data unavailable',
-          detail: 'Some work counts could not be loaded. Tap to retry sync.',
-          onTap: onRetry,
-        ),
-      if (openQualityWarningCount > 0)
-        _AttentionRow(
-          icon: Icons.verified_user_outlined,
-          color: BafColors.danger,
-          title: 'Quality disposition required',
-          detail: '$openQualityWarningCount warnings remain open',
-          urgency: 'Immediate',
-          onTap: onQuality,
-        ),
-      if (openOperationalEventCount > 0)
-        _AttentionRow(
-          icon: Icons.crisis_alert_outlined,
-          color: BafColors.warning,
-          title: 'Operational disruptions',
-          detail: '$openOperationalEventCount currently open',
-          urgency: 'Plant',
-          onTap: onOperationalEvents,
-        ),
-      if (ticketCount > 0)
-        _AttentionRow(
-          icon: Icons.report_problem_outlined,
-          color: BafColors.maintenance,
-          title: 'Open issues',
-          detail: '$ticketCount requiring attention',
-          urgency: 'Action',
-          onTap: onIssues,
-        ),
-      if (executionCount > 0)
-        _AttentionRow(
-          icon: Icons.work_outline_rounded,
-          color: BafColors.planned,
-          title: 'Open planned jobs',
-          detail: '$executionCount active',
-          urgency: 'Work',
-          onTap: onWork,
-        ),
-      if (workflowAttentionCount > 0)
-        _AttentionRow(
-          icon: Icons.account_tree_outlined,
-          color: BafColors.warning,
-          title: 'Workflow obligations',
-          detail: '$workflowAttentionCount lane or compliance tasks',
-          urgency: 'Due',
-          onTap: onWork,
-        ),
-      if (directiveCount > 0)
-        _AttentionRow(
-          icon: Icons.assignment_late_outlined,
-          color: BafColors.directives,
-          title: 'Active directives',
-          detail: '$directiveCount visible to your role',
-          urgency: 'Direction',
-          onTap: onDirectives,
-        ),
-      if (overdueMaintenanceCount > 0)
-        _AttentionRow(
-          icon: Icons.event_busy_outlined,
-          color: BafColors.danger,
-          title: 'Overdue maintenance cadence',
-          detail: '$overdueMaintenanceCount asset counters overdue',
-          urgency: 'Overdue',
-          onTap: onMaintenanceRhythm,
-        ),
-      if (activeInspectionFindingCount > 0)
-        _AttentionRow(
-          icon: Icons.fact_check_outlined,
-          color: BafColors.maintenance,
-          title: 'Active inspection findings',
-          detail:
-              '$activeInspectionFindingCount conditions under follow-through',
-          urgency: 'Assurance',
-          onTap: onInspectionProgrammes,
-        ),
-      if (activeQualityMonitoringCount > 0)
-        _AttentionRow(
-          icon: Icons.monitor_heart_outlined,
-          color: BafColors.instrument,
-          title: 'Active cycle monitoring',
-          detail: '$activeQualityMonitoringCount quality requests in progress',
-          urgency: 'Monitor',
-          onTap: onQualityMonitoring,
-        ),
-    ];
-
-    if (rows.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: BafSpacing.lg),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 38,
-              height: 38,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: Color(0xFFE7F2EA),
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(BafRadius.small),
-                  ),
-                ),
-                child: Icon(Icons.task_alt_rounded, color: BafColors.success),
-              ),
-            ),
-            SizedBox(width: BafSpacing.md),
-            Expanded(
-              child: Text(
-                'No open work currently requires your attention.',
-                style: TextStyle(
-                  color: BafColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      children: List<Widget>.generate(rows.length * 2 - 1, (index) {
-        return index.isEven
-            ? rows[index ~/ 2]
-            : const Divider(height: 1, color: BafColors.border);
-      }),
-    );
-  }
-}
-
-class _AttentionRow extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String detail;
-  final String? urgency;
-  final VoidCallback onTap;
-
-  const _AttentionRow({
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.detail,
-    this.urgency,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 38,
-        height: 38,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.10),
-          borderRadius: BorderRadius.circular(BafRadius.small),
-        ),
-        child: Icon(icon, color: color, size: 21),
-      ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(detail),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (urgency != null) StatusBadge(label: urgency!, color: color),
-          const SizedBox(width: BafSpacing.xs),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: BafColors.textSecondary,
-          ),
-        ],
-      ),
-      onTap: onTap,
     );
   }
 }

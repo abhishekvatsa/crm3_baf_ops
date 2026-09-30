@@ -16,12 +16,22 @@ const {
   selectProductionArtifacts,
   summarizeMutableSourceAuthority,
   summarizeSource,
+  verifyDistributionSourceAuthority,
 } = require("./collectDistributionInstallationReadback.js");
 
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "../..",
 );
+
+test('distribution source admission refuses mixed and unadmitted client generations before historical fallback', () => {
+  for (const [release, version] of [[31, 30], [30, 31], [32, 30], [32, 32], ['31', 31]]) {
+    const result = verifyDistributionSourceAuthority({repoRoot: repositoryRoot,
+      releasePolicy: {firebaseProjectId: 'crm3-baf-ops-b8638', release: {buildNumber: release},
+        versionPolicy: {buildNumber: version}}});
+    assert.equal(result.ok, false, `${release}/${version}`);
+  }
+});
 
 const backendClosureDecisions = [
   ['deployment.functionCount', 15],

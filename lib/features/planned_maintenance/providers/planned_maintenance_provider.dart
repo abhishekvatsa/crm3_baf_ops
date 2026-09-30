@@ -200,6 +200,10 @@ abstract class PlannedMaintenanceRepository {
   /// getAllTemplates() semantics (only filters isDeleted), not isActive.
   Stream<List<JobTemplate>> watchAllTemplates({int? limit});
 
+  /// Administrative history, including retained soft-deleted rows. Ordinary
+  /// template lists must continue to use [watchAllTemplates].
+  Stream<List<JobTemplate>> watchTemplatesIncludingDeleted();
+
   Future<void> saveExecution(JobExecution execution, {required AppUser actor});
   Future<List<JobExecution>> getAllExecutions();
   Future<List<JobExecution>> getOpenExecutions();

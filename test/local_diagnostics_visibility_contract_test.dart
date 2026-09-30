@@ -18,10 +18,9 @@ void main() {
     test(
       'Local diagnostics reports runtime support and governance context',
       () {
-        final source =
-            File(
-              'lib/features/admin/presentation/local_diagnostics_screen.dart',
-            ).readAsStringSync();
+        final source = File(
+          'lib/features/admin/presentation/local_diagnostics_screen.dart',
+        ).readAsStringSync();
 
         expect(source, contains('LocalDiagnosticsSupportSnapshot'));
         expect(source, contains('syncRunHealthProvider'));
@@ -67,10 +66,9 @@ void main() {
     );
 
     test('Diagnostics remains read-only and Admin/SI-gated', () {
-      final source =
-          File(
-            'lib/features/admin/presentation/local_diagnostics_screen.dart',
-          ).readAsStringSync();
+      final source = File(
+        'lib/features/admin/presentation/local_diagnostics_screen.dart',
+      ).readAsStringSync();
 
       expect(source, contains('actor.canManageTemplateGovernance'));
       expect(source, contains('Admin/SI access required'));
@@ -79,13 +77,12 @@ void main() {
         lessThan(source.indexOf('ref.watch(localDiagnosticsReportProvider)')),
       );
       expect(
-        source.indexOf('await ref.watch(currentAppUserProvider.future)'),
-        lessThan(source.indexOf('LocalDiagnosticsReadAdapter().read()')),
+        source.indexOf('ref.watch(localDiagnosticsAuthorityProvider)'),
+        lessThan(source.indexOf('.read(localDiagnosticsReadAdapterProvider)')),
       );
-      final adapter =
-          File(
-            'lib/features/admin/services/local_diagnostics_read_adapter.dart',
-          ).readAsStringSync();
+      final adapter = File(
+        'lib/features/admin/services/local_diagnostics_read_adapter.dart',
+      ).readAsStringSync();
       expect(adapter, contains('readStartupPreOpenIsarProvenanceInventory()'));
       expect(adapter, contains('readPrivacySafeIsarProvenanceInventory()'));
       expect(adapter, isNot(contains('writeTxn(')));

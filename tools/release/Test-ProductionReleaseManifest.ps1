@@ -555,7 +555,8 @@ if ($policy.release.buildNumber -ge 30) {
     throw 'App Check verifier helper differs from the immutable source archive.'
   }
   . $appCheckHelper
-  $appCheckApprovalEntry = 'release/approvals/build30-app-check-client-approval.json'
+  if ($policy.release.buildNumber -notin @(30, 31)) { throw 'No App Check archive protocol is admitted for this build.' }
+  $appCheckApprovalEntry = "release/approvals/build$($policy.release.buildNumber)-app-check-client-approval.json"
   $appCheckBackendEntry = $policy.finalization.exactFunctionFleetDeploymentReceiptFile
   $expectedAppCheck = Get-ProductionAppCheckBuildEvidence -Policy $policy `
     -Approval ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) | ConvertFrom-Json) `

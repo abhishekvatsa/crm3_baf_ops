@@ -239,52 +239,82 @@ class OperationsManagementReadout extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(BafRadius.small),
-                ),
-                child: const Icon(
-                  Icons.insights_rounded,
-                  color: Colors.white,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Management readout',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                      ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final copy = Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(BafRadius.small),
                     ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Decision signals for the selected scope',
-                      style: TextStyle(color: Color(0xFFC6D7DB), fontSize: 12),
+                    child: const Icon(
+                      Icons.insights_rounded,
+                      color: Colors.white,
+                      size: 21,
                     ),
-                  ],
-                ),
-              ),
-              Text(
-                DateFormat('dd MMM, HH:mm').format(report.asOf),
+                  ),
+                  const SizedBox(width: BafSpacing.sm),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Management readout',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Decision signals for the selected scope',
+                          style: TextStyle(
+                            color: Color(0xFFC6D7DB),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              final timestamp = Text(
+                'As of ${DateFormat('dd MMM, HH:mm').format(report.asOf)}',
                 style: const TextStyle(
                   color: Color(0xFF9EB2B8),
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                 ),
-              ),
-            ],
+              );
+              if (constraints.maxWidth < 560 ||
+                  MediaQuery.textScalerOf(context).scale(18) > 24) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    copy,
+                    const SizedBox(height: BafSpacing.sm),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 38 + BafSpacing.sm),
+                      child: timestamp,
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: copy),
+                  const SizedBox(width: BafSpacing.md),
+                  timestamp,
+                ],
+              );
+            },
           ),
           const SizedBox(height: BafSpacing.lg),
           LayoutBuilder(
@@ -318,33 +348,62 @@ class OperationsManagementReadout extends StatelessWidget {
               borderRadius: BorderRadius.circular(BafRadius.small),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.radar_rounded,
-                  size: 18,
-                  color: Color(0xFF7FD2D0),
-                ),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(
-                  child: Text(
-                    'Leading signal: ${report.leadingManagementSignal}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final signal = Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.radar_rounded,
+                      size: 18,
+                      color: Color(0xFF7FD2D0),
                     ),
-                  ),
-                ),
-                Text(
+                    const SizedBox(width: BafSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        'Leading signal: ${report.leadingManagementSignal}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+                final count = Text(
                   '${report.actionBacklogCount} open actions',
                   style: const TextStyle(
                     color: Color(0xFFC6D7DB),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),
-                ),
-              ],
+                );
+                if (constraints.maxWidth < 480 ||
+                    MediaQuery.textScalerOf(context).scale(12) > 16) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      signal,
+                      const SizedBox(height: BafSpacing.sm),
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          left: 18 + BafSpacing.sm,
+                        ),
+                        child: count,
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: signal),
+                    const SizedBox(width: BafSpacing.md),
+                    count,
+                  ],
+                );
+              },
             ),
           ),
         ],

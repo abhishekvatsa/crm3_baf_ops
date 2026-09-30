@@ -402,6 +402,10 @@ abstract class DirectiveRepository {
   /// descending. Mirrors getAllDirectives() but keeps admin surfaces live.
   Stream<List<OperationalDirective>> watchAllDirectives({int? limit});
 
+  /// Administrative history, including retained soft-deleted rows. Ordinary
+  /// directive lists must continue to use [watchAllDirectives].
+  Stream<List<OperationalDirective>> watchDirectivesIncludingDeleted();
+
   /// Reactive stream of non-deleted directives whose status is open or
   /// acknowledged, sorted by createdAt descending. Fires immediately with
   /// the current value, then on every local change.

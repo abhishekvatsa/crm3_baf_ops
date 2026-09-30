@@ -212,6 +212,7 @@ class OperationsReport {
     this.sourceAssetClasses = const [],
     this.sourceAssetInstances = const [],
     this.innerCoverProfiles = const [],
+    this.qualifiedInnerCoverStates,
     this.baseInnerCoverRegister,
     this.undatedRaCases = const [],
     this.unmatchedQualityWarnings = const [],
@@ -275,6 +276,11 @@ class OperationsReport {
   final List<AssetClassRecord> sourceAssetClasses;
   final List<AssetInstanceRecord> sourceAssetInstances;
   final List<InnerCoverProfile> innerCoverProfiles;
+
+  /// The same filtered, in-memory condition population used for report counts.
+  /// Null preserves legacy callers, whose lifecycle rows cannot certify current
+  /// serial restrictions or operating availability.
+  final List<PlantInnerCoverState>? qualifiedInnerCoverStates;
   final BaseInnerCoverRegister? baseInnerCoverRegister;
   final List<ChargeAbnormality> undatedRaCases;
   final List<QualityWarning> unmatchedQualityWarnings;

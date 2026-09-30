@@ -26,6 +26,15 @@ class FirestoreDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Stream<List<OperationalDirective>> watchDirectivesIncludingDeleted() =>
+      _col.orderBy('createdAt', descending: true).snapshots().map(
+        (snap) => _decodeDirectiveSnapshot(
+          snap,
+          source: 'admin directives including deleted',
+        ),
+      );
+
+  @override
   Stream<List<OperationalDirective>> watchOpenDirectives() {
     return _col
         .where(

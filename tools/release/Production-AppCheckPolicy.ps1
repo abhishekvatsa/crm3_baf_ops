@@ -16,12 +16,12 @@ function Get-ProductionAppCheckBuildEvidence {
     throw 'App Check build number must be an integer.'
   }
   if ($build -ge 1 -and $build -le 29) { return $null }
-  if ($build -ne 30) { throw 'No App Check construction protocol is admitted for this build.' }
+  if ($build -notin @(30, 31)) { throw 'No App Check construction protocol is admitted for this build.' }
   if ($null -eq $Policy.PSObject.Properties['appCheckBuild']) {
     throw 'Build30 requires an explicit governed App Check client choice.'
   }
   $choice = $Policy.appCheckBuild
-  $approvalFile = 'release/approvals/build30-app-check-client-approval.json'
+  $approvalFile = "release/approvals/build$build-app-check-client-approval.json"
   if ($choice.clientEnabled -isnot [bool] -or
       $choice.androidProvider -cne $(if ($choice.clientEnabled) { 'playIntegrity' } else { 'disabled' }) -or
       $choice.approvalFile -cne $approvalFile -or
@@ -125,7 +125,36 @@ function Get-ProductionAppCheckBuildEvidence {
       ($BackendReceipt.deployment.appCheckEnforcement -and -not $choice.clientEnabled)) {
     throw 'App Check client choice and pinned backend enforcement evidence disagree.'
   }
-  [ordered]@{
+  $scopes = $null
+  if ($build -eq 31) {
+    # The historical deployment receipt's appCheckEnforcement describes the
+    # default/mutating boundary, not the independently enforced identity gate.
+    # This bounded client-only successor preserves that exact deployed source.
+    $expectedScopes = [ordered]@{
+      defaultMutatingEnforced = $false
+      identityCallable = 'getBackendReleaseIdentity'
+      identityCallableEnforced = $true
+      identitySourceFile = 'functions/src/stage2dSecurityConfig.ts'
+      identitySourceSha256 = '1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F'
+    }
+    if (-not $choice.clientEnabled -or $choice.androidProvider -cne 'playIntegrity' -or
+        $BackendReceipt.sourceAuthority.commit -cne '2aa30de56cfdb960da3eeefd8956d8cbbae57b46' -or
+        $BackendReceiptSha256 -cne '3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45' -or
+        $Policy.finalization.exactFunctionFleetDeploymentReceiptFile -cne 'release/evidence/build30-current-source-backend-deployment-closure.json' -or
+        $null -eq $Approval.PSObject.Properties['serverEnforcementScopesAtBuild']) {
+      throw 'Build31 requires Play Integrity and explicit unchanged default/identity enforcement scopes.'
+    }
+    $scopes = $Approval.serverEnforcementScopesAtBuild
+    if (@(Compare-Object @($expectedScopes.Keys | Sort-Object) @($scopes.PSObject.Properties.Name | Sort-Object)).Count -ne 0) {
+      throw 'Build31 enforcement scope fields differ from the deployed source contract.'
+    }
+    foreach ($key in $expectedScopes.Keys) {
+      if (($scopes.$key | ConvertTo-Json -Compress) -cne ($expectedScopes[$key] | ConvertTo-Json -Compress)) {
+        throw "Build31 enforcement scope differs from the deployed source: $key"
+      }
+    }
+  }
+  $result = [ordered]@{
     clientEnabled = $choice.clientEnabled
     androidProvider = $choice.androidProvider
     dartDefine = $(if ($choice.clientEnabled) { 'true' } else { 'false' })
@@ -137,6 +166,8 @@ function Get-ProductionAppCheckBuildEvidence {
     enforcementChangedByBuild = $false
     tokenValidationEvidence = 'not-proved-by-artifact-construction'
   }
+  if ($build -eq 31) { $result.serverEnforcementScopesAtBuild = $scopes }
+  $result
 }
 
 function Assert-ProductionAppCheckManifest {
@@ -169,7 +200,8 @@ function Get-ProductionAppCheckRepositoryEvidence {
   }
   $backendPath = [IO.Path]::GetFullPath((Join-Path $root $backendEntry))
   if (-not $backendPath.StartsWith($root, $comparison)) { throw 'App Check backend receipt escapes source custody.' }
-  $approvalPath = Join-Path $root 'release/approvals/build30-app-check-client-approval.json'
+  if ($Policy.release.buildNumber -notin @(30, 31)) { throw 'No App Check construction protocol is admitted for this build.' }
+  $approvalPath = Join-Path $root "release/approvals/build$($Policy.release.buildNumber)-app-check-client-approval.json"
   Get-ProductionAppCheckBuildEvidence -Policy $Policy `
     -Approval (Get-Content -LiteralPath $approvalPath -Raw | ConvertFrom-Json) `
     -BackendReceipt (Get-Content -LiteralPath $backendPath -Raw | ConvertFrom-Json) `

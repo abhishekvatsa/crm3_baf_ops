@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/release/app_build_identity.dart';
 import '../../../core/release/backend_release_identity_service.dart';
+import '../../../core/security/app_check_bootstrap.dart';
 import '../../../core/services/crash_reporting_bootstrap.dart';
 import '../../../core/services/isar_installed_store_provenance.dart';
 import '../../../core/services/sync_coordinator.dart';
@@ -25,22 +26,55 @@ import '../../../features/planned_maintenance/services/planned_job_server_comple
 import '../../../features/planned_maintenance/services/published_template_assignment_server_service.dart';
 import '../../../firebase_options.dart';
 
-final localDiagnosticsReportProvider =
+// Token refreshes and repeated equivalent profile snapshots must not start a
+// new diagnostics request. Actual access changes still invalidate both reads.
+final localDiagnosticsAuthorityProvider = Provider((ref) {
+  final authority = ref.watch(currentAppUserProvider);
+  final actor = authority.valueOrNull;
+  if (authority.isLoading ||
+      authority.hasError ||
+      actor == null ||
+      !actor.canManageTemplateGovernance) {
+    return null;
+  }
+  final roles = actor.roles.map((role) => role.name).toList()..sort();
+  return (
+    uid: actor.uid,
+    revision: actor.authorityRevision,
+    roles: roles.join(','),
+  );
+});
+
+final localDiagnosticsReadAdapterProvider = Provider(
+  (ref) => LocalDiagnosticsReadAdapter(),
+);
+
+final localDiagnosticsBackendIdentityProvider =
+    FutureProvider.autoDispose<LocalReleaseDiagnosticsSnapshot>((ref) async {
+      if (ref.watch(localDiagnosticsAuthorityProvider) == null) {
+        throw StateError('Admin/SI access is required for local diagnostics.');
+      }
+      return LocalReleaseDiagnosticsSnapshot.capture(ref, loadBackend: !kIsWeb);
+    });
+
+final localDiagnosticsInventoryProvider =
     FutureProvider.autoDispose<LocalDiagnosticsReport>((ref) async {
-      final actor = await ref.watch(currentAppUserProvider.future);
-      if (actor == null || !actor.canManageTemplateGovernance) {
+      if (ref.watch(localDiagnosticsAuthorityProvider) == null) {
         throw StateError('Admin/SI access is required for local diagnostics.');
       }
 
-      final syncStatus = ref.watch(syncStatusProvider);
-      final syncHealth = ref.watch(syncRunHealthProvider);
+      final syncStatus = ref.read(syncStatusProvider);
+      final syncHealth = ref.read(syncRunHealthProvider);
       final supportSnapshot = LocalDiagnosticsSupportSnapshot.capture(
         syncStatus: syncStatus,
         syncHealth: syncHealth,
       );
-      final releaseSnapshot = await LocalReleaseDiagnosticsSnapshot.capture(
-        ref,
-        loadBackend: !kIsWeb,
+      const releaseSnapshot = LocalReleaseDiagnosticsSnapshot(
+        build: AppBuildIdentity.current,
+        backendLoading: !kIsWeb,
+        backendError: kIsWeb
+            ? 'Backend identity is not loaded for web diagnostics.'
+            : null,
       );
 
       if (kIsWeb) {
@@ -53,7 +87,9 @@ final localDiagnosticsReportProvider =
         );
       }
 
-      final persistence = await LocalDiagnosticsReadAdapter().read();
+      final persistence = await ref
+          .read(localDiagnosticsReadAdapterProvider)
+          .read();
       final rows = persistence.rows
           .map(
             (row) => LocalDiagnosticsRow(
@@ -92,6 +128,42 @@ final localDiagnosticsReportProvider =
         provenanceInventory: persistence.provenanceInventory,
       );
     });
+
+final localDiagnosticsReportProvider =
+    Provider.autoDispose<AsyncValue<LocalDiagnosticsReport>>((ref) {
+      if (ref.watch(localDiagnosticsAuthorityProvider) == null) {
+        return AsyncError(
+          StateError('Admin/SI access is required for local diagnostics.'),
+          StackTrace.current,
+        );
+      }
+      final inventory = ref.watch(localDiagnosticsInventoryProvider);
+      final backend = ref.watch(localDiagnosticsBackendIdentityProvider);
+      final support = LocalDiagnosticsSupportSnapshot.capture(
+        syncStatus: ref.watch(syncStatusProvider),
+        syncHealth: ref.watch(syncRunHealthProvider),
+      );
+      final release = backend.when(
+        skipLoadingOnRefresh: false,
+        data: (snapshot) => snapshot,
+        loading: () => const LocalReleaseDiagnosticsSnapshot(
+          build: AppBuildIdentity.current,
+          backendLoading: true,
+        ),
+        error: (error, _) => LocalReleaseDiagnosticsSnapshot(
+          build: AppBuildIdentity.current,
+          backendError: error.toString(),
+        ),
+      );
+      return inventory.whenData(
+        (report) => report.withContext(support: support, release: release),
+      );
+    });
+
+void refreshLocalDiagnostics(WidgetRef ref) {
+  ref.invalidate(localDiagnosticsInventoryProvider);
+  ref.invalidate(localDiagnosticsBackendIdentityProvider);
+}
 
 class LocalDiagnosticsReport {
   final DateTime generatedAt;
@@ -156,6 +228,26 @@ class LocalDiagnosticsReport {
 
   int get totalUnsyncedRows =>
       rows.fold<int>(0, (sum, row) => sum + row.unsyncedCount);
+
+  LocalDiagnosticsReport withContext({
+    required LocalDiagnosticsSupportSnapshot support,
+    required LocalReleaseDiagnosticsSnapshot release,
+  }) => LocalDiagnosticsReport(
+    generatedAt: generatedAt,
+    rows: rows,
+    unresolvedRejections: unresolvedRejections,
+    likelyPermanentRejections: likelyPermanentRejections,
+    totalRejections: totalRejections,
+    knowledgeMetaRows: knowledgeMetaRows,
+    commandJournal: commandJournal,
+    collectionCount: collectionCount,
+    governanceSummary: governanceSummary,
+    supportSnapshot: support,
+    releaseSnapshot: release,
+    provenanceInventory: provenanceInventory,
+    isWebUnavailable: isWebUnavailable,
+    crashReporting: crashReporting,
+  );
 
   String toClipboardText() {
     final buffer = StringBuffer()
@@ -303,11 +395,15 @@ class LocalReleaseDiagnosticsSnapshot {
   final AppBuildIdentity build;
   final BackendReleaseIdentity? backend;
   final String? backendError;
+  final String? backendErrorCode;
+  final bool backendLoading;
 
   const LocalReleaseDiagnosticsSnapshot({
     required this.build,
     this.backend,
     this.backendError,
+    this.backendErrorCode,
+    this.backendLoading = false,
   });
 
   static Future<LocalReleaseDiagnosticsSnapshot> capture(
@@ -332,6 +428,9 @@ class LocalReleaseDiagnosticsSnapshot {
       return LocalReleaseDiagnosticsSnapshot(
         build: AppBuildIdentity.current,
         backendError: error.toString(),
+        backendErrorCode: error is BackendReleaseIdentityException
+            ? error.code
+            : null,
       );
     }
   }
@@ -343,6 +442,7 @@ class LocalReleaseDiagnosticsSnapshot {
 
   String get parityLabel {
     if (!build.expectsBackendParity) return 'not declared by build';
+    if (backendLoading) return 'checking';
     if (backend == null) return 'unavailable';
     return backendParityConfirmed ? 'match' : 'mismatch';
   }
@@ -351,6 +451,12 @@ class LocalReleaseDiagnosticsSnapshot {
     final lines = <String>[
       build.toDiagnosticsText(),
       'backendParity: $parityLabel',
+      'backendIdentityStatus: ${backendLoading
+          ? 'checking'
+          : backend != null
+          ? 'available'
+          : 'unavailable'}',
+      'appCheckClientEnabled: $crm3AppCheckEnabled',
     ];
     if (backend != null) {
       lines.add('observedBackendReleaseId: ${backend!.releaseId}');
@@ -367,7 +473,10 @@ class LocalReleaseDiagnosticsSnapshot {
       );
     } else {
       lines.add('observedBackendReleaseId: unavailable');
-      lines.add('backendIdentityError: ${backendError ?? 'unknown'}');
+      lines.add(
+        'backendIdentityError: ${backendLoading ? 'check in progress' : backendError ?? 'unknown'}',
+      );
+      lines.add('backendIdentityErrorCode: ${backendErrorCode ?? 'none'}');
     }
     return lines.join('\n');
   }
@@ -376,6 +485,13 @@ class LocalReleaseDiagnosticsSnapshot {
     'build': build.toMap(),
     'backend': backend?.toMap(),
     'backendError': backendError,
+    'backendErrorCode': backendErrorCode,
+    'backendIdentityStatus': backendLoading
+        ? 'checking'
+        : backend != null
+        ? 'available'
+        : 'unavailable',
+    'appCheckClientEnabled': crm3AppCheckEnabled,
     'backendParity': parityLabel,
     'backendParityConfirmed': backendParityConfirmed,
   };
@@ -666,7 +782,7 @@ class LocalDiagnosticsScreen extends ConsumerWidget {
             actions: [
               IconButton(
                 tooltip: 'Refresh diagnostics',
-                onPressed: () => ref.invalidate(localDiagnosticsReportProvider),
+                onPressed: () => refreshLocalDiagnostics(ref),
                 icon: const Icon(Icons.refresh_rounded),
               ),
               reportAsync.maybeWhen(
@@ -1149,7 +1265,9 @@ class _ReleaseIdentityDiagnosticsPanel extends StatelessWidget {
           ),
           _DiagnosticsInfoRow(
             label: 'Observed backend release',
-            value: snapshot.backend?.releaseId ?? 'Unavailable',
+            value:
+                snapshot.backend?.releaseId ??
+                (snapshot.backendLoading ? 'Checking...' : 'Unavailable'),
             isWarning: snapshot.backend == null,
           ),
           _DiagnosticsInfoRow(

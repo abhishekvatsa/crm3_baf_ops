@@ -141,6 +141,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                             data: (_) => OpenExecutionsView(
                               executions: filteredExecutions,
                               bottomPadding: listBottomPadding,
+                              canAssignJob: canAssignJob,
                             ),
                           ),
                         ),
@@ -357,9 +358,9 @@ class _PlannedWorkSelector extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(
-            '${openJobCount ?? 0} open jobs'
-            ' · ${workflowCount ?? 0} workflow actions'
-            '${canSeeTemplates ? ' · ${templateCount ?? 0} templates' : ''}',
+            '${openJobCount ?? 0} open job${openJobCount == 1 ? '' : 's'}'
+            ' · ${workflowCount ?? 0} workflow action${workflowCount == 1 ? '' : 's'}'
+            '${canSeeTemplates ? ' · ${templateCount ?? 0} template${templateCount == 1 ? '' : 's'}' : ''}',
             style: const TextStyle(
               color: BafColors.textSecondary,
               fontSize: 12,

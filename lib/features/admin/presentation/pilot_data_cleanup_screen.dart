@@ -7,6 +7,9 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../directives/data/operational_directive_model.dart';
+import '../../maintenance/data/maintenance_model.dart';
+import '../../planned_maintenance/data/job_template_model.dart';
 import '../providers/admin_stream_providers.dart';
 import 'admin_data_browser/admin_pilot_purge.dart';
 
@@ -67,7 +70,7 @@ class _PilotDataCleanupScreenState
         tickets.isLoading || directives.isLoading || templates.isLoading;
     final firstError = tickets.error ?? directives.error ?? templates.error;
     final rows = <_CleanupRow>[
-      for (final ticket in tickets.value ?? const [])
+      for (final ticket in tickets.value ?? const <MaintenanceRecord>[])
         if (ticket.isDeleted &&
             ticket.isSynced &&
             ticket.firestoreId != null &&
@@ -85,7 +88,7 @@ class _PilotDataCleanupScreenState
                 'Issue ticket | v${ticket.version} | ${ticket.deletedByName ?? 'Admin deletion'}',
             deletedAt: ticket.deletedAt,
           ),
-      for (final directive in directives.value ?? const [])
+      for (final directive in directives.value ?? const <OperationalDirective>[])
         if (directive.isDeleted &&
             directive.isSynced &&
             directive.firestoreId != null &&
@@ -102,7 +105,7 @@ class _PilotDataCleanupScreenState
                 'Directive | v${directive.version} | ${directive.deletedByName ?? 'Admin deletion'}',
             deletedAt: directive.deletedAt,
           ),
-      for (final template in templates.value ?? const [])
+      for (final template in templates.value ?? const <JobTemplate>[])
         if (template.isDeleted &&
             template.isSynced &&
             template.firestoreId != null &&

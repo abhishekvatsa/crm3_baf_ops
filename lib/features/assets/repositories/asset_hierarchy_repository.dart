@@ -801,6 +801,11 @@ class AssetHierarchyRepository {
     _innerCoverLinkages.where('innerCoverId', isEqualTo: innerCoverId),
   );
 
+  Stream<DecodedSnapshotBatch<InnerCoverLinkage>>
+  watchActiveInnerCoverLinkages() => _watchInnerCoverHistory(
+    _innerCoverLinkages.where('active', isEqualTo: true),
+  );
+
   Stream<DecodedSnapshotBatch<InnerCoverLinkage>> watchBaseInnerCoverHistory(
     String baseAssetInstanceId,
   ) => _watchInnerCoverHistory(

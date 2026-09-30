@@ -9,11 +9,13 @@ import 'planned_job_detail_screen.dart';
 class OpenExecutionsView extends StatelessWidget {
   final List<JobExecution> executions;
   final double bottomPadding;
+  final bool canAssignJob;
 
   const OpenExecutionsView({
     super.key,
     required this.executions,
     required this.bottomPadding,
+    this.canAssignJob = false,
   });
 
   @override
@@ -32,7 +34,7 @@ class OpenExecutionsView extends StatelessWidget {
         _OpenJobsHeader(count: sorted.length),
         const SizedBox(height: BafSpacing.md),
         if (sorted.isEmpty)
-          const _EmptyOpenJobsState()
+          _EmptyOpenJobsState(canAssignJob: canAssignJob)
         else
           ...sorted.map(
             (execution) => Padding(
@@ -274,17 +276,19 @@ class _OpenExecutionCard extends StatelessWidget {
 }
 
 class _EmptyOpenJobsState extends StatelessWidget {
-  const _EmptyOpenJobsState();
+  const _EmptyOpenJobsState({required this.canAssignJob});
+
+  final bool canAssignJob;
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: BafSpacing.xl),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: BafSpacing.xl),
       child: Column(
         children: [
-          Icon(Icons.task_alt_rounded, size: 38, color: BafColors.sync),
-          SizedBox(height: BafSpacing.md),
-          Text(
+          const Icon(Icons.task_alt_rounded, size: 38, color: BafColors.sync),
+          const SizedBox(height: BafSpacing.md),
+          const Text(
             'No open assigned jobs',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -293,11 +297,13 @@ class _EmptyOpenJobsState extends StatelessWidget {
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: BafSpacing.sm),
+          const SizedBox(height: BafSpacing.sm),
           Text(
-            'Use Assign Published to instantiate a governed job for an asset.',
+            canAssignJob
+                ? 'Use Assign Published to assign a job from a published template.'
+                : 'Assigned jobs will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
               color: BafColors.textSecondary,
               fontSize: 12,
               height: 1.3,

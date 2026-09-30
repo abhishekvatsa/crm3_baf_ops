@@ -132,8 +132,6 @@ class HomeManagementPulsePanel extends StatelessWidget {
   const HomeManagementPulsePanel({
     super.key,
     required this.plantOverview,
-    required this.actionCount,
-    required this.assuranceCount,
     required this.dataUnavailable,
     required this.onOpenReports,
     required this.onPlantCondition,
@@ -156,8 +154,6 @@ class HomeManagementPulsePanel extends StatelessWidget {
   });
 
   final AsyncValue<PlantAssetOverview> plantOverview;
-  final int actionCount;
-  final int assuranceCount;
   final bool dataUnavailable;
   final VoidCallback onOpenReports;
   final VoidCallback onPlantCondition;
@@ -181,6 +177,21 @@ class HomeManagementPulsePanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overview = plantOverview.asData?.value;
+    // These source populations can share related records. Summarize active
+    // queues here; each queue keeps its own record count further down Home.
+    final actionQueueCount = [
+      ticketCount,
+      executionCount,
+      directiveCount,
+      workflowAttentionCount,
+      openOperationalEventCount,
+      openQualityWarningCount,
+    ].where((count) => count > 0).length;
+    final assuranceQueueCount = [
+      overdueMaintenanceCount,
+      activeInspectionFindingCount,
+      activeQualityMonitoringCount,
+    ].where((count) => count > 0).length;
     final availableRate = overview?.availabilityRate;
     final availability = availableRate == null
         ? '--'
@@ -210,7 +221,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
 
     return BafSectionSurface(
       accent: BafColors.cobalt,
-      padding: const EdgeInsets.all(BafSpacing.lg),
+      padding: const EdgeInsets.all(BafSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -232,24 +243,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
               ),
               const SizedBox(width: BafSpacing.sm),
               const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Management pulse',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    Text(
-                      'Availability, action pressure and assurance',
-                      style: TextStyle(
-                        color: BafColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'Management pulse',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
               ),
               IconButton(
@@ -260,11 +256,11 @@ class HomeManagementPulsePanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: BafSpacing.md),
+          const SizedBox(height: BafSpacing.xs),
           LayoutBuilder(
             builder: (context, constraints) {
               final minimumWidth =
-                  156 * MediaQuery.textScalerOf(context).scale(12) / 12;
+                  72 * MediaQuery.textScalerOf(context).scale(12) / 12;
               final columns =
                   ((constraints.maxWidth + BafSpacing.sm) /
                           (minimumWidth + BafSpacing.sm))
@@ -290,15 +286,15 @@ class HomeManagementPulsePanel extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _HomePulseMetric(
-                      value: dataUnavailable ? '--' : '$actionCount',
-                      label: 'Action queue',
-                      detail: 'Issues, work and disruptions',
-                      color: actionCount == 0
+                      value: dataUnavailable ? '--' : '$actionQueueCount',
+                      label: 'Action queues',
+                      detail: 'Active queues for issues, work and disruptions',
+                      color: actionQueueCount == 0
                           ? BafColors.success
                           : BafColors.warning,
                       onTap: ticketCount > 0
                           ? onIssues
-                          : executionCount > 0
+                          : executionCount > 0 || workflowAttentionCount > 0
                           ? onWork
                           : onControl,
                     ),
@@ -306,10 +302,11 @@ class HomeManagementPulsePanel extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _HomePulseMetric(
-                      value: dataUnavailable ? '--' : '$assuranceCount',
-                      label: 'Assurance',
-                      detail: 'Monitoring, overdue and findings',
-                      color: assuranceCount == 0
+                      value: dataUnavailable ? '--' : '$assuranceQueueCount',
+                      label: 'Assurance queues',
+                      detail:
+                          'Active queues for monitoring, overdue maintenance and findings',
+                      color: assuranceQueueCount == 0
                           ? BafColors.success
                           : BafColors.maintenance,
                       onTap: overdueMaintenanceCount > 0
@@ -325,11 +322,20 @@ class HomeManagementPulsePanel extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: BafSpacing.md),
+          const SizedBox(height: BafSpacing.sm),
+          Text(
+            availabilityDetail,
+            key: const ValueKey('home-pulse-availability-detail'),
+            style: const TextStyle(
+              color: BafColors.textSecondary,
+              fontSize: 11,
+            ),
+          ),
           InkWell(
             onTap: leading.onTap,
             borderRadius: BorderRadius.circular(BafRadius.small),
-            child: Padding(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
               padding: const EdgeInsets.symmetric(vertical: BafSpacing.xs),
               child: Row(
                 children: [
@@ -484,7 +490,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
       );
     }
     return _HomeLeadingSignal(
-      text: 'No active exception leads the current plant picture.',
+      text: 'No exception in these summary queues.',
       icon: Icons.task_alt_rounded,
       color: BafColors.success,
       onTap: onOpenReports,
@@ -508,43 +514,45 @@ class _HomePulseMetric extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: BafColors.surfaceTint,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(BafRadius.small),
-      side: BorderSide(color: color.withValues(alpha: 0.20)),
-    ),
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(BafRadius.small),
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 104),
-        padding: const EdgeInsets.all(BafSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              value,
-              style: TextStyle(
-                color: color,
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Tooltip(
+    message: detail,
+    child: Material(
+      color: BafColors.surfaceTint,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        side: BorderSide(color: color.withValues(alpha: 0.20)),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 70),
+          padding: const EdgeInsets.symmetric(
+            horizontal: BafSpacing.xs,
+            vertical: BafSpacing.sm,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                value,
+                key: ValueKey('home-pulse-value-$label'),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
               ),
-            ),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              detail,
-              style: const TextStyle(
-                color: BafColors.textSecondary,
-                fontSize: 12,
-                height: 1.35,
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),

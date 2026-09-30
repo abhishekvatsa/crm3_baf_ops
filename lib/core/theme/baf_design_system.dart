@@ -6,11 +6,10 @@ class BafBrand {
   BafBrand._();
 
   static const productName = 'CRM-III BAF Ops';
-  static const plantName = 'SAIL Bokaro Steel Plant';
+  static const independentAppLabel = 'Independent workplace maintenance app';
   static const makerName = 'A ManMithas Productions';
   static const makerLabel = 'A MANMITHAS PRODUCTIONS';
   static const markAsset = 'assets/brand/manmithas_mark.png';
-  static const sailMarkAsset = 'assets/brand/sail_mark.png';
   static const reportFontAsset = 'assets/fonts/Roboto-Regular.ttf';
   static const reportFontMediumAsset = 'assets/fonts/Roboto-Medium.ttf';
 }

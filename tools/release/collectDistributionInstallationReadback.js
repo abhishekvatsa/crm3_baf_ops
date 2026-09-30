@@ -4,7 +4,14 @@ const childProcess = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const {sealReceipt} = require("./collectProductionGlobalPullBackend.js");
-const {verifyStagedPromotionSourceAuthority, promotionCiAuthorityExact} = require("./stagedPromotionSourceAuthority.js");
+const {promotionCiAuthorityExact} = require("./stagedPromotionSourceAuthority.js");
+const {verifyClientBackendSourceAuthority} = require("./clientBackendCompatibility31.js");
+
+// Shared construction/distribution entry: a mixed client generation must not
+// select historical backend admission by inspecting only versionPolicy.
+function verifyDistributionSourceAuthority(args) {
+  return verifyClientBackendSourceAuthority(args);
+}
 const {
   collectSourceBinding,
   isPathInside,
@@ -1290,7 +1297,7 @@ function summarizeSource(repositoryRoot, policy) {
     promotionFirestoreReceipt,
     measuredPromotionFirestoreReceiptSha256,
     stagedSourceAuthorityProof: releasePolicy.postBuildPromotion?.status === 'completed-staged-controlled-pilot-only'
-      ? verifyStagedPromotionSourceAuthority({repoRoot: repositoryRoot, releasePolicy}) : null,
+      ? verifyDistributionSourceAuthority({repoRoot: repositoryRoot, releasePolicy}) : null,
   });
   const semanticAuthority = new Map([
     [
@@ -1749,6 +1756,7 @@ module.exports = {
   summarizeInstallationReceipt,
   summarizeMutableSourceAuthority,
   summarizeSource,
+  verifyDistributionSourceAuthority,
 };
 
 if (require.main === module) {

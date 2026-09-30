@@ -563,9 +563,9 @@ function Test-CompletedReleaseCustody {
     # functions performs no bucket or upload calls.
     . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
     $candidateCustodyArguments = @{}
-    if ($Receipt.release.buildNumber -ceq 30) {
+    if ($Receipt.release.buildNumber -cin @(30, 31)) {
       $candidateBinding = $Receipt.dualCustody.backupVerification
-      if ($candidateBinding.file -cne 'release/evidence/build30-private-gcs-custody-readback.json' -or
+      if ($candidateBinding.file -cne "release/evidence/build$($Receipt.release.buildNumber)-private-gcs-custody-readback.json" -or
           $candidateBinding.sha256 -isnot [string] -or $candidateBinding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
       $candidatePath = Join-Path $RepositoryRoot $candidateBinding.file
       if ((Get-Sha256 $candidatePath) -cne $candidateBinding.sha256) { return $false }
@@ -576,7 +576,7 @@ function Test-CompletedReleaseCustody {
       }
     }
     $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $Receipt.release.buildNumber @candidateCustodyArguments
-    if ($descriptor.buildNumber -eq 30 -and $Receipt.release.releaseId -cne $descriptor.releaseId) { return $false }
+    if ($descriptor.buildNumber -in @(30, 31) -and $Receipt.release.releaseId -cne $descriptor.releaseId) { return $false }
     if ($modeProperty.Value -isnot [string] -or
         $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
         -not (Test-PrivateCustodyFacts $Receipt @(
@@ -1855,7 +1855,7 @@ $expectedPromotionDecision =
   "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"
 # Share the read-only approval, child-readback and governance-CI adjudication
 # with the distribution collector so these two release gates cannot drift.
-$stagedAuthorityOutput = & node tools/release/stagedPromotionSourceAuthority.js `
+$stagedAuthorityOutput = & node tools/release/clientBackendCompatibility31.js `
   $RepositoryRoot (Resolve-Path -LiteralPath $PolicyPath).Path
 if ($LASTEXITCODE -ne 0) {
   throw "Staged promotion source or governance authority failed: $stagedAuthorityOutput"

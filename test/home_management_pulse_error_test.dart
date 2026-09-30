@@ -30,7 +30,7 @@ void main() {
         expect(find.text('Plant data unavailable'), findsOneWidget);
         expect(find.text('0 of 0 assets'), findsNothing);
         expect(
-          find.text('No active exception leads the current plant picture.'),
+          find.text('No exception in these summary queues.'),
           findsNothing,
         );
         final retry = find.text(
@@ -57,8 +57,7 @@ Widget _panel(AsyncValue<PlantAssetOverview> state, VoidCallback retry) =>
         body: SingleChildScrollView(
           child: HomeManagementPulsePanel(
             plantOverview: state,
-            actionCount: 0,
-            assuranceCount: 0,
+
             dataUnavailable: false,
             onOpenReports: () {},
             onPlantCondition: () {},

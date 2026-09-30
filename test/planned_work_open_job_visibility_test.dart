@@ -110,6 +110,10 @@ void main() {
     await _pumpFrames(tester, count: 6);
     expect(find.text('70F Runtime Archive Test 2026-06-15'), findsOneWidget);
     expect(find.text('Legacy preventive template'), findsNothing);
+    expect(
+      find.text('1 open job · 0 workflow actions · 1 template'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Templates'));
     await _pumpFrames(tester, count: 5);
@@ -152,6 +156,12 @@ void main() {
       );
 
       await _pumpFrames(tester, count: 6);
+      expect(
+        find.text(
+          'Use Assign Published to assign a job from a published template.',
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Templates'));
       await _pumpFrames(tester, count: 4);
       expect(find.text('Legacy preventive template'), findsOneWidget);
@@ -162,6 +172,16 @@ void main() {
       expect(find.text('Templates'), findsNothing);
       expect(find.text('Legacy preventive template'), findsNothing);
       expect(find.text('Open assigned jobs'), findsOneWidget);
+      expect(
+        find.text('Assigned jobs will appear here.'),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Use Assign Published to assign a job from a published template.',
+        ),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );

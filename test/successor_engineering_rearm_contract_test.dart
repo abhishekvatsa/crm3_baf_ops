@@ -1264,7 +1264,7 @@ void main() {
     // Re-adjudicate all live approval, immutable custody, scoped IAM, Rules and
     // readback evidence using the existing shared authority verifier.
     final authorityCheck = Process.runSync('node', <String>[
-      'tools/release/stagedPromotionSourceAuthority.js',
+      'tools/release/clientBackendCompatibility31.js',
       Directory.current.path,
       'release/production-release-policy.json',
     ]);

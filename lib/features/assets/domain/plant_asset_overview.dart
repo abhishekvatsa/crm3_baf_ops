@@ -1,3 +1,4 @@
+import 'inner_cover_dependencies.dart';
 import '../../maintenance_workflow/data/equipment_status_record.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/asset_availability_record.dart';
@@ -5,6 +6,8 @@ import '../data/asset_hierarchy_model.dart';
 import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../data/inner_cover_lifecycle.dart';
+import 'base_cover_reconciliation.dart';
+import 'inner_cover_stock_summary.dart';
 
 EquipmentStatusRecord? _combineBaseWorkflowStatus({
   required EquipmentStatusRecord? base,
@@ -99,6 +102,7 @@ class PlantAssetState {
   final List<PlantIssueConditionContribution> issueConditionContributions;
   final List<String> evidenceWarnings;
   final bool permitsManualChange;
+  final InnerCoverDependencyState? linkedInnerCoverDependency;
 
   const PlantAssetState({
     required this.asset,
@@ -108,13 +112,15 @@ class PlantAssetState {
     this.issueConditionContributions = const [],
     this.evidenceWarnings = const [],
     this.permitsManualChange = true,
+    this.linkedInnerCoverDependency,
   });
 
   bool get isUnderMaintenance =>
-      workflowStatus != null &&
-      (workflowStatus!.openMaintenanceCount > 0 ||
-          workflowStatus!.openRedCount > 0 ||
-          workflowStatus!.awaitingPreparationCount > 0);
+      linkedInnerCoverDependency?.isUnderMaintenance == true ||
+      (workflowStatus != null &&
+          (workflowStatus!.openMaintenanceCount > 0 ||
+              workflowStatus!.openRedCount > 0 ||
+              workflowStatus!.awaitingPreparationCount > 0));
 
   bool get isDown =>
       operationalCondition?.active == true &&
@@ -124,13 +130,18 @@ class PlantAssetState {
       operationalCondition?.active == true &&
       operationalCondition?.condition == AssetOperationalCondition.unfit;
 
-  bool get hasIssueUnfitEvidence => issueConditionContributions.any(
-    (item) => item.effect == MaintenanceIssuePlantConditionEffect.unfit,
-  );
+  bool get hasIssueUnfitEvidence =>
+      linkedInnerCoverDependency?.isUnfit == true ||
+      issueConditionContributions.any(
+        (item) => item.effect == MaintenanceIssuePlantConditionEffect.unfit,
+      );
 
-  bool get hasIssueUnavailableEvidence => issueConditionContributions.any(
-    (item) => item.effect == MaintenanceIssuePlantConditionEffect.unavailable,
-  );
+  bool get hasIssueUnavailableEvidence =>
+      linkedInnerCoverDependency?.isUnavailable == true ||
+      issueConditionContributions.any(
+        (item) =>
+            item.effect == MaintenanceIssuePlantConditionEffect.unavailable,
+      );
 
   bool get hasActiveManualCondition => isDown || isManuallyUnfit;
 
@@ -152,7 +163,9 @@ class PlantAssetState {
   bool get isTemporarilyBlocked => availability?.isTemporarilyBlocked == true;
 
   bool get hasUnverifiedWorkflowEvidence =>
-      workflowStatus == null || evidenceWarnings.isNotEmpty;
+      workflowStatus == null ||
+      evidenceWarnings.isNotEmpty ||
+      linkedInnerCoverDependency?.complete == false;
 
   bool get isStandby => asset.serviceState == AssetServiceState.standby;
 
@@ -187,20 +200,19 @@ class PlantAssetClassSummary {
       innerCovers.where((c) => c.isAvailable).length;
   int get underMaintenance =>
       assets.where((asset) => asset.isUnderMaintenance).length +
-      innerCovers
-          .where((c) => c.profile.isUnderMaintenanceForPlantCondition)
-          .length;
+      innerCovers.where((c) => c.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit =>
       assets.where((asset) => asset.isUnfit).length +
-      innerCovers.where((c) => c.profile.isUnfitForPlantCondition).length;
+      innerCovers.where((c) => c.isUnfit).length;
   int get issueUnavailable =>
-      assets.where((asset) => asset.isIssueUnavailable).length;
+      assets.where((asset) => asset.isIssueUnavailable).length +
+      innerCovers.where((cover) => cover.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get unverifiedWorkflowEvidence =>
       assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length +
-      innerCovers.where((c) => c.evidenceWarnings.isNotEmpty).length;
+      innerCovers.where((c) => c.hasUnverifiedEvidence).length;
   int get standby => assets.where((asset) => asset.isStandby).length;
   int get outOfService =>
       assets.where((asset) => asset.isAdministrativelyOutOfService).length;
@@ -222,11 +234,42 @@ class PlantInnerCoverState {
   const PlantInnerCoverState({
     required this.profile,
     this.evidenceWarnings = const [],
+    this.dependency,
   });
   final InnerCoverProfile profile;
   final List<String> evidenceWarnings;
+  final InnerCoverDependencyState? dependency;
+  bool get isUnderMaintenance =>
+      profile.isUnderMaintenanceForPlantCondition ||
+      dependency?.isUnderMaintenance == true;
+  bool get isIssueUnavailable =>
+      !profile.isUnfitForPlantCondition && dependency?.isUnavailable == true;
+  bool get isUnfit =>
+      profile.isUnfitForPlantCondition ||
+      (!isIssueUnavailable && dependency?.isUnfit == true);
+  bool get hasUnverifiedEvidence =>
+      evidenceWarnings.isNotEmpty || dependency?.complete == false;
   bool get isAvailable =>
-      evidenceWarnings.isEmpty && profile.isAvailableForPlantCondition;
+      !hasUnverifiedEvidence &&
+      profile.isAvailableForPlantCondition &&
+      !isUnderMaintenance &&
+      !isIssueUnavailable &&
+      !isUnfit;
+  List<String> get conditionReasons => [
+    if (dependency?.isUnavailable == true) 'Unavailable by Inner Cover issue',
+    if (dependency?.isUnfit == true) 'Unfit by Inner Cover issue',
+    if (dependency?.hasRedWork == true) 'RED work remains open',
+    if (dependency?.isAwaitingPreparation == true) 'Awaiting preparation',
+    if (dependency?.isUnderMaintenance == true &&
+        dependency?.hasRedWork != true &&
+        dependency?.isAwaitingPreparation != true)
+      'Maintenance work remains open',
+  ];
+  String get conditionSummary => [
+    profile.lifecycleState.label,
+    ...conditionReasons,
+    if (hasUnverifiedEvidence) 'evidence unverified',
+  ].join(' · ');
 }
 
 class PlantAssetOverview {
@@ -236,6 +279,8 @@ class PlantAssetOverview {
   final List<PlantInnerCoverState> innerCovers;
   final List<String> innerCoverEvidenceWarnings;
   final bool hasQualifiedInnerCoverInventory;
+  final BaseCoverReconciliation? baseCoverReconciliation;
+  final InnerCoverStockSummary? innerCoverStock;
 
   const PlantAssetOverview({
     required this.classes,
@@ -244,6 +289,8 @@ class PlantAssetOverview {
     this.innerCovers = const [],
     this.innerCoverEvidenceWarnings = const [],
     this.hasQualifiedInnerCoverInventory = false,
+    this.baseCoverReconciliation,
+    this.innerCoverStock,
   });
 
   int get total => assets.length + innerCovers.length;
@@ -252,20 +299,19 @@ class PlantAssetOverview {
       innerCovers.where((c) => c.isAvailable).length;
   int get underMaintenance =>
       assets.where((asset) => asset.isUnderMaintenance).length +
-      innerCovers
-          .where((c) => c.profile.isUnderMaintenanceForPlantCondition)
-          .length;
+      innerCovers.where((c) => c.isUnderMaintenance).length;
   int get down => assets.where((asset) => asset.isDown).length;
   int get unfit =>
       assets.where((asset) => asset.isUnfit).length +
-      innerCovers.where((c) => c.profile.isUnfitForPlantCondition).length;
+      innerCovers.where((c) => c.isUnfit).length;
   int get issueUnavailable =>
-      assets.where((asset) => asset.isIssueUnavailable).length;
+      assets.where((asset) => asset.isIssueUnavailable).length +
+      innerCovers.where((cover) => cover.isIssueUnavailable).length;
   int get temporarilyBlocked =>
       assets.where((asset) => asset.isTemporarilyBlocked).length;
   int get unverifiedWorkflowEvidence =>
       assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length +
-      innerCovers.where((c) => c.evidenceWarnings.isNotEmpty).length;
+      innerCovers.where((c) => c.hasUnverifiedEvidence).length;
   bool get hasCompleteEvidence =>
       evidenceWarnings.isEmpty && unverifiedWorkflowEvidence == 0;
   double? get availabilityRate =>

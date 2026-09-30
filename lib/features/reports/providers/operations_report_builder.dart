@@ -919,6 +919,7 @@ OperationsReport buildOperationsReport({
     ),
     assetStates: inventory.numberedAssetStates,
     innerCoverProfiles: inventory.innerCovers,
+    qualifiedInnerCoverStates: inventory.population.innerCovers,
     sourceAssetClasses: List.unmodifiable(assetClasses),
     sourceAssetInstances: List.unmodifiable(assetInstances),
     classSummaries: List<AssetClassReportSummary>.unmodifiable(classSummaries),
@@ -959,7 +960,7 @@ OperationsReport buildOperationsReport({
     inventoryUnknownAssetCount: inventory.unknown,
     inventoryEvidenceWarnings: inventory.evidenceWarnings,
     unverifiedInnerCoverIds: inventory.population.innerCovers
-        .where((s) => s.evidenceWarnings.isNotEmpty)
+        .where((s) => s.hasUnverifiedEvidence)
         .map((s) => s.profile.id)
         .toSet(),
     inventoryAvailableAssetCount: inventory.available,

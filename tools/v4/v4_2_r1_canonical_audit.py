@@ -61,6 +61,81 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def local_diagnostics_access_contract(screen: str, service: str, actor: str) -> bool:
+    """Check the split local/remote reads without depending on a removed await.
+
+    These source guards complement the provider/widget and shared-deadline tests;
+    missing or reordered access checks must fail the audit, never crash it.
+    """
+    screen = re.sub(r"\s+", " ", screen)
+    service = re.sub(r"\s+", " ", service)
+    actor = re.sub(r"\s+", " ", actor)
+
+    def section(source: str, start: str, end: str) -> str:
+        first = source.find(start)
+        last = source.find(end, first + len(start)) if first >= 0 else -1
+        return source[first:last] if last > first else ""
+
+    def ordered(source: str, *markers: str) -> bool:
+        offset = 0
+        for marker in markers:
+            found = source.find(marker, offset)
+            if found < 0:
+                return False
+            offset = found + len(marker)
+        return True
+
+    authority = section(screen, "final localDiagnosticsAuthorityProvider =",
+                        "final localDiagnosticsReadAdapterProvider =")
+    remote = section(screen, "final localDiagnosticsBackendIdentityProvider =",
+                     "final localDiagnosticsInventoryProvider =")
+    inventory = section(screen, "final localDiagnosticsInventoryProvider =",
+                        "final localDiagnosticsReportProvider =")
+    report = section(screen, "final localDiagnosticsReportProvider =",
+                     "void refreshLocalDiagnostics(")
+    ui = section(screen, "class LocalDiagnosticsScreen extends ConsumerWidget",
+                 "final reportAsync = ref.watch(localDiagnosticsReportProvider);")
+    guard = "if (ref.watch(localDiagnosticsAuthorityProvider) == null) {"
+    denial = "throw StateError('Admin/SI access is required for local diagnostics.');"
+    return (
+        "bool get canManageTemplateGovernance => isApproved && (isAdmin || isSI);"
+            in actor
+        and ordered(authority,
+                    "final authority = ref.watch(currentAppUserProvider);",
+                    "if (authority.isLoading || authority.hasError || actor == null || !actor.canManageTemplateGovernance) { return null; }",
+                    "uid: actor.uid,", "revision: actor.authorityRevision,",
+                    "roles: roles.join(',')")
+        and ordered(remote, guard, denial,
+                    "return LocalReleaseDiagnosticsSnapshot.capture(ref, loadBackend: !kIsWeb);")
+        and ordered(inventory, guard, denial,
+                    "final persistence = await ref .read(localDiagnosticsReadAdapterProvider) .read();")
+        and "localDiagnosticsBackendIdentityProvider" not in inventory
+        and "LocalReleaseDiagnosticsSnapshot.capture(" not in inventory
+        and ordered(report, guard, "return AsyncError(",
+                    "final inventory = ref.watch(localDiagnosticsInventoryProvider);",
+                    "final backend = ref.watch(localDiagnosticsBackendIdentityProvider);",
+                    "backendLoading: true,", "backendError: error.toString(),",
+                    "return inventory.whenData(")
+        and "await " not in report and ".future" not in report
+        and ordered(ui, "final actorAsync = ref.watch(currentAppUserProvider);",
+                    "if (actor == null || !actor.canManageTemplateGovernance) {",
+                    "return const _DiagnosticsError(", "'Admin/SI access required'")
+        and "this.timeout = const Duration(seconds: 20)" in service
+        and ordered(service, "if (_inFlightUid == uid && _inFlight != null) return _inFlight!;",
+                    "final elapsed = Stopwatch()..start();",
+                    "if (expired || elapsed.elapsed >= timeout)",
+                    "if (_authClient.currentUser?.uid != uid)",
+                    "return timeout - elapsed.elapsed;",
+                    "operation = _fetchWithAuthRetry(remaining) .timeout( timeout,",
+                    "expired = true;")
+        and "HttpsCallableOptions(timeout: remaining())" in service
+        and "await currentUser.getIdToken(true).timeout(remaining());" in service
+        and "firstError.code != 'unauthenticated' || currentUser == null" in service
+        and service.count("return await attempt();") == 2
+        and "final result = await _fetch(callable); remaining();" in service
+    )
+
+
 def utc_instant(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -99,7 +174,7 @@ def current_backend_authority_proof_exact(
         process = subprocess.run(
             [
                 "node",
-                str(ROOT / "tools/release/stagedPromotionSourceAuthority.js"),
+                str(ROOT / "tools/release/clientBackendCompatibility31.js"),
                 str(ROOT),
                 str(ROOT / "release/production-release-policy.json"),
             ],
@@ -3604,9 +3679,11 @@ check(
     and "readPrivacySafeIsarProvenanceInventory()"
         in local_diagnostics_adapter
     and "writeTxn(" not in local_diagnostics_adapter
-    and local_diagnostics.index(
-        "await ref.watch(currentAppUserProvider.future)"
-    ) < local_diagnostics.index("LocalDiagnosticsReadAdapter().read()")
+    and local_diagnostics_access_contract(
+        local_diagnostics,
+        text("lib/core/release/backend_release_identity_service.dart"),
+        text("lib/features/auth/data/user_model.dart"),
+    )
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
