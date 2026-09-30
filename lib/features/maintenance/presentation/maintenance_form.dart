@@ -1,6 +1,7 @@
 // FILE: lib/features/maintenance/presentation/maintenance_form.dart
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -173,7 +174,11 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     });
   }
 
-  Future<bool> _resolveTag(String rawTag, {required int generation}) async {
+  Future<bool> _resolveTag(
+    String rawTag, {
+    required int generation,
+    String? submissionDraft,
+  }) async {
     final tag = rawTag.trim();
     _userOverrodeComponent = false;
 
@@ -211,7 +216,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     try {
       final repository = ref.read(assetHierarchyRepositoryProvider);
       final component = await repository.findActiveInstalledComponentByTag(tag);
-      if (!mounted || generation != _tagResolutionGeneration) return false;
+      if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
       if (component != null) {
         if (component.assetInstanceId != selectedAsset.id ||
             component.assetClassId != selectedAsset.assetClassId) {
@@ -253,7 +258,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         );
       }
       final nodes = await repository.watchNodes(route.issueClass.id).first;
-      if (!mounted || generation != _tagResolutionGeneration) return false;
+      if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
       final normalizedTag = normalizeAssetComponentTag(tag);
       final hierarchyMatches = nodes
           .where(
@@ -300,7 +305,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         return true;
       }
     } on AssetHierarchyException catch (error) {
-      if (!mounted || generation != _tagResolutionGeneration) return false;
+      if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -308,7 +313,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       );
       return false;
     } on FormatException {
-      if (!mounted || generation != _tagResolutionGeneration) return false;
+      if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -321,7 +326,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       );
       return false;
     } on FirebaseException {
-      if (!mounted || generation != _tagResolutionGeneration) return false;
+      if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
       _tagController.clear();
       _clearAutoFields();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -346,7 +351,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     final path = result['hierarchyPath'];
     final safePath = path is List ? List<String>.from(path) : null;
 
-    if (!mounted || generation != _tagResolutionGeneration) return false;
+    if (!mounted || !_tagResolutionStillCurrent(generation, submissionDraft)) return false;
 
     setState(() {
       _resolvedSystem = result['system'] as String?;
@@ -1034,9 +1039,12 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       return;
     }
 
+    final submittedDraft = _submissionDraftState();
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _isSubmitting = true);
 
     try {
+      if (!_submissionDraftStillCurrent(submittedDraft)) return;
       _tagResolutionDebounce?.cancel();
       final submittedTag =
           burnerLockout == null &&
@@ -1049,6 +1057,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         final accepted = await _resolveTag(
           submittedTag,
           generation: generation,
+          submissionDraft: submittedDraft,
         );
         if (!mounted ||
             !accepted ||
@@ -1081,6 +1090,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
       final now = DateTime.now();
       _refreshBaseInnerCoverAvailabilityObservation(now);
+      // Tag normalization and the live vacancy time above are intentional.
+      // From here, no draft/selection change can be inherited by this attempt.
+      final resolvedDraft = _submissionDraftState();
       final reporterUid = appUser.uid;
       final reporterName = _cleanOptionalText(appUser.name) ?? appUser.uid;
       final selectedReference =
@@ -1093,6 +1105,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         reporterName: reporterName,
         confirmedAt: now,
       );
+      if (!_submissionDraftStillCurrent(resolvedDraft)) return;
       FurnaceStuckupCase? furnaceStuckup;
       if (_isFurnaceStuckup) {
         final baseReference = await _resolveEventAssetReference(
@@ -1103,6 +1116,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           reporterName: reporterName,
           confirmedAt: now,
         );
+        if (!_submissionDraftStillCurrent(resolvedDraft)) return;
         if (baseReference == null) {
           throw const AssetHierarchyException(
             'The selected Base identity could not be verified.',
@@ -1230,7 +1244,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
       late final String completionMessage;
       late final Color completionColor;
 
-      if (!mounted) return;
+      if (!_submissionDraftStillCurrent(resolvedDraft) ||
+          !_validateQualityDraft()) {
+        return;
+      }
       final dispatchAccess = CurrentActorAccess.resolve(
         ref.read(currentAppUserProvider),
       );
@@ -1368,7 +1385,13 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
           accent: BafColors.maintenance,
         ),
       ),
-      body: Form(
+      body: AbsorbPointer(
+        key: const ValueKey('maintenance-submission-input-lock'),
+        absorbing: _isSubmitting,
+        child: ExcludeFocus(
+          key: const ValueKey('maintenance-submission-focus-lock'),
+          excluding: _isSubmitting,
+          child: Form(
         key: _formKey,
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
@@ -2010,6 +2033,8 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
               ],
             ),
           ],
+        ),
+      ),
         ),
       ),
       bottomNavigationBar: _SubmitIssueBar(

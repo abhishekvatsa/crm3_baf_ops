@@ -1,6 +1,79 @@
 part of 'maintenance_form.dart';
 
 extension _MaintenanceFormDraft on _MaintenanceFormState {
+  // A value snapshot, not a reference to mutable controllers/sets. It covers
+  // every user choice consumed by submission plus the selected governed versions.
+  String _submissionDraftState() {
+    final route = _selectedAssetRoute();
+    return jsonEncode([
+      _issueAssetClassId,
+      _assetInstanceId,
+      _assetType.name,
+      route?.issueClass.id,
+      route?.issueClass.version,
+      route?.isAvailable,
+      route?.physicalAssetClass?.id,
+      route?.physicalAssetClass?.version,
+      _selectedPhysicalAsset()?.toReference().encode(),
+      _isCritical,
+      _isBurnerLockout,
+      _intakeMode.name,
+      _baseIssueTarget.name,
+      _stuckupBaseAssetId,
+      _stuckupConfirmedLinkageId,
+      _stuckupPhysicalMismatch,
+      _isFurnaceStuckup ? _selectedStuckupBase()?.toReference().encode() : null,
+      _stuckupSuspectedCause.name,
+      _stuckupOperatingContext.name,
+      _burnerCommonMode,
+      _burnerRemainsLockedOut,
+      _burnerCycleStage.name,
+      _burnerFlameObservation.name,
+      _burnerSparkObservation.name,
+      _burnerPositions.toList()..sort(),
+      _redHotBurnerPositions.toList()..sort(),
+      _qualityAssessment?.name,
+      _qualityAbnormalityTypeId,
+      _maintenanceType.name,
+      _plantConditionEffect.name,
+      _routedTo.name,
+      _orderedRoutedLanes.map((lane) => lane.name).toList(),
+      _startTime.toIso8601String(),
+      _componentIntakeState.name,
+      _descController.text,
+      _chargeNoController.text,
+      _tagController.text,
+      _componentController.text,
+      _otherDepartmentController.text,
+      _qualityReasonController.text,
+      _burnerHmiAlarmController.text,
+      _burnerRelightAttemptsController.text,
+      _selectedComponentNodeId,
+      _assetHierarchyReference?.encode(),
+      _resolvedSubsystem,
+      _resolvedPath,
+      _selectedFrequentIssue?.id,
+      _selectedFrequentIssue?.version,
+      _frequentIssueUnlisted,
+    ]);
+  }
+
+  bool _submissionDraftStillCurrent(String snapshot) {
+    if (!mounted) return false;
+    if (snapshot == _submissionDraftState()) return true;
+    _showMessage(
+      'Your issue details changed while they were being verified. Review them and submit again.',
+      BafColors.warning,
+    );
+    return false;
+  }
+
+  bool _tagResolutionStillCurrent(int generation, String? submissionDraft) =>
+      mounted &&
+      generation == _tagResolutionGeneration &&
+      (submissionDraft == null ||
+          _submissionDraftStillCurrent(submissionDraft));
+
   bool get _hasDraft =>
       _qualityAssessment != null ||
       _issueAssetClassId != null ||
