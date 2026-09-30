@@ -6,6 +6,9 @@ import '../../../../core/widgets/baf_ui.dart';
 import '../../../../core/widgets/brand/brand_widgets.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../auth/data/user_model.dart';
+import '../../../auth/domain/current_actor_access.dart';
+import '../../../auth/presentation/current_actor_gate.dart';
 import '../../../assets/data/asset_hierarchy_model.dart';
 import '../../../assets/data/asset_registry_model.dart';
 import '../../../assets/data/plant_condition_evidence.dart';
@@ -294,31 +297,68 @@ class EquipmentStatusBoard extends ConsumerWidget {
     }
   }
 
+  AppUser? _requireEquipmentActor(
+    BuildContext context,
+    WidgetRef ref, {
+    String? originUid,
+    required bool Function(AppUser) permission,
+  }) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: originUid,
+      permission: permission,
+    );
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return null;
+    }
+    return access.actor;
+  }
+
   Future<void> _reconcile(
     BuildContext context,
     WidgetRef ref,
     EquipmentStatusRecord row,
   ) async {
+    bool permitted(AppUser actor) => actor.canReconcileMaintenanceEquipment;
+    final actor = _requireEquipmentActor(context, ref, permission: permitted);
+    if (actor == null) return;
     final approved = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Reconcile equipment state?'),
-        content: Text(
-          'The server will recompute ${row.assetTypeKey} ${row.assetNumber} from all open workflow facts. No state is selected by the client.',
+      builder: (dialogContext) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: permitted,
+        child: AlertDialog(
+          title: const Text('Reconcile equipment state?'),
+          content: Text(
+            'The server will recompute ${row.assetTypeKey} ${row.assetNumber} from all open workflow facts. No state is selected by the client.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Reconcile'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Reconcile'),
-          ),
-        ],
       ),
     );
     if (approved != true || !context.mounted) return;
+    if (_requireEquipmentActor(
+          context,
+          ref,
+          originUid: actor.uid,
+          permission: permitted,
+        ) ==
+        null) {
+      return;
+    }
     try {
       final identity = EquipmentCommandIdentity.fromRecord(row);
       await ref
@@ -348,28 +388,44 @@ class EquipmentStatusBoard extends ConsumerWidget {
     WidgetRef ref,
     EquipmentStatusRecord row,
   ) async {
+    bool permitted(AppUser actor) => actor.canDeployMaintenanceEquipment;
+    final actor = _requireEquipmentActor(context, ref, permission: permitted);
+    if (actor == null) return;
     final approved = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Deploy equipment to service?'),
-        content: Text(
-          '${row.assetTypeKey} ${row.assetNumber} will be marked In Service '
-          'on this board. Condition declarations and open issues are '
-          'recorded separately and are not cleared by this.',
+      builder: (dialogContext) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: permitted,
+        child: AlertDialog(
+          title: const Text('Deploy equipment to service?'),
+          content: Text(
+            '${row.assetTypeKey} ${row.assetNumber} will be marked In Service '
+            'on this board. Condition declarations and open issues are '
+            'recorded separately and are not cleared by this.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Deploy'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Deploy'),
-          ),
-        ],
       ),
     );
     if (approved != true || !context.mounted) return;
+    if (_requireEquipmentActor(
+          context,
+          ref,
+          originUid: actor.uid,
+          permission: permitted,
+        ) ==
+        null) {
+      return;
+    }
     try {
       final identity = EquipmentCommandIdentity.fromRecord(row);
       await ref
