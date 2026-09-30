@@ -5,62 +5,103 @@ class _SummaryStrip extends StatelessWidget {
     required this.open,
     required this.review,
     required this.closed,
+    required this.selected,
+    required this.onSelected,
   });
 
   final int open;
   final int review;
   final int closed;
+  final _WarningFilter selected;
+  final ValueChanged<_WarningFilter> onSelected;
 
   @override
   Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Expanded(
-        child: _SummaryMetric(label: 'Open', value: open),
-      ),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(
-        child: _SummaryMetric(label: 'Review', value: review),
-      ),
-      const SizedBox(width: BafSpacing.sm),
-      Expanded(
-        child: _SummaryMetric(label: 'Closed', value: closed),
-      ),
+      for (final entry in [
+        (filter: _WarningFilter.open, label: 'Open', count: open),
+        (filter: _WarningFilter.review, label: 'Review', count: review),
+        (filter: _WarningFilter.closed, label: 'Closed', count: closed),
+      ]) ...[
+        if (entry.filter != _WarningFilter.open)
+          const SizedBox(width: BafSpacing.sm),
+        Expanded(
+          child: _SummaryMetric(
+            key: ValueKey('quality-warning-metric-${entry.filter.name}'),
+            label: entry.label,
+            value: entry.count,
+            selected: selected == entry.filter,
+            onTap: () => onSelected(entry.filter),
+          ),
+        ),
+      ],
     ],
   );
 }
 
 class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({required this.label, required this.value});
+  const _SummaryMetric({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
 
   final String label;
   final int value;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(
-      horizontal: BafSpacing.md,
-      vertical: BafSpacing.md,
-    ),
-    decoration: BoxDecoration(
-      color: BafColors.card,
-      border: Border.all(color: BafColors.border),
-      borderRadius: BorderRadius.circular(8),
-    ),
-    child: Column(
-      children: [
-        Text(
-          '$value',
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: BafColors.textPrimary,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: '$label warnings: $value',
+    onTap: onTap,
+    excludeSemantics: true,
+    child: Material(
+      color: selected
+          ? BafColors.charges.withValues(alpha: 0.10)
+          : BafColors.card,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(
+          color: selected ? BafColors.charges : BafColors.border,
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: BafSpacing.sm,
+            vertical: BafSpacing.md,
+          ),
+          child: Column(
+            children: [
+              Text(
+                '$value',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                  color: BafColors.textPrimary,
+                ),
+              ),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: BafColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, color: BafColors.textSecondary),
-        ),
-      ],
+      ),
     ),
   );
 }
