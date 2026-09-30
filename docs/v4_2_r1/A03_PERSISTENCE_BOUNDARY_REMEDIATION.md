@@ -501,3 +501,35 @@ repository profile remains Firestore/read-only; no presentation persistence,
 permission, transaction ownership, production activation or historical closure
 receipt changes. `test/inner_cover_history_completeness_test.dart` exercises both
 real repository decoder paths and qualified history display/recovery.
+
+## Tester experience read inventory — 30 September 2026
+
+The existing analyzer-AST scanner measured 633 operations across 2217 primitive
+sites and the same 87 classified surfaces. The exact current digest is
+`FB027D26DD2C6E5CF9E4CC997D8567F9AFB3C3D11B3A38E23519BD24197A9E19`.
+A separate scan of immutable Build 30 source `7ed87824` reproduced the preceding
+625-operation, 2196-site digest recorded above. An operation-key comparison
+found exactly eight added read-only operations and 21 added sites, with no
+removed or changed earlier operation, store, mode or surface classification:
+
+- The existing furnace/Inner Cover read-provider surface adds qualified stuck-up
+  and current bulge-declaration batch streams (four and five sites). Both deny
+  missing approved-user authority before querying and preserve snapshot decode
+  failures as qualified evidence. They introduce no writes or availability
+  mutation. Existing direct strict-list readers remain unchanged.
+- The existing directive, maintenance and planned-template repository adapters
+  each add an include-deleted stream for Isar (three sites) and Firestore (one
+  site). These expose retained tombstones to the admitted administrator view;
+  ordinary operational streams continue to exclude them. Remote streams use
+  their existing decoders and server Rules remain the remote access authority.
+  These reads neither purge nor mutate data, bypass command receipts, nor grant
+  a role; supported cleanup remains independently authorized.
+
+All existing authority profiles, store/mode allowlists, earlier classifications
+and named regression references are retained. The seven affected surfaces add
+only relevant existing regression references: the administrator tombstone suite
+for the six repository adapters, and the Inner Cover stock/dependency suites for
+the two evidence streams. No file under a presentation or widget directory
+acquires direct persistence. The scanner and classification algorithms are
+unchanged; this addendum does not rewrite the original closure or claim new CI,
+physical acceptance, distribution approval or a new build allocation.
