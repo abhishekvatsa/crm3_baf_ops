@@ -72,7 +72,7 @@ void main() {
           textScale: size.scale,
           captureKey: captureKey,
         );
-        expect(find.text('1 Bases'), findsOneWidget);
+        expect(find.text('1 Base'), findsOneWidget);
         final summary = find.byKey(
           const ValueKey('inner-cover-summary-scroll'),
         );
@@ -1146,10 +1146,10 @@ void main() {
       expect(find.text('1 installed'), findsOneWidget);
       expect(find.text('1 available'), findsOneWidget);
       expect(find.text('1 need attention'), findsOneWidget);
-      expect(find.text('2 Bases with no Inner Covers'), findsOneWidget);
+      expect(find.text('2 Bases with no recorded link'), findsOneWidget);
       expect(find.text('Vacant 2'), findsOneWidget);
 
-      await tester.tap(find.text('2 Bases with no Inner Covers'));
+      await tester.tap(find.text('2 Bases with no recorded link'));
       await tester.pumpAndSettle();
       expect(find.text('Base 101'), findsNothing);
       expect(find.text('Base 102'), findsOneWidget);

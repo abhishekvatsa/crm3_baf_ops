@@ -29,6 +29,8 @@ part 'asset_condition_board.filters.dart';
 part 'asset_condition_board.asset_actions.dart';
 part 'asset_condition_board.summary.dart';
 
+const _issueUnavailableLabel = 'Unavailable by issue';
+
 enum AssetConditionFilter {
   all,
   available,
@@ -284,7 +286,8 @@ class PlantOverviewPanel extends StatelessWidget {
                           _PlantMetric(
                             width: width,
                             value: value.issueUnavailable,
-                            label: 'Unavailable',
+                            label: _issueUnavailableLabel,
+                            keyLabel: 'unavailable',
                             color: BafColors.cobalt,
                             onTap: () =>
                                 _openFilter(AssetConditionFilter.unavailable),
@@ -323,6 +326,14 @@ class PlantOverviewPanel extends StatelessWidget {
                         ],
                       );
                     },
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  const Text(
+                    'Condition counts can overlap.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   const SizedBox(height: BafSpacing.sm),
                   ...value.classes
@@ -479,7 +490,7 @@ class _ConditionBoardBody extends StatelessWidget {
         ),
         const SizedBox(height: BafSpacing.xs),
         const Text(
-          'Physical inventory includes active numbered assets and serial Inner Covers, including standby and out-of-service stock. Components are not extra assets. Counts may overlap when an asset is both unavailable and under maintenance.',
+          'Physical inventory includes active numbered assets and serial Inner Covers, including standby and out-of-service stock. Components are not extra assets. Condition counts can overlap. Unavailable by issue is the issue restriction category.',
           style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: BafSpacing.lg),
@@ -500,7 +511,7 @@ class _ConditionBoardBody extends StatelessWidget {
               onSelected: () => onFilterChanged(AssetConditionFilter.available),
             ),
             _ConditionFilterChip(
-              label: '${overview.issueUnavailable} unavailable',
+              label: '${overview.issueUnavailable} unavailable by issue',
               color: BafColors.cobalt,
               selected: selectedFilter == AssetConditionFilter.unavailable,
               onSelected: () =>
@@ -1304,7 +1315,7 @@ List<Widget> _stateBadges(PlantAssetState state) {
   }
   if (state.isIssueUnavailable) {
     output.add(
-      const StatusBadge(label: 'Unavailable', color: BafColors.cobalt),
+      const StatusBadge(label: _issueUnavailableLabel, color: BafColors.cobalt),
     );
   }
   if (state.isUnderMaintenance) {

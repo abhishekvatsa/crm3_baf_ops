@@ -46,6 +46,7 @@ class BaseCoverReconciliationPanel extends StatelessWidget {
               ),
             if (needsReview.isNotEmpty)
               ExpansionTile(
+                key: const PageStorageKey('base-cover-reconciliation-review'),
                 tilePadding: EdgeInsets.zero,
                 title: const Text(
                   'No Inner Cover linked, but Base not marked Down',

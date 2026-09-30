@@ -66,7 +66,7 @@ class InnerCoverStockPanel extends StatelessWidget {
             ),
           if (review.isNotEmpty)
             ExpansionTile(
-              key: ValueKey(
+              key: PageStorageKey(
                 'inner-cover-stock-review-${summary.rows.first.profile.assetClassId}',
               ),
               tilePadding: EdgeInsets.zero,

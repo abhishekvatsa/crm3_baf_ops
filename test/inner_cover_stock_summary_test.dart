@@ -866,7 +866,7 @@ void main() {
           });
         }
         final review = find.byKey(
-          const ValueKey('inner-cover-stock-review-covers'),
+          const PageStorageKey('inner-cover-stock-review-covers'),
         );
         await tester.ensureVisible(review);
         await tester.tap(review);

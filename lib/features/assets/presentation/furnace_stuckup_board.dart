@@ -14,7 +14,7 @@ import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../data/furnace_stuckup_record.dart';
 import '../providers/furnace_stuckup_provider.dart';
 
-enum _CaseView { active, pendingCause, history }
+enum _CaseView { active, pendingCause, history, bulgeRecords }
 
 class FurnaceStuckupBoard extends ConsumerStatefulWidget {
   const FurnaceStuckupBoard({super.key});
@@ -78,26 +78,21 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 900),
             child: cases.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Loading Furnace stuck-up cases',
-                    color: BafColors.warning,
-                  ),
-              error:
-                  (error, _) => _LoadFailure(
-                    onRetry: () {
-                      ref.invalidate(furnaceStuckupCasesProvider);
-                      ref.invalidate(assetConditionDeclarationsProvider);
-                    },
-                  ),
-              data:
-                  (records) => _buildBody(
-                    user: user,
-                    records: records,
-                    declarations:
-                        declarations.value ??
-                        const <AssetConditionDeclarationRecord>[],
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Loading Furnace stuck-up cases',
+                color: BafColors.warning,
+              ),
+              error: (error, _) => _LoadFailure(
+                onRetry: () {
+                  ref.invalidate(furnaceStuckupCasesProvider);
+                  ref.invalidate(assetConditionDeclarationsProvider);
+                },
+              ),
+              data: (records) => _buildBody(
+                user: user,
+                records: records,
+                declarations: declarations,
+              ),
             ),
           ),
         ),
@@ -108,8 +103,15 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
   Widget _buildBody({
     required AppUser? user,
     required List<FurnaceStuckupRecord> records,
-    required List<AssetConditionDeclarationRecord> declarations,
+    required AsyncValue<List<AssetConditionDeclarationRecord>> declarations,
   }) {
+    // A declaration is retained evidence, not proof of present physical fit.
+    // Loading/error must not masquerade as a verified zero count.
+    final declarationsVerified =
+        !declarations.isLoading && !declarations.hasError;
+    final declarationRows = declarationsVerified
+        ? declarations.valueOrNull ?? const <AssetConditionDeclarationRecord>[]
+        : const <AssetConditionDeclarationRecord>[];
     final active = records.where((record) => record.isActive).length;
     final pending = records.where((record) => record.needsAdjudication).length;
     final visible = records
@@ -118,6 +120,7 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
             _CaseView.active => record.isActive,
             _CaseView.pendingCause => record.needsAdjudication,
             _CaseView.history => !record.isActive && !record.needsAdjudication,
+            _CaseView.bulgeRecords => false,
           };
         })
         .toList(growable: false);
@@ -137,35 +140,61 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
           _StatusBand(
             active: active,
             pending: pending,
-            confirmedBulged: declarations.length,
+            confirmedBulged: declarationsVerified
+                ? declarationRows.length
+                : null,
+            selected: _view,
+            onSelected: (view) => setState(() => _view = view),
           ),
           const SizedBox(height: BafSpacing.lg),
-          BafHorizontalControlRail(
-            child: SegmentedButton<_CaseView>(
-              segments: <ButtonSegment<_CaseView>>[
-                ButtonSegment(
-                  value: _CaseView.active,
-                  icon: const Icon(Icons.link_off_rounded),
-                  label: Text('Active $active'),
+          Wrap(
+            spacing: BafSpacing.sm,
+            runSpacing: BafSpacing.sm,
+            children: [
+              for (final filter in [
+                (
+                  view: _CaseView.active,
+                  label: 'Active $active',
+                  icon: Icons.link_off_rounded,
                 ),
-                ButtonSegment(
-                  value: _CaseView.pendingCause,
-                  icon: const Icon(Icons.fact_check_outlined),
-                  label: Text('Cause $pending'),
+                (
+                  view: _CaseView.pendingCause,
+                  label: 'Cause $pending',
+                  icon: Icons.fact_check_outlined,
                 ),
-                const ButtonSegment(
-                  value: _CaseView.history,
-                  icon: Icon(Icons.history_rounded),
-                  label: Text('History'),
+                (
+                  view: _CaseView.history,
+                  label: 'History',
+                  icon: Icons.history_rounded,
                 ),
-              ],
-              selected: <_CaseView>{_view},
-              onSelectionChanged:
-                  (selection) => setState(() => _view = selection.first),
-            ),
+                (
+                  view: _CaseView.bulgeRecords,
+                  label: 'Bulge records',
+                  icon: Icons.layers_outlined,
+                ),
+              ])
+                ChoiceChip(
+                  avatar: Icon(filter.icon, size: 18),
+                  label: Text(filter.label),
+                  selected: _view == filter.view,
+                  onSelected: (_) => setState(() => _view = filter.view),
+                ),
+            ],
           ),
           const SizedBox(height: BafSpacing.lg),
-          if (visible.isEmpty)
+          if (_view == _CaseView.bulgeRecords && declarations.hasError)
+            BafStatePanel.error(
+              title: 'Bulge evidence unavailable',
+              message:
+                  'The bulge-record count is unverified. Refresh the evidence before making condition decisions.',
+              primaryLabel: 'Refresh bulge evidence',
+              onPrimary: () =>
+                  ref.invalidate(assetConditionDeclarationsProvider),
+            )
+          else if (_view == _CaseView.bulgeRecords && !declarationsVerified)
+            const BafLoadingPanel(label: 'Loading recorded bulge evidence')
+          else if (visible.isEmpty &&
+              (_view != _CaseView.bulgeRecords || declarationRows.isEmpty))
             _EmptyCases(view: _view)
           else
             for (final record in visible) ...[
@@ -183,10 +212,10 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
               ),
               const SizedBox(height: BafSpacing.md),
             ],
-          if (declarations.isNotEmpty) ...[
+          if (declarationRows.isNotEmpty) ...[
             const SizedBox(height: BafSpacing.lg),
             const Text(
-              'Confirmed Inner Cover conditions',
+              'Recorded Inner Cover bulge evidence',
               style: TextStyle(
                 color: BafColors.textPrimary,
                 fontSize: 18,
@@ -194,7 +223,11 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
               ),
             ),
             const SizedBox(height: BafSpacing.sm),
-            for (final declaration in declarations)
+            const Text(
+              'Past confirmations do not establish the current physical condition of a cover.',
+              style: TextStyle(color: BafColors.textSecondary),
+            ),
+            for (final declaration in declarationRows)
               _ConditionDeclarationTile(declaration: declaration),
           ],
         ],
@@ -231,10 +264,9 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
         'confirmedCause': input.cause.name,
         'adjudicationNotes': input.notes,
       },
-      success:
-          input.cause == FurnaceStuckupCause.inconclusive
-              ? 'Cause recorded as inconclusive.'
-              : 'Cause confirmed with governed evidence.',
+      success: input.cause == FurnaceStuckupCause.inconclusive
+          ? 'Cause recorded as inconclusive.'
+          : 'Cause confirmed with governed evidence.',
     );
   }
 
@@ -279,12 +311,11 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
     required String actionLabel,
   }) => showDialog<String>(
     context: context,
-    builder:
-        (_) => _FurnaceStuckupNotesDialog(
-          title: title,
-          message: message,
-          actionLabel: actionLabel,
-        ),
+    builder: (_) => _FurnaceStuckupNotesDialog(
+      title: title,
+      message: message,
+      actionLabel: actionLabel,
+    ),
   );
 }
 
@@ -362,11 +393,15 @@ class _StatusBand extends StatelessWidget {
     required this.active,
     required this.pending,
     required this.confirmedBulged,
+    required this.selected,
+    required this.onSelected,
   });
 
   final int active;
   final int pending;
-  final int confirmedBulged;
+  final int? confirmedBulged;
+  final _CaseView selected;
+  final ValueChanged<_CaseView> onSelected;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -388,16 +423,47 @@ class _StatusBand extends StatelessWidget {
           ),
         ),
         const SizedBox(height: BafSpacing.md),
-        Row(
-          children: [
-            Expanded(child: _BandMetric(value: active, label: 'Blocked')),
-            Expanded(
-              child: _BandMetric(value: pending, label: 'Cause pending'),
-            ),
-            Expanded(
-              child: _BandMetric(value: confirmedBulged, label: 'Bulged ICs'),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final minimumWidth =
+                84 * MediaQuery.textScalerOf(context).scale(12) / 12;
+            final columns =
+                ((constraints.maxWidth + BafSpacing.sm) /
+                        (minimumWidth + BafSpacing.sm))
+                    .floor()
+                    .clamp(1, 3);
+            final width =
+                (constraints.maxWidth - BafSpacing.sm * (columns - 1)) /
+                columns;
+            return Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.sm,
+              children: [
+                for (final metric in [
+                  (view: _CaseView.active, value: active, label: 'Blocked'),
+                  (
+                    view: _CaseView.pendingCause,
+                    value: pending,
+                    label: 'Cause pending',
+                  ),
+                  (
+                    view: _CaseView.bulgeRecords,
+                    value: confirmedBulged,
+                    label: 'Bulge records',
+                  ),
+                ])
+                  SizedBox(
+                    width: width,
+                    child: _BandMetric(
+                      value: metric.value,
+                      label: metric.label,
+                      selected: selected == metric.view,
+                      onTap: () => onSelected(metric.view),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     ),
@@ -405,32 +471,60 @@ class _StatusBand extends StatelessWidget {
 }
 
 class _BandMetric extends StatelessWidget {
-  const _BandMetric({required this.value, required this.label});
+  const _BandMetric({
+    required this.value,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-  final int value;
+  final int? value;
   final String label;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Text(
-        '$value',
-        style: const TextStyle(
-          color: BafColors.instrument,
-          fontSize: 24,
-          fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Semantics(
+    selected: selected,
+    child: OutlinedButton(
+      key: ValueKey('furnace-summary-$label'),
+      onPressed: onTap,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.white,
+        backgroundColor: selected ? Colors.white12 : Colors.transparent,
+        side: BorderSide(
+          color: selected ? BafColors.instrument : Colors.white24,
+        ),
+        padding: const EdgeInsets.symmetric(
+          horizontal: BafSpacing.xs,
+          vertical: BafSpacing.sm,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(BafRadius.small),
         ),
       ),
-      Text(
-        label,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
+      child: Column(
+        children: [
+          Text(
+            value?.toString() ?? '--',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
-    ],
+    ),
   );
 }
 
@@ -453,8 +547,9 @@ class _StuckupCaseCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final obstructionColor =
-        record.isActive ? BafColors.danger : BafColors.success;
+    final obstructionColor = record.isActive
+        ? BafColors.danger
+        : BafColors.success;
     final date = DateFormat('dd MMM yyyy, HH:mm').format(record.reportedAt);
     return Container(
       padding: const EdgeInsets.all(BafSpacing.lg),
@@ -523,10 +618,9 @@ class _StuckupCaseCard extends StatelessWidget {
                   FurnaceStuckupAdjudicationStatus.inconclusive =>
                     'Inconclusive',
                 },
-                color:
-                    record.needsAdjudication
-                        ? BafColors.warning
-                        : BafColors.audit,
+                color: record.needsAdjudication
+                    ? BafColors.warning
+                    : BafColors.audit,
               ),
             ],
           ),
@@ -643,7 +737,7 @@ class _ConditionDeclarationTile extends StatelessWidget {
       child: const Icon(Icons.warning_amber_rounded, color: BafColors.warning),
     ),
     title: Text(
-      'Inner Cover ${declaration.assetSerialNumber} · Bulged',
+      'Inner Cover ${declaration.assetSerialNumber} · Bulge recorded',
       style: const TextStyle(fontWeight: FontWeight.w900),
     ),
     subtitle: Text(
@@ -672,10 +766,9 @@ class _AdjudicationDialogState extends State<_AdjudicationDialog> {
   @override
   void initState() {
     super.initState();
-    _cause =
-        widget.record.suspectedCause == FurnaceStuckupCause.unknown
-            ? FurnaceStuckupCause.inconclusive
-            : widget.record.suspectedCause;
+    _cause = widget.record.suspectedCause == FurnaceStuckupCause.unknown
+        ? FurnaceStuckupCause.inconclusive
+        : widget.record.suspectedCause;
   }
 
   @override
@@ -775,6 +868,8 @@ class _EmptyCases extends StatelessWidget {
               'No stuck-up cause is awaiting adjudication.',
             _CaseView.history =>
               'No completed stuck-up history is available yet.',
+            _CaseView.bulgeRecords =>
+              'No confirmed Inner Cover bulge evidence is recorded.',
           },
           textAlign: TextAlign.center,
           style: const TextStyle(color: BafColors.textSecondary),

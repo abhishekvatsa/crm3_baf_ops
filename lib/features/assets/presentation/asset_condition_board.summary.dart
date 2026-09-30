@@ -27,7 +27,7 @@ class _PlantClassConditionSummary extends StatelessWidget {
         assets: summary.assets.where((asset) => asset.isTemporarilyBlocked),
       ),
       _statusMetric(
-        label: 'Unavailable',
+        label: _issueUnavailableLabel,
         color: BafColors.cobalt,
         assets: summary.assets.where((asset) => asset.isIssueUnavailable),
       ),
@@ -198,7 +198,9 @@ class _PlantClassConditionSummary extends StatelessWidget {
       children: [
         if (review.isNotEmpty)
           ExpansionTile(
-            key: ValueKey('plant-inner-cover-review-${summary.assetClass.id}'),
+            key: PageStorageKey(
+              'plant-inner-cover-review-${summary.assetClass.id}',
+            ),
             tilePadding: EdgeInsets.zero,
             childrenPadding: const EdgeInsets.only(bottom: BafSpacing.xs),
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
