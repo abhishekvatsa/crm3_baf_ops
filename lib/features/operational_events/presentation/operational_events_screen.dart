@@ -28,7 +28,7 @@ class OperationalEventsScreen extends ConsumerStatefulWidget {
       _OperationalEventsScreenState();
 }
 
-enum _OperationalEventFilter { open, resolved, withdrawn }
+enum _OperationalEventFilter { open, critical, resolved, withdrawn }
 
 class _OperationalEventsScreenState
     extends ConsumerState<OperationalEventsScreen> {
@@ -133,20 +133,16 @@ class _OperationalEventsScreenState
                 final resolved = events
                     .where((event) => !event.isOpen && !event.isWithdrawn)
                     .toList();
+                final critical = open.where(_isCriticalEvent).toList();
                 final visible = switch (_filter) {
                   _OperationalEventFilter.open => open,
+                  _OperationalEventFilter.critical => critical,
                   _OperationalEventFilter.resolved => resolved,
                   _OperationalEventFilter.withdrawn => withdrawn,
                 };
                 final feedDiagnostics = ref.watch(
                   operationalEventFeedDiagnosticsProvider(actor.uid),
                 );
-                final critical = open
-                    .where(
-                      (event) =>
-                          event.severity == OperationalEventSeverity.critical,
-                    )
-                    .length;
                 return RefreshIndicator(
                   onRefresh: () async =>
                       ref.invalidate(operationalEventsProvider(actor.uid)),
@@ -156,9 +152,12 @@ class _OperationalEventsScreenState
                       SliverToBoxAdapter(
                         child: _EventSummary(
                           openCount: open.length,
-                          criticalCount: critical,
+                          criticalCount: critical.length,
                           resolvedCount: resolved.length,
                           withdrawnCount: withdrawn.length,
+                          selected: _filter,
+                          onSelected: (value) =>
+                              setState(() => _filter = value),
                         ),
                       ),
                       if (feedDiagnostics.isIncomplete)
@@ -203,34 +202,30 @@ class _OperationalEventsScreenState
                       SliverToBoxAdapter(
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                          child: SegmentedButton<_OperationalEventFilter>(
+                          child: Wrap(
                             key: const ValueKey(
                               'operational-event-status-filter',
                             ),
-                            segments: const [
-                              ButtonSegment(
-                                value: _OperationalEventFilter.open,
-                                icon: Icon(Icons.warning_amber_rounded),
-                                label: Text('Open'),
-                              ),
-                              ButtonSegment(
-                                value: _OperationalEventFilter.resolved,
-                                icon: Icon(Icons.task_alt_rounded),
-                                label: Text('Recent resolved'),
-                              ),
-                              ButtonSegment(
-                                value: _OperationalEventFilter.withdrawn,
-                                icon: Icon(Icons.remove_circle_outline),
-                                label: Text('Withdrawn'),
-                              ),
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (final option
+                                  in _OperationalEventFilter.values)
+                                ChoiceChip(
+                                  key: ValueKey(
+                                    'operational-event-filter-${option.name}',
+                                  ),
+                                  label: Text(_eventFilterLabel(option)),
+                                  selected: _filter == option,
+                                  onSelected: (_) =>
+                                      setState(() => _filter = option),
+                                ),
                             ],
-                            selected: {_filter},
-                            onSelectionChanged: (selection) =>
-                                setState(() => _filter = selection.first),
                           ),
                         ),
                       ),
-                      if (_filter != _OperationalEventFilter.open)
+                      if (_filter == _OperationalEventFilter.resolved ||
+                          _filter == _OperationalEventFilter.withdrawn)
                         const SliverToBoxAdapter(child: _HistoryWindowNotice()),
                       if (visible.isEmpty)
                         SliverFillRemaining(
@@ -241,6 +236,7 @@ class _OperationalEventsScreenState
                         SliverPadding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
                           sliver: SliverList.separated(
+                            key: const ValueKey('operational-event-list'),
                             itemCount: visible.length,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(height: 10),

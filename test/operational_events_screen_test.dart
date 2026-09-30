@@ -17,6 +17,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  setUp(() => WidgetController.hitTestWarningShouldBeFatal = true);
+  tearDown(() => WidgetController.hitTestWarningShouldBeFatal = false);
   for (final scenario in [
     (
       scope: OperationalEventScope.assetClasses,
@@ -256,6 +258,11 @@ void main() {
     final resolve = find.byKey(
       const ValueKey('operational-event-resolve-crane-event-1'),
     );
+    await tester.scrollUntilVisible(
+      resolve,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.ensureVisible(resolve);
     await tester.pumpAndSettle();
     await tester.tap(resolve);
@@ -431,12 +438,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('operational-event-status-filter')),
-        matching: find.text('Recent resolved'),
-      ),
+    final resolvedFilter = find.descendant(
+      of: find.byKey(const ValueKey('operational-event-status-filter')),
+      matching: find.text('Recent resolved'),
     );
+    await tester.scrollUntilVisible(
+      resolvedFilter,
+      240,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await Scrollable.ensureVisible(
+      tester.element(resolvedFilter),
+      alignment: 0.5,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(resolvedFilter);
     await tester.pumpAndSettle();
 
     final closure = find.byKey(
