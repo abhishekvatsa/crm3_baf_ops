@@ -7,6 +7,8 @@ import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
 import '../data/operational_event.dart';
@@ -220,7 +222,22 @@ class _OperationalEventIssueLinksScreenState
     return widget.event;
   }
 
+  AppUser? _currentLinkActor(AppUser origin) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: origin.uid,
+      permission: (current) => current.canRecordOperationalEvent,
+    );
+    if (message != null) {
+      _showError(message);
+      return null;
+    }
+    return access.actor;
+  }
+
   Future<void> _linkIssue(AppUser actor, OperationalEvent event) async {
+    if (_busy || _currentLinkActor(actor) == null) return;
     if (!event.isEffective) {
       _showError(
         'This event was withdrawn and cannot receive new issue links.',
@@ -275,9 +292,19 @@ class _OperationalEventIssueLinksScreenState
     }
     final input = await showDialog<_IssueLinkInput>(
       context: context,
-      builder: (_) => _IssueLinkDialog(tickets: eligible),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: (current) => current.canRecordOperationalEvent,
+        child: _IssueLinkDialog(tickets: eligible),
+      ),
     );
     if (input == null || !mounted) return;
+    final currentActor = _currentLinkActor(actor);
+    if (currentActor == null) return;
+    if (!userCanLinkOperationalEventIssue(currentActor, input.issue)) {
+      _showError('Your account can no longer link this maintenance issue.');
+      return;
+    }
     setState(() => _busy = true);
     try {
       await ref
@@ -433,8 +460,8 @@ class MaintenanceIssueEventLinksScreen extends ConsumerWidget {
                                 '${missingLinkEvidence.length == 1 ? 'link is' : 'links are'} '
                                 'missing from the link collection. This is not '
                                 'proof that the relationship never existed.',
-                          )
-                        else if (links.isEmpty)
+                          ),
+                        if (links.isEmpty && missingLinkEvidence.isEmpty)
                           const _LinkState(
                             icon: Icons.link_off_rounded,
                             color: BafColors.textSecondary,

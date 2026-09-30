@@ -7,6 +7,8 @@ import 'package:uuid/uuid.dart';
 import '../data/job_template_model.dart';
 import '../providers/planned_maintenance_provider.dart';
 import '../../../features/auth/providers/auth_provider.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../../features/assets/data/asset_hierarchy_model.dart';
 import '../../../features/assets/providers/asset_hierarchy_provider.dart';
 import '../../../features/maintenance/data/maintenance_model.dart';
@@ -33,6 +35,7 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
   String? _definitionNodeId;
   final Set<String> _selectedAgencies = {};
   bool _isSubmitting = false;
+  String? _originActorUid;
 
   final List<String> _availableAgencies = const [
     'electrical',
@@ -75,11 +78,19 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
       return;
     }
 
-    final appUser = ref.read(currentAppUserProvider).value;
-    if (appUser == null || !appUser.canCreateLegacyJobTemplate) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final appUser = access.actor;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canCreateLegacyJobTemplate,
+    );
+    if (appUser == null || accountMessage != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Only Admin/SI can create job templates.'),
+        SnackBar(
+          content: Text(
+            accountMessage ?? 'Only Admin/SI can create job templates.',
+          ),
           backgroundColor: BafColors.danger,
         ),
       );
@@ -207,7 +218,16 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final appUser = ref.watch(currentAppUserProvider).value;
+    final access = CurrentActorAccess.resolve(
+      ref.watch(currentAppUserProvider),
+    );
+    final appUser = access.actor;
+    _originActorUid ??= appUser?.uid;
+    final accountMessage = currentActorActionMessage(
+      access,
+      originUid: _originActorUid,
+      permission: (actor) => actor.canCreateLegacyJobTemplate,
+    );
     final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
     final appUserName =
         _cleanOptionalText(appUser?.name) ??
@@ -235,6 +255,8 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
             BafSpacing.xl,
           ),
           children: [
+            if (accountMessage != null)
+              CurrentActorNotice(message: accountMessage),
             _IntroCard(appUserName: appUserName),
             const SizedBox(height: BafSpacing.lg),
             _SectionCard(
@@ -364,7 +386,7 @@ class _CreateTemplateScreenState extends ConsumerState<CreateTemplateScreen> {
       ),
       bottomNavigationBar: _CreateTemplateBottomBar(
         isSubmitting: _isSubmitting,
-        onSubmit: _isSubmitting ? null : _submit,
+        onSubmit: _isSubmitting || accountMessage != null ? null : _submit,
       ),
     );
   }

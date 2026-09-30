@@ -689,6 +689,13 @@ class _ResponseDetailSheet extends StatelessWidget {
     final templateFieldRead = template.fieldsReadResult;
     final templateFields = List<TemplateField>.from(templateFieldRead.entries)
       ..sort((a, b) => a.order.compareTo(b.order));
+    final currentFieldKeys = templateFields.map((field) => field.key).toSet();
+    final historicalResponses = responses.where(
+      (response) =>
+          !currentFieldKeys.contains(response.key) &&
+          response.fieldType != FieldType.sectionHeader &&
+          response.fieldType != FieldType.instruction,
+    );
 
     return DraggableScrollableSheet(
       initialChildSize: 0.72,
@@ -828,6 +835,24 @@ class _ResponseDetailSheet extends StatelessWidget {
                               ),
                             ),
                           ),
+
+                    if (responseRead.isValid &&
+                        templateFieldRead.isValid &&
+                        templateFields.isNotEmpty &&
+                        historicalResponses.isNotEmpty) ...[
+                      const _SectionHeaderWidget(
+                        'Saved fields from an earlier template',
+                      ),
+                      ...historicalResponses.map(
+                        (response) => _FieldRow(
+                          label: '${response.fieldLabel} (${response.key})',
+                          child: _ResponseValueWidget(
+                            response: response,
+                            compact: false,
+                          ),
+                        ),
+                      ),
+                    ],
 
                     if (ex.remarks != null &&
                         ex.remarks!.trim().isNotEmpty) ...[
@@ -1052,7 +1077,7 @@ class _ResponseValueWidget extends StatelessWidget {
               items
                   .map(
                     (item) =>
-                        StatusBadge(label: item, color: BafColors.planned),
+                        StatusBadge(label: item, color: BafColors.planned)
                   )
                   .toList(),
         );
