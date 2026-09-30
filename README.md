@@ -57,6 +57,16 @@ and channel approval remain required. Current modified source has no artifact
 construction or distribution authority. A missing recorded Inner Cover link is
 a reconciliation warning, not proof that a Base is physically without a cover.
 
+The pending tester source also makes Abnormality report totals actionable and
+shows repeated RA as a connected history of recorded old/new charge links.
+Undated stages use the plant's lower-charge-number-first convention; missing
+RA dates remain unrecorded. Shared Bases or nearby charge numbers do not create
+links, and conflicting branches are shown for reconciliation. A completed
+entry does not imply that the whole charge history is closed. Diagnostics in
+an App Check-disabled build explain that backend verification is unavailable
+while keeping local reports usable; enabled builds retain bounded checks.
+These changes still require final CI and installed-device acceptance.
+
 Build 29 (`1.0.0-rc.19+29`), constructed from `770f1745`, remains historical
 finalized evidence with its original custody and acceptance boundaries intact.
 

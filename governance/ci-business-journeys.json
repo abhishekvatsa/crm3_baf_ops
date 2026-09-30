@@ -39,7 +39,7 @@
       "successMarker": "DEV_ISSUE_QUALITY_PASS",
       "preserveAppData": false,
       "timeoutSeconds": 1320,
-      "coverage": "Two maintenance-origin Quality cases on one charge, separate SI adjudication with and without RA, and two distinct direct abnormalities with and without completed RA; actual form submissions and canonical readbacks"
+      "coverage": "Two maintenance-origin Quality cases on one charge, separate SI adjudication with and without RA, and two distinct direct abnormalities with and without completed RA; actual form submissions and canonical readbacks; three further linked RA form submissions, summary filtering and connected four-charge report history"
     },
     {
       "path": "integration_test/dev_burner_plant_journey_test.dart",

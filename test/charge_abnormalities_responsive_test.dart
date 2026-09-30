@@ -25,8 +25,9 @@ void main() {
           ..addFont(rootBundle.load('assets/fonts/Roboto-Regular.ttf'))
           ..addFont(rootBundle.load('assets/fonts/Roboto-Medium.ttf')))
         .load();
-    await (FontLoader('MaterialIcons')
-      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
   for (final page in [
@@ -62,6 +63,26 @@ void main() {
         tester.renderObject<RenderBox>(title).constraints.maxWidth,
         greaterThan(150),
       );
+      if (page.screen is AbnormalityReportsScreen) {
+        final paragraph = tester.renderObject<RenderParagraph>(title);
+        expect(paragraph.constraints.maxWidth, greaterThanOrEqualTo(250));
+        expect(
+          paragraph.getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 11),
+          ),
+          hasLength(1),
+          reason:
+              'The word Abnormality must not break beside the decorative icon.',
+        );
+        expect(
+          paragraph.getBoxesForSelection(
+            TextSelection(baseOffset: 0, extentOffset: page.title.length),
+          ),
+          hasLength(2),
+          reason:
+              'The large-text report heading should occupy two readable lines.',
+        );
+      }
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -650));
       await tester.pumpAndSettle();
       expect(title.hitTestable(), findsNothing);
@@ -202,14 +223,13 @@ Widget _app({
               ?.copyWith(fontFamily: 'Roboto'),
         ),
       ),
-      builder:
-          (context, child) => MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(scale),
-              padding: const EdgeInsets.only(top: 24, bottom: 32),
-            ),
-            child: child!,
-          ),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: TextScaler.linear(scale),
+          padding: const EdgeInsets.only(top: 24, bottom: 32),
+        ),
+        child: child!,
+      ),
       home: const Scaffold(body: SizedBox()),
       initialRoute: '/reviewed-screen',
       routes: {'/reviewed-screen': (context) => home},
@@ -219,16 +239,15 @@ Widget _app({
 
 List<AbnormalityType> _types() => List.generate(
   6,
-  (index) =>
-      AbnormalityType()
-        ..firestoreId = 'layout-type-$index'
-        ..code = 'QC$index'
-        ..title = 'Observed process condition $index'
-        ..category = AbnormalityCategory.process
-        ..severity = AbnormalitySeverity.high
-        ..isActive = true
-        ..createdAt = DateTime(2026)
-        ..updatedAt = DateTime(2026),
+  (index) => AbnormalityType()
+    ..firestoreId = 'layout-type-$index'
+    ..code = 'QC$index'
+    ..title = 'Observed process condition $index'
+    ..category = AbnormalityCategory.process
+    ..severity = AbnormalitySeverity.high
+    ..isActive = true
+    ..createdAt = DateTime(2026)
+    ..updatedAt = DateTime(2026),
 );
 
 class _ReportRepository extends Fake implements AbnormalityRepository {
@@ -237,19 +256,18 @@ class _ReportRepository extends Fake implements AbnormalityRepository {
       List.generate(8, _record);
 }
 
-ChargeAbnormality _record(int index) =>
-    ChargeAbnormality()
-      ..firestoreId = 'layout-case-$index'
-      ..sourceChargeNo = 51139
-      ..abnormalityTypeCode = 'QC03'
-      ..abnormalityTypeTitle = 'H2 ingress during cooling $index'
-      ..observedReason =
-          'Coil colour observed after unloading. Awaiting RA decision.'
-      ..category = AbnormalityCategory.process
-      ..severity = AbnormalitySeverity.high
-      ..reannealingStatus = ReannealingStatus.required
-      ..loggedAt = DateTime(2026, 9, 4, 8, 30)
-      ..updatedAt = DateTime(2026, 9, 4, 8, 30);
+ChargeAbnormality _record(int index) => ChargeAbnormality()
+  ..firestoreId = 'layout-case-$index'
+  ..sourceChargeNo = 51139
+  ..abnormalityTypeCode = 'QC03'
+  ..abnormalityTypeTitle = 'H2 ingress during cooling $index'
+  ..observedReason =
+      'Coil colour observed after unloading. Awaiting RA decision.'
+  ..category = AbnormalityCategory.process
+  ..severity = AbnormalitySeverity.high
+  ..reannealingStatus = ReannealingStatus.required
+  ..loggedAt = DateTime(2026, 9, 4, 8, 30)
+  ..updatedAt = DateTime(2026, 9, 4, 8, 30);
 
 Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
   final boundary =
