@@ -7,6 +7,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
+import '../../../auth/domain/current_actor_access.dart';
+import '../../../auth/presentation/current_actor_gate.dart';
+import '../../../auth/providers/auth_provider.dart';
 import '../../data/baf_knowledge_model.dart';
 import '../../domain/baf_knowledge_layer.dart';
 import '../../domain/knowledge_governance_diff.dart';
@@ -163,7 +166,13 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => CurrentActorDialogGuard(
+    originUid: widget.actor.uid,
+    permission: canManageKnowledgeBase,
+    child: _buildEditor(context),
+  );
+
+  Widget _buildEditor(BuildContext context) {
     return DraggableScrollableSheet(
       expand: false,
       initialChildSize: 0.92,
@@ -668,10 +677,26 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     );
   }
 
+  AppUser? _actorForAction() {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: widget.actor.uid,
+      permission: canManageKnowledgeBase,
+    );
+    if (message != null) {
+      if (mounted) setState(() => _error = message);
+      return null;
+    }
+    return access.actor;
+  }
+
   Future<void> _onSave() async {
     if (_saving) {
       return;
     }
+    final actor = _actorForAction();
+    if (actor == null) return;
     setState(() {
       _error = null;
       _saving = true;
@@ -683,11 +708,11 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     final controller = ref.read(knowledgeGovernanceControllerProvider);
     try {
       final written = widget.isCreate
-          ? await controller.createRow(draft: _draft, actor: widget.actor)
+          ? await controller.createRow(draft: _draft, actor: actor)
           : await controller.updateRow(
               before: widget.before!,
               draft: _draft,
-              actor: widget.actor,
+              actor: actor,
             );
       if (!mounted) {
         return;
@@ -719,13 +744,20 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
     if (_saving) {
       return;
     }
+    if (_actorForAction() == null) return;
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => _KnowledgeLifecycleReasonDialog(next: next),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: widget.actor.uid,
+        permission: canManageKnowledgeBase,
+        child: _KnowledgeLifecycleReasonDialog(next: next),
+      ),
     );
     if (!mounted || reason == null || reason.trim().isEmpty) {
       return;
     }
+    final actor = _actorForAction();
+    if (actor == null) return;
     setState(() {
       _saving = true;
       _error = null;
@@ -737,21 +769,21 @@ class _KnowledgeRowEditorState extends ConsumerState<KnowledgeRowEditor> {
         case KnowledgeLifecycleStatus.retired:
           written = await controller.retireRow(
             before: widget.before!,
-            actor: widget.actor,
+            actor: actor,
             reason: reason,
           );
           break;
         case KnowledgeLifecycleStatus.archived:
           written = await controller.archiveRow(
             before: widget.before!,
-            actor: widget.actor,
+            actor: actor,
             reason: reason,
           );
           break;
         case KnowledgeLifecycleStatus.active:
           written = await controller.restoreRow(
             before: widget.before!,
-            actor: widget.actor,
+            actor: actor,
             reason: reason,
           );
           break;
