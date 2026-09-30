@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../dev/dev_environment.dart';
+import '../security/app_check_bootstrap.dart';
 import '../serialization/persisted_data_reader.dart';
 
 const backendReleaseIdentityCallableName = 'getBackendReleaseIdentity';
@@ -81,6 +84,8 @@ class BackendReleaseIdentity {
 class BackendReleaseIdentityService {
   final FirebaseFunctions? _functions;
   final FirebaseAuth? _auth;
+  final bool _appCheckEnabled;
+  final bool _useEmulators;
   final Duration timeout;
   Future<BackendReleaseIdentity>? _inFlight;
   String? _inFlightUid;
@@ -88,9 +93,14 @@ class BackendReleaseIdentityService {
   BackendReleaseIdentityService({
     FirebaseFunctions? functions,
     FirebaseAuth? auth,
+    // Injectable for service tests; production uses the compiled build flags.
+    bool appCheckEnabled = crm3AppCheckEnabled,
+    bool useEmulators = crm3UseEmulators,
     this.timeout = const Duration(seconds: 20),
   }) : _functions = functions,
-       _auth = auth;
+       _auth = auth,
+       _appCheckEnabled = appCheckEnabled,
+       _useEmulators = useEmulators;
 
   FirebaseFunctions get _client =>
       _functions ??
@@ -107,6 +117,22 @@ class BackendReleaseIdentityService {
         const BackendReleaseIdentityException(
           code: 'unauthenticated',
           message: 'Sign in before checking backend access.',
+        ),
+      );
+    }
+    // The production identity callable enforces App Check independently of
+    // mutating callables. An ID-token refresh cannot enable this build feature.
+    // Demo-only emulator wiring is separately guarded during app startup.
+    final demoEmulator =
+        _useEmulators &&
+        !kReleaseMode &&
+        _client.app.options.projectId.startsWith('demo-');
+    if (!_appCheckEnabled && !demoEmulator) {
+      return Future.error(
+        const BackendReleaseIdentityException(
+          code: 'app-check-disabled',
+          message:
+              'Backend identity verification is not available in this build because app verification (App Check) is disabled. Local diagnostics remain available.',
         ),
       );
     }
@@ -222,7 +248,7 @@ class BackendReleaseIdentityException implements Exception {
   String get operatorMessage {
     switch (code) {
       case 'unauthenticated':
-        return 'This installation or sign-in could not be verified for backend access. Check connectivity and retry; contact support if this continues.';
+        return 'This installation or sign-in could not be verified for backend access. The response does not identify which verification failed. Local diagnostics remain available; contact support if this continues.';
       case 'permission-denied':
         return 'Backend release identity is not visible to this account.';
       case 'unavailable':

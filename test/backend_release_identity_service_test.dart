@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:crm3_baf_ops/core/release/backend_release_identity_service.dart';
@@ -92,6 +93,125 @@ void main() {
 
       expect(error.toString(), contains('installation or sign-in'));
       expect(error.toString(), isNot(contains('Sign in again')));
+      expect(error.toString(), isNot(contains('Check connectivity')));
+      expect(error.toString(), contains('does not identify which'));
+      expect(error.toString(), contains('Local diagnostics remain available'));
+    },
+  );
+
+  test(
+    'disabled production attestation performs no request or auth refresh',
+    () async {
+      final functions = _Functions(
+        (_) async => throw StateError('must not call'),
+      );
+      final auth = _Auth();
+      final service = BackendReleaseIdentityService(
+        functions: functions,
+        auth: auth,
+        appCheckEnabled: false,
+        useEmulators: false,
+      );
+      for (var attempt = 0; attempt < 2; attempt++) {
+        await expectLater(
+          service.fetch(),
+          throwsA(
+            _code('app-check-disabled').having(
+              (error) => error.toString(),
+              'operator explanation',
+              allOf(
+                contains('not available in this build'),
+                contains('App Check'),
+                contains('Local diagnostics remain available'),
+              ),
+            ),
+          ),
+        );
+      }
+      expect(functions.calls, 0);
+      expect(functions.timeouts, isEmpty);
+      expect(auth.user!.refreshes, 0);
+    },
+  );
+
+  test(
+    'signed-out access still fails before the disabled-build preflight',
+    () async {
+      final functions = _Functions(
+        (_) async => throw StateError('must not call'),
+      );
+      final auth = _Auth()..user = null;
+      final service = BackendReleaseIdentityService(
+        functions: functions,
+        auth: auth,
+        appCheckEnabled: false,
+        useEmulators: false,
+      );
+      await expectLater(service.fetch(), throwsA(_code('unauthenticated')));
+      expect(functions.calls, 0);
+      expect(functions.timeouts, isEmpty);
+    },
+  );
+
+  test(
+    'supported demo emulator mode can read identity without attestation',
+    () async {
+      final functions = _Functions(
+        (_) async => _identity,
+        projectId: 'demo-test',
+      );
+      final auth = _Auth();
+      final service = BackendReleaseIdentityService(
+        functions: functions,
+        auth: auth,
+        appCheckEnabled: false,
+        useEmulators: true,
+      );
+      expect((await service.fetch()).releaseId, 'backend-current');
+      expect(functions.calls, 1);
+      expect(auth.user!.refreshes, 0);
+    },
+  );
+
+  test('emulator flag cannot exempt a real Firebase project', () async {
+    final functions = _Functions(
+      (_) async => throw StateError('must not call'),
+    );
+    final auth = _Auth();
+    final service = BackendReleaseIdentityService(
+      functions: functions,
+      auth: auth,
+      appCheckEnabled: false,
+      useEmulators: true,
+    );
+    await expectLater(service.fetch(), throwsA(_code('app-check-disabled')));
+    expect(functions.calls, 0);
+    expect(functions.timeouts, isEmpty);
+    expect(auth.user!.refreshes, 0);
+  });
+
+  test(
+    'enabled attestation keeps one auth refresh that may recover access',
+    () async {
+      final functions = _Functions((call) async {
+        if (call == 1) {
+          throw FirebaseFunctionsException(
+            code: 'unauthenticated',
+            message: 'Unauthenticated',
+          );
+        }
+        return _identity;
+      });
+      final auth = _Auth();
+      final service = BackendReleaseIdentityService(
+        functions: functions,
+        auth: auth,
+        appCheckEnabled: true,
+        useEmulators: false,
+      );
+      expect((await service.fetch()).releaseId, 'backend-current');
+      expect(functions.calls, 2);
+      expect(auth.user!.refreshes, 1);
     },
   );
 
@@ -101,6 +221,8 @@ void main() {
     final auth = _Auth();
     final service = BackendReleaseIdentityService(
       functions: functions,
+      appCheckEnabled: true,
+      useEmulators: false,
       auth: auth,
     );
     final first = service.fetch();
@@ -128,6 +250,8 @@ void main() {
     final auth = _Auth();
     final service = BackendReleaseIdentityService(
       functions: functions,
+      appCheckEnabled: true,
+      useEmulators: false,
       auth: auth,
     );
     final first = service.fetch();
@@ -160,6 +284,8 @@ void main() {
     });
     final service = BackendReleaseIdentityService(
       functions: functions,
+      appCheckEnabled: true,
+      useEmulators: false,
       auth: auth,
       timeout: const Duration(milliseconds: 40),
     );
@@ -178,6 +304,8 @@ void main() {
       final functions = _Functions((_) => pending.future);
       final service = BackendReleaseIdentityService(
         functions: functions,
+        appCheckEnabled: true,
+        useEmulators: false,
         auth: auth,
         timeout: const Duration(milliseconds: 40),
       );
@@ -202,6 +330,8 @@ void main() {
       final functions = _Functions((call) => requests[call - 1].future);
       final service = BackendReleaseIdentityService(
         functions: functions,
+        appCheckEnabled: true,
+        useEmulators: false,
         auth: auth,
       );
       final previous = service.fetch();
@@ -228,6 +358,8 @@ void main() {
     });
     final service = BackendReleaseIdentityService(
       functions: functions,
+      appCheckEnabled: true,
+      useEmulators: false,
       auth: auth,
     );
     await expectLater(service.fetch(), throwsA(_code('permission-denied')));
@@ -236,11 +368,12 @@ void main() {
   });
 }
 
-Matcher _code(String code) => isA<BackendReleaseIdentityException>().having(
-  (error) => error.code,
-  'code',
-  code,
-);
+TypeMatcher<BackendReleaseIdentityException> _code(String code) =>
+    isA<BackendReleaseIdentityException>().having(
+      (error) => error.code,
+      'code',
+      code,
+    );
 
 const _identity = <String, Object>{
   'releaseId': 'backend-current',
@@ -269,7 +402,10 @@ class _User extends Fake implements User {
 }
 
 class _Functions extends Fake implements FirebaseFunctions {
-  _Functions(this.respond);
+  _Functions(this.respond, {this.projectId = 'crm3-baf-ops-b8638'});
+  final String projectId;
+  @override
+  FirebaseApp get app => _App(projectId);
   final Future<Object?> Function(int call) respond;
   int calls = 0;
   final timeouts = <Duration>[];
@@ -295,4 +431,16 @@ class _Result<T> extends Fake implements HttpsCallableResult<T> {
   _Result(this.data);
   @override
   final T data;
+}
+
+class _App extends Fake implements FirebaseApp {
+  _App(this.projectId);
+  final String projectId;
+  @override
+  FirebaseOptions get options => FirebaseOptions(
+    apiKey: 'test-only',
+    appId: 'test-only',
+    messagingSenderId: 'test-only',
+    projectId: projectId,
+  );
 }

@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:crm3_baf_ops/core/providers/sync_status_provider.dart';
 import 'package:crm3_baf_ops/core/release/backend_release_identity_service.dart';
 import 'package:crm3_baf_ops/core/services/isar_installed_store_provenance.dart';
@@ -188,6 +191,79 @@ void main() {
     },
   );
 
+  testWidgets(
+    'disabled-build identity leaves local diagnostics and export usable',
+    (tester) async {
+      final functions = _NoRequestFunctions();
+      final auth = _SignedInAuth();
+      final h = _Harness(
+        backendService: BackendReleaseIdentityService(
+          functions: functions,
+          auth: auth,
+          appCheckEnabled: false,
+          useEmulators: false,
+        ),
+      );
+      addTearDown(h.close);
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = call.arguments['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: h.container,
+          child: const MaterialApp(home: LocalDiagnosticsScreen()),
+        ),
+      );
+      h.profiles.add(_actor());
+      await tester.pumpAndSettle();
+      expect(h.report.rows.single.totalCount, 37);
+      expect(h.report.totalUnsyncedRows, 2);
+      expect(h.report.releaseSnapshot.backendErrorCode, 'app-check-disabled');
+      expect(h.report.releaseSnapshot.backendLoading, isFalse);
+      expect(h.report.releaseSnapshot.backendParityConfirmed, isFalse);
+      await tester.scrollUntilVisible(
+        find.textContaining('not available in this build'),
+        500,
+        scrollable: find.byType(Scrollable),
+      );
+      expect(
+        find.textContaining('not available in this build'),
+        findsOneWidget,
+      );
+      expect(find.byTooltip('Diagnostics actions'), findsOneWidget);
+      await tester.tap(find.byTooltip('Diagnostics actions'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Copy diagnostics'));
+      await tester.pumpAndSettle();
+      expect(copied, contains('totalUnsyncedRows: 2'));
+      expect(copied, contains('backendIdentityErrorCode: app-check-disabled'));
+      expect(copied, contains('not available in this build'));
+      expect(copied, isNot(contains('Check connectivity and retry')));
+      expect(
+        h.report.toRecoveryManifestJsonText(),
+        contains('"backendParityConfirmed": false'),
+      );
+      await tester.tap(find.byTooltip('Refresh diagnostics'));
+      await tester.pumpAndSettle();
+      expect(h.local.reads, 2);
+      expect(functions.requests, 0);
+      expect(auth.user.refreshes, 0);
+    },
+  );
+
   testWidgets('copy diagnostics works while remote identity is still pending', (
     tester,
   ) async {
@@ -259,6 +335,7 @@ BackendReleaseIdentity _identity(String release) => BackendReleaseIdentity(
 );
 
 class _Harness {
+  final BackendReleaseIdentityService? backendService;
   final profiles = StreamController<AppUser?>.broadcast();
   final local = _LocalReader();
   final remote = _RemoteReader();
@@ -266,12 +343,14 @@ class _Harness {
     overrides: [
       currentAppUserProvider.overrideWith((ref) => profiles.stream),
       localDiagnosticsReadAdapterProvider.overrideWithValue(local),
-      backendReleaseIdentityServiceProvider.overrideWithValue(remote),
+      backendReleaseIdentityServiceProvider.overrideWithValue(
+        backendService ?? remote,
+      ),
     ],
   );
   late final ProviderSubscription<AsyncValue<LocalDiagnosticsReport>>
   subscription;
-  _Harness() {
+  _Harness({this.backendService}) {
     subscription = container.listen(
       localDiagnosticsReportProvider,
       (_, _) {},
@@ -352,5 +431,31 @@ class _LocalReader extends LocalDiagnosticsReadAdapter {
       ),
       provenanceInventory: IsarInstalledStoreProvenanceInventory.unsupported(),
     );
+  }
+}
+
+class _NoRequestFunctions extends Fake implements FirebaseFunctions {
+  int requests = 0;
+  @override
+  HttpsCallable httpsCallable(String name, {HttpsCallableOptions? options}) {
+    requests++;
+    throw StateError('Disabled-build diagnostics must not create a callable.');
+  }
+}
+
+class _SignedInAuth extends Fake implements FirebaseAuth {
+  final user = _SignedInUser();
+  @override
+  User get currentUser => user;
+}
+
+class _SignedInUser extends Fake implements User {
+  int refreshes = 0;
+  @override
+  String get uid => 'owner';
+  @override
+  Future<String?> getIdToken([bool forceRefresh = false]) async {
+    refreshes++;
+    throw StateError('Disabled-build diagnostics must not refresh a token.');
   }
 }
