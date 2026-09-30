@@ -165,6 +165,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ).push(MaterialPageRoute<void>(builder: (_) => destination));
   }
 
+  void _selectTab(int index) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _currentIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final appUserAsync = ref.watch(currentAppUserProvider);
@@ -378,8 +383,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ? const BafBrandLockup(compact: true)
                                 : const ManmithasMark(size: 38),
                           ),
-                          onDestinationSelected: (index) =>
-                              setState(() => _currentIndex = index),
+                          onDestinationSelected: _selectTab,
                           labelType: constraints.maxWidth >= 1200
                               ? NavigationRailLabelType.none
                               : NavigationRailLabelType.all,
@@ -420,8 +424,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 child: NavigationBar(
                   selectedIndex: safeIndex,
-                  onDestinationSelected: (index) =>
-                      setState(() => _currentIndex = index),
+                  onDestinationSelected: _selectTab,
                   labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                   destinations: tabs.map((t) => t.destination).toList(),
                 ),
@@ -486,9 +489,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           plantOverview: plantOverview,
           onProfileTap: () => _showProfileSheet(context, ref, appUser),
           onRaiseIssue: () => _openMaintenanceForm(context),
-          onIssues: () => setState(() => _currentIndex = 1),
-          onWork: () => setState(() => _currentIndex = 2),
-          onDirectives: () => setState(() => _currentIndex = 3),
+          onIssues: () => _selectTab(1),
+          onWork: () => _selectTab(2),
+          onDirectives: () => _selectTab(3),
           onAbnormalities: () =>
               _push(context, const AbnormalitiesHomeScreen()),
           onQuality: () => _push(context, const QualityHomeScreen()),
@@ -501,7 +504,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _push(context, AssetConditionBoard(initialFilter: filter)),
           onMorningReview: () => _push(context, const MorningReviewScreen()),
           onReports: () => _push(context, const FleetStatusScreen()),
-          onControl: () => setState(() => _currentIndex = 3),
+          onControl: () => _selectTab(3),
           onMaintenanceRhythm: () =>
               _push(context, const MaintenanceIntelligenceScreen()),
           onInspectionProgrammes: () =>
@@ -577,7 +580,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           inspectionFindingsUnavailable: inspectionFindingsUnavailable,
           criticalAlarmsUnavailable: criticalAlarmsUnavailable,
           onDirectives: () => _push(context, const DirectivesScreen()),
-          onWorkflow: () => setState(() => _currentIndex = 2),
+          onWorkflow: () => _selectTab(2),
           onOperationalEvents: () =>
               _push(context, const OperationalEventsScreen()),
           onQuality: () => _push(context, const QualityHomeScreen()),
@@ -626,9 +629,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         screenBuilder: (_) => HomeMoreScreen(
           appUser: appUser,
           onRaiseIssue: () => _openMaintenanceForm(context),
-          onIssues: () => setState(() => _currentIndex = 1),
-          onWork: () => setState(() => _currentIndex = 2),
-          onControl: () => setState(() => _currentIndex = 3),
+          onIssues: () => _selectTab(1),
+          onWork: () => _selectTab(2),
+          onControl: () => _selectTab(3),
           onDirectives: () => _push(context, const DirectivesScreen()),
           onMorningReview: () => _push(context, const MorningReviewScreen()),
           onWorkflow: () => _push(context, const WorkflowHubScreen()),
@@ -1929,6 +1932,9 @@ class _WorkspaceSearch extends StatelessWidget {
     },
     builder: (context, controller) => SearchBar(
       controller: controller,
+      // This field launches the editable search route. It must not reopen
+      // the keyboard when focus returns from a selected destination.
+      readOnly: true,
       hintText: 'Find a screen or function',
       leading: const Icon(Icons.search_rounded),
       trailing: const [

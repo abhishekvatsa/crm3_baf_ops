@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show SemanticsAction;
 
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -120,7 +121,7 @@ void main() {
   test('alarm listeners use state captured before widget disposal', () {
     final source = File(
       'lib/features/critical_alarm/presentation/critical_alarm_host.dart',
-    ).readAsStringSync();
+    ).readAsStringSync().replaceAll('\r\n', '\n');
 
     expect(
       RegExp(r'ref\.read\(').allMatches(source),
@@ -797,24 +798,100 @@ void main() {
   });
 
   testWidgets(
-    'global alarm launcher retains every high-frequency drag sample',
+    'safety access reserves space instead of covering route controls',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 800));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await _pumpLauncherHost(tester);
-
+      var opened = 0;
+      await _pumpLauncherHost(
+        tester,
+        body: Align(
+          alignment: Alignment.topRight,
+          child: FilledButton(
+            onPressed: () => opened++,
+            child: const Text('First route action'),
+          ),
+        ),
+      );
       final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
-      final before = tester.getTopLeft(launcher);
-      final gesture = await tester.startGesture(tester.getCenter(launcher));
-      for (var index = 0; index < 10; index++) {
-        await gesture.moveBy(const Offset(-8, 0));
-      }
-      await gesture.up();
+      final action = find.text('First route action');
+      expect(
+        tester.getRect(launcher).overlaps(tester.getRect(action)),
+        isFalse,
+      );
+      expect(
+        tester.getRect(action).top,
+        greaterThanOrEqualTo(tester.getRect(launcher).bottom),
+      );
+      expect(tester.getSize(launcher).height, greaterThanOrEqualTo(48));
+      await tester.tap(action);
       await tester.pump();
+      expect(opened, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
-      final after = tester.getTopLeft(launcher);
-      expect(after.dx, closeTo(before.dx - 80, 1));
-      expect(after.dy, closeTo(before.dy, 1));
+  testWidgets('safety access fits a narrow phone at large text scale', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpLauncherHost(tester, textScale: 2.0, snapshot: _stale(const []));
+    final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
+    expect(find.text('Safety alarms'), findsOneWidget);
+    expect(find.text('Live status not verified.'), findsOneWidget);
+    expect(tester.getRect(launcher).right, lessThanOrEqualTo(320));
+    expect(
+      tester.getRect(find.byType(Scaffold)).top,
+      greaterThanOrEqualTo(tester.getRect(launcher).bottom),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'reserved safety row remains in the actual route semantics tree',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await _pumpLauncherHost(tester);
+        final reachable = tester.semantics.simulatedAccessibilityTraversal();
+        expect(
+          reachable.any((node) {
+            final data = node.getSemanticsData();
+            return data.label == 'Critical safety alarms. No active alarms.' &&
+                data.hasAction(SemanticsAction.tap);
+          }),
+          isTrue,
+        );
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+
+  testWidgets(
+    'reserved safety header paints the status bar with contrasting icons',
+    (tester) async {
+      await _pumpLauncherHost(
+        tester,
+        systemInsets: const EdgeInsets.only(top: 24),
+      );
+      var region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byKey(const Key('critical-safety-system-ui')),
+      );
+      expect(region.value.statusBarIconBrightness, Brightness.dark);
+      expect(region.value.statusBarColor, const Color(0xFFFDFEFE));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await _pumpLauncherHost(
+        tester,
+        snapshot: _verified([_supportConfirmedAlarm()]),
+      );
+      region = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+        find.byKey(const Key('critical-safety-system-ui')),
+      );
+      expect(region.value.statusBarIconBrightness, Brightness.light);
+      expect(region.value.statusBarColor, const Color(0xFFBE3F4C));
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -825,12 +902,10 @@ void main() {
     final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
     final semantics = tester.widget<Semantics>(launcher);
     expect(semantics.properties.label, contains('No active alarms.'));
-    expect(semantics.properties.label, contains('Drag to reposition.'));
+    expect(semantics.properties.label, isNot(contains('Drag to reposition.')));
+    expect(semantics.properties.onTap, isNotNull);
     expect(
-      find.descendant(
-        of: launcher,
-        matching: find.byType(FloatingActionButton),
-      ),
+      find.descendant(of: launcher, matching: find.byType(InkWell)),
       findsOneWidget,
     );
     await tester.pumpWidget(const SizedBox.shrink());
@@ -863,15 +938,14 @@ void main() {
     await _pumpLauncherHost(tester, systemInsets: systemInsets);
 
     final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
-    final gesture = await tester.startGesture(tester.getCenter(launcher));
-    await gesture.moveBy(const Offset(-1000, -1000));
-    await gesture.up();
-    await tester.pump();
-
     final position = tester.getTopLeft(launcher);
-    expect(position.dx, closeTo(systemInsets.left + 12, 1));
-    expect(position.dy, closeTo(systemInsets.top + 12, 1));
-    expect(tester.getSize(launcher), const Size.square(48));
+    expect(position.dx, closeTo(systemInsets.left, 1));
+    expect(position.dy, closeTo(systemInsets.top, 1));
+    expect(tester.getSize(launcher).height, greaterThanOrEqualTo(48));
+    expect(
+      tester.getTopLeft(find.byType(Scaffold)).dy,
+      closeTo(tester.getRect(launcher).bottom, 1),
+    );
   });
 
   testWidgets(
@@ -952,12 +1026,12 @@ void main() {
     );
 
     final launcher = find.byKey(const Key('global-critical-alarm-launcher'));
-    final gesture = await tester.startGesture(tester.getCenter(launcher));
-    await gesture.moveBy(const Offset(0, 1000));
-    await gesture.up();
-    await tester.pump();
-
-    expect(tester.getTopLeft(launcher).dy, closeTo(368, 1));
+    expect(tester.getRect(launcher).bottom, lessThan(500));
+    expect(
+      tester.getTopLeft(find.byType(Scaffold)).dy,
+      greaterThanOrEqualTo(tester.getRect(launcher).bottom),
+    );
+    expect(tester.takeException(), isNull);
   });
 }
 
@@ -966,6 +1040,8 @@ Future<void> _pumpLauncherHost(
   EdgeInsets systemInsets = EdgeInsets.zero,
   EdgeInsets viewInsets = EdgeInsets.zero,
   CriticalAlarmLiveSnapshot? snapshot,
+  double textScale = 1,
+  Widget body = const Text('Operations'),
 }) async {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(_channel, (call) async {
@@ -990,6 +1066,7 @@ Future<void> _pumpLauncherHost(
               padding: systemInsets,
               viewPadding: systemInsets,
               viewInsets: viewInsets,
+              textScaler: TextScaler.linear(textScale),
             ),
             child: CriticalAlarmHost(
               navigatorKey: navigatorKey,
@@ -997,7 +1074,7 @@ Future<void> _pumpLauncherHost(
             ),
           );
         },
-        home: const Scaffold(body: Text('Operations')),
+        home: Scaffold(body: body),
       ),
     ),
   );
