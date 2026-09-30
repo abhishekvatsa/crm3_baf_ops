@@ -47,6 +47,23 @@ class _ChargeAbnormalityFormDialogState
   AssetHierarchyReference? _pendingTargetReference;
   String? _assetSelectionError;
   bool _addingAsset = false;
+  bool _submitting = false;
+  bool _choosingComponent = false;
+  bool _assetChoiceInvalid = false;
+  bool get _equipmentBusy => _addingAsset || _submitting || _choosingComponent;
+  void _updateEquipment(VoidCallback update) => setState(update);
+
+  bool get _formActive => mounted && ModalRoute.of(context)?.isCurrent == true;
+
+  bool get _actorCanSubmit =>
+      currentActorActionMessage(
+        CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+        originUid: widget.originUid,
+        permission: (actor) => widget.existing == null
+            ? actor.canLogChargeAbnormality
+            : actor.canEditChargeAbnormality,
+      ) ==
+      null;
   void _updateAssessment(VoidCallback update) => setState(update);
 
   @override
@@ -130,267 +147,105 @@ class _ChargeAbnormalityFormDialogState
           style: const TextStyle(fontWeight: FontWeight.w900),
         ),
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(
-            BafSpacing.lg,
-            BafSpacing.md,
-            BafSpacing.lg,
-            BafSpacing.xl,
-          ),
-          children: [
-            _ChargeContextStrip(sourceChargeNo: widget.sourceChargeNo),
-            const SizedBox(height: BafSpacing.md),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final textScale =
-                    MediaQuery.textScalerOf(context).scale(14) / 14;
-                final hasHistoricalChoice =
-                    widget.existing != null &&
-                    widget.existing!.observationKind == null;
-                final minimumWidth = hasHistoricalChoice ? 580 : 380;
-                return SegmentedButton<AbnormalityObservationKind>(
-                  key: const ValueKey('abnormality-observation-kind'),
-                  direction: constraints.maxWidth / textScale < minimumWidth
-                      ? Axis.vertical
-                      : Axis.horizontal,
-                  emptySelectionAllowed: _observationKind == null,
-                  segments: [
-                    const ButtonSegment(
-                      value: AbnormalityObservationKind.resultFinding,
-                      label: Text('Result finding'),
-                    ),
-                    const ButtonSegment(
-                      value: AbnormalityObservationKind.processEquipment,
-                      label: Text('Process / equipment'),
-                    ),
-                    if (widget.existing != null &&
-                        widget.existing!.observationKind == null)
+      body: AbsorbPointer(
+        absorbing: _equipmentBusy,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            padding: const EdgeInsets.fromLTRB(
+              BafSpacing.lg,
+              BafSpacing.md,
+              BafSpacing.lg,
+              BafSpacing.xl,
+            ),
+            children: [
+              _ChargeContextStrip(sourceChargeNo: widget.sourceChargeNo),
+              const SizedBox(height: BafSpacing.md),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final textScale =
+                      MediaQuery.textScalerOf(context).scale(14) / 14;
+                  final hasHistoricalChoice =
+                      widget.existing != null &&
+                      widget.existing!.observationKind == null;
+                  final minimumWidth = hasHistoricalChoice ? 580 : 380;
+                  return SegmentedButton<AbnormalityObservationKind>(
+                    key: const ValueKey('abnormality-observation-kind'),
+                    direction: constraints.maxWidth / textScale < minimumWidth
+                        ? Axis.vertical
+                        : Axis.horizontal,
+                    emptySelectionAllowed: _observationKind == null,
+                    segments: [
                       const ButtonSegment(
-                        value: AbnormalityObservationKind.legacyUnknown,
-                        label: Text('Keep historical kind unknown'),
+                        value: AbnormalityObservationKind.resultFinding,
+                        label: Text('Result finding'),
                       ),
-                  ],
-                  selected: {if (_observationKind != null) _observationKind!},
-                  onSelectionChanged: (values) => setState(() {
-                    _observationKind = values.single;
-                    if (widget.existing == null) {
-                      _selectedType =
-                          _matchingTypes.firstOrNull ?? _selectedType;
-                      _selectedSeverity = _selectedType.severity;
-                    }
-                  }),
-                );
-              },
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            Text(
-              _observationKind == null ||
-                      _observationKind ==
-                          AbnormalityObservationKind.legacyUnknown
-                  ? 'Historical observation kind was not recorded. Keep it unknown unless evidence supports a classification.'
-                  : _observationKind == AbnormalityObservationKind.resultFinding
-                  ? 'Record the observed coil result. Colour does not decide whether RA is required.'
-                  : 'Record what happened to the process or equipment. A shared charge does not prove a cause.',
-            ),
-            const SizedBox(height: BafSpacing.lg),
-            const _SectionTitle(
-              icon: Icons.category_outlined,
-              title: 'Classification',
-              subtitle: 'Choose the governed event type and observed severity.',
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            DropdownButtonFormField<AbnormalityType>(
-              key: ValueKey(
-                'abnormality-type-${_selectedType.firestoreId ?? _selectedType.code}',
+                      const ButtonSegment(
+                        value: AbnormalityObservationKind.processEquipment,
+                        label: Text('Process / equipment'),
+                      ),
+                      if (widget.existing != null &&
+                          widget.existing!.observationKind == null)
+                        const ButtonSegment(
+                          value: AbnormalityObservationKind.legacyUnknown,
+                          label: Text('Keep historical kind unknown'),
+                        ),
+                    ],
+                    selected: {if (_observationKind != null) _observationKind!},
+                    onSelectionChanged: (values) => setState(() {
+                      _observationKind = values.single;
+                      if (widget.existing == null) {
+                        _selectedType =
+                            _matchingTypes.firstOrNull ?? _selectedType;
+                        _selectedSeverity = _selectedType.severity;
+                      }
+                    }),
+                  );
+                },
               ),
-              initialValue: _selectedType,
-              isExpanded: true,
-              decoration: _inputDecoration(label: 'Abnormality type'),
-              selectedItemBuilder: (context) => _visibleTypes
-                  .map(
-                    (type) => Text(
-                      '${type.code} - ${type.title}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  )
-                  .toList(),
-              items: _visibleTypes
-                  .map(
-                    (type) => DropdownMenuItem(
-                      value: type,
-                      child: Text(
+              const SizedBox(height: BafSpacing.sm),
+              Text(
+                _observationKind == null ||
+                        _observationKind ==
+                            AbnormalityObservationKind.legacyUnknown
+                    ? 'Historical observation kind was not recorded. Keep it unknown unless evidence supports a classification.'
+                    : _observationKind ==
+                          AbnormalityObservationKind.resultFinding
+                    ? 'Record the observed coil result. Colour does not decide whether RA is required.'
+                    : 'Record what happened to the process or equipment. A shared charge does not prove a cause.',
+              ),
+              const SizedBox(height: BafSpacing.lg),
+              const _SectionTitle(
+                icon: Icons.category_outlined,
+                title: 'Classification',
+                subtitle:
+                    'Choose the governed event type and observed severity.',
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              DropdownButtonFormField<AbnormalityType>(
+                key: ValueKey(
+                  'abnormality-type-${_selectedType.firestoreId ?? _selectedType.code}',
+                ),
+                initialValue: _selectedType,
+                isExpanded: true,
+                decoration: _inputDecoration(label: 'Abnormality type'),
+                selectedItemBuilder: (context) => _visibleTypes
+                    .map(
+                      (type) => Text(
                         '${type.code} - ${type.title}',
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _selectedType = value;
-                  _selectedSeverity = value.severity;
-                  _selectedAssetClassId = null;
-                  _selectedAssetInstanceId = null;
-                  _pendingTargetReference = null;
-                  _assetSelectionError = null;
-                });
-              },
-            ),
-            const SizedBox(height: BafSpacing.md),
-            DropdownButtonFormField<AbnormalitySeverity>(
-              key: ValueKey('severity-${_selectedSeverity.name}'),
-              initialValue: _selectedSeverity,
-              isExpanded: true,
-              decoration: _inputDecoration(label: 'Observed severity'),
-              items: AbnormalitySeverity.values
-                  .map(
-                    (severity) => DropdownMenuItem(
-                      value: severity,
-                      child: Text(_severityLabel(severity)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() => _selectedSeverity = value);
-              },
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            Wrap(
-              spacing: BafSpacing.sm,
-              runSpacing: BafSpacing.sm,
-              children: [
-                StatusBadge(
-                  label: _categoryLabel(_selectedType.category),
-                  color: _categoryColor(_selectedType.category),
-                  icon: Icons.category_rounded,
-                ),
-                StatusBadge(
-                  label: _severityLabel(_selectedSeverity),
-                  color: _severityColor(_selectedSeverity),
-                  icon: Icons.priority_high_rounded,
-                ),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.xl),
-            const _SectionTitle(
-              icon: Icons.visibility_outlined,
-              title: 'Observation',
-              subtitle:
-                  'Record what was observed; possible causes are assessed separately.',
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            TextFormField(
-              key: const ValueKey('abnormality-observation'),
-              controller: _observedReasonController,
-              minLines: 3,
-              maxLines: 5,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: _inputDecoration(
-                label:
-                    _observationKind == AbnormalityObservationKind.legacyUnknown
-                    ? 'Recorded observation'
-                    : _observationKind ==
-                          AbnormalityObservationKind.processEquipment
-                    ? 'Process or equipment observation'
-                    : 'Observed result',
-                hint:
-                    'What happened, what was seen, and why it matters to this charge',
-              ),
-              validator: (value) => _requiredTextValidation(
-                value,
-                label: 'Observation',
-                maximum: 2000,
-              ),
-            ),
-            const SizedBox(height: BafSpacing.md),
-            TextFormField(
-              controller: _descriptionController,
-              minLines: 2,
-              maxLines: 5,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: _inputDecoration(
-                label: 'Additional description',
-                hint: 'Optional supporting detail',
-              ),
-              validator: (value) => _optionalTextValidation(
-                value,
-                label: 'Additional description',
-                maximum: 4000,
-              ),
-            ),
-            const SizedBox(height: BafSpacing.xl),
-            const _SectionTitle(
-              icon: Icons.precision_manufacturing_outlined,
-              title: 'Affected equipment',
-              subtitle:
-                  'Select registered assets and, where known, their governed component or subcomponent.',
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            _buildAffectedEquipmentComposer(),
-            if (_assetSelectionError != null) ...[
-              const SizedBox(height: BafSpacing.sm),
-              _FormNotice(
-                icon: Icons.error_outline_rounded,
-                message: _assetSelectionError!,
-                color: BafColors.danger,
-              ),
-            ],
-            const SizedBox(height: BafSpacing.md),
-            if (_affectedAssets.isEmpty)
-              const _FormNotice(
-                icon: Icons.inventory_2_outlined,
-                message:
-                    'Add at least one governed affected asset before logging this abnormality.',
-                color: BafColors.warning,
-              )
-            else
-              for (final asset in _affectedAssets) ...[
-                _AffectedAssetTile(
-                  asset: asset,
-                  onRemove: () => _removeAffectedAsset(asset),
-                ),
-                const SizedBox(height: BafSpacing.sm),
-              ],
-            if (_legacyComponent != null &&
-                !_affectedAssets.any((asset) => asset.componentLabel != null))
-              _FormNotice(
-                icon: Icons.history_rounded,
-                message:
-                    'Historical component text retained: $_legacyComponent. Replace the legacy asset entry with a governed component when its identity is known.',
-                color: BafColors.audit,
-              ),
-            const SizedBox(height: BafSpacing.xl),
-            if (widget.existing != null &&
-                (_selectedRootReason != RootReasonCategory.unknown ||
-                    _rootReasonNotesController.text.isNotEmpty)) ...[
-              const _SectionTitle(
-                icon: Icons.history_outlined,
-                title: 'Retained historical cause notes',
-                subtitle:
-                    'Record an early view; investigation may refine it later.',
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              DropdownButtonFormField<RootReasonCategory>(
-                key: ValueKey('root-reason-${_selectedRootReason.name}'),
-                initialValue: _selectedRootReason,
-                isExpanded: true,
-                decoration: _inputDecoration(
-                  label: 'Possible root-reason area',
-                ),
-                items: RootReasonCategory.values
+                    )
+                    .toList(),
+                items: _visibleTypes
                     .map(
-                      (rootCategory) => DropdownMenuItem(
-                        value: rootCategory,
+                      (type) => DropdownMenuItem(
+                        value: type,
                         child: Text(
-                          _rootReasonCategoryLabel(rootCategory),
-                          maxLines: 1,
+                          '${type.code} - ${type.title}',
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -398,177 +253,348 @@ class _ChargeAbnormalityFormDialogState
                     .toList(),
                 onChanged: (value) {
                   if (value == null) return;
-                  setState(() => _selectedRootReason = value);
+                  setState(() {
+                    _selectedType = value;
+                    _selectedSeverity = value.severity;
+                    _assetChoiceInvalid = false;
+                    _selectedAssetClassId = null;
+                    _selectedAssetInstanceId = null;
+                    _pendingTargetReference = null;
+                    _assetSelectionError = null;
+                  });
                 },
               ),
               const SizedBox(height: BafSpacing.md),
+              DropdownButtonFormField<AbnormalitySeverity>(
+                key: ValueKey('severity-${_selectedSeverity.name}'),
+                initialValue: _selectedSeverity,
+                isExpanded: true,
+                decoration: _inputDecoration(label: 'Observed severity'),
+                items: AbnormalitySeverity.values
+                    .map(
+                      (severity) => DropdownMenuItem(
+                        value: severity,
+                        child: Text(_severityLabel(severity)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() => _selectedSeverity = value);
+                },
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Wrap(
+                spacing: BafSpacing.sm,
+                runSpacing: BafSpacing.sm,
+                children: [
+                  StatusBadge(
+                    label: _categoryLabel(_selectedType.category),
+                    color: _categoryColor(_selectedType.category),
+                    icon: Icons.category_rounded,
+                  ),
+                  StatusBadge(
+                    label: _severityLabel(_selectedSeverity),
+                    color: _severityColor(_selectedSeverity),
+                    icon: Icons.priority_high_rounded,
+                  ),
+                ],
+              ),
+              const SizedBox(height: BafSpacing.xl),
+              const _SectionTitle(
+                icon: Icons.visibility_outlined,
+                title: 'Observation',
+                subtitle:
+                    'Record what was observed; possible causes are assessed separately.',
+              ),
+              const SizedBox(height: BafSpacing.sm),
               TextFormField(
-                controller: _rootReasonNotesController,
+                key: const ValueKey('abnormality-observation'),
+                controller: _observedReasonController,
+                minLines: 3,
+                maxLines: 5,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: _inputDecoration(
+                  label:
+                      _observationKind ==
+                          AbnormalityObservationKind.legacyUnknown
+                      ? 'Recorded observation'
+                      : _observationKind ==
+                            AbnormalityObservationKind.processEquipment
+                      ? 'Process or equipment observation'
+                      : 'Observed result',
+                  hint:
+                      'What happened, what was seen, and why it matters to this charge',
+                ),
+                validator: (value) => _requiredTextValidation(
+                  value,
+                  label: 'Observation',
+                  maximum: 2000,
+                ),
+              ),
+              const SizedBox(height: BafSpacing.md),
+              TextFormField(
+                controller: _descriptionController,
                 minLines: 2,
                 maxLines: 5,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: _inputDecoration(
-                  label: 'Cause notes',
-                  hint: 'Optional evidence or working hypothesis',
+                  label: 'Additional description',
+                  hint: 'Optional supporting detail',
                 ),
                 validator: (value) => _optionalTextValidation(
                   value,
-                  label: 'Cause notes',
+                  label: 'Additional description',
                   maximum: 4000,
                 ),
               ),
               const SizedBox(height: BafSpacing.xl),
-            ],
-            ..._assessmentCauseWidgets(),
-            const _SectionTitle(
-              icon: Icons.repeat_rounded,
-              title: 'RA decision and action',
-              subtitle:
-                  'Record the operational lifecycle state. The Quality warning remains the formal closure record.',
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            DropdownButtonFormField<ReannealingStatus>(
-              key: const ValueKey('abnormality-ra-decision'),
-              initialValue:
-                  _selectedReannealingStatus == ReannealingStatus.completed
-                  ? ReannealingStatus.required
-                  : _selectedReannealingStatus,
-              isExpanded: true,
-              decoration: _inputDecoration(label: 'RA decision'),
-              items: ReannealingStatus.values
-                  .where((status) => status != ReannealingStatus.completed)
-                  .map(
-                    (status) => DropdownMenuItem(
-                      value: status,
-                      child: Text(_raStatusLabel(status)),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (value) {
-                if (value == null) return;
-                setState(() {
-                  _selectedReannealingStatus = value;
-                  if (value != ReannealingStatus.completed) {
-                    _reannealedToChargeController.clear();
-                    _raPerformedAt = null;
-                    _postRaResult = PostRaResult.notAssessed;
-                    _postRaObservation.clear();
-                  }
-                });
-              },
-            ),
-            if (_selectedReannealingStatus == ReannealingStatus.required ||
-                _selectedReannealingStatus == ReannealingStatus.completed)
-              CheckboxListTile(
-                key: const ValueKey('abnormality-ra-performed'),
-                contentPadding: EdgeInsets.zero,
-                title: const Text('RA has actually been performed'),
-                value:
-                    _selectedReannealingStatus == ReannealingStatus.completed,
-                onChanged: (value) => setState(() {
-                  _selectedReannealingStatus = value == true
-                      ? ReannealingStatus.completed
-                      : ReannealingStatus.required;
-                  if (value != true) {
-                    _reannealedToChargeController.clear();
-                    _raPerformedAt = null;
-                    _postRaResult = PostRaResult.notAssessed;
-                    _postRaObservation.clear();
-                  }
-                }),
+              const _SectionTitle(
+                icon: Icons.precision_manufacturing_outlined,
+                title: 'Affected equipment',
+                subtitle:
+                    'Log abnormality includes your current asset and component selection. Use Add affected equipment only when including more assets.',
               ),
-            if (_selectedReannealingStatus == ReannealingStatus.completed) ...[
+              const SizedBox(height: BafSpacing.sm),
+              _buildAffectedEquipmentComposer(),
+              if (_assetSelectionError != null) ...[
+                const SizedBox(height: BafSpacing.sm),
+                _FormNotice(
+                  icon: Icons.error_outline_rounded,
+                  message: _assetSelectionError!,
+                  color: BafColors.danger,
+                ),
+              ],
               const SizedBox(height: BafSpacing.md),
-              TextFormField(
-                controller: _reannealedToChargeController,
-                keyboardType: TextInputType.number,
-                inputFormatters: chargeNumberInputFormatters,
-                decoration: _inputDecoration(
-                  label: 'New RA charge number',
-                  hint: 'Exactly five digits',
+              if (_affectedAssets.isEmpty && _selectedAssetInstanceId == null)
+                const _FormNotice(
+                  icon: Icons.inventory_2_outlined,
+                  message:
+                      'Select at least one governed affected asset before logging this abnormality.',
+                  color: BafColors.warning,
+                )
+              else
+                for (final asset in _affectedAssets) ...[
+                  _AffectedAssetTile(
+                    asset: asset,
+                    onRemove: () => _removeAffectedAsset(asset),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                ],
+              if (_legacyComponent != null &&
+                  !_affectedAssets.any((asset) => asset.componentLabel != null))
+                _FormNotice(
+                  icon: Icons.history_rounded,
+                  message:
+                      'Historical component text retained: $_legacyComponent. Replace the legacy asset entry with a governed component when its identity is known.',
+                  color: BafColors.audit,
                 ),
-                validator: _validateRaCharge,
-              ),
-              RaPerformedAtField(
-                value: _raPerformedAt,
-                onChanged: (value) => setState(() => _raPerformedAt = value),
-              ),
-              if (widget.existing?.hasCompletedReannealing == true &&
-                  widget.existing?.raPerformedAt == null)
-                const Text(
-                  'Historical completion date is unknown unless you explicitly supply evidence for it.',
+              const SizedBox(height: BafSpacing.xl),
+              if (widget.existing != null &&
+                  (_selectedRootReason != RootReasonCategory.unknown ||
+                      _rootReasonNotesController.text.isNotEmpty)) ...[
+                const _SectionTitle(
+                  icon: Icons.history_outlined,
+                  title: 'Retained historical cause notes',
+                  subtitle:
+                      'Record an early view; investigation may refine it later.',
                 ),
-              DropdownButtonFormField<PostRaResult>(
-                key: const ValueKey('abnormality-post-ra-result'),
-                initialValue: _postRaResult,
+                const SizedBox(height: BafSpacing.sm),
+                DropdownButtonFormField<RootReasonCategory>(
+                  key: ValueKey('root-reason-${_selectedRootReason.name}'),
+                  initialValue: _selectedRootReason,
+                  isExpanded: true,
+                  decoration: _inputDecoration(
+                    label: 'Possible root-reason area',
+                  ),
+                  items: RootReasonCategory.values
+                      .map(
+                        (rootCategory) => DropdownMenuItem(
+                          value: rootCategory,
+                          child: Text(
+                            _rootReasonCategoryLabel(rootCategory),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) return;
+                    setState(() => _selectedRootReason = value);
+                  },
+                ),
+                const SizedBox(height: BafSpacing.md),
+                TextFormField(
+                  controller: _rootReasonNotesController,
+                  minLines: 2,
+                  maxLines: 5,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: _inputDecoration(
+                    label: 'Cause notes',
+                    hint: 'Optional evidence or working hypothesis',
+                  ),
+                  validator: (value) => _optionalTextValidation(
+                    value,
+                    label: 'Cause notes',
+                    maximum: 4000,
+                  ),
+                ),
+                const SizedBox(height: BafSpacing.xl),
+              ],
+              ..._assessmentCauseWidgets(),
+              const _SectionTitle(
+                icon: Icons.repeat_rounded,
+                title: 'RA decision and action',
+                subtitle:
+                    'Record the operational lifecycle state. The Quality warning remains the formal closure record.',
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              DropdownButtonFormField<ReannealingStatus>(
+                key: const ValueKey('abnormality-ra-decision'),
+                initialValue:
+                    _selectedReannealingStatus == ReannealingStatus.completed
+                    ? ReannealingStatus.required
+                    : _selectedReannealingStatus,
                 isExpanded: true,
-                decoration: _inputDecoration(label: 'Post-RA result'),
-                items: PostRaResult.values
+                decoration: _inputDecoration(label: 'RA decision'),
+                items: ReannealingStatus.values
+                    .where((status) => status != ReannealingStatus.completed)
                     .map(
-                      (value) => DropdownMenuItem(
-                        value: value,
-                        child: Text(switch (value) {
-                          PostRaResult.notAssessed => 'Not assessed',
-                          PostRaResult.acceptable => 'Acceptable',
-                          PostRaResult.abnormal => 'Still abnormal',
-                        }),
+                      (status) => DropdownMenuItem(
+                        value: status,
+                        child: Text(_raStatusLabel(status)),
                       ),
                     )
                     .toList(),
-                onChanged: (value) => setState(() => _postRaResult = value!),
+                onChanged: (value) {
+                  if (value == null) return;
+                  setState(() {
+                    _selectedReannealingStatus = value;
+                    if (value != ReannealingStatus.completed) {
+                      _reannealedToChargeController.clear();
+                      _raPerformedAt = null;
+                      _postRaResult = PostRaResult.notAssessed;
+                      _postRaObservation.clear();
+                    }
+                  });
+                },
               ),
-              TextFormField(
-                controller: _postRaObservation,
-                decoration: _inputDecoration(
-                  label: 'Post-RA observations',
-                  hint: 'Required when the result has been assessed',
+              if (_selectedReannealingStatus == ReannealingStatus.required ||
+                  _selectedReannealingStatus == ReannealingStatus.completed)
+                CheckboxListTile(
+                  key: const ValueKey('abnormality-ra-performed'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('RA has actually been performed'),
+                  value:
+                      _selectedReannealingStatus == ReannealingStatus.completed,
+                  onChanged: (value) => setState(() {
+                    _selectedReannealingStatus = value == true
+                        ? ReannealingStatus.completed
+                        : ReannealingStatus.required;
+                    if (value != true) {
+                      _reannealedToChargeController.clear();
+                      _raPerformedAt = null;
+                      _postRaResult = PostRaResult.notAssessed;
+                      _postRaObservation.clear();
+                    }
+                  }),
                 ),
-                validator: (value) => _postRaResult == PostRaResult.notAssessed
-                    ? _optionalTextValidation(
-                        value,
-                        label: 'Post-RA observations',
-                        maximum: 2000,
+              if (_selectedReannealingStatus ==
+                  ReannealingStatus.completed) ...[
+                const SizedBox(height: BafSpacing.md),
+                TextFormField(
+                  controller: _reannealedToChargeController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: chargeNumberInputFormatters,
+                  decoration: _inputDecoration(
+                    label: 'New RA charge number',
+                    hint: 'Exactly five digits',
+                  ),
+                  validator: _validateRaCharge,
+                ),
+                RaPerformedAtField(
+                  value: _raPerformedAt,
+                  onChanged: (value) => setState(() => _raPerformedAt = value),
+                ),
+                if (widget.existing?.hasCompletedReannealing == true &&
+                    widget.existing?.raPerformedAt == null)
+                  const Text(
+                    'Historical completion date is unknown unless you explicitly supply evidence for it.',
+                  ),
+                DropdownButtonFormField<PostRaResult>(
+                  key: const ValueKey('abnormality-post-ra-result'),
+                  initialValue: _postRaResult,
+                  isExpanded: true,
+                  decoration: _inputDecoration(label: 'Post-RA result'),
+                  items: PostRaResult.values
+                      .map(
+                        (value) => DropdownMenuItem(
+                          value: value,
+                          child: Text(switch (value) {
+                            PostRaResult.notAssessed => 'Not assessed',
+                            PostRaResult.acceptable => 'Acceptable',
+                            PostRaResult.abnormal => 'Still abnormal',
+                          }),
+                        ),
                       )
-                    : _requiredTextValidation(
-                        value,
-                        label: 'Post-RA observations',
-                        maximum: 2000,
-                      ),
-              ),
-            ],
-            const SizedBox(height: BafSpacing.sm),
-            const _FormNotice(
-              icon: Icons.link_rounded,
-              message:
-                  'Required and completed states appear immediately in the linked Quality case. Warning closure or final adjudication remains a separate governed action.',
-              color: BafColors.charges,
-            ),
-            if (widget.existing != null) ...[
-              const SizedBox(height: BafSpacing.xl),
-              const _SectionTitle(
-                icon: Icons.history_edu_outlined,
-                title: 'Correction audit',
-                subtitle:
-                    'Explain why this record is being changed. The reason and before/after values are retained in the immutable audit trail.',
-              ),
+                      .toList(),
+                  onChanged: (value) => setState(() => _postRaResult = value!),
+                ),
+                TextFormField(
+                  controller: _postRaObservation,
+                  decoration: _inputDecoration(
+                    label: 'Post-RA observations',
+                    hint: 'Required when the result has been assessed',
+                  ),
+                  validator: (value) =>
+                      _postRaResult == PostRaResult.notAssessed
+                      ? _optionalTextValidation(
+                          value,
+                          label: 'Post-RA observations',
+                          maximum: 2000,
+                        )
+                      : _requiredTextValidation(
+                          value,
+                          label: 'Post-RA observations',
+                          maximum: 2000,
+                        ),
+                ),
+              ],
               const SizedBox(height: BafSpacing.sm),
-              TextFormField(
-                controller: _correctionReasonController,
-                minLines: 2,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: _inputDecoration(
-                  label: 'Reason for correction',
-                  hint: 'What is being corrected and why',
-                ),
-                validator: (value) => _requiredTextValidation(
-                  value,
-                  label: 'Reason for correction',
-                  maximum: 500,
-                ),
+              const _FormNotice(
+                icon: Icons.link_rounded,
+                message:
+                    'Required and completed states appear immediately in the linked Quality case. Warning closure or final adjudication remains a separate governed action.',
+                color: BafColors.charges,
               ),
+              if (widget.existing != null) ...[
+                const SizedBox(height: BafSpacing.xl),
+                const _SectionTitle(
+                  icon: Icons.history_edu_outlined,
+                  title: 'Correction audit',
+                  subtitle:
+                      'Explain why this record is being changed. The reason and before/after values are retained in the immutable audit trail.',
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                TextFormField(
+                  controller: _correctionReasonController,
+                  minLines: 2,
+                  maxLines: 4,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: _inputDecoration(
+                    label: 'Reason for correction',
+                    hint: 'What is being corrected and why',
+                  ),
+                  validator: (value) => _requiredTextValidation(
+                    value,
+                    label: 'Reason for correction',
+                    maximum: 500,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
@@ -596,8 +622,13 @@ class _ChargeAbnormalityFormDialogState
                       backgroundColor: BafColors.charges,
                       foregroundColor: Colors.white,
                     ),
-                    onPressed: _submit,
-                    icon: const Icon(Icons.fact_check_outlined),
+                    onPressed: _equipmentBusy ? null : _submit,
+                    icon: _submitting
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.fact_check_outlined),
                     label: Text(
                       widget.existing == null
                           ? 'Log abnormality'
@@ -620,439 +651,6 @@ class _ChargeAbnormalityFormDialogState
       clipBehavior: Clip.antiAlias,
       child: SizedBox(width: 720, height: height, child: form),
     );
-  }
-
-  Widget _buildAffectedEquipmentComposer() {
-    final classesValue = ref.watch(assetClassesProvider);
-    return classesValue.when(
-      loading: () => const _AssetSelectionMessage(
-        icon: Icons.sync_rounded,
-        message: 'Loading the governed asset register...',
-        color: BafColors.assets,
-        showProgress: true,
-      ),
-      error: (error, stackTrace) => const _AssetSelectionMessage(
-        icon: Icons.error_outline_rounded,
-        message:
-            'The governed asset register could not be loaded. Sync and try again.',
-        color: BafColors.danger,
-      ),
-      data: (allClasses) {
-        final classes = activeIssueAssetClasses(allClasses)
-            .where(
-              (assetClass) =>
-                  _selectedType.applicableAssetTypes.isEmpty ||
-                  _selectedType.applicableAssetTypes.contains(
-                    resolveGovernedIssueAssetRoute(
-                      issueClass: assetClass,
-                      allClasses: allClasses,
-                    ).assetType,
-                  ),
-            )
-            .toList(growable: false);
-        final selectedClass = _findAssetClass(classes, _selectedAssetClassId);
-        final route = selectedClass == null
-            ? null
-            : resolveGovernedIssueAssetRoute(
-                issueClass: selectedClass,
-                allClasses: allClasses,
-              );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (classes.isEmpty)
-              const _AssetSelectionMessage(
-                icon: Icons.inventory_2_outlined,
-                message:
-                    'No active registered asset class applies to this abnormality type.',
-                color: BafColors.warning,
-              ),
-            LiveDropdownFormField<String>(
-              key: const ValueKey('abnormality-asset-class'),
-              initialValue: selectedClass?.id,
-              decoration: _inputDecoration(label: 'Asset class'),
-              items: classes
-                  .map(
-                    (assetClass) => DropdownMenuItem(
-                      value: assetClass.id,
-                      child: Text(
-                        assetClass.name,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (classId) {
-                setState(() {
-                  _selectedAssetClassId = classId;
-                  _selectedAssetInstanceId = null;
-                  _pendingTargetReference = null;
-                  _assetSelectionError = null;
-                });
-              },
-              onInvalidSelection: () => setState(() {
-                _assetSelectionError =
-                    'That asset class is no longer available. Choose a current registered class.';
-              }),
-            ),
-            if (route != null) ...[
-              const SizedBox(height: BafSpacing.md),
-              if (!route.isAvailable)
-                _AssetSelectionMessage(
-                  icon: Icons.block_outlined,
-                  message:
-                      route.blockingReason ??
-                      'This asset class is not currently available.',
-                  color: BafColors.danger,
-                )
-              else ...[
-                if (route.innerCoverByBase) ...[
-                  const _FormNotice(
-                    icon: Icons.link_rounded,
-                    message:
-                        'Choose the Base carrying the Inner Cover. The current serial-number linkage is frozen with this event.',
-                    color: BafColors.assets,
-                  ),
-                  const SizedBox(height: BafSpacing.md),
-                ],
-                _buildPhysicalAssetSelector(route),
-              ],
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildPhysicalAssetSelector(GovernedIssueAssetRoute route) {
-    final physicalClass = route.physicalAssetClass!;
-    final assetsValue = ref.watch(assetInstancesProvider(physicalClass.id));
-    return assetsValue.when(
-      loading: () => const _AssetSelectionMessage(
-        icon: Icons.sync_rounded,
-        message: 'Loading active physical assets...',
-        color: BafColors.assets,
-        showProgress: true,
-      ),
-      error: (error, stackTrace) => const _AssetSelectionMessage(
-        icon: Icons.error_outline_rounded,
-        message: 'Physical assets could not be loaded. Sync and try again.',
-        color: BafColors.danger,
-      ),
-      data: (allAssets) {
-        final assets = eligibleIssueAssets(route: route, assets: allAssets);
-        final selectedAsset = _findAsset(assets, _selectedAssetInstanceId);
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (assets.isEmpty)
-              _AssetSelectionMessage(
-                icon: Icons.precision_manufacturing_outlined,
-                message:
-                    'No active ${physicalClass.name} assets are registered for this selection.',
-                color: BafColors.warning,
-              ),
-            LiveDropdownFormField<String>(
-              key: ValueKey('abnormality-asset-${physicalClass.id}'),
-              initialValue: selectedAsset?.id,
-              decoration: _inputDecoration(
-                label: route.innerCoverByBase
-                    ? 'Base carrying Inner Cover'
-                    : 'Registered asset',
-              ),
-              items: assets
-                  .map(
-                    (asset) => DropdownMenuItem(
-                      value: asset.id,
-                      child: Text(
-                        _registeredAssetLabel(asset),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  )
-                  .toList(),
-              onChanged: (assetId) {
-                setState(() {
-                  _selectedAssetInstanceId = assetId;
-                  _pendingTargetReference = null;
-                  _assetSelectionError = null;
-                });
-              },
-              onInvalidSelection: () => setState(() {
-                _assetSelectionError =
-                    'That asset is no longer available. Choose an active registered asset.';
-              }),
-            ),
-            if (selectedAsset != null) ...[
-              const SizedBox(height: BafSpacing.sm),
-              if (_pendingTargetReference != null)
-                _PendingHierarchyTarget(
-                  reference: _pendingTargetReference!,
-                  onClear: () => setState(() => _pendingTargetReference = null),
-                )
-              else
-                const _FormNotice(
-                  icon: Icons.account_tree_outlined,
-                  message:
-                      'No component selected. You may add the whole asset, or choose a governed component first.',
-                  color: BafColors.textSecondary,
-                ),
-              const SizedBox(height: BafSpacing.sm),
-              OutlinedButton.icon(
-                onPressed: _addingAsset ? null : _chooseGovernedComponent,
-                icon: const Icon(Icons.account_tree_outlined),
-                label: Text(
-                  _pendingTargetReference == null
-                      ? 'Choose component or subcomponent'
-                      : 'Change component or subcomponent',
-                ),
-              ),
-              const SizedBox(height: BafSpacing.sm),
-              FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: BafColors.assets,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: _addingAsset ? null : _addAffectedAsset,
-                icon: _addingAsset
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.add_rounded),
-                label: const Text('Add affected equipment'),
-              ),
-            ],
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _chooseGovernedComponent() async {
-    final selectionContext = _currentAssetSelection();
-    if (selectionContext == null) {
-      setState(() {
-        _assetSelectionError =
-            'Choose an active registered asset before selecting its component.';
-      });
-      return;
-    }
-    try {
-      final nodes = await ref
-          .read(assetHierarchyRepositoryProvider)
-          .watchNodes(selectionContext.route.issueClass.id)
-          .first;
-      if (!mounted) return;
-      final selection = await showGovernedAssetTargetPicker(
-        context: context,
-        asset: selectionContext.asset,
-        nodes: nodes,
-        selectedNodeId: _pendingTargetReference?.nodeId,
-        definitionAssetClassId: selectionContext.route.issueClass.id,
-      );
-      if (!mounted || selection?.reference == null) return;
-      setState(() {
-        _pendingTargetReference = selection!.reference;
-        _assetSelectionError = null;
-      });
-    } on Object catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _assetSelectionError = error is AssetHierarchyException
-            ? '$error'
-            : 'The component hierarchy could not be loaded. Sync and try again.';
-      });
-    }
-  }
-
-  Future<void> _addAffectedAsset() async {
-    if (_addingAsset) return;
-    if (_affectedAssets.length >= 50) {
-      setState(() {
-        _assetSelectionError =
-            'A charge abnormality can identify at most 50 affected assets.';
-      });
-      return;
-    }
-    final selectionContext = _currentAssetSelection();
-    if (selectionContext == null) {
-      setState(() {
-        _assetSelectionError = 'Choose an active registered asset first.';
-      });
-      return;
-    }
-    final duplicate = _affectedAssets.any(
-      (item) =>
-          item.assetType == selectionContext.route.assetType &&
-          item.assetNumber == selectionContext.asset.assetNumber,
-    );
-    if (duplicate) {
-      setState(() {
-        _assetSelectionError =
-            'This asset is already included. Remove it before selecting a different component.';
-      });
-      return;
-    }
-    setState(() {
-      _addingAsset = true;
-      _assetSelectionError = null;
-    });
-    try {
-      final actor = CurrentActorAccess.resolve(
-        ref.read(currentAppUserProvider),
-      ).actor;
-      if (actor == null || actor.uid != widget.originUid) {
-        throw StateError('The reporting user could not be verified.');
-      }
-      final confirmedAt = DateTime.now();
-      final selectedReference =
-          _pendingTargetReference ?? selectionContext.asset.toReference();
-      final reference = await _freezeInnerCoverContext(
-        route: selectionContext.route,
-        asset: selectionContext.asset,
-        selectedReference: selectedReference,
-        eventAt: _eventAt,
-        confirmedAt: confirmedAt,
-        historicalCorrection: widget.existing != null,
-        reporterUid: actor.uid,
-        reporterName: actor.name,
-      );
-      if (!mounted) return;
-      setState(() {
-        _affectedAssets.add(
-          AffectedAssetRef(
-            assetType: selectionContext.route.assetType,
-            assetNumber: selectionContext.asset.assetNumber,
-            assetHierarchyReference: reference,
-          ),
-        );
-        if (reference.scope != AssetHierarchyReferenceScope.physicalAsset) {
-          _legacyComponent = null;
-        }
-        _selectedAssetInstanceId = null;
-        _pendingTargetReference = null;
-      });
-    } on Object catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _assetSelectionError = error is AssetHierarchyException
-            ? '$error'
-            : 'The governed equipment selection could not be confirmed. Sync and try again.';
-      });
-    } finally {
-      if (mounted) setState(() => _addingAsset = false);
-    }
-  }
-
-  _SelectedAbnormalityAsset? _currentAssetSelection() {
-    final classes = ref.read(assetClassesProvider).value;
-    final classId = _selectedAssetClassId;
-    if (classes == null || classId == null) return null;
-    final selectedClass = _findAssetClass(classes, classId);
-    if (selectedClass == null) return null;
-    final route = resolveGovernedIssueAssetRoute(
-      issueClass: selectedClass,
-      allClasses: classes,
-    );
-    final physicalClass = route.physicalAssetClass;
-    final assetId = _selectedAssetInstanceId;
-    if (!route.isAvailable || physicalClass == null || assetId == null) {
-      return null;
-    }
-    final assets = ref.read(assetInstancesProvider(physicalClass.id)).value;
-    final asset = _findAsset(assets ?? const <AssetInstanceRecord>[], assetId);
-    if (asset == null || !asset.isActive) return null;
-    return _SelectedAbnormalityAsset(route: route, asset: asset);
-  }
-
-  Future<AssetHierarchyReference> _freezeInnerCoverContext({
-    required GovernedIssueAssetRoute route,
-    required AssetInstanceRecord asset,
-    required AssetHierarchyReference selectedReference,
-    required DateTime eventAt,
-    required DateTime confirmedAt,
-    required bool historicalCorrection,
-    required String reporterUid,
-    required String reporterName,
-  }) async {
-    final assetType = route.assetType;
-    if (assetType != AssetType.base && assetType != AssetType.innerCover) {
-      return selectedReference;
-    }
-    final eventContext = await ref
-        .read(assetHierarchyRepositoryProvider)
-        .resolveGovernedAssetEventContext(
-          legacyAssetTypeKey: AssetType.base.name,
-          assetNumber: asset.assetNumber,
-        );
-    if (eventContext == null) {
-      if (assetType == AssetType.innerCover) {
-        throw const AssetHierarchyException(
-          'This Base is unavailable in the governed register. Reconcile it before logging an Inner Cover abnormality.',
-        );
-      }
-      return selectedReference;
-    }
-    if (selectedReference.assetInstanceId != eventContext.asset.id) {
-      throw const AssetHierarchyException(
-        'The selected component and physical Base do not match.',
-      );
-    }
-    final assignment = eventContext.innerCoverAssignment;
-    if (historicalCorrection &&
-        (assignment == null || eventAt.isBefore(assignment.linkedAt))) {
-      if (assetType == AssetType.innerCover) {
-        throw const AssetHierarchyException(
-          'The current Inner Cover linkage does not establish which cover occupied this Base at the original event time. Retain the recorded reference or reconcile the linkage history first.',
-        );
-      }
-      // A current vacancy or later linkage cannot prove the Base position at
-      // an older event. Preserve the physical/component identity without
-      // inventing Inner Cover evidence.
-      return selectedReference;
-    }
-    if (assetType == AssetType.innerCover && assignment == null) {
-      throw const AssetHierarchyException(
-        'No Inner Cover is linked to this Base. Correct the linkage before logging an Inner Cover abnormality.',
-      );
-    }
-    if (assignment != null && eventAt.isBefore(assignment.linkedAt)) {
-      throw const AssetHierarchyException(
-        'The abnormality event predates the current Inner Cover linkage. Restart after reconciling the Base linkage history.',
-      );
-    }
-    final association = InnerCoverEventReference(
-      baseAssetInstanceId: eventContext.asset.id,
-      baseAssetNumber: eventContext.asset.assetNumber,
-      positionState: assignment == null
-          ? InnerCoverPositionState.noneLinked
-          : InnerCoverPositionState.linked,
-      innerCoverId: assignment?.innerCoverId,
-      innerCoverSerialNumber: assignment?.innerCoverSerialNumber,
-      linkageId: assignment?.linkageId,
-      assignmentVersion: assignment?.version,
-      linkedAt: assignment?.linkedAt,
-      eventAt: eventAt,
-      confirmedAt: confirmedAt,
-      confirmedByUid: reporterUid,
-      confirmedByName: reporterName,
-    );
-    return _copyReferenceWithAssociation(selectedReference, association);
-  }
-
-  void _removeAffectedAsset(AffectedAssetRef asset) {
-    setState(() {
-      _affectedAssets.removeWhere(
-        (candidate) =>
-            candidate.assetType == asset.assetType &&
-            candidate.assetNumber == asset.assetNumber,
-      );
-      _assetSelectionError = null;
-    });
   }
 
   String? _validateRaCharge(String? value) {
@@ -1079,18 +677,8 @@ class _ChargeAbnormalityFormDialogState
     return null;
   }
 
-  void _submit() {
-    if (currentActorActionMessage(
-          CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
-          originUid: widget.originUid,
-          permission: (actor) => widget.existing == null
-              ? actor.canLogChargeAbnormality
-              : actor.canEditChargeAbnormality,
-        ) !=
-        null) {
-      return;
-    }
-    if (!_formKey.currentState!.validate()) return;
+  bool _validateFormInputs() {
+    if (!(_formKey.currentState?.validate() ?? false)) return false;
     if (_observationKind == null ||
         (!_matchingTypes.contains(_selectedType) &&
             (widget.existing == null ||
@@ -1101,7 +689,7 @@ class _ChargeAbnormalityFormDialogState
         () => _assetSelectionError =
             'Select an observation kind and an applicable classification.',
       );
-      return;
+      return false;
     }
     if (_selectedReannealingStatus == ReannealingStatus.completed &&
         _raPerformedAt == null &&
@@ -1110,72 +698,101 @@ class _ChargeAbnormalityFormDialogState
         () => _assetSelectionError =
             'Confirm the actual RA completion date and time.',
       );
-      return;
+      return false;
     }
 
-    if (_affectedAssets.isEmpty) {
-      setState(() {
-        _assetSelectionError =
-            'Add at least one governed affected asset before logging.';
-      });
-      return;
-    }
-    final applicable = _selectedType.applicableAssetTypes;
-    final existing = widget.existing;
-    final selectedTypeId = _selectedType.firestoreId ?? _selectedType.code;
-    final retainsExistingType =
-        existing != null &&
-        (selectedTypeId == existing.abnormalityTypeId ||
-            _selectedType.code == existing.abnormalityTypeId ||
-            _selectedType.code == existing.abnormalityTypeCode);
-    final incompatible = _affectedAssets
-        .where(
-          (asset) => !isAffectedAssetPermittedForCorrection(
-            asset: asset,
-            currentlyApplicableTypes: applicable,
-            existingAffectedAssets:
-                existing?.affectedAssets ?? const <AffectedAssetRef>[],
-            retainsExistingType: retainsExistingType,
+    return true;
+  }
+
+  Future<void> _submit() async {
+    if (_equipmentBusy || !_formActive || !_actorCanSubmit) return;
+    var submitted = false;
+    setState(() => _submitting = true);
+    try {
+      if (!_validateFormInputs()) return;
+
+      // A withdrawn popup choice must not be silently omitted just because
+      // another asset has already been staged.
+      if (_assetChoiceInvalid) {
+        setState(
+          () => _assetSelectionError =
+              'Choose a current registered asset before logging.',
+        );
+        return;
+      }
+      if (_selectedAssetInstanceId != null || _pendingTargetReference != null) {
+        if (!await _addAffectedAsset()) return;
+      }
+      if (!mounted || !_formActive || !_actorCanSubmit) return;
+      if (!_validateFormInputs()) return;
+
+      if (_affectedAssets.isEmpty) {
+        setState(() {
+          _assetSelectionError =
+              'Select at least one governed affected asset before logging.';
+        });
+        return;
+      }
+      final applicable = _selectedType.applicableAssetTypes;
+      final existing = widget.existing;
+      final selectedTypeId = _selectedType.firestoreId ?? _selectedType.code;
+      final retainsExistingType =
+          existing != null &&
+          (selectedTypeId == existing.abnormalityTypeId ||
+              _selectedType.code == existing.abnormalityTypeId ||
+              _selectedType.code == existing.abnormalityTypeCode);
+      final incompatible = _affectedAssets
+          .where(
+            (asset) => !isAffectedAssetPermittedForCorrection(
+              asset: asset,
+              currentlyApplicableTypes: applicable,
+              existingAffectedAssets:
+                  existing?.affectedAssets ?? const <AffectedAssetRef>[],
+              retainsExistingType: retainsExistingType,
+            ),
+          )
+          .firstOrNull;
+      if (incompatible != null) {
+        setState(() {
+          _assetSelectionError =
+              '${incompatible.label} does not apply to the selected abnormality type.';
+        });
+        return;
+      }
+
+      final reannealedToChargeNo = parseOptionalChargeNumber(
+        _reannealedToChargeController.text.trim(),
+      );
+
+      submitted = true;
+      Navigator.pop(
+        context,
+        _ChargeAbnormalityDraft(
+          assessment: AbnormalityAssessment(
+            observationKind: _observationKind!,
+            candidateCauses: List.unmodifiable(_candidateCauses),
+            raPerformedAt: _raPerformedAt,
+            postRaResult: _postRaResult,
+            postRaObservation: _emptyToNull(_postRaObservation.text),
           ),
-        )
-        .firstOrNull;
-    if (incompatible != null) {
-      setState(() {
-        _assetSelectionError =
-            '${incompatible.label} does not apply to the selected abnormality type.';
-      });
-      return;
-    }
-
-    final reannealedToChargeNo = parseOptionalChargeNumber(
-      _reannealedToChargeController.text.trim(),
-    );
-
-    Navigator.pop(
-      context,
-      _ChargeAbnormalityDraft(
-        assessment: AbnormalityAssessment(
-          observationKind: _observationKind!,
-          candidateCauses: List.unmodifiable(_candidateCauses),
-          raPerformedAt: _raPerformedAt,
-          postRaResult: _postRaResult,
-          postRaObservation: _emptyToNull(_postRaObservation.text),
+          eventAt: _eventAt,
+          selectedType: _selectedType,
+          severity: _selectedSeverity,
+          affectedAssets: List<AffectedAssetRef>.from(_affectedAssets),
+          component: _componentSummary(_affectedAssets, _legacyComponent),
+          observedReason: _observedReasonController.text.trim(),
+          description: _emptyToNull(_descriptionController.text),
+          rootReasonCategory: _selectedRootReason,
+          rootReasonNotes: _emptyToNull(_rootReasonNotesController.text),
+          reannealingStatus: _selectedReannealingStatus,
+          reannealedToChargeNo: reannealedToChargeNo,
+          correctionReason: widget.existing == null
+              ? null
+              : _correctionReasonController.text.trim(),
         ),
-        eventAt: _eventAt,
-        selectedType: _selectedType,
-        severity: _selectedSeverity,
-        affectedAssets: List<AffectedAssetRef>.from(_affectedAssets),
-        component: _componentSummary(_affectedAssets, _legacyComponent),
-        observedReason: _observedReasonController.text.trim(),
-        description: _emptyToNull(_descriptionController.text),
-        rootReasonCategory: _selectedRootReason,
-        rootReasonNotes: _emptyToNull(_rootReasonNotesController.text),
-        reannealingStatus: _selectedReannealingStatus,
-        reannealedToChargeNo: reannealedToChargeNo,
-        correctionReason: widget.existing == null
-            ? null
-            : _correctionReasonController.text.trim(),
-      ),
-    );
+      );
+    } finally {
+      if (mounted && !submitted) setState(() => _submitting = false);
+    }
   }
 }

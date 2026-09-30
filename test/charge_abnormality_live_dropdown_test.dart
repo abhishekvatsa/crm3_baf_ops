@@ -301,7 +301,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text(
-          'Add at least one governed affected asset before logging this abnormality.',
+          'Select at least one governed affected asset before logging this abnormality.',
         ),
         findsNothing,
       );
@@ -346,7 +346,7 @@ void main() {
       expect(find.textContaining('no longer available'), findsOneWidget);
       expect(
         find.text(
-          'Add at least one governed affected asset before logging this abnormality.',
+          'Select at least one governed affected asset before logging this abnormality.',
         ),
         findsOneWidget,
       );

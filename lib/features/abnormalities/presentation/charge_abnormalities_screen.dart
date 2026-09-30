@@ -38,6 +38,7 @@ import 'ra_performed_at_field.dart';
 import 'abnormality_list_filter.dart';
 
 part 'charge_abnormalities_screen.form.dart';
+part 'charge_abnormalities_screen.assets.dart';
 part 'charge_abnormalities_screen.widgets.dart';
 part 'charge_abnormalities_screen.assessment.dart';
 
