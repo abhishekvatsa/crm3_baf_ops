@@ -2,6 +2,7 @@ import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
 import 'package:crm3_baf_ops/core/widgets/incremental_list_footer.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
 import 'package:crm3_baf_ops/features/abnormalities/presentation/charge_abnormalities_screen.dart';
+import 'package:crm3_baf_ops/features/abnormalities/presentation/abnormality_list_filter.dart';
 import 'package:crm3_baf_ops/features/abnormalities/providers/abnormality_provider.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
@@ -24,6 +25,51 @@ final _actor = AppUser(
 );
 
 void main() {
+  for (final metric in [
+    (label: 'Total', count: 4, filter: AbnormalityListFilter.all),
+    (label: 'RA pending', count: 2, filter: AbnormalityListFilter.open),
+    (label: 'RA Done', count: 1, filter: AbnormalityListFilter.completed),
+  ]) {
+    testWidgets('charge ${metric.label} counter opens its exact population', (
+      tester,
+    ) async {
+      await _show(
+        tester,
+        const ChargeAbnormalitiesScreen(sourceChargeNo: 91234),
+        width: 320,
+        textScale: 1.6,
+        abnormalities: [
+          _abnormality(0, ReannealingStatus.pendingDecision),
+          _abnormality(1, ReannealingStatus.required),
+          _abnormality(2, ReannealingStatus.completed),
+          _abnormality(3, ReannealingStatus.notRequired),
+        ],
+      );
+      final tile = find.byKey(
+        ValueKey('charge-abnormality-metric-${metric.label}'),
+      );
+      await tester.ensureVisible(tile);
+      await tester.pumpAndSettle();
+      expect(tile.hitTestable(), findsOneWidget);
+      await tester.tap(tile);
+      await tester.pumpAndSettle();
+      final field = find.byKey(
+        const ValueKey('charge-abnormality-status-filter'),
+      );
+      expect(
+        tester.state<FormFieldState<AbnormalityListFilter>>(field).value,
+        metric.filter,
+      );
+      await _expectPage(
+        tester,
+        find.byKey(const ValueKey('charge-abnormalities-scroll')),
+        metric.count,
+        metric.count,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('Quality filters and warning cards stay usable with large text', (
     tester,
   ) async {

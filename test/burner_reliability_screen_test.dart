@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:crm3_baf_ops/core/security/actor_session_cache_trust.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
@@ -149,6 +150,96 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'summary totals filter positions including zero and clear scope',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1100, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final now = DateTime.utc(2026, 8, 16, 8);
+      final scopes = <String?>[];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_user(now: now)),
+            ),
+            assetClassesProvider.overrideWith(
+              (ref) => Stream.value([_furnaceClass(now: now)]),
+            ),
+            allAssetInstancesProvider.overrideWith(
+              (ref) => Stream.value([_furnace(now: now)]),
+            ),
+            operationsReportTicketsProvider.overrideWith((ref, query) {
+              expect(query.startInclusive, startDate);
+              expect(query.endExclusive, DateTime(2026, 9, 1));
+              return Stream.value([_burnerTicket(now: now)]);
+            }),
+            burnerConditionRoundsProvider.overrideWith((ref, query) {
+              scopes.add(query.assetInstanceId);
+              return Stream.value([_round(now: now)]);
+            }),
+          ],
+          child: MaterialApp(
+            home: BurnerReliabilityScreen(
+              initialStartDate: startDate,
+              initialEndDate: endDate,
+              initialAssetInstanceId: 'furnace-2',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final semantics = tester.ensureSemantics();
+      try {
+        for (final filter in ['lockouts', 'redHot', 'open', 'surveys']) {
+          final metric = find.byKey(ValueKey('burner-summary-$filter'));
+          await tester.ensureVisible(metric);
+          await tester.tap(metric);
+          await tester.pumpAndSettle();
+          expect(
+            tester.getSemantics(metric).flagsCollection.isSelected,
+            Tristate.isTrue,
+          );
+          if (filter == 'open') {
+            expect(find.text('No matching burner positions'), findsOneWidget);
+            expect(find.text('FR-02-B01'), findsNothing);
+          } else {
+            expect(find.text('FR-02-B01'), findsOneWidget);
+            expect(
+              find.text('FR-02-B02'),
+              filter == 'surveys' ? findsOneWidget : findsNothing,
+            );
+          }
+          final value = find.descendant(
+            of: metric,
+            matching: find.text(filter == 'open' ? '0' : '1'),
+          );
+          expect(value, findsOneWidget);
+        }
+        final chip = tester.widget<InputChip>(
+          find.byKey(const ValueKey('burner-active-evidence-filter')),
+        );
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('burner-active-evidence-filter')),
+            matching: find.byTooltip('Show all burner positions'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(chip.onDeleted, isNotNull);
+        expect(
+          find.byKey(const ValueKey('burner-active-evidence-filter')),
+          findsNothing,
+        );
+        expect(find.text('FR-02-B02'), findsOneWidget);
+        expect(scopes.every((scope) => scope == 'furnace-2'), isTrue);
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 
   for (final failingSource in ['classes', 'assets', 'tickets', 'rounds']) {
     testWidgets(

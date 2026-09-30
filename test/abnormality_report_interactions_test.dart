@@ -333,6 +333,201 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('category breakdown filters the current RA scope', (
+    tester,
+  ) async {
+    await _open(tester);
+    await _tapMetric(tester, 'RA Done');
+    final drill = find.byKey(
+      const ValueKey('abnormality-breakdown-category-reannealing'),
+    );
+    await _reveal(tester, drill);
+    await tester.tap(drill);
+    await tester.pumpAndSettle();
+    expect(find.text('2 matching abnormalities').hitTestable(), findsOneWidget);
+    expect(
+      _fieldValue<AbnormalityCategory?>(tester),
+      AbnormalityCategory.reannealing,
+    );
+    expect(
+      _fieldValue<AbnormalityListFilter>(tester),
+      AbnormalityListFilter.completed,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'root reason drilldown is accessible, removable and preserves search',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      await _open(
+        tester,
+        records: [
+          _record('matching base', 56000)
+            ..possibleRootReasonCategory = RootReasonCategory.baseRelated,
+          _record('matching atmosphere', 56001)
+            ..possibleRootReasonCategory = RootReasonCategory.atmosphereRelated,
+          _record('other base', 56002)
+            ..possibleRootReasonCategory = RootReasonCategory.baseRelated,
+        ],
+      );
+      await _tapMetric(tester, 'Total');
+      await _search(tester, 'matching');
+      final drill = find.byKey(
+        const ValueKey('abnormality-breakdown-root-baseRelated'),
+      );
+      await _reveal(tester, drill);
+      expect(
+        tester.getSemantics(drill),
+        matchesSemantics(
+          label: 'Base Related: 1 abnormalities. Filter these records',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      await tester.tap(drill);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1 matching abnormalities').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'matching',
+      );
+      final chip = find.byKey(const ValueKey('abnormality-active-root-filter'));
+      await _reveal(tester, chip);
+      await tester.tap(
+        find.descendant(of: chip, matching: find.byType(Icon)).last,
+      );
+      await tester.pumpAndSettle();
+      await _tapMetric(tester, 'Matching');
+      expect(
+        find.text('2 matching abnormalities').hitTestable(),
+        findsOneWidget,
+      );
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'asset counts describe unique abnormalities and open exactly that subset',
+    (tester) async {
+      final multiple = _record('multiple bases', 57000)
+        ..affectedAssets = const [
+          AffectedAssetRef(assetType: AssetType.base, assetNumber: 1),
+          AffectedAssetRef(assetType: AssetType.base, assetNumber: 2),
+          AffectedAssetRef(assetType: AssetType.furnace, assetNumber: 1),
+        ];
+      final furnace = _record('only furnace', 57001)
+        ..affectedAssets = const [
+          AffectedAssetRef(assetType: AssetType.furnace, assetNumber: 2),
+        ];
+      await _open(tester, records: [multiple, furnace]);
+      await _tapMetric(tester, 'Total');
+      final drill = find.byKey(
+        const ValueKey('abnormality-breakdown-asset-base'),
+      );
+      await _reveal(tester, drill);
+      expect(
+        find.descendant(of: drill, matching: find.text('1')),
+        findsOneWidget,
+      );
+      await tester.tap(drill);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1 matching abnormalities').hitTestable(),
+        findsOneWidget,
+      );
+      await _bottom(tester);
+      expect(find.text('multiple bases'), findsOneWidget);
+      expect(find.text('only furnace'), findsNothing);
+      await _tapMetric(tester, 'Total');
+      expect(
+        find.text('2 matching abnormalities').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('abnormality-active-asset-filter')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'breakdown within charge history does not widen to unrelated charges',
+    (tester) async {
+      await _open(
+        tester,
+        records: [
+          _record('first linked', 58000, target: 58001)
+            ..possibleRootReasonCategory = RootReasonCategory.baseRelated,
+          _record('second linked', 58001, target: 58002),
+          _record('unrelated base', 59000)
+            ..possibleRootReasonCategory = RootReasonCategory.baseRelated,
+        ],
+      );
+      await _tapMetric(tester, 'Total');
+      await _bottom(tester);
+      final charge = find.byKey(
+        const ValueKey('abnormality-history-charge-58000'),
+      );
+      await _reveal(tester, charge);
+      await tester.tap(charge);
+      await tester.pumpAndSettle();
+      final drill = find.byKey(
+        const ValueKey('abnormality-breakdown-root-baseRelated'),
+      );
+      await _reveal(tester, drill);
+      await tester.tap(drill);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('1 abnormalities in this charge history').hitTestable(),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('abnormality-charge-history')),
+        findsOneWidget,
+      );
+      await _bottom(tester);
+      expect(find.text('first linked'), findsOneWidget);
+      expect(find.text('unrelated base'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('breakdown filters wrap at 320 pixels and doubled text', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(320, 720));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _open(tester, scale: 2);
+    await _tapMetric(tester, 'Total');
+    final drill = find.byKey(
+      const ValueKey('abnormality-breakdown-root-unknown'),
+    );
+    await _reveal(tester, drill);
+    await tester.tap(drill);
+    await tester.pumpAndSettle();
+    final asset = find.byKey(
+      const ValueKey('abnormality-breakdown-asset-base'),
+    );
+    await _reveal(tester, asset);
+    await tester.tap(asset);
+    await tester.pumpAndSettle();
+    await _reveal(
+      tester,
+      find.byKey(const ValueKey('abnormality-active-root-filter')),
+    );
+    expect(
+      find.byKey(const ValueKey('abnormality-active-asset-filter')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 AppUser _actor({String uid = 'reader', bool approved = true}) => AppUser(

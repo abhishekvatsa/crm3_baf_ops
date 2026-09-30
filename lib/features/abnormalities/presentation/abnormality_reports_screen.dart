@@ -20,6 +20,8 @@ import 'abnormality_list_filter.dart';
 import 'abnormality_charge_history_card.dart';
 import 'abnormality_report_summary_card.dart';
 
+part 'abnormality_report_breakdown.dart';
+
 class AbnormalityReportsScreen extends ConsumerStatefulWidget {
   const AbnormalityReportsScreen({super.key});
 
@@ -44,6 +46,8 @@ class _AbnormalityReportsScreenState
   AbnormalityCategory? _categoryFilter;
   AbnormalityListFilter _raFilter = AbnormalityListFilter.open;
   AbnormalitySeverity? _severityFilter;
+  RootReasonCategory? _rootReasonFilter;
+  AssetType? _assetTypeFilter;
 
   @override
   void dispose() {
@@ -110,6 +114,8 @@ class _AbnormalityReportsScreenState
       _searchController.clear();
       _categoryFilter = null;
       _severityFilter = severity;
+      _rootReasonFilter = null;
+      _assetTypeFilter = null;
       _raFilter = status;
       _historyCharge = historyCharge;
       _visibleLimit = businessListPageSize;
@@ -196,7 +202,7 @@ class _AbnormalityReportsScreenState
           final history = _historyCharge == null
               ? null
               : ChargeRaHistoryIndex(records).forCharge(_historyCharge!);
-          final filtered = history?.records ?? _applyFilters(records);
+          final filtered = _applyFilters(history?.records ?? records);
           final visible = filtered.take(_visibleLimit).toList(growable: false);
 
           return RefreshIndicator(
@@ -212,7 +218,9 @@ class _AbnormalityReportsScreenState
                       selected:
                           _historyCharge != null ||
                               _searchQuery.trim().isNotEmpty ||
-                              _categoryFilter != null
+                              _categoryFilter != null ||
+                              _rootReasonFilter != null ||
+                              _assetTypeFilter != null
                           ? null
                           : _raFilter == AbnormalityListFilter.all &&
                                 _severityFilter == AbnormalitySeverity.critical
@@ -301,13 +309,74 @@ class _AbnormalityReportsScreenState
                           _searchController.clear();
                           _categoryFilter = null;
                           _severityFilter = null;
+                          _rootReasonFilter = null;
+                          _assetTypeFilter = null;
                           _raFilter = AbnormalityListFilter.open;
                           _visibleLimit = businessListPageSize;
                         });
                       },
                     ),
                     const SizedBox(height: BafSpacing.lg),
-                    _InsightGrid(records: filtered),
+                    if (_rootReasonFilter != null ||
+                        _assetTypeFilter != null) ...[
+                      Wrap(
+                        spacing: BafSpacing.sm,
+                        runSpacing: BafSpacing.sm,
+                        children: [
+                          if (_rootReasonFilter != null)
+                            InputChip(
+                              key: const ValueKey(
+                                'abnormality-active-root-filter',
+                              ),
+                              label: Text(
+                                'Reason: ${_rootReasonCategoryLabel(_rootReasonFilter!)}',
+                              ),
+                              onDeleted: () => setState(() {
+                                _rootReasonFilter = null;
+                                _visibleLimit = businessListPageSize;
+                              }),
+                            ),
+                          if (_assetTypeFilter != null)
+                            InputChip(
+                              key: const ValueKey(
+                                'abnormality-active-asset-filter',
+                              ),
+                              label: Text(
+                                'Asset: ${_assetTypeLabel(_assetTypeFilter!)}',
+                              ),
+                              onDeleted: () => setState(() {
+                                _assetTypeFilter = null;
+                                _visibleLimit = businessListPageSize;
+                              }),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: BafSpacing.md),
+                    ],
+                    _InsightGrid(
+                      records: filtered,
+                      onCategory: (value) {
+                        setState(() {
+                          _categoryFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                      onRootReason: (value) {
+                        setState(() {
+                          _rootReasonFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                      onAssetType: (value) {
+                        setState(() {
+                          _assetTypeFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                    ),
                     const SizedBox(height: BafSpacing.lg),
                     if (history != null) ...[
                       AbnormalityChargeHistoryCard(
@@ -376,6 +445,17 @@ class _AbnormalityReportsScreenState
       }
 
       if (_severityFilter != null && record.severity != _severityFilter) {
+        return false;
+      }
+
+      if (_rootReasonFilter != null &&
+          record.possibleRootReasonCategory != _rootReasonFilter) {
+        return false;
+      }
+      if (_assetTypeFilter != null &&
+          !record.affectedAssets.any(
+            (asset) => asset.assetType == _assetTypeFilter,
+          )) {
         return false;
       }
 
@@ -554,170 +634,6 @@ class _FilterDropdown<T> extends StatelessWidget {
           ),
         ],
         onChanged: onChanged,
-      ),
-    );
-  }
-}
-
-class _InsightGrid extends StatelessWidget {
-  final List<ChargeAbnormality> records;
-
-  const _InsightGrid({required this.records});
-
-  @override
-  Widget build(BuildContext context) {
-    final byCategory = _countBy<AbnormalityCategory>(
-      records,
-      (record) => record.category,
-    );
-
-    final byRoot = _countBy<RootReasonCategory>(
-      records,
-      (record) => record.possibleRootReasonCategory,
-    );
-
-    final byAsset = <AssetType, int>{};
-    for (final record in records) {
-      for (final asset in record.affectedAssets) {
-        byAsset[asset.assetType] = (byAsset[asset.assetType] ?? 0) + 1;
-      }
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useTwoColumns = constraints.maxWidth >= 760;
-
-        final cards = [
-          _BreakdownCard<AbnormalityCategory>(
-            title: 'By Category',
-            icon: Icons.category_rounded,
-            color: BafColors.charges,
-            values: byCategory,
-            labelBuilder: _categoryLabel,
-          ),
-          _BreakdownCard<RootReasonCategory>(
-            title: 'By Root Reason',
-            icon: Icons.manage_search_rounded,
-            color: BafColors.audit,
-            values: byRoot,
-            labelBuilder: _rootReasonCategoryLabel,
-          ),
-          _BreakdownCard<AssetType>(
-            title: 'By Asset Type',
-            icon: Icons.precision_manufacturing_rounded,
-            color: BafColors.assets,
-            values: byAsset,
-            labelBuilder: _assetTypeLabel,
-          ),
-        ];
-
-        if (!useTwoColumns) {
-          return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: BafSpacing.md),
-              cards[1],
-              const SizedBox(height: BafSpacing.md),
-              cards[2],
-            ],
-          );
-        }
-
-        return Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: cards[0]),
-                const SizedBox(width: BafSpacing.md),
-                Expanded(child: cards[1]),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.md),
-            cards[2],
-          ],
-        );
-      },
-    );
-  }
-
-  static Map<T, int> _countBy<T>(
-    List<ChargeAbnormality> records,
-    T Function(ChargeAbnormality record) selector,
-  ) {
-    final result = <T, int>{};
-
-    for (final record in records) {
-      final key = selector(record);
-      result[key] = (result[key] ?? 0) + 1;
-    }
-
-    return result;
-  }
-}
-
-class _BreakdownCard<T> extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final Map<T, int> values;
-  final String Function(T value) labelBuilder;
-
-  const _BreakdownCard({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.values,
-    required this.labelBuilder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = values.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return DashboardCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            icon: icon,
-            title: title,
-            subtitle: entries.isEmpty
-                ? 'No records in current filter.'
-                : 'Top contributors in current filter.',
-            color: color,
-          ),
-          const SizedBox(height: BafSpacing.md),
-          if (entries.isEmpty)
-            const Text(
-              'No data',
-              style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
-            )
-          else
-            ...entries.take(6).map((entry) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        labelBuilder(entry.key),
-                        style: const TextStyle(
-                          color: BafColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    StatusBadge(
-                      label: '${entry.value}',
-                      color: color,
-                      icon: Icons.numbers_rounded,
-                    ),
-                  ],
-                ),
-              );
-            }),
-        ],
       ),
     );
   }

@@ -543,7 +543,12 @@ void main() {
               body: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(BafSpacing.md),
-                  child: OperationsManagementReadout(report: report),
+                  child: OperationsManagementReadout(
+                    report: report,
+                    onAvailability: () {},
+                    onWork: () {},
+                    onAssurance: () {},
+                  ),
                 ),
               ),
             ),

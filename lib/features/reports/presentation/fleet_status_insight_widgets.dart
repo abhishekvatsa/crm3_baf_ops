@@ -139,7 +139,13 @@ class OperationsReportViewSelector extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: ChoiceChip(
-                      avatar: Icon(choice.icon, size: 17),
+                      avatar: Icon(
+                        choice.icon,
+                        size: 17,
+                        color: selected == choice.value
+                            ? BafColors.teal
+                            : BafColors.textSecondary,
+                      ),
                       label: SizedBox(
                         width: double.infinity,
                         child: Text(
@@ -188,21 +194,34 @@ class OperationsReportViewSelector extends StatelessWidget {
 }
 
 class OperationsManagementReadout extends StatelessWidget {
-  const OperationsManagementReadout({super.key, required this.report});
+  const OperationsManagementReadout({
+    super.key,
+    required this.report,
+    required this.onAvailability,
+    required this.onWork,
+    required this.onAssurance,
+  });
 
   final OperationsReport report;
+  final VoidCallback onAvailability;
+  final VoidCallback onWork;
+  final VoidCallback onAssurance;
 
   @override
   Widget build(BuildContext context) {
     final metrics = [
       _ManagementMetricData(
         label: 'Availability',
+        destination: 'View current plant picture',
+        onTap: onAvailability,
         value: _rateLabel(report.assetAvailabilityRate),
         detail: '${report.availableAssetCount} of ${report.assetCount} assets',
         color: BafColors.success,
       ),
       _ManagementMetricData(
         label: 'Issue outcomes',
+        destination: 'View work in this period',
+        onTap: onWork,
         value: _rateLabel(report.issueClosureRate),
         detail:
             '${report.resolvedIssueCount} resolved · '
@@ -212,6 +231,8 @@ class OperationsManagementReadout extends StatelessWidget {
       ),
       _ManagementMetricData(
         label: 'Issue impact',
+        destination: 'View work in this period',
+        onTap: onWork,
         value: _durationLabel(report.issueImpactDuration),
         detail:
             '${report.issueCount} distinct · '
@@ -220,6 +241,8 @@ class OperationsManagementReadout extends StatelessWidget {
       ),
       _ManagementMetricData(
         label: 'Planned complete',
+        destination: 'View work in this period',
+        onTap: onWork,
         value: _rateLabel(report.plannedCompletionRate),
         detail:
             '${report.completedPlannedJobCount} of ${report.plannedJobCount} jobs',
@@ -227,6 +250,8 @@ class OperationsManagementReadout extends StatelessWidget {
       ),
       _ManagementMetricData(
         label: 'Assurance due',
+        destination: 'View assurance follow-through',
+        onTap: onAssurance,
         value: '${report.assuranceBacklogCount}',
         detail: 'Cadence and inspection follow-through',
         color: report.assuranceBacklogCount == 0
@@ -319,7 +344,10 @@ class OperationsManagementReadout extends StatelessWidget {
           const SizedBox(height: BafSpacing.lg),
           LayoutBuilder(
             builder: (context, constraints) {
-              final columns = constraints.maxWidth >= 620 ? 4 : 2;
+              final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+              final columns = (constraints.maxWidth / (140 * scale))
+                  .floor()
+                  .clamp(1, 5);
               final width =
                   (constraints.maxWidth - (columns - 1) * BafSpacing.sm) /
                   columns;
@@ -653,12 +681,16 @@ class _ManagementMetricData {
     required this.value,
     required this.detail,
     required this.color,
+    required this.destination,
+    required this.onTap,
   });
 
   final String label;
   final String value;
   final String detail;
   final Color color;
+  final String destination;
+  final VoidCallback onTap;
 }
 
 class _ManagementMetric extends StatelessWidget {
@@ -667,46 +699,67 @@ class _ManagementMetric extends StatelessWidget {
   final _ManagementMetricData metric;
 
   @override
-  Widget build(BuildContext context) => Container(
-    constraints: const BoxConstraints(minHeight: 96),
-    padding: const EdgeInsets.all(BafSpacing.md),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.065),
-      borderRadius: BorderRadius.circular(BafRadius.small),
-      border: Border.all(color: metric.color.withValues(alpha: 0.42)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          metric.value,
-          style: TextStyle(
-            color: metric.color,
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label:
+        '${metric.label}: ${metric.value}. ${metric.detail}. ${metric.destination}',
+    onTap: metric.onTap,
+    excludeSemantics: true,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('operations-readout-${metric.label}'),
+        onTap: metric.onTap,
+        borderRadius: BorderRadius.circular(BafRadius.small),
+        child: Ink(
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.065),
+            borderRadius: BorderRadius.circular(BafRadius.small),
+            border: Border.all(color: metric.color.withValues(alpha: 0.42)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                metric.value,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                metric.label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                metric.detail,
+                style: const TextStyle(
+                  color: Color(0xFFADC0C5),
+                  fontSize: 10,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: BafSpacing.sm),
+              Text(
+                metric.destination,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 2),
-        Text(
-          metric.label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          metric.detail,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFFADC0C5),
-            fontSize: 10,
-            height: 1.2,
-          ),
-        ),
-      ],
+      ),
     ),
   );
 }

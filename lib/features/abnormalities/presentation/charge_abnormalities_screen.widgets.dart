@@ -409,6 +409,8 @@ class _HeaderCard extends StatelessWidget {
   final int total;
   final int raCount;
   final int completedRaCount;
+  final AbnormalityListFilter selected;
+  final ValueChanged<AbnormalityListFilter> onSelected;
 
   const _HeaderCard({
     required this.sourceChargeNo,
@@ -416,6 +418,8 @@ class _HeaderCard extends StatelessWidget {
     required this.total,
     required this.raCount,
     required this.completedRaCount,
+    required this.selected,
+    required this.onSelected,
   });
 
   @override
@@ -471,17 +475,36 @@ class _HeaderCard extends StatelessWidget {
             ],
           );
           final metrics = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _MetricPill(label: 'Total', value: total),
+                flex: 10,
+                child: _MetricPill(
+                  label: 'Total',
+                  value: total,
+                  selected: selected == AbnormalityListFilter.all,
+                  onTap: () => onSelected(AbnormalityListFilter.all),
+                ),
               ),
               const SizedBox(width: BafSpacing.sm),
               Expanded(
-                child: _MetricPill(label: 'RA', value: raCount),
+                flex: 15,
+                child: _MetricPill(
+                  label: 'RA pending',
+                  value: raCount,
+                  selected: selected == AbnormalityListFilter.open,
+                  onTap: () => onSelected(AbnormalityListFilter.open),
+                ),
               ),
               const SizedBox(width: BafSpacing.sm),
               Expanded(
-                child: _MetricPill(label: 'Done', value: completedRaCount),
+                flex: 13,
+                child: _MetricPill(
+                  label: 'RA Done',
+                  value: completedRaCount,
+                  selected: selected == AbnormalityListFilter.completed,
+                  onTap: () => onSelected(AbnormalityListFilter.completed),
+                ),
               ),
             ],
           );
@@ -512,35 +535,62 @@ class _MetricPill extends StatelessWidget {
   final String label;
   final int value;
 
-  const _MetricPill({required this.label, required this.value});
+  final bool selected;
+  final VoidCallback onTap;
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.sm,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label: $value. View abnormalities',
+      onTap: onTap,
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          key: ValueKey('charge-abnormality-metric-$label'),
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 58, minHeight: 48),
+            child: Ink(
+              padding: const EdgeInsets.symmetric(
+                horizontal: BafSpacing.sm,
+                vertical: BafSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(BafRadius.medium),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: selected ? 0.9 : 0.3),
+                ),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    '$value',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
             ),
           ),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-        ],
+        ),
       ),
     );
   }
