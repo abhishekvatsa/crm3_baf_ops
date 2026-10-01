@@ -270,6 +270,32 @@ InnerCoverDependencies _dependencies(
 );
 
 void main() {
+  testWidgets('unverified condition withholds the complete exclusion total', (
+    tester,
+  ) async {
+    final cover = _cover('UNKNOWN-EXCLUSIONS');
+    final fixture = _Fixture(extra: [cover]);
+    for (final source in ['cases', 'declarations']) {
+      for (final mode in ['cache', 'pending', 'rejected']) {
+        final stock = fixture.build(unqualified: source, mode: mode);
+        expect(stock.excluded, isNull, reason: '$source/$mode');
+        expect(stock.installed, 0);
+      }
+    }
+    expect(fixture.build().excluded, 0);
+    expect(fixture.build(cases: [_case(cover, confirmed: true)]).excluded, 1);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: InnerCoverStockPanel(
+            summary: fixture.build(unqualified: 'cases'),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Excluded unverified'), findsOneWidget);
+    expect(find.text('Excluded 0'), findsNothing);
+  });
   test('assessment with recorded work stays excluded from candidate stock', () {
     final cover = _cover('ASSESS-WORK');
     final fixture = _Fixture(extra: [cover]);

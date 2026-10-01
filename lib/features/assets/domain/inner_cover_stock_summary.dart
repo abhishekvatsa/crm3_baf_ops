@@ -74,7 +74,10 @@ class InnerCoverStockSummary {
             .length
       : null;
   int? get excluded =>
-      inventoryConfirmed && linkageConfirmed && dependencyEvidenceConfirmed
+      inventoryConfirmed &&
+          linkageConfirmed &&
+          bulgeEvidenceConfirmed &&
+          dependencyEvidenceConfirmed
       ? rows
             .where((r) => r.disposition == InnerCoverStockDisposition.excluded)
             .length
