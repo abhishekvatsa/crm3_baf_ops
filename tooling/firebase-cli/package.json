@@ -12,6 +12,7 @@
     "@google-cloud/pubsub@5.3.1": {
       "@opentelemetry/core": "2.8.0"
     },
+    "@grpc/grpc-js": "1.14.5",
     "@hono/node-server": "2.0.10",
     "body-parser": "1.20.6",
     "brace-expansion": "$brace-expansion",

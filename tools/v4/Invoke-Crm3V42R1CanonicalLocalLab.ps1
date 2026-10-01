@@ -41,6 +41,7 @@ $expected = [ordered]@{
   npm = '10.9.8'
   javaPrefix = '21.0.11'
   firebaseTools = '15.22.4'
+  grpcJs = '1.14.5'
   honoNodeServer = '2.0.10'
   fastUri = '3.1.8'
   honoRuntime = '4.13.7'
@@ -256,6 +257,7 @@ function Assert-FirebaseCliLockPolicy {
 
   $firebaseToolsDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'firebase-tools')
   $braceExpansionDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'brace-expansion')
+  $grpcJsOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@grpc/grpc-js')
   $honoOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@hono/node-server')
   $fastUriOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'fast-uri')
   $honoRuntimeOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'hono')
@@ -272,6 +274,7 @@ function Assert-FirebaseCliLockPolicy {
     throw 'Firebase CLI package-lock.json does not contain a packages map.'
   }
   $honoLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@hono/node-server'
+  $grpcJsLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/@grpc/grpc-js'
   $fastUriLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/fast-uri'
   $honoRuntimeLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/hono'
   $ipAddressLock = Get-JsonPropertyValue -Object $lockPackages -Name 'node_modules/ip-address'
@@ -291,6 +294,10 @@ function Assert-FirebaseCliLockPolicy {
   $checks = [ordered]@{
     firebaseToolsDeclared = ($firebaseToolsDeclared -eq $expected.firebaseTools)
     firebaseToolsLocked = ($null -ne $firebaseToolsLock -and [string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version') -eq $expected.firebaseTools)
+    grpcJsOverride = ($grpcJsOverride -eq $expected.grpcJs)
+    grpcJsLocked = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'version') -eq $expected.grpcJs)
+    grpcJsResolved = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'resolved') -eq 'https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz')
+    grpcJsIntegrity = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'integrity') -eq 'sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==')
     honoOverride = ($honoOverride -eq $expected.honoNodeServer)
     honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
     honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz')
@@ -339,10 +346,19 @@ function Assert-FirebaseCliLockPolicy {
     tarIntegrity = ($null -ne $tarLock -and [string](Get-JsonPropertyValue -Object $tarLock -Name 'integrity') -eq 'sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA==')
     installLinksPolicy = ((Get-Content -LiteralPath (Join-Path $workspace 'tooling/firebase-cli/.npmrc') -Raw).Trim() -eq 'install-links=true')
   }
+  foreach ($key in @($lockPackages.Keys | Where-Object { $_ -match '(^|/)node_modules/@grpc/grpc-js$' })) {
+    $entry = $lockPackages[$key]
+    $checks["grpcJsCopy:$key"] = (
+      [string](Get-JsonPropertyValue -Object $entry -Name 'version') -eq $expected.grpcJs -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz' -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=='
+    )
+  }
   $failed = @($checks.GetEnumerator() | Where-Object {-not $_.Value} | ForEach-Object {$_.Key})
   $report = [ordered]@{
     expected = [ordered]@{
       firebaseTools = $expected.firebaseTools
+      grpcJs = $expected.grpcJs
       honoNodeServer = $expected.honoNodeServer
       fastUri = $expected.fastUri
       honoRuntime = $expected.honoRuntime
@@ -356,6 +372,7 @@ function Assert-FirebaseCliLockPolicy {
     }
     declared = [ordered]@{
       firebaseTools = $firebaseToolsDeclared
+      grpcJsOverride = $grpcJsOverride
       braceExpansion = $braceExpansionDeclared
       braceExpansionOverride = $braceExpansionOverride
       re2Override = $re2Override
@@ -371,6 +388,7 @@ function Assert-FirebaseCliLockPolicy {
     }
     locked = [ordered]@{
       firebaseTools = if ($null -ne $firebaseToolsLock) {[string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version')} else {$null}
+      grpcJs = if ($null -ne $grpcJsLock) {[string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'version')} else {$null}
       honoNodeServer = if ($null -ne $honoLock) {[string](Get-JsonPropertyValue -Object $honoLock -Name 'version')} else {$null}
       fastUri = if ($null -ne $fastUriLock) {[string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version')} else {$null}
       honoRuntime = if ($null -ne $honoRuntimeLock) {[string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version')} else {$null}
@@ -391,12 +409,13 @@ function Assert-FirebaseCliLockPolicy {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_LOCK_POLICY'
     throw "Firebase CLI lock policy failed: $($failed -join ', ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared brace-expansion=$braceExpansionDeclared re2=$re2Override tar=$tarOverride @hono/node-server=$honoOverride fast-uri=$fastUriOverride hono=$honoRuntimeOverride ip-address=$ipAddressOverride js-yaml=$jsYamlOverride morgan=$morganOverride undici=$undiciOverride"
+  Write-Output "PASS_FIREBASE_CLI_LOCK_POLICY: firebase-tools=$firebaseToolsDeclared @grpc/grpc-js=$grpcJsOverride brace-expansion=$braceExpansionDeclared re2=$re2Override tar=$tarOverride @hono/node-server=$honoOverride fast-uri=$fastUriOverride hono=$honoRuntimeOverride ip-address=$ipAddressOverride js-yaml=$jsYamlOverride morgan=$morganOverride undici=$undiciOverride"
 }
 
 function Assert-FirebaseCliInstalledVersions {
   $packagePaths = [ordered]@{
     firebaseTools = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/package.json'
+    grpcJs = Join-Path $workspace 'tooling/firebase-cli/node_modules/@grpc/grpc-js/package.json'
     honoNodeServer = Join-Path $workspace 'tooling/firebase-cli/node_modules/@hono/node-server/package.json'
     fastUri = Join-Path $workspace 'tooling/firebase-cli/node_modules/fast-uri/package.json'
     honoRuntime = Join-Path $workspace 'tooling/firebase-cli/node_modules/hono/package.json'
@@ -420,6 +439,7 @@ function Assert-FirebaseCliInstalledVersions {
   }
   $expectedVersions = [ordered]@{
     firebaseTools = $expected.firebaseTools
+    grpcJs = $expected.grpcJs
     honoNodeServer = $expected.honoNodeServer
     fastUri = $expected.fastUri
     honoRuntime = $expected.honoRuntime
@@ -447,7 +467,7 @@ function Assert-FirebaseCliInstalledVersions {
     $script:failureStatus = 'HOLD_FIREBASE_CLI_DEPENDENCY_VERSION'
     throw "Installed Firebase CLI dependency version mismatch: $($mismatches -join '; ')"
   }
-  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) brace-expansion=$($actual.braceExpansion) re2=$($actual.re2) tar=$($actual.tar) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri) hono=$($actual.honoRuntime) ip-address=$($actual.ipAddress) js-yaml=$($actual.jsYaml) morgan=$($actual.morgan) undici=$($actual.undici)"
+  Write-Output "PASS_FIREBASE_CLI_INSTALLED_VERSIONS: firebase-tools=$($actual.firebaseTools) @grpc/grpc-js=$($actual.grpcJs) brace-expansion=$($actual.braceExpansion) re2=$($actual.re2) tar=$($actual.tar) @hono/node-server=$($actual.honoNodeServer) fast-uri=$($actual.fastUri) hono=$($actual.honoRuntime) ip-address=$($actual.ipAddress) js-yaml=$($actual.jsYaml) morgan=$($actual.morgan) undici=$($actual.undici)"
 }
 
 function Invoke-NpmCiStep {

@@ -34,6 +34,8 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   assert.equal(entries.length, 2);
   for (const [, value] of entries) assert.equal(value.version, '3.5.0');
   assert.equal(lock.packages['node_modules/stream-json'].resolved, 'file:../stream-json-compat');
+  assert.equal(lock.packages['node_modules/@grpc/grpc-js'].version, '1.14.5');
+  assert.equal(require('@grpc/grpc-js/package.json').version, '1.14.5');
   assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.8');
   assert.equal(lock.packages['node_modules/ip-address'].version, '10.7.1');
   assert.equal(lock.packages['node_modules/morgan'].version, '1.12.1');

@@ -55,7 +55,7 @@ Assert-FirebaseCliLockPolicy | Out-Null
 $script:passedCases++
 $workspace = $fixtureRoot
 Restore-LockFixture
-$packages = @('fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
+$packages = @('@grpc/grpc-js', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
 foreach ($packageName in $packages) {
   foreach ($field in @('version', 'resolved', 'integrity', 'missing', 'override')) {
     Restore-LockFixture
@@ -73,6 +73,17 @@ foreach ($packageName in $packages) {
     $package | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $packagePath -Encoding utf8
     Assert-Rejected -Case "$packageName $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
   }
+}
+
+# A patched top-level copy must not conceal another unsafe nested copy.
+foreach ($field in @('version', 'resolved', 'integrity')) {
+  Restore-LockFixture
+  $lock = $lockJson | ConvertFrom-Json -AsHashtable
+  $copy = $lock.packages['node_modules/@grpc/grpc-js'].Clone()
+  $copy[$field] = 'tampered-regression'
+  $lock.packages['node_modules/fixture/node_modules/@grpc/grpc-js'] = $copy
+  $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+  Assert-Rejected -Case "nested @grpc/grpc-js $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
 }
 
 # The shared adapter and aliased upstream have different identities/resolution

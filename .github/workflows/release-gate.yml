@@ -79,6 +79,9 @@ jobs:
         shell: pwsh
         run: ./tools/v4/Test-FirebaseCliLabPins.ps1
 
+      - name: gRPC dependency pin rejection contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_grpc_dependency_policy.py'
+
       - name: Ultimate source and dependency audit
         run: python3 tools/v4/v4_2_ultimate_audit.py
 
@@ -317,7 +320,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="FBC80CB7D47A6E35674E20EE76EBB178036AD402807F329CC2DED50674FAF9A0"
+          expected_lock_sha="1F5F309A981945099801F47FCC5004DA5B9E6BB3409D5878D86891CEB4E13343"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -384,7 +387,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="FBC80CB7D47A6E35674E20EE76EBB178036AD402807F329CC2DED50674FAF9A0"
+          expected_lock_sha="1F5F309A981945099801F47FCC5004DA5B9E6BB3409D5878D86891CEB4E13343"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"

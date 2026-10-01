@@ -26,6 +26,23 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def grpc_pin_matches(manifest_rel: str, version: str, integrity: str) -> bool:
+    """Check every gRPC copy in a domain, including override and registry custody."""
+    package = data(manifest_rel)
+    lock = data(manifest_rel.replace("package.json", "package-lock.json"))
+    packages = lock.get("packages", {})
+    if not isinstance(packages, dict) or package.get("overrides", {}).get("@grpc/grpc-js") != version:
+        return False
+    copies = [entry for key, entry in packages.items()
+              if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")]
+    return bool(copies) and all(
+        isinstance(entry, dict)
+        and entry.get("version") == version
+        and entry.get("resolved") == f"https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-{version}.tgz"
+        and entry.get("integrity") == integrity
+        for entry in copies
+    )
+
 
 
 def powershell_delimiters_balanced(source: str) -> bool:
@@ -232,6 +249,13 @@ check(
     and root_versions["js-yaml"] == "3.15.2"
     and functions_versions["js-yaml"] == "3.15.2",
     f"root={root_versions}; functions={functions_versions}",
+)
+check(
+    "gRPC locks retain the reviewed override and exact registry bytes in all three domains",
+    grpc_pin_matches("package.json", "1.13.6", "sha512-S9U8ioEds9fo8zCt4K8CyWHLJPg63FBgZo/hYUPVTiKppwsx/ykTnFg4g4/70beoa/DYao9uROQRcoahVH8PVQ==")
+    and grpc_pin_matches("functions/package.json", "1.14.5", "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==")
+    and grpc_pin_matches("tooling/firebase-cli/package.json", "1.14.5", "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=="),
+    "Functions dependency changes are runtime source changes; these pin checks do not authorize deployment or compatibility.",
 )
 check(
     "Governed Firebase CLI lockfile is separately remediated",
