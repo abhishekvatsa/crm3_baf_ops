@@ -400,9 +400,9 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     }
     return resolveSelectedIssueAssetRoute(
       classId: classId,
-      // valueOrNull, not value: on AsyncError with no previous data
-      // AsyncValue.value throws, so the retained fallback would never have
-      // run in the very case it exists for.
+      // Ordinary issues may retain their route when class loading fails.
+      // Stuck-up issues deliberately require the live unique Furnace class
+      // above. valueOrNull keeps AsyncError from throwing before resolution.
       liveClasses: classes,
       retained: _selectedRouteRecord,
     );
