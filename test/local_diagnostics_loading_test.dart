@@ -4,6 +4,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:crm3_baf_ops/core/providers/sync_status_provider.dart';
+import 'package:crm3_baf_ops/core/release/app_build_identity.dart';
 import 'package:crm3_baf_ops/core/release/backend_release_identity_service.dart';
 import 'package:crm3_baf_ops/core/services/isar_installed_store_provenance.dart';
 import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
@@ -18,6 +19,64 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('matching identifiers never display deployment parity', (
+    tester,
+  ) async {
+    const snapshot = LocalReleaseDiagnosticsSnapshot(
+      build: AppBuildIdentity(
+        appVersion: '1.0.0',
+        buildNumber: '31',
+        gitCommit: 'client-source-sentinel',
+        releaseTag: 'candidate',
+        releaseChannel: 'test',
+        ciRunId: 'test-run',
+        buildTimestampUtc: '2026-10-01T00:00:00Z',
+        releaseId: 'client-release-sentinel',
+        expectedBackendReleaseId: 'backend-release-sentinel',
+        sourceArchiveSha256: 'client-archive-sentinel',
+      ),
+      backend: BackendReleaseIdentity(
+        releaseId: 'backend-release-sentinel',
+        firebaseProjectId: 'different-project-sentinel',
+        environment: 'different-environment-sentinel',
+        gitCommit: 'different-backend-source-sentinel',
+        functionsDigest: 'wrong-functions-digest-sentinel',
+      ),
+    );
+    final h = _Harness(releaseSnapshot: snapshot);
+    addTearDown(h.close);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: h.container,
+        child: const MaterialApp(home: LocalDiagnosticsScreen()),
+      ),
+    );
+    h.profiles.add(_actor());
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Deployment identity'),
+      500,
+      scrollable: find.byType(Scrollable),
+    );
+    expect(find.text('Release identifier comparison'), findsOneWidget);
+    expect(find.text('identifier matches'), findsOneWidget);
+    expect(find.text('Not verified by this screen'), findsOneWidget);
+    expect(find.text('Backend parity'), findsNothing);
+    expect(
+      h.report.toClipboardText(),
+      contains('backendReleaseIdComparison: identifier matches'),
+    );
+    expect(
+      h.report.toRecoveryManifestJsonText(),
+      contains('"backendDeploymentIdentity": "unverified"'),
+    );
+    expect(
+      h.report.toRecoveryManifestJsonText(),
+      contains('"backendParityConfirmed": false'),
+    );
+    expect(h.remote.requests, isEmpty);
+  });
+
   test(
     'local counts and export settle before a pending or failed backend',
     () async {
@@ -336,6 +395,7 @@ BackendReleaseIdentity _identity(String release) => BackendReleaseIdentity(
 
 class _Harness {
   final BackendReleaseIdentityService? backendService;
+  final LocalReleaseDiagnosticsSnapshot? releaseSnapshot;
   final profiles = StreamController<AppUser?>.broadcast();
   final local = _LocalReader();
   final remote = _RemoteReader();
@@ -346,11 +406,15 @@ class _Harness {
       backendReleaseIdentityServiceProvider.overrideWithValue(
         backendService ?? remote,
       ),
+      if (releaseSnapshot != null)
+        localDiagnosticsBackendIdentityProvider.overrideWith(
+          (ref) async => releaseSnapshot!,
+        ),
     ],
   );
   late final ProviderSubscription<AsyncValue<LocalDiagnosticsReport>>
   subscription;
-  _Harness({this.backendService}) {
+  _Harness({this.backendService, this.releaseSnapshot}) {
     subscription = container.listen(
       localDiagnosticsReportProvider,
       (_, _) {},

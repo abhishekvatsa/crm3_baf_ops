@@ -435,21 +435,31 @@ class LocalReleaseDiagnosticsSnapshot {
     }
   }
 
-  bool get backendParityConfirmed =>
+  bool get backendReleaseIdMatches =>
       backend != null &&
       build.expectsBackendParity &&
       backend!.releaseId == build.expectedBackendReleaseId;
 
-  String get parityLabel {
+  String get backendReleaseIdComparisonLabel {
     if (!build.expectsBackendParity) return 'not declared by build';
     if (backendLoading) return 'checking';
     if (backend == null) return 'unavailable';
-    return backendParityConfirmed ? 'match' : 'mismatch';
+    return backendReleaseIdMatches
+        ? 'identifier matches'
+        : 'identifier differs';
   }
+
+  // Preserve the legacy support-export contract without claiming that an ID
+  // comparison verifies source, fleet, Rules, indexes or deployment identity.
+  bool get backendParityConfirmed => false;
+  String get parityLabel => 'unverified';
 
   String toDiagnosticsText() {
     final lines = <String>[
       build.toDiagnosticsText(),
+      'backendReleaseIdComparison: $backendReleaseIdComparisonLabel',
+      'backendReleaseIdMatches: $backendReleaseIdMatches',
+      'backendDeploymentIdentity: unverified',
       'backendParity: $parityLabel',
       'backendIdentityStatus: ${backendLoading
           ? 'checking'
@@ -492,6 +502,9 @@ class LocalReleaseDiagnosticsSnapshot {
         ? 'available'
         : 'unavailable',
     'appCheckClientEnabled': crm3AppCheckEnabled,
+    'backendReleaseIdComparison': backendReleaseIdComparisonLabel,
+    'backendReleaseIdMatches': backendReleaseIdMatches,
+    'backendDeploymentIdentity': 'unverified',
     'backendParity': parityLabel,
     'backendParityConfirmed': backendParityConfirmed,
   };
@@ -1221,8 +1234,9 @@ class _ReleaseIdentityDiagnosticsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parityWarning =
-        snapshot.build.expectsBackendParity && !snapshot.backendParityConfirmed;
+    final releaseIdWarning =
+        snapshot.build.expectsBackendParity &&
+        !snapshot.backendReleaseIdMatches;
     return _DiagnosticsPanel(
       title: 'Release and backend identity',
       subtitle:
@@ -1271,9 +1285,13 @@ class _ReleaseIdentityDiagnosticsPanel extends StatelessWidget {
             isWarning: snapshot.backend == null,
           ),
           _DiagnosticsInfoRow(
-            label: 'Backend parity',
-            value: snapshot.parityLabel,
-            isWarning: parityWarning,
+            label: 'Release identifier comparison',
+            value: snapshot.backendReleaseIdComparisonLabel,
+            isWarning: releaseIdWarning,
+          ),
+          const _DiagnosticsInfoRow(
+            label: 'Deployment identity',
+            value: 'Not verified by this screen',
           ),
           if (snapshot.backend != null) ...[
             _DiagnosticsInfoRow(
