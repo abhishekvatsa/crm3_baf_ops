@@ -25,6 +25,15 @@ class AppLogger {
 
   static bool get isCollecting => _collecting;
 
+  @visibleForTesting
+  static void resetForTesting() {
+    assert(() {
+      _initialized = false;
+      _collecting = false;
+      return true;
+    }());
+  }
+
   /// Configure Crashlytics collection after Firebase.initializeApp().
   ///
   /// Defaults are production-safe: collect only in release mobile builds.
@@ -57,12 +66,11 @@ class AppLogger {
       _initialized = true;
       await setCustomKeys({
         'app': 'crm3_baf_ops',
-        'build_mode':
-            kReleaseMode
-                ? 'release'
-                : kProfileMode
-                ? 'profile'
-                : 'debug',
+        'build_mode': kReleaseMode
+            ? 'release'
+            : kProfileMode
+            ? 'profile'
+            : 'debug',
         'platform': defaultTargetPlatform.name,
         'crashlytics_collecting': shouldCollect,
       });
@@ -70,8 +78,7 @@ class AppLogger {
     } catch (error, stackTrace) {
       _collecting = false;
       _initialized = false;
-      debugPrint('⚠️ AppLogger.init failed: $error');
-      debugPrint('$stackTrace');
+      _printFailure('AppLogger.init failed', error, stackTrace);
       if (throwOnFailure) {
         Error.throwWithStackTrace(error, stackTrace);
       }
@@ -95,8 +102,7 @@ class AppLogger {
         'user_roles': roles.join(','),
       });
     } catch (error, stackTrace) {
-      debugPrint('⚠️ AppLogger.setUserContext failed: $error');
-      debugPrint('$stackTrace');
+      _printFailure('AppLogger.setUserContext failed', error, stackTrace);
     }
   }
 
@@ -107,8 +113,7 @@ class AppLogger {
       await FirebaseCrashlytics.instance.setUserIdentifier('');
       await setCustomKeys(const {'user_approved': false, 'user_roles': ''});
     } catch (error, stackTrace) {
-      debugPrint('⚠️ AppLogger.clearUserContext failed: $error');
-      debugPrint('$stackTrace');
+      _printFailure('AppLogger.clearUserContext failed', error, stackTrace);
     }
   }
 
@@ -125,8 +130,7 @@ class AppLogger {
       try {
         await FirebaseCrashlytics.instance.setCustomKey(key, value);
       } catch (error, stackTrace) {
-        debugPrint('⚠️ AppLogger.setCustomKey($key) failed: $error');
-        debugPrint('$stackTrace');
+        _printFailure('AppLogger.setCustomKey failed', error, stackTrace);
       }
     }
   }
@@ -155,19 +159,21 @@ class AppLogger {
     Map<String, Object?>? context,
   }) {
     final safeMessage = _composeMessage(message, context);
-    debugPrint('⚠️ $safeMessage${error == null ? '' : ' → $error'}');
-    if (stackTrace != null) debugPrint('$stackTrace');
+    final safeError = error == null
+        ? const SanitizedCrashException('ReportedWarning')
+        : CrashReportSanitizer.error(error);
+    final safeStack = CrashReportSanitizer.stackTrace(
+      stackTrace ?? StackTrace.current,
+    );
+    debugPrint('⚠️ $safeMessage${error == null ? '' : ' → $safeError'}');
+    if (stackTrace != null) debugPrint('$safeStack');
 
     if (!_collecting) return;
 
     _safeFireAndForget(() {
-      final safeError =
-          error == null
-              ? const SanitizedCrashException('ReportedWarning')
-              : CrashReportSanitizer.error(error);
       return FirebaseCrashlytics.instance.recordError(
         safeError,
-        CrashReportSanitizer.stackTrace(stackTrace ?? StackTrace.current),
+        safeStack,
         reason: safeMessage,
         information: _contextToInformation(context),
         fatal: false,
@@ -183,15 +189,19 @@ class AppLogger {
     Map<String, Object?>? context,
   }) {
     final safeMessage = _composeMessage(message, context);
-    debugPrint('❌ $safeMessage → $error');
-    if (stackTrace != null) debugPrint('$stackTrace');
+    final safeError = CrashReportSanitizer.error(error);
+    final safeStack = CrashReportSanitizer.stackTrace(
+      stackTrace ?? StackTrace.current,
+    );
+    debugPrint('❌ $safeMessage → $safeError');
+    if (stackTrace != null) debugPrint('$safeStack');
 
     if (!_collecting) return;
 
     _safeFireAndForget(() {
       return FirebaseCrashlytics.instance.recordError(
-        CrashReportSanitizer.error(error),
-        CrashReportSanitizer.stackTrace(stackTrace ?? StackTrace.current),
+        safeError,
+        safeStack,
         reason: safeMessage,
         information: _contextToInformation(context),
         fatal: fatal,
@@ -223,21 +233,33 @@ class AppLogger {
     );
   }
 
-  static void recordFlutterError(FlutterErrorDetails details) {
-    FlutterError.presentError(details);
+  /// Rich framework diagnostics are local to debug builds. Setting
+  /// [presentDebugDetails] to false also exercises production presentation in
+  /// development; setting it to true can never enable raw release output.
+  static void recordFlutterError(
+    FlutterErrorDetails details, {
+    bool presentDebugDetails = true,
+  }) {
+    final safeError = CrashReportSanitizer.error(details.exception);
+    final safeStack = CrashReportSanitizer.stackTrace(details.stack);
+    FlutterError.presentError(
+      kDebugMode && presentDebugDetails
+          ? details
+          : FlutterErrorDetails(
+              exception: safeError,
+              stack: safeStack,
+              library: 'application',
+              silent: details.silent,
+            ),
+    );
 
-    if (!_collecting) {
-      debugPrint('Flutter framework error before Crashlytics collection.');
-      debugPrint(details.exceptionAsString());
-      if (details.stack != null) debugPrint('${details.stack}');
-      return;
-    }
+    if (!_collecting) return;
 
     _safeFireAndForget(() {
       final fatal = flutterFrameworkErrorIsFatal(details);
       return FirebaseCrashlytics.instance.recordError(
-        CrashReportSanitizer.error(details.exception),
-        CrashReportSanitizer.stackTrace(details.stack),
+        safeError,
+        safeStack,
         reason: _composeMessage('flutter_framework_uncaught', {
           'library': details.library,
           'flutter_error_recoverable': !fatal,
@@ -288,8 +310,12 @@ class AppLogger {
     // Do not call AppLogger from here. This is the last-resort escape hatch
     // that prevents Crashlytics/logging failures from recursively re-entering
     // the root-zone error handlers.
-    debugPrint('⚠️ Crashlytics logging failed: $error');
-    debugPrint('$stackTrace');
+    _printFailure('Crashlytics logging failed', error, stackTrace);
+  }
+
+  static void _printFailure(String event, Object error, StackTrace stackTrace) {
+    debugPrint('⚠️ $event: ${CrashReportSanitizer.error(error)}');
+    debugPrint('${CrashReportSanitizer.stackTrace(stackTrace)}');
   }
 
   static String _safeKey(String key) {
