@@ -162,13 +162,15 @@ class AppLogger {
     final safeError = error == null
         ? const SanitizedCrashException('ReportedWarning')
         : CrashReportSanitizer.error(error);
-    final safeStack = CrashReportSanitizer.stackTrace(
-      stackTrace ?? StackTrace.current,
-    );
+    final suppliedStack = stackTrace == null
+        ? null
+        : CrashReportSanitizer.stackTrace(stackTrace);
     debugPrint('⚠️ $safeMessage${error == null ? '' : ' → $safeError'}');
-    if (stackTrace != null) debugPrint('$safeStack');
+    if (suppliedStack != null) debugPrint('$suppliedStack');
 
     if (!_collecting) return;
+    final safeStack =
+        suppliedStack ?? CrashReportSanitizer.stackTrace(StackTrace.current);
 
     _safeFireAndForget(() {
       return FirebaseCrashlytics.instance.recordError(
@@ -190,13 +192,15 @@ class AppLogger {
   }) {
     final safeMessage = _composeMessage(message, context);
     final safeError = CrashReportSanitizer.error(error);
-    final safeStack = CrashReportSanitizer.stackTrace(
-      stackTrace ?? StackTrace.current,
-    );
+    final suppliedStack = stackTrace == null
+        ? null
+        : CrashReportSanitizer.stackTrace(stackTrace);
     debugPrint('❌ $safeMessage → $safeError');
-    if (stackTrace != null) debugPrint('$safeStack');
+    if (suppliedStack != null) debugPrint('$suppliedStack');
 
     if (!_collecting) return;
+    final safeStack =
+        suppliedStack ?? CrashReportSanitizer.stackTrace(StackTrace.current);
 
     _safeFireAndForget(() {
       return FirebaseCrashlytics.instance.recordError(
