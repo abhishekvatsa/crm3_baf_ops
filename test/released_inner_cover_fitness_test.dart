@@ -150,6 +150,140 @@ void main() {
       expect(original.innerCovers.first.isAvailable, isTrue);
     },
   );
+  test(
+    'withdrawn exact original confines assessment to its cover and Base',
+    () {
+      final fixture = f.Fixture();
+      final withdrawn = _ticket(fixture)..isDeleted = true;
+      final dependencies = _derive(fixture, tickets: [withdrawn]);
+      expect(dependencies.complete, isTrue);
+      expect(dependencies.evidenceWarnings, isEmpty);
+      expect(
+        dependencies
+            .byCoverId[fixture.profiles.first.id]!
+            .needsCurrentAssessment,
+        isTrue,
+      );
+      expect(
+        dependencies.byCoverId[fixture.profiles.last.id]!.confirmsNoRestriction,
+        isTrue,
+      );
+      final plant = applyInnerCoverDependencies(
+        overview: fixture.build(),
+        register: f.registerFor(fixture),
+        dependencies: dependencies,
+      );
+      expect(plant.innerCovers.first.isAvailable, isFalse);
+      expect(plant.innerCovers.first.isUnfit, isFalse);
+      expect(plant.assets.first.isAvailable, isFalse);
+      expect(plant.assets.first.isDown, isFalse);
+      expect(plant.innerCovers.last.isAvailable, isTrue);
+      expect(plant.assets.last.isAvailable, isTrue);
+      expect(plant.assets.last.evidenceWarnings, isEmpty);
+      expect(plant.innerCoverStock!.dependencyEvidenceConfirmed, isTrue);
+      expect(plant.innerCoverStock!.rows.first.needsCurrentAssessment, isTrue);
+      expect(plant.innerCoverStock!.rows.last.evidenceUnverified, isFalse);
+      expect(plant.innerCoverStock!.installed, 2);
+    },
+  );
+  test(
+    'withdrawn moved serial preserves current assessment and old host reconciliation',
+    () {
+      final original = f.Fixture();
+      final current = f.Fixture(swapped: true, newEpisode: true);
+      final dependencies = _derive(
+        original,
+        profiles: current.profiles,
+        tickets: [_ticket(original)..isDeleted = true],
+      );
+      final plant = applyInnerCoverDependencies(
+        overview: current.build(),
+        register: f.registerFor(current),
+        dependencies: dependencies,
+      );
+      expect(dependencies.complete, isTrue);
+      expect(
+        plant.innerCovers.first.dependency!.needsCurrentAssessment,
+        isTrue,
+      );
+      expect(plant.innerCovers.last.isAvailable, isTrue);
+      final currentBase = plant.assets.last;
+      expect(
+        currentBase.linkedInnerCoverDependency!.needsCurrentAssessment,
+        isTrue,
+      );
+      expect(currentBase.isAvailable, isFalse);
+      expect(
+        plant.assets.first.evidenceWarnings.join(' '),
+        contains('recorded work remains pending reconciliation'),
+      );
+      expect(plant.assets.first.workflowStatus!.openMaintenanceCount, 0);
+      expect(plant.down, 0);
+    },
+  );
+  test(
+    'withdrawal cannot clear independent maintenance or certify pending evidence',
+    () {
+      final fixture = f.Fixture();
+      final withdrawn = _ticket(fixture)..isDeleted = true;
+      final dependencies = _derive(
+        fixture,
+        tickets: [withdrawn],
+        maintenance: true,
+      );
+      final state = dependencies.byCoverId[fixture.profiles.first.id]!;
+      expect(dependencies.complete, isTrue);
+      expect(state.needsCurrentAssessment, isTrue);
+      expect(state.isUnderMaintenance, isTrue);
+      final plant = applyInnerCoverDependencies(
+        overview: fixture.build(withWorkflow: true),
+        register: f.registerFor(fixture),
+        dependencies: dependencies,
+      );
+      expect(plant.assets.first.workflowStatus!.openMaintenanceCount, 1);
+      expect(plant.assets.first.isUnderMaintenance, isTrue);
+      for (final result in [
+        _derive(
+          fixture,
+          tickets: [
+            _ticket(fixture)
+              ..isDeleted = true
+              ..isSynced = false,
+          ],
+        ),
+        _derive(fixture, tickets: [withdrawn], cache: true),
+      ]) {
+        expect(result.complete, isFalse);
+        final current = result.byCoverId[fixture.profiles.first.id]!;
+        expect(current.needsCurrentAssessment, isTrue);
+        expect(current.reasons.single.awaitingServerConfirmation, isTrue);
+      }
+    },
+  );
+  test(
+    'withdrawal with conflicting identity still cannot establish a scoped clearance',
+    () {
+      final fixture = f.Fixture();
+      final dependencies = _derive(
+        fixture,
+        tickets: [_ticket(fixture)..isDeleted = true],
+        cases: [
+          _case(fixture, {'innerCoverSerialNumber': 'DIFFERENT'}),
+        ],
+      );
+      expect(dependencies.complete, isFalse);
+      expect(
+        dependencies
+            .byCoverId[fixture.profiles.first.id]!
+            .confirmsNoRestriction,
+        isFalse,
+      );
+      expect(
+        dependencies.byCoverId[fixture.profiles.last.id]!.confirmsNoRestriction,
+        isFalse,
+      );
+    },
+  );
   test('combined confirmed cause has the same bounded assessment effect', () {
     final fixture = f.Fixture();
     final state = _derive(
@@ -181,29 +315,24 @@ void main() {
       }
     },
   );
-  test(
-    'missing, deleted and conflicting originals are unverified, never clearance',
-    () {
-      final fixture = f.Fixture();
-      final deleted = _ticket(fixture)..isDeleted = true;
-      for (final originals in <List<MaintenanceRecord>>[
-        [],
-        [deleted],
-        [_ticket(fixture), _ticket(fixture)],
-      ]) {
-        final dependencies = _derive(fixture, tickets: originals);
-        expect(dependencies.complete, isFalse);
-        final plant = applyInnerCoverDependencies(
-          overview: fixture.build(),
-          register: f.registerFor(fixture),
-          dependencies: dependencies,
-        );
-        expect(plant.innerCovers.first.isAvailable, isFalse);
-        expect(plant.assets.first.isAvailable, isFalse);
-        expect(plant.down, 0);
-      }
-    },
-  );
+  test('missing and conflicting originals are unverified, never clearance', () {
+    final fixture = f.Fixture();
+    for (final originals in <List<MaintenanceRecord>>[
+      [],
+      [_ticket(fixture), _ticket(fixture)],
+    ]) {
+      final dependencies = _derive(fixture, tickets: originals);
+      expect(dependencies.complete, isFalse);
+      final plant = applyInnerCoverDependencies(
+        overview: fixture.build(),
+        register: f.registerFor(fixture),
+        dependencies: dependencies,
+      );
+      expect(plant.innerCovers.first.isAvailable, isFalse);
+      expect(plant.assets.first.isAvailable, isFalse);
+      expect(plant.down, 0);
+    }
+  });
   test(
     'an original issue without its case cannot establish current fitness',
     () {

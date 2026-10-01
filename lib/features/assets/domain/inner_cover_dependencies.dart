@@ -328,10 +328,11 @@ InnerCoverDependencies deriveInnerCoverDependencies({
             'Exact original stuck-up issue identity is unverified',
           );
         }
-        if (ticket.isDeleted) {
-          throw StateError('Issue deletion is not a fitness disposition');
-        }
-        if (!ticket.canStillAffectPlantCondition) {
+        // A verified withdrawal is not a fitness disposition. Its exact serial
+        // and event host remain known, so keep the assessment on that cover
+        // without making unrelated covers' evidence incomplete. There is no
+        // implied recovery or clearance from withdrawing the original issue.
+        if (!ticket.isDeleted && !ticket.canStillAffectPlantCondition) {
           if (!ticket.isSynced ||
               !ticket.isResolved ||
               !ticket.status.isTerminal) {
