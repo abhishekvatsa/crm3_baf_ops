@@ -75,6 +75,9 @@ jobs:
       - name: Diagnostics authority and deadline audit rejection contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_canonical_diagnostics_contract.py'
 
+      - name: Dart structural schema audit rejection contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_dart_structural_audit.py'
+
       - name: Laboratory dependency guard rejection contracts
         shell: pwsh
         run: ./tools/v4/Test-FirebaseCliLabPins.ps1

@@ -130,30 +130,120 @@ def check_parts(path: Path, text: str) -> list[str]:
     return problems
 
 
-def schema_block(text: str) -> str:
-    start = text.find('properties: {')
-    if start < 0: return ''
-    end = text.find('\n  },\n  estimateSize:', start)
-    if end < 0: end = text.find('\n  },\n  serialize:', start)
-    return text[start:end if end >= 0 else len(text)]
+def _closing_delimiter(cleaned: str, start: int) -> int:
+    """Find one balanced code span after strings/comments have been blanked."""
+    pairs = {'(': ')', '[': ']', '{': '}'}
+    stack = [pairs[cleaned[start]]]
+    for pos in range(start + 1, len(cleaned)):
+        char = cleaned[pos]
+        if char in pairs:
+            stack.append(pairs[char])
+        elif char in ')]}':
+            if char != stack.pop():
+                raise ValueError('mismatched schema delimiters')
+            if not stack:
+                return pos
+    raise ValueError('unterminated schema delimiters')
+
+
+def _top_level_parts(
+    cleaned: str, separator: str = ',', *, keep_empty: bool = False,
+) -> list[str]:
+    """Split generated arguments/entries without entering nested code spans."""
+    parts: list[str] = []
+    start = pos = 0
+    while pos < len(cleaned):
+        char = cleaned[pos]
+        if char in '([{':
+            pos = _closing_delimiter(cleaned, pos) + 1
+            continue
+        # A typed map/list literal can have commas before its opening delimiter.
+        if char == '<':
+            typed_literal = re.match(r'<[\w\s,$?.<>]+>\s*(?=[{\[])', cleaned[pos:])
+            if typed_literal:
+                pos += typed_literal.end()
+                continue
+        if char in ')]}':
+            raise ValueError('unexpected schema delimiter')
+        if char == separator:
+            parts.append(cleaned[start:pos])
+            start = pos + 1
+        pos += 1
+    parts.append(cleaned[start:])
+    return parts if keep_empty else [part for part in parts if part.strip()]
+
+
+def _named_arguments(cleaned: str) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for part in _top_level_parts(cleaned):
+        match = re.fullmatch(r'\s*([\w$]+)\s*:\s*(.*?)\s*', part, re.DOTALL)
+        if match is None:
+            raise ValueError('unsupported generated schema argument')
+        name, value = match.groups()
+        if name in result:
+            raise ValueError(f'duplicate {name} argument')
+        result[name] = value
+    return result
+
+
+def _map_ids(cleaned: str, field: str, constructor: str) -> list[int]:
+    opening = re.match(r'\s*(?:const\s+)?(?:<[\w\s,$?.<>]+>\s*)?\{', cleaned)
+    if opening is None:
+        raise ValueError(f'{field} must be a literal map for duplicate-id checking')
+    start = opening.end() - 1
+    end = _closing_delimiter(cleaned, start)
+    if cleaned[end + 1:].strip():
+        raise ValueError(f'unsupported {field} map expression')
+    ids: list[int] = []
+    for entry in _top_level_parts(cleaned[start + 1:end]):
+        # Keys are string literals blanked by the lexer; split only at the
+        # entry's top-level colon, never at an id inside a nested constructor.
+        key_value = _top_level_parts(entry, ':', keep_empty=True)
+        if len(key_value) != 2:
+            raise ValueError(f'unsupported {field} map entry')
+        value = key_value[1].strip()
+        call = re.match(rf'(?:const\s+)?{constructor}\s*\(', value)
+        if call is None:
+            raise ValueError(f'{field} entry must be a {constructor} literal')
+        close = _closing_delimiter(value, call.end() - 1)
+        if value[close + 1:].strip():
+            raise ValueError(f'unsupported {constructor} expression')
+        arguments = _named_arguments(value[call.end():close])
+        ident = arguments.get('id', '')
+        if re.fullmatch(r'-?\d+', ident) is None:
+            raise ValueError(f'{constructor} id must be an integer literal')
+        ids.append(int(ident))
+    return ids
 
 
 def duplicate_ids(path: Path, text: str) -> list[str]:
-    if not path.name.endswith('.g.dart') or 'CollectionSchema(' not in text:
+    if not path.name.endswith('.g.dart') or 'CollectionSchema' not in text:
         return []
     problems: list[str] = []
-    props = schema_block(text)
-    prop_ids = [int(x) for x in re.findall(r'PropertySchema\(\s*\n?\s*id:\s*(-?\d+)', props)]
-    dup_props = sorted({x for x in prop_ids if prop_ids.count(x) > 1})
-    if dup_props: problems.append(f'duplicate property ids {dup_props}')
-    # Index ids are globally unique within the declared indexes map.
-    index_pos = text.find('indexes: {')
-    if index_pos >= 0:
-        index_end = text.find('\n  },\n  links:', index_pos)
-        indexes = text[index_pos:index_end if index_end >= 0 else len(text)]
-        idx_ids = [int(x) for x in re.findall(r'IndexSchema\(\s*\n?\s*id:\s*(-?\d+)', indexes)]
-        dup_idx = sorted({x for x in idx_ids if idx_ids.count(x) > 1})
-        if dup_idx: problems.append(f'duplicate index ids {dup_idx}')
+    try:
+        cleaned = strip_strings_and_comments(text)
+    except ValueError as exc:
+        return [f'generated schema lexical error: {exc}']
+    for match in re.finditer(r'\bCollectionSchema\s*\(', cleaned):
+        declaration = re.search(r'\bconst\s+(\w+)\s*=\s*$', cleaned[:match.start()])
+        line = cleaned.count('\n', 0, match.start()) + 1
+        label = declaration.group(1) if declaration else f'CollectionSchema at line {line}'
+        try:
+            end = _closing_delimiter(cleaned, match.end() - 1)
+            arguments = _named_arguments(cleaned[match.end():end])
+            if 'properties' not in arguments:
+                raise ValueError('missing properties map')
+            for field, constructor, kind in (
+                ('properties', 'PropertySchema', 'property'),
+                ('indexes', 'IndexSchema', 'index'),
+            ):
+                # Isar permits omitted indexes, which means an empty map.
+                ids = _map_ids(arguments.get(field, '{}'), field, constructor)
+                duplicates = sorted({ident for ident in ids if ids.count(ident) > 1})
+                if duplicates:
+                    problems.append(f'{label}: duplicate {kind} ids {duplicates}')
+        except ValueError as exc:
+            problems.append(f'{label}: {exc}')
     return problems
 
 
