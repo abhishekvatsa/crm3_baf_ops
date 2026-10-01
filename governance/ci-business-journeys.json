@@ -70,6 +70,7 @@
     }
   ],
   "excluded": [
+    {"path": "integration_test/dev_inner_cover_fitness_journey_test.dart", "reason": "Requires a separate fresh Base and serial-cover fixture registered, accepted and linked through lifecycle commands; executed as an isolated local DEV journey, not claimed by this CI gate."},
     {"path": "integration_test/dev_account_switch_probe_test.dart", "reason": "Diagnostic error-identity probe; account transition is exercised by planned work."},
     {"path": "integration_test/dev_list_paging_test.dart", "reason": "Requires a deliberate greater-than-15 population across several live feeds; separate host behavior coverage exists."},
     {"path": "integration_test/dev_operational_usability_test.dart", "reason": "Requires additional frequent-issue, component and serial-cover fixtures plus PDF inspection; not claimed by this gate."},
