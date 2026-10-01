@@ -31,6 +31,10 @@ class FurnaceStuckupRecord {
     required this.adjudicationNotes,
     required this.conditionDeclarationId,
     required this.updatedAt,
+    this.baseAssetClassId,
+    this.furnaceAssetClassId,
+    this.innerCoverLinkageId,
+    this.innerCoverAssignmentVersion,
   });
 
   final String id;
@@ -56,6 +60,12 @@ class FurnaceStuckupRecord {
   final String? adjudicationNotes;
   final String? conditionDeclarationId;
   final DateTime updatedAt;
+  // Older display-only records can omit these fields. A consumer that needs
+  // exact event linkage must treat their absence as unverified evidence.
+  final String? baseAssetClassId;
+  final String? furnaceAssetClassId;
+  final String? innerCoverLinkageId;
+  final int? innerCoverAssignmentVersion;
 
   bool get isActive =>
       obstructionStatus == FurnaceStuckupObstructionStatus.active;
@@ -92,6 +102,27 @@ class FurnaceStuckupRecord {
       );
     }
     return FurnaceStuckupRecord(
+      baseAssetClassId: readOptionalPersistedString(
+        map['baseAssetClassId'],
+        field: 'baseAssetClassId',
+        source: source,
+      ),
+      furnaceAssetClassId: readOptionalPersistedString(
+        map['furnaceAssetClassId'],
+        field: 'furnaceAssetClassId',
+        source: source,
+      ),
+      innerCoverLinkageId: readOptionalPersistedString(
+        map['innerCoverLinkageId'],
+        field: 'innerCoverLinkageId',
+        source: source,
+      ),
+      innerCoverAssignmentVersion: readOptionalPersistedInt(
+        map['innerCoverAssignmentVersion'],
+        field: 'innerCoverAssignmentVersion',
+        source: source,
+        minimum: 1,
+      ),
       id: caseId,
       ticketId: readRequiredPersistedString(
         map['ticketId'],

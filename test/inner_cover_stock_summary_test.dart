@@ -304,8 +304,9 @@ void main() {
         fixture.build(cases: [_case(cover)]),
         _dependencies(fixture, reasons: [_workReason(cover, kind)]),
       );
-      expect(stock.excluded, 1, reason: kind.name);
-      expect(stock.assessmentRequired, 0);
+      final assessment = kind == InnerCoverDependencyKind.assessment;
+      expect(stock.excluded, assessment ? 0 : 1, reason: kind.name);
+      expect(stock.assessmentRequired, assessment ? 1 : 0);
       expect(stock.acceptedUnassigned, 0);
       expect(stock.rows.single.needsCurrentAssessment, isTrue);
     }
@@ -507,7 +508,9 @@ void main() {
         );
         expect(summary.installed, 1, reason: kind.name);
         expect(summary.acceptedUnassigned, 0, reason: kind.name);
-        expect(summary.excluded, 1, reason: kind.name);
+        final assessment = kind == InnerCoverDependencyKind.assessment;
+        expect(summary.excluded, assessment ? 0 : 1, reason: kind.name);
+        expect(summary.assessmentRequired, assessment ? 1 : 0);
         expect(summary.review, hasLength(2), reason: kind.name);
         expect(summary.rows.last.reviewReasons.join(' '), contains('work-1'));
       }

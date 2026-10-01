@@ -274,6 +274,7 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
   if (!hasCoverPopulation) return AsyncData(physical);
   final remoteTickets = _registerBatch(tickets);
   final dependencies = deriveInnerCoverDependencies(
+    stuckupCases: _currentBatch(ref.watch(furnaceStuckupCaseBatchProvider)),
     profiles: _registerBatch(covers),
     tickets: DecodedSnapshotBatch(
       records: [

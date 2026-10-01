@@ -189,6 +189,8 @@ InnerCoverStockSummary annotateInnerCoverStockDependencies(
             InnerCoverDependencyKind.red => 'Active RED work',
             InnerCoverDependencyKind.preparation =>
               'Awaiting maintenance preparation',
+            InnerCoverDependencyKind.assessment =>
+              'Obstruction released; unresolved confirmed-bulging concern needs fitness assessment',
           };
           reasons.add(
             '$label (${reason.sourceId})'
@@ -198,10 +200,15 @@ InnerCoverStockSummary annotateInnerCoverStockDependencies(
         var disposition = row.disposition;
         if (disposition == InnerCoverStockDisposition.acceptedUnassigned ||
             disposition == InnerCoverStockDisposition.assessmentRequired) {
-          disposition = workReasons.isNotEmpty
+          disposition =
+              workReasons.any(
+                (r) => r.kind != InnerCoverDependencyKind.assessment,
+              )
               ? InnerCoverStockDisposition.excluded
               : rowComplete
-              ? disposition
+              ? state?.needsCurrentAssessment == true
+                    ? InnerCoverStockDisposition.assessmentRequired
+                    : disposition
               : InnerCoverStockDisposition.unverified;
         }
         return InnerCoverStockRow(
@@ -226,7 +233,9 @@ InnerCoverStockSummary annotateInnerCoverStockDependencies(
               InnerCoverDependencyKind.preparation,
             }.contains(r.kind),
           ),
-          needsCurrentAssessment: row.needsCurrentAssessment,
+          needsCurrentAssessment:
+              row.needsCurrentAssessment ||
+              state?.needsCurrentAssessment == true,
         );
       })
       .toList(growable: false);

@@ -165,6 +165,7 @@ class PlantAssetState {
   bool get hasUnverifiedWorkflowEvidence =>
       workflowStatus == null ||
       evidenceWarnings.isNotEmpty ||
+      linkedInnerCoverDependency?.needsCurrentAssessment == true ||
       linkedInnerCoverDependency?.complete == false;
 
   bool get isStandby => asset.serviceState == AssetServiceState.standby;
@@ -254,6 +255,7 @@ class PlantInnerCoverState {
       (!isIssueUnavailable && dependency?.isUnfit == true);
   bool get hasUnverifiedEvidence =>
       evidenceWarnings.isNotEmpty ||
+      dependency?.needsCurrentAssessment == true ||
       dependency?.complete == false ||
       stockCondition?.evidenceUnverified == true ||
       stockCondition?.needsCurrentAssessment == true;
@@ -265,7 +267,9 @@ class PlantInnerCoverState {
       !isUnfit;
   List<String> get conditionReasons => [
     if (stockCondition?.activeConfirmedBulging == true) 'Confirmed bulging',
-    if (stockCondition?.needsCurrentAssessment == true) 'Assessment needed',
+    if (stockCondition?.needsCurrentAssessment == true ||
+        dependency?.needsCurrentAssessment == true)
+      'Assessment needed',
     if (dependency?.isUnavailable == true) 'Unavailable by Inner Cover issue',
     if (dependency?.isUnfit == true) 'Unfit by Inner Cover issue',
     if (dependency?.hasRedWork == true) 'RED work remains open',

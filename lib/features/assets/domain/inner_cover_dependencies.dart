@@ -5,6 +5,8 @@ import '../../planned_maintenance/data/job_template_model.dart';
 import '../data/asset_hierarchy_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../data/inner_cover_workflow_evidence.dart';
+import '../data/furnace_stuckup_record.dart';
+import '../../maintenance/domain/furnace_stuckup_case.dart';
 
 enum InnerCoverDependencyKind {
   unfit,
@@ -12,6 +14,7 @@ enum InnerCoverDependencyKind {
   maintenance,
   red,
   preparation,
+  assessment,
 }
 
 class InnerCoverDependencyReason {
@@ -61,6 +64,8 @@ class InnerCoverDependencyState {
       reasons.any((r) => r.kind == InnerCoverDependencyKind.red);
   bool get isAwaitingPreparation =>
       reasons.any((r) => r.kind == InnerCoverDependencyKind.preparation);
+  bool get needsCurrentAssessment =>
+      reasons.any((r) => r.kind == InnerCoverDependencyKind.assessment);
   bool get isUnderMaintenance => reasons.any(
     (r) => const {
       InnerCoverDependencyKind.maintenance,
@@ -93,6 +98,7 @@ InnerCoverDependencies deriveInnerCoverDependencies({
   required DecodedSnapshotBatch<MaintenanceRecord> tickets,
   required DecodedSnapshotBatch<InnerCoverWorkflowEvidence> workflows,
   required DecodedSnapshotBatch<JobExecution> executions,
+  DecodedSnapshotBatch<FurnaceStuckupRecord>? stuckupCases,
 }) {
   final warnings = <String>{};
   void qualify<T>(String name, DecodedSnapshotBatch<T> batch) {
@@ -105,6 +111,7 @@ InnerCoverDependencies deriveInnerCoverDependencies({
   qualify('Issues', tickets);
   qualify('Workflows', workflows);
   qualify('Executions', executions);
+  if (stuckupCases != null) qualify('Stuck-up cases', stuckupCases);
   final profileById = <String, InnerCoverProfile>{};
   for (final p in profiles.records) {
     if (profileById.containsKey(p.id) ||
@@ -204,6 +211,160 @@ InnerCoverDependencies deriveInnerCoverDependencies({
         );
       } on Object catch (_) {
         warnings.add('Issue serial restriction is unverified: $ticketId');
+      }
+    }
+  }
+  // Physical separation closes only the obstruction. A confirmed bulging
+  // concern still attached to its exact original issue requires fitness review;
+  // neither a later stock acceptance nor a deleted ticket settles that issue.
+  final seenCases = <String>{};
+  if (stuckupCases == null &&
+      tickets.records.any(
+        (t) => t.classification == furnaceStuckupClassification,
+      )) {
+    warnings.add(
+      'Stuck-up case evidence is unavailable for issue reconciliation.',
+    );
+  }
+  if (stuckupCases != null) {
+    for (final ticket in tickets.records.where(
+      (t) => t.classification == furnaceStuckupClassification,
+    )) {
+      try {
+        if (!ticket.isDeleted &&
+            !ticket.canStillAffectPlantCondition &&
+            ticket.isSynced &&
+            ticket.isResolved &&
+            ticket.status.isTerminal) {
+          continue;
+        }
+      } on Object catch (_) {
+        // Malformed closure does not settle the original concern.
+      }
+      if (stuckupCases.records
+              .where(
+                (c) =>
+                    c.id == ticket.firestoreId &&
+                    c.ticketId == ticket.firestoreId,
+              )
+              .length !=
+          1) {
+        warnings.add(
+          'Original stuck-up issue has no matching case evidence: ${ticket.firestoreId}',
+        );
+      }
+    }
+  }
+  for (final caseRecord in stuckupCases?.records ?? <FurnaceStuckupRecord>[]) {
+    if (!seenCases.add(caseRecord.id)) {
+      warnings.add('Duplicate stuck-up case identity: ${caseRecord.id}');
+    }
+    if (caseRecord.isActive ||
+        caseRecord.adjudicationStatus !=
+            FurnaceStuckupAdjudicationStatus.confirmed ||
+        !const {
+          FurnaceStuckupCause.innerCoverBulging,
+          FurnaceStuckupCause.combinedCondition,
+        }.contains(caseRecord.confirmedCause)) {
+      continue;
+    }
+    final originals = ticketGroups[caseRecord.ticketId] ?? [];
+    if (originals.length != 1) {
+      warnings.add(
+        'Released bulging concern has missing or conflicting original issue evidence: ${caseRecord.id}',
+      );
+    }
+    for (final ticket in originals) {
+      try {
+        final furnace = ticket.assetHierarchyReference;
+        final event = ticket.furnaceStuckupCase;
+        final base = event?.baseAssetReference;
+        final association = base?.innerCoverAssociation;
+        if (caseRecord.id != caseRecord.ticketId ||
+            ticket.assetType != AssetType.furnace ||
+            ticket.classification != furnaceStuckupClassification ||
+            furnace == null ||
+            base == null ||
+            association == null ||
+            caseRecord.baseAssetClassId == null ||
+            caseRecord.furnaceAssetClassId == null ||
+            caseRecord.innerCoverLinkageId == null ||
+            caseRecord.innerCoverAssignmentVersion == null ||
+            furnace.assetInstanceId != caseRecord.furnaceAssetInstanceId ||
+            furnace.assetClassId != caseRecord.furnaceAssetClassId ||
+            furnace.assetNumber != caseRecord.furnaceAssetNumber ||
+            ticket.assetNumber != caseRecord.furnaceAssetNumber ||
+            base.assetInstanceId != caseRecord.baseAssetInstanceId ||
+            base.assetClassId != caseRecord.baseAssetClassId ||
+            base.assetNumber != caseRecord.baseAssetNumber ||
+            event!.baseNumber != caseRecord.baseAssetNumber ||
+            event.suspectedCause != caseRecord.suspectedCause ||
+            event.operatingContext != caseRecord.operatingContext ||
+            ticket.chargeNoAtEvent != caseRecord.chargeNoAtEvent ||
+            !ticket.startDate.isAtSameMomentAs(caseRecord.reportedAt) ||
+            association.positionState != InnerCoverPositionState.linked ||
+            association.baseAssetInstanceId != caseRecord.baseAssetInstanceId ||
+            association.baseAssetNumber != caseRecord.baseAssetNumber ||
+            association.innerCoverId != caseRecord.innerCoverId ||
+            normalizeInnerCoverSerial(
+                  association.innerCoverSerialNumber ?? '',
+                ) !=
+                normalizeInnerCoverSerial(caseRecord.innerCoverSerialNumber) ||
+            association.linkageId != caseRecord.innerCoverLinkageId ||
+            association.assignmentVersion !=
+                caseRecord.innerCoverAssignmentVersion ||
+            !association.eventAt.isAtSameMomentAs(caseRecord.reportedAt) ||
+            caseRecord.releasedAt == null ||
+            caseRecord.adjudicatedAt == null ||
+            caseRecord.releasedAt!.isBefore(caseRecord.reportedAt) ||
+            caseRecord.adjudicatedAt!.isBefore(caseRecord.reportedAt) ||
+            caseRecord.updatedAt.isBefore(caseRecord.releasedAt!) ||
+            caseRecord.updatedAt.isBefore(caseRecord.adjudicatedAt!) ||
+            !matchesProfile(
+              caseRecord.innerCoverId,
+              caseRecord.innerCoverSerialNumber,
+            )) {
+          throw StateError(
+            'Exact original stuck-up issue identity is unverified',
+          );
+        }
+        if (ticket.isDeleted) {
+          throw StateError('Issue deletion is not a fitness disposition');
+        }
+        if (!ticket.canStillAffectPlantCondition) {
+          if (!ticket.isSynced ||
+              !ticket.isResolved ||
+              !ticket.status.isTerminal) {
+            throw StateError('Original issue closure is unverified');
+          }
+          continue;
+        }
+        if (!ticket.isSynced) {
+          warnings.add(
+            'Original stuck-up issue awaits server confirmation: ${caseRecord.ticketId}',
+          );
+        }
+        add(
+          InnerCoverDependencyReason(
+            key: 'fitness:${caseRecord.id}:${caseRecord.ticketId}',
+            sourceId: caseRecord.ticketId,
+            kind: InnerCoverDependencyKind.assessment,
+            coverId: caseRecord.innerCoverId,
+            serialNumber: caseRecord.innerCoverSerialNumber,
+            eventHostAssetId: caseRecord.baseAssetInstanceId,
+            eventHostClassId: base.assetClassId,
+            eventHostNumber: caseRecord.baseAssetNumber,
+            eventLinkageId: caseRecord.innerCoverLinkageId!,
+            awaitingServerConfirmation:
+                !ticket.isSynced ||
+                !tickets.isServerConfirmed ||
+                !stuckupCases!.isServerConfirmed,
+          ),
+        );
+      } on Object catch (_) {
+        warnings.add(
+          'Released bulging concern requires original issue verification: ${caseRecord.id}',
+        );
       }
     }
   }

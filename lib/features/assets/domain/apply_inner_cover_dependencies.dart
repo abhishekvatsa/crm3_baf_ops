@@ -72,6 +72,13 @@ PlantAssetOverview applyInnerCoverDependencies({
       continue;
     }
     byBase[row.base.id] = cover.dependency!;
+    if (cover.dependency!.needsCurrentAssessment) {
+      baseWarnings
+          .putIfAbsent(row.base.id, () => {})
+          .add(
+            'Linked Inner Cover ${cover.profile.serialNumber}: current fitness assessment required for an unresolved confirmed-bulging concern.',
+          );
+    }
     if (cover.evidenceWarnings.isNotEmpty || !cover.dependency!.complete) {
       baseWarnings
           .putIfAbsent(row.base.id, () => {})
