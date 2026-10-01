@@ -36,12 +36,37 @@ class BasicFtpDependencyPolicyTests(unittest.TestCase):
             with self.subTest(manifest=manifest):
                 self.assertTrue(self.check_domain(manifest))
 
-    def test_ci_backend_jobs_bind_the_actual_cli_lockfile_bytes(self):
-        workflow = (ROOT / ".github/workflows/release-gate.yml").read_text(encoding="utf-8")
+    def assert_cli_lock_bindings(self, workflow, policy):
         expected = re.findall(r'expected_lock_sha="([A-F0-9]{64})"', workflow)
         self.assertEqual(len(expected), 2, "Both emulator jobs must retain their lockfile gate")
         actual = hashlib.sha256((ROOT / "tooling/firebase-cli/package-lock.json").read_bytes()).hexdigest().upper()
         self.assertEqual(expected, [actual, actual], "CI pins must match the committed CLI lockfile")
+        self.assertEqual(policy["toolchain"]["firebaseToolsLockfile"], "tooling/firebase-cli/package-lock.json")
+        self.assertEqual(policy["toolchain"]["firebaseToolsLockfileSha256"], actual,
+                         "Release policy must bind the same CLI lockfile as both CI jobs")
+
+    def test_ci_backend_jobs_bind_the_actual_cli_lockfile_bytes(self):
+        workflow = (ROOT / ".github/workflows/release-gate.yml").read_text(encoding="utf-8")
+        policy = json.loads((ROOT / "release/production-release-policy.json").read_text(encoding="utf-8"))
+        self.assert_cli_lock_bindings(workflow, policy)
+
+    def test_each_single_stale_workflow_copy_is_rejected(self):
+        workflow = (ROOT / ".github/workflows/release-gate.yml").read_text(encoding="utf-8")
+        policy = json.loads((ROOT / "release/production-release-policy.json").read_text(encoding="utf-8"))
+        copies = list(re.finditer(r'expected_lock_sha="([A-F0-9]{64})"', workflow))
+        self.assertEqual(len(copies), 2)
+        for index, match in enumerate(copies):
+            with self.subTest(copy=index):
+                changed = workflow[:match.start(1)] + "0" * 64 + workflow[match.end(1):]
+                with self.assertRaisesRegex(AssertionError, "CI pins must match"):
+                    self.assert_cli_lock_bindings(changed, policy)
+
+    def test_stale_release_policy_is_rejected_with_current_workflow(self):
+        workflow = (ROOT / ".github/workflows/release-gate.yml").read_text(encoding="utf-8")
+        policy = json.loads((ROOT / "release/production-release-policy.json").read_text(encoding="utf-8"))
+        policy["toolchain"]["firebaseToolsLockfileSha256"] = "0" * 64
+        with self.assertRaisesRegex(AssertionError, "Release policy must bind"):
+            self.assert_cli_lock_bindings(workflow, policy)
 
     def test_changed_override_or_registry_bytes_fail(self):
         original = copy.deepcopy(self.documents)
