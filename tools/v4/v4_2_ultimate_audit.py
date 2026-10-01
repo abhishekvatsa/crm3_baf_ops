@@ -45,6 +45,21 @@ def grpc_pin_matches(manifest_rel: str, version: str, integrity: str) -> bool:
 
 
 
+def basic_ftp_pin_matches() -> bool:
+    package = data("tooling/firebase-cli/package.json")
+    packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
+    if not isinstance(packages, dict) or package.get("overrides", {}).get("basic-ftp") != "6.2.1":
+        return False
+    copies = [entry for key, entry in packages.items()
+              if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")]
+    return bool(copies) and all(
+        isinstance(entry, dict) and entry.get("version") == "6.2.1"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        for entry in copies
+    )
+
+
 def powershell_delimiters_balanced(source: str) -> bool:
     pairs = {')': '(', ']': '[', '}': '{'}
     stack: list[str] = []
@@ -259,7 +274,8 @@ check(
 )
 check(
     "Governed Firebase CLI lockfile is separately remediated",
-    tooling_versions["protobufjs"] == "7.6.5"
+    basic_ftp_pin_matches()
+    and tooling_versions["protobufjs"] == "7.6.5"
     and tooling_versions["body-parser"] == "1.20.6"
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.12"

@@ -85,6 +85,9 @@ jobs:
       - name: gRPC dependency pin rejection contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_grpc_dependency_policy.py'
 
+      - name: Verify CLI FTP dependency guards
+        run: python3 -m unittest discover -s tools/v4 -p 'test_basic_ftp_dependency_policy.py'
+
       - name: Ultimate source and dependency audit
         run: python3 tools/v4/v4_2_ultimate_audit.py
 

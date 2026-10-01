@@ -3176,6 +3176,7 @@ check(
 firebase_cli_package = data("tooling/firebase-cli/package.json")
 firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})
+basic_ftp = firebase_cli_packages.get("node_modules/basic-ftp", {})
 grpc_js = firebase_cli_packages.get("node_modules/@grpc/grpc-js", {})
 hono = firebase_cli_packages.get("node_modules/@hono/node-server", {})
 fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
@@ -3193,6 +3194,17 @@ mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {}
 check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
+    and firebase_cli_package.get("overrides", {}).get("basic-ftp") == "6.2.1"
+    and basic_ftp.get("version") == "6.2.1"
+    and basic_ftp.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+    and basic_ftp.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+    and all(
+        entry.get("version") == "6.2.1"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        for key, entry in firebase_cli_packages.items()
+        if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")
+    )
     and firebase_cli_package.get("overrides", {}).get("@grpc/grpc-js") == "1.14.5"
     and grpc_js.get("version") == "1.14.5"
     and grpc_js.get("resolved") == "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz"
