@@ -389,12 +389,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
   GovernedIssueAssetRoute? _selectedAssetRoute() {
     final classId = _issueAssetClassId;
     if (classId == null) return null;
+    final classes = ref.read(assetClassesProvider).valueOrNull;
+    if (_isFurnaceStuckup) {
+      final furnaces = classes
+          ?.where((item) => item.isActive && item.legacyAssetTypeKey == AssetType.furnace.name)
+          .toList(growable: false);
+      if (furnaces?.length != 1 || furnaces!.single.id != classId) {
+        return null;
+      }
+    }
     return resolveSelectedIssueAssetRoute(
       classId: classId,
       // valueOrNull, not value: on AsyncError with no previous data
       // AsyncValue.value throws, so the retained fallback would never have
       // run in the very case it exists for.
-      liveClasses: ref.read(assetClassesProvider).valueOrNull,
+      liveClasses: classes,
       retained: _selectedRouteRecord,
     );
   }
@@ -603,7 +612,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   AssetInstanceRecord? _selectedStuckupBase() {
     final id = _stuckupBaseAssetId;
-    final classes = ref.read(assetClassesProvider).value;
+    final classes = ref.read(assetClassesProvider).valueOrNull;
     if (id == null || classes == null) return null;
     final baseClasses = classes
         .where(
@@ -612,11 +621,14 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
         )
         .toList(growable: false);
     if (baseClasses.length != 1) return null;
-    return ref
-        .read(assetInstancesProvider(baseClasses.single.id))
-        .value
-        ?.where((item) => item.id == id && item.isActive)
-        .firstOrNull;
+    return resolveSelectedPhysicalAsset(
+      assetId: id,
+      physicalClassId: baseClasses.single.id,
+      liveAssets: ref
+          .read(assetInstancesProvider(baseClasses.single.id))
+          .valueOrNull,
+      retained: null,
+    );
   }
 
   Future<void> _chooseGovernedComponent() async {
@@ -948,7 +960,7 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     if (_isFurnaceStuckup) {
       final currentAssignment = ref
           .read(innerCoverAssignmentsProvider)
-          .value
+          .valueOrNull
           ?.where((item) => item.baseAssetInstanceId == selectedStuckupBase!.id)
           .firstOrNull;
       if (_stuckupPhysicalMismatch ||
@@ -1355,6 +1367,21 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isFurnaceStuckup) {
+      // The specialized selector is a lazy ListView child. Keep its live
+      // identities subscribed here while filling later fields, so scrolling
+      // cannot discard them and fresh removals/version changes still win.
+      final classes = ref.watch(assetClassesProvider).valueOrNull;
+      ref.watch(innerCoverAssignmentsProvider);
+      for (final kind in [AssetType.base.name, AssetType.furnace.name]) {
+        final matches = classes
+            ?.where((item) => item.isActive && item.legacyAssetTypeKey == kind)
+            .toList(growable: false);
+        if (matches?.length == 1) {
+          ref.watch(assetInstancesProvider(matches!.single.id));
+        }
+      }
+    }
     final account = CurrentActorAccess.resolve(
       ref.watch(currentAppUserProvider),
     );
@@ -1560,8 +1587,10 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
                     onFurnaceChanged: (route, asset) {
                       setState(() {
                         _issueAssetClassId = route.issueClass.id;
+                        _selectedRouteRecord = route;
                         _assetType = AssetType.furnace;
                         _assetInstanceId = asset?.id;
+                        _selectedAssetRecord = asset;
                         _resetAssetEvidence();
                         _assetHierarchyReference = asset?.toReference();
                         _componentController.text =
