@@ -3,6 +3,7 @@ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{exe
 const original=require('./collectFunctionsIamDependenciesReadback.js');
 const {sealReceipt}=require('./collectProductionGlobalPullBackend.js');
 const {createDualSourceIamReceipt,verifyDualSourceIamReceipt,WRAPPING_PRODUCERS}=require('./clientBuildToolingReadbacks31.cjs');
+const {HISTORICAL_DEVELOPMENT_FILES,readHistoricalDevelopmentFile}=require('./clientBuildTooling31.historical-fixture.cjs');
 const candidate=path.resolve(__dirname,'../..'),primary=execFileSync('git',['-C',__dirname,'rev-parse','--show-toplevel'],{encoding:'utf8',windowsHide:true}).trim();
 const repo=fs.mkdtempSync(path.join(os.tmpdir(),'dual-source-fixture-'));
 test.after(()=>{const resolved=fs.realpathSync(repo);assert.equal(path.dirname(resolved),fs.realpathSync(os.tmpdir()));assert.match(path.basename(resolved),/^dual-source-fixture-/);fs.rmSync(resolved,{recursive:true});});
@@ -12,7 +13,7 @@ function git(args,input){return execFileSync('git',['--no-replace-objects','-C',
 execFileSync('git',['init','--quiet',repo],{windowsHide:true});
 const objects=execFileSync('git',['-C',primary,'rev-parse','--path-format=absolute','--git-path','objects'],{encoding:'utf8'}).trim();fs.mkdirSync(path.join(repo,'.git/objects/info'),{recursive:true});fs.writeFileSync(path.join(repo,'.git/objects/info/alternates'),objects.replaceAll('\\','/')+'\n');
 git(['read-tree',source]);
-for(const file of ['package.json','package-lock.json','functions/package-lock.json','tooling/brace-expansion-compat/package.json',...WRAPPING_PRODUCERS]){const blob=git(['hash-object','-w','--stdin'],fs.readFileSync(path.join(candidate,file)));git(['update-index','--add','--cacheinfo',`100644,${blob},${file}`]);}
+for(const file of ['package.json','package-lock.json','functions/package-lock.json','tooling/brace-expansion-compat/package.json',...WRAPPING_PRODUCERS]){const bytes=HISTORICAL_DEVELOPMENT_FILES.includes(file)?readHistoricalDevelopmentFile(primary,file):fs.readFileSync(path.join(candidate,file));const blob=git(['hash-object','-w','--stdin'],bytes);git(['update-index','--add','--cacheinfo',`100644,${blob},${file}`]);}
 const candidateCommit=git(['commit-tree',git(['write-tree']),'-p',source], 'Synthetic dual-source readback fixture; never production authority.\n');
 const tree=git(['rev-parse',candidateCommit+'^{tree}']);
 const backend=JSON.parse(fs.readFileSync(path.join(primary,'release/evidence/build30-current-source-backend-deployment-closure.json')));

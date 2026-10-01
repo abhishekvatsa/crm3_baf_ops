@@ -9,6 +9,7 @@ import {createRequire} from 'node:module';
 import {fileURLToPath} from 'node:url';
 
 const require = createRequire(import.meta.url);
+const {HISTORICAL_DEVELOPMENT_FILES, readHistoricalDevelopmentFile} = require('./clientBuildTooling31.historical-fixture.cjs');
 const {verifyBuild31ClientCompatibility, verifyClientBackendSourceAuthority: verifyStagedPromotionSourceAuthority} = require('./clientBackendCompatibility31.js');
 const {sealReceipt} = require('./collectProductionGlobalPullBackend.js');
 const root = execFileSync('git', ['-C', path.dirname(fileURLToPath(import.meta.url)), 'rev-parse', '--show-toplevel'], {encoding:'utf8',windowsHide:true}).trim();
@@ -57,7 +58,7 @@ function fixture(t, options = {}) {
   const writeRaw = (file, bytes) => {fs.mkdirSync(path.dirname(path.join(directory,file)), {recursive:true});fs.writeFileSync(path.join(directory,file),bytes);const blob=execFileSync('git',['-C',directory,'hash-object','-w','--stdin'],{input:bytes,encoding:'utf8',windowsHide:true}).trim();git('update-index','--add','--cacheinfo',`100644,${blob},${file}`);};
   git('read-tree', baseline);
   for (const file of ['package.json','package-lock.json','functions/package-lock.json','tooling/brace-expansion-compat/package.json','tooling/firebase-cli/package.json','tooling/firebase-cli/package-lock.json',
-    'tools/release/collectClientBuildToolingRuntime31.cjs','tools/release/clientBuildToolingCompatibility31.cjs','tools/release/clientBuildToolingGitSnapshots31.cjs','tools/release/clientBuildToolingReadbacks31.cjs','tools/release/collectClientDevelopmentToolIam31.cjs']) writeRaw(file,fs.readFileSync(path.join(candidateRoot,file)));
+    'tools/release/collectClientBuildToolingRuntime31.cjs','tools/release/clientBuildToolingCompatibility31.cjs','tools/release/clientBuildToolingGitSnapshots31.cjs','tools/release/clientBuildToolingReadbacks31.cjs','tools/release/collectClientDevelopmentToolIam31.cjs']) writeRaw(file,HISTORICAL_DEVELOPMENT_FILES.includes(file)?readHistoricalDevelopmentFile(root,file):fs.readFileSync(path.join(candidateRoot,file)));
 
   write(options.drift ?? 'lib/synthetic_client31_fixture.json', {synthetic: true});
   const sourceCommit = commit(options.unrelatedSource ? backendCommit : baseline, -120000);

@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path'),{execFileSync}=require('node:child_process'),{createHash}=require('node:crypto'),assert=require('node:assert/strict'),test=require('node:test');
 const {DEPLOYED_BASELINE,verifyDevelopmentToolingSnapshots,runtimeReachability,verifyLocalRuntimeProof}=require('./clientBuildToolingCompatibility31.cjs');
+const {readHistoricalDevelopmentFile}=require('./clientBuildTooling31.historical-fixture.cjs');
 const repo=execFileSync('git',['-C',__dirname,'rev-parse','--show-toplevel'],{encoding:'utf8',windowsHide:true}).trim();
 const jsonPaths=new Set(['package.json','package-lock.json','functions/package.json','functions/package-lock.json','tooling/brace-expansion-compat/package.json']);
 const roots=['.npmrc','tooling/firebase-cli/.npmrc','functions','android','firestore.rules','firestore.indexes.json',...jsonPaths,'tooling/brace-expansion-compat/index.cjs','tooling/brace-expansion-compat/index.mjs'];
@@ -10,13 +11,18 @@ for(const entry of entries){
  const [,mode,blob,p]=/^(\d+) blob ([0-9a-f]+)\t(.+)$/.exec(entry);
  if(jsonPaths.has(p)){
   before[p]=execFileSync('git',['--no-replace-objects','-C',repo,'show',DEPLOYED_BASELINE+':'+p],{encoding:'utf8'});
-  after[p]=p==='functions/package.json'?before[p]:fs.readFileSync(path.join(__dirname,'../..',p),'utf8');
+  after[p]=p==='functions/package.json'?before[p]:readHistoricalDevelopmentFile(repo,p).toString('utf8');
  }else before[p]=after[p]='git-blob:'+mode+':'+blob;
 }
 function fixture(){return {baselineCommit:DEPLOYED_BASELINE,before:structuredClone(before),after:structuredClone(after)};}
 function mutateJson(f,p,action){const o=JSON.parse(f.after[p]);action(o);f.after[p]=JSON.stringify(o);}
 const lock='functions/package-lock.json';
-test('real minimal dev-only proposal passes exact snapshots and independent runtime reachability',()=>{const r=verifyDevelopmentToolingSnapshots(fixture());assert.equal(r.ok,true);assert.equal(r.runtimeReachablePaths,252);assert.equal(r.constructionAuthority,false);});
+test('historical dev-only proposal passes current verifier and independent runtime reachability',()=>{const r=verifyDevelopmentToolingSnapshots(fixture());assert.equal(r.ok,true);assert.equal(r.runtimeReachablePaths,252);assert.equal(r.constructionAuthority,false);});
+for(const p of ['package.json','functions/package.json','functions/package-lock.json'])test('runtime-repair snapshot cannot borrow development-only authority: '+p,()=>{
+ const f=fixture();
+ f.after[p]=execFileSync('git',['--no-replace-objects','-C',repo,'show','f523dd408121a091ca09972afaa9a388b7f3e9ee:'+p],{encoding:'utf8',windowsHide:true});
+ assert.throws(()=>verifyDevelopmentToolingSnapshots(f),/Root manifest delta|Protected source content differs|delta exceeds/);
+});
 const negatives=[
  ['wrong deployed baseline',f=>{f.baselineCommit='0'.repeat(40)}],
  ['Functions source changed',f=>{f.after['functions/src/index.ts']='different'}],

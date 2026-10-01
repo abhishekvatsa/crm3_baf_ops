@@ -7,6 +7,7 @@ const {execFileSync} = require("node:child_process");
 const test = require("node:test");
 const {verifyGitDevelopmentTooling} = require("./clientBuildToolingGitSnapshots31.cjs");
 const {DEPLOYED_BASELINE} = require("./clientBuildToolingCompatibility31.cjs");
+const {readHistoricalDevelopmentFile} = require("./clientBuildTooling31.historical-fixture.cjs");
 const primary = execFileSync("git", ["-C", __dirname, "rev-parse", "--show-toplevel"],
   {encoding: "utf8", windowsHide: true}).trim();
 const candidate = path.resolve(__dirname, "../..");
@@ -28,13 +29,13 @@ function blob(bytes) { return git(["hash-object", "-w", "--stdin"], {input: byte
 function put(file, bytes, mode = "100644") { git(["update-index", "--add", "--cacheinfo", `${mode},${blob(bytes)},${file}`]); }
 function omit(file) { git(["update-index", "--force-remove", "--", file]); }
 function changedJson(file, mutate) {
-  const value = JSON.parse(fs.readFileSync(path.join(candidate, file), "utf8"));
+  const value = JSON.parse(readHistoricalDevelopmentFile(primary, file));
   mutate(value); put(file, JSON.stringify(value));
 }
 const fixedFiles = ["package.json", "package-lock.json", "functions/package-lock.json", "tooling/brace-expansion-compat/package.json"];
 function commit(mutate = () => {}, parents = [DEPLOYED_BASELINE]) {
   git(["read-tree", DEPLOYED_BASELINE]);
-  for (const file of fixedFiles) put(file, fs.readFileSync(path.join(candidate, file)));
+  for (const file of fixedFiles) put(file, readHistoricalDevelopmentFile(primary, file));
   mutate();
   const tree = git(["write-tree"]);
   return git(["commit-tree", tree, ...parents.flatMap(parent => ["-p", parent])], {input: "Private equivalence test fixture; creates no release authority.\n"});
