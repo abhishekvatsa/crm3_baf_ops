@@ -415,6 +415,26 @@ function verifyBuild31ClientCompatibility({repoRoot, releasePolicy, version, bac
   return {file: pointer.file, sha256: decisionRead.hash, commit: pointer.commit, sourceCommit: source.commit};
 }
 
+function safeGitEnvironment31(root) {
+  const dot=path.join(root,'.git');
+  requireEvidence(fs.lstatSync(dot).isDirectory() && !fs.lstatSync(dot).isSymbolicLink(), 'Runtime31 requires a regular local Git directory');
+  for(const name of ['commondir','gitdir','objects/info/alternates','info/grafts']) requireEvidence(!fs.existsSync(path.join(dot,name)), 'Runtime31 Git cannot redirect to external state');
+  const config=path.join(dot,'config');
+  if(fs.existsSync(config)) requireEvidence(!/^\s*\[\s*(?:include(?:If)?|filter|diff)\b/im.test(fs.readFileSync(config,'utf8')) &&
+    !/^\s*worktree\s*=/im.test(fs.readFileSync(config,'utf8')),
+    'Executable or external Git configuration is not admitted');
+  const env=Object.fromEntries(Object.entries(process.env).filter(([key])=>!/^GIT_/i.test(key)));
+  Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:process.platform==='win32'?'NUL':'/dev/null',
+    GIT_TERMINAL_PROMPT:'0',GIT_PAGER:'cat',GIT_OPTIONAL_LOCKS:'0'});
+  const settings={'core.longpaths':'true','core.fsmonitor':'false','core.hooksPath':path.join(dot,'crm31-disabled-hooks'),
+    'core.untrackedCache':'false','core.preloadIndex':'false','diff.external':'','credential.helper':'','protocol.allow':'never'};
+  env.GIT_CONFIG_COUNT=String(Object.keys(settings).length);
+  Object.entries(settings).forEach(([key,value],index)=>{env['GIT_CONFIG_KEY_'+index]=key;env['GIT_CONFIG_VALUE_'+index]=value;});
+  return env;
+}
+function runtime31Git(root,args) { return execFileSync('git',['--no-replace-objects','--no-pager','--no-optional-locks','-C',root,...args],
+  {windowsHide:true,stdio:['ignore','pipe','pipe'],maxBuffer:128*1024*1024,env:safeGitEnvironment31(root)}); }
+
 // The original verifier is itself hash-bound by the Build30 Rules method.
 // Keep those historical bytes and receipts untouched. Selecting30 here verifies
 // only that backend plane; the independent31 proof below admits the client.
@@ -422,6 +442,50 @@ function verifyClientBackendSourceAuthority({repoRoot, releasePolicy}) {
   if (releasePolicy?.release?.buildNumber !== undefined &&
       releasePolicy.release.buildNumber !== releasePolicy?.versionPolicy?.buildNumber) {
     return {ok: false, reasons: ["Client/backend authority: release and version generations differ."]};
+  }
+  // Explicit runtime route: failure cannot fall through to exact/dev-only proof.
+  const runtime31Selected = releasePolicy?.clientBackendCompatibility?.file ===
+      'release/approvals/build31-runtime-client-compatibility-approval.json' ||
+    releasePolicy?.runtimeBackendPrivateReplay !== undefined ||
+    releasePolicy?.clientBackendCompatibility?.profile === 'build31-exact-grpc-runtime-backend-v1';
+  if (runtime31Selected) {
+    try {
+      // Authenticate before loading; a helper cannot authenticate itself.
+      const runtimePath = 'tools/release/runtimeBackendPrivateReplay31.cjs';
+      const runtimeFile = path.resolve(repoRoot,runtimePath);
+      const runtimeGitBytes = runtime31Git(repoRoot,['show','HEAD:'+runtimePath]);
+      requireEvidence(fs.lstatSync(runtimeFile).isFile() && !fs.lstatSync(runtimeFile).isSymbolicLink() &&
+        crypto.createHash('sha256').update(fs.readFileSync(runtimeFile)).digest('hex') ===
+        crypto.createHash('sha256').update(runtimeGitBytes).digest('hex'),
+      'Runtime31 transport must match immutable source before loading.');
+      const runtime31 = require(runtimeFile);
+      const proof = runtime31.verifyRuntime31RepositoryAuthoritySync({repoRoot,releasePolicy});
+      requireEvidence(proof.ok === true, 'Runtime31 private closure replay did not pass.');
+      const pilotPath='tools/release/runtimePilotAuthority31.cjs';
+      const pilotFile=path.resolve(repoRoot,pilotPath);
+      const pilotGitBytes=runtime31Git(repoRoot,['show','HEAD:'+pilotPath]);
+      requireEvidence(fs.lstatSync(pilotFile).isFile() && !fs.lstatSync(pilotFile).isSymbolicLink() &&
+        crypto.createHash('sha256').update(fs.readFileSync(pilotFile)).digest('hex') ===
+        crypto.createHash('sha256').update(pilotGitBytes).digest('hex'),
+      'Runtime31 pilot adapter must match immutable source before loading.');
+      const pilotVerifier=require(pilotFile);
+      // Historical synchronous readers run with the same bounded Git environment.
+      // Restore the caller environment even if anchored pilot validation fails.
+      const before=Object.fromEntries(Object.entries(process.env).filter(([key])=>/^GIT_/i.test(key)));
+      const safe=safeGitEnvironment31(repoRoot);
+      let pilot;
+      try {
+        for(const key of Object.keys(process.env)) if(/^GIT_/i.test(key)) delete process.env[key];
+        for(const [key,value] of Object.entries(safe)) if(/^GIT_/i.test(key)) process.env[key]=value;
+        pilot=pilotVerifier.verifyPreservedPilotForRuntime31({repoRoot,releasePolicy});
+      } finally {
+        for(const key of Object.keys(process.env)) if(/^GIT_/i.test(key)) delete process.env[key];
+        Object.assign(process.env,before);
+      }
+      return {...pilot,...proof};
+    } catch (error) {
+      return {ok:false,reasons:[error instanceof Error ? error.message : String(error)]};
+    }
   }
   if (releasePolicy?.versionPolicy?.buildNumber !== 31 && releasePolicy?.release?.buildNumber !== 31) {
     return historical.verifyStagedPromotionSourceAuthority({repoRoot, releasePolicy});

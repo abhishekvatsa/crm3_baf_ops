@@ -145,6 +145,68 @@ def utc_instant(value: object) -> datetime | None:
         return None
 
 
+def runtime_backend_route_selected(policy: dict) -> bool:
+    pointer = policy.get("clientBackendCompatibility", {})
+    return (
+        "runtimeBackendPrivateReplay" in policy
+        or pointer.get("file") == "release/approvals/build31-runtime-client-compatibility-approval.json"
+        or pointer.get("profile") == "build31-exact-grpc-runtime-backend-v1"
+    )
+
+
+def runtime_backend_private_authority_exact(policy: dict, deployment: dict, deployed: dict) -> dict:
+    # The sanitized envelope cannot establish authority. Replay exact private
+    # generation bytes through the same source-bound verifier as signing.
+    try:
+        if not runtime_backend_route_selected(policy):
+            return {}
+        process = subprocess.run(
+            ["node", str(ROOT / "tools/release/clientBackendCompatibility31.js"),
+             str(ROOT), str(ROOT / "release/production-release-policy.json")],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+        proof = json.loads(process.stdout) if process.returncode == 0 else {}
+        runtime = proof.get("runtimeBackend31", {})
+        source = runtime.get("source", {})
+        closure = runtime.get("closurePointer", {})
+        approval = runtime.get("approvalPointer", {})
+        backend = runtime.get("currentBackend", {})
+        summary = {key: value for key, value in backend.items()
+                   if key not in {"closurePointer", "rawProofCommitment"}}
+        firestore = policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
+        required = (
+            proof.get("ok") is True and proof.get("route") == "runtime-backend31"
+            and runtime.get("privateEvidenceReplayed") is True
+            and policy.get("release", {}).get("buildNumber") == 31
+            and policy.get("versionPolicy", {}).get("buildNumber") == 31
+            and runtime.get("descriptorPointer") == policy.get("runtimeBackendPrivateReplay")
+            and runtime.get("clientPointer") == policy.get("clientBackendCompatibility")
+            and deployment.get("schemaVersion") == 2
+            and deployment.get("documentType") == "build31-runtime-private-record-custody"
+            and deployment.get("recordKind") == "closure"
+            and deployment.get("source") == source
+            and deployment.get("summary") == summary
+            and backend.get("fleet") == {"callables": 13, "events": 5, "schedulers": 1, "total": 19}
+            and all(backend.get("preserved", {}).get(key) is True
+                    for key in ("rules", "indexes", "iam", "enforcement", "businessLogic"))
+            and backend.get("appCheck") == {"clientRequired": True, "androidProvider": "playIntegrity", "mutatingEnforcementChanged": False}
+            and closure.get("file") == deployed.get("functionFleetEvidenceFile")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptFile")
+            and closure.get("sha256") == deployed.get("functionFleetEvidenceSha256")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptSha256")
+                == sha(ROOT / closure.get("file", ""))
+            and approval.get("file") == deployed.get("deploymentApprovalFile")
+            and approval.get("sha256") == deployed.get("deploymentApprovalSha256")
+                == sha(ROOT / approval.get("file", ""))
+            and source.get("commit") == deployed.get("functionFleetSourceCommit")
+            and deployed.get("rulesAndIndexesEvidenceFile") == firestore.get("receiptFile")
+            and deployed.get("rulesAndIndexesEvidenceSha256") == firestore.get("receiptFileSha256")
+        )
+        return proof if required else {}
+    except (OSError, TypeError, ValueError, KeyError, AttributeError):
+        return {}
+
+
 def current_backend_authority_proof_exact(
     deployment_relative: str,
     deployment: dict,
@@ -4851,6 +4913,11 @@ current_backend_deployment_relative = current_deployed_backend.get(
 )
 current_backend_deployment_path = ROOT / current_backend_deployment_relative
 current_backend_deployment = data(current_backend_deployment_relative)
+runtime31_selected = runtime_backend_route_selected(combined_policy)
+runtime31_source_proof = (
+    runtime_backend_private_authority_exact(combined_policy, current_backend_deployment, current_deployed_backend)
+    if runtime31_selected else {}
+)
 current_backend_readbacks = current_backend_deployment.get(
     "cleanMainLiveReadbacks", {}
 )
@@ -4863,20 +4930,35 @@ current_iam_readback_authority = current_backend_readbacks.get(
 current_firestore_authority = current_backend_readbacks.get(
     "firestoreRulesAndIndexes", {}
 )
-current_function_readback_path = ROOT / current_function_readback_authority.get(
-    "file", ""
-)
-current_function_readback = data(
-    current_function_readback_authority.get("file", "")
-)
-current_iam_readback_path = ROOT / current_iam_readback_authority.get(
-    "file", ""
-)
-current_iam_readback = data(current_iam_readback_authority.get("file", ""))
-current_firestore_readback_path = ROOT / current_firestore_authority.get(
-    "file", ""
-)
-current_firestore_readback = data(current_firestore_authority.get("file", ""))
+if runtime31_selected:
+    # Preserve the independently checked source-specific Firestore observation;
+    # private replay proves post-deployment preservation separately.
+    source_firestore = combined_policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
+    current_firestore_authority = {
+        **source_firestore,
+        "file": source_firestore.get("receiptFile", ""),
+        "physicalSha256": source_firestore.get("receiptFileSha256", ""),
+        "canonicalReceiptSha256": source_firestore.get("receiptCanonicalSha256", ""),
+    }
+    current_firestore_readback_path = ROOT / current_firestore_authority["file"]
+    current_firestore_readback = data(current_firestore_authority["file"])
+    current_function_readback_path = current_iam_readback_path = None
+    current_function_readback = current_iam_readback = {}
+else:
+    current_function_readback_path = ROOT / current_function_readback_authority.get(
+        "file", ""
+    )
+    current_function_readback = data(
+        current_function_readback_authority.get("file", "")
+    )
+    current_iam_readback_path = ROOT / current_iam_readback_authority.get(
+        "file", ""
+    )
+    current_iam_readback = data(current_iam_readback_authority.get("file", ""))
+    current_firestore_readback_path = ROOT / current_firestore_authority.get(
+        "file", ""
+    )
+    current_firestore_readback = data(current_firestore_authority.get("file", ""))
 current_backend_approval_relative = current_deployed_backend.get(
     "deploymentApprovalFile", ""
 )
@@ -4888,12 +4970,16 @@ current_backend_approval_evidence = current_backend_approval.get(
 current_backend_authority_chronology = current_backend_deployment.get(
     "authorityChronology", {}
 )
-current_backend_immutable_authority_exact = current_backend_authority_proof_exact(
+current_backend_immutable_authority_exact = bool(runtime31_source_proof) if runtime31_selected else (
+current_backend_authority_proof_exact(
     current_backend_deployment_relative,
     current_backend_deployment,
     current_deployed_backend,
 )
-if current_backend_approval_evidence.get("authorityType") == (
+)
+if runtime31_selected:
+    current_backend_approval_scope_exact = bool(runtime31_source_proof)
+elif current_backend_approval_evidence.get("authorityType") == (
     "owner-delegated agent decision"
 ):
     # The shared verifier retains fixed c00 custody and requires the successor's
@@ -8197,6 +8283,8 @@ check(
         == "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547"
     and sha(build18_iam_readback_path)
         == "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F"
+    and ((runtime31_selected and bool(runtime31_source_proof)) or (
+        not runtime31_selected
     and current_backend_approval.get("approved") is True
     and current_backend_approval.get("firebaseProjectId")
         == "crm3-baf-ops-b8638"
@@ -8282,6 +8370,7 @@ check(
     )
     and current_iam_readback.get("source", {}).get("before", {}).get("commit")
         == current_deployed_backend.get("functionFleetSourceCommit")
+    ))
     and sha(current_firestore_readback_path)
         == current_deployed_backend.get("rulesAndIndexesEvidenceSha256")
         == current_firestore_authority.get("physicalSha256")
@@ -8376,7 +8465,8 @@ check(
     and current_deployed_backend.get("functionFleetEvidenceFile")
         == current_backend_deployment_relative
     and current_deployed_backend.get("functionFleetSourceCommit")
-        == current_backend_deployment.get("sourceAuthority", {}).get("commit")
+        == (runtime31_source_proof.get("runtimeBackend31", {}).get("source", {}).get("commit")
+            if runtime31_selected else current_backend_deployment.get("sourceAuthority", {}).get("commit"))
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
     and current_deployed_backend.get("currentSourceFunctionDeployment")

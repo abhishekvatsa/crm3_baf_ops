@@ -593,6 +593,8 @@ if ([int]$policy.release.buildNumber -ne $ExpectedBuildNumber) {
   throw 'Build-number input differs from policy.'
 }
 . (Join-Path $PSScriptRoot 'Production-AppCheckPolicy.ps1')
+. (Join-Path $PSScriptRoot 'Runtime-BackendPrivateReplay31.ps1')
+$runtime31Proof = Get-ProductionRuntime31RepositoryEvidence -RepositoryRoot $repo -Policy $policy
 $appCheckEvidence = $null
 if ($ExpectedBuildNumber -ge 30) {
   $appCheckEvidence = Get-ProductionAppCheckRepositoryEvidence -RepositoryRoot $repo -Policy $policy
@@ -821,6 +823,11 @@ $identityDefines = [ordered]@{
 if ($null -ne $appCheckEvidence) {
   $identityDefines['CRM3_APP_CHECK_ENABLED'] = $appCheckEvidence.dartDefine
 }
+if ($null -ne $runtime31Proof) {
+  Export-ZipEntry -ArchivePath $archivePath `
+    -EntryPath 'tools/release/Runtime-BackendPrivateReplay31.ps1' `
+    -DestinationPath (Join-Path $releaseDirectory 'Runtime-BackendPrivateReplay31.ps1')
+}
 
 $dartDefines = @()
 foreach ($entry in $identityDefines.GetEnumerator()) {
@@ -1001,6 +1008,12 @@ $receiptFiles = @(
 
 $receiptHashes = [ordered]@{}
 if ($null -ne $appCheckEvidence) { $receiptFiles += $appCheckEvidence.approvalFile }
+if ($null -ne $runtime31Proof) {
+  $receiptFiles += @($runtime31Proof.runtimeBackend31.descriptorPointer.file,
+    $runtime31Proof.runtimeBackend31.approvalPointer.file,
+    $runtime31Proof.runtimeBackend31.closurePointer.file,
+    $runtime31Proof.runtimeBackend31.clientPointer.file)
+}
 foreach ($file in $receiptFiles) {
   $receiptHashes[$file] = Get-ZipEntrySha256 `
     -ArchivePath $archivePath `
@@ -1234,6 +1247,7 @@ $manifest = [ordered]@{
 $manifestPath =
   Join-Path $releaseDirectory 'production-release-manifest.json'
 if ($null -ne $appCheckEvidence) { $manifest['appCheckBuild'] = $appCheckEvidence }
+if ($null -ne $runtime31Proof) { $manifest['runtimeBackend31'] = $runtime31Proof.runtimeBackend31 }
 Write-Utf8NoBom `
   -Path $manifestPath `
   -Text (($manifest | ConvertTo-Json -Depth 50) + "`n")
