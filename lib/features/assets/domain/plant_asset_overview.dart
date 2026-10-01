@@ -235,20 +235,28 @@ class PlantInnerCoverState {
     required this.profile,
     this.evidenceWarnings = const [],
     this.dependency,
+    this.stockCondition,
   });
   final InnerCoverProfile profile;
   final List<String> evidenceWarnings;
   final InnerCoverDependencyState? dependency;
+  final InnerCoverStockRow? stockCondition;
   bool get isUnderMaintenance =>
       profile.isUnderMaintenanceForPlantCondition ||
       dependency?.isUnderMaintenance == true;
   bool get isIssueUnavailable =>
-      !profile.isUnfitForPlantCondition && dependency?.isUnavailable == true;
+      !profile.isUnfitForPlantCondition &&
+      stockCondition?.activeConfirmedBulging != true &&
+      dependency?.isUnavailable == true;
   bool get isUnfit =>
       profile.isUnfitForPlantCondition ||
+      stockCondition?.activeConfirmedBulging == true ||
       (!isIssueUnavailable && dependency?.isUnfit == true);
   bool get hasUnverifiedEvidence =>
-      evidenceWarnings.isNotEmpty || dependency?.complete == false;
+      evidenceWarnings.isNotEmpty ||
+      dependency?.complete == false ||
+      stockCondition?.evidenceUnverified == true ||
+      stockCondition?.needsCurrentAssessment == true;
   bool get isAvailable =>
       !hasUnverifiedEvidence &&
       profile.isAvailableForPlantCondition &&
@@ -256,6 +264,8 @@ class PlantInnerCoverState {
       !isIssueUnavailable &&
       !isUnfit;
   List<String> get conditionReasons => [
+    if (stockCondition?.activeConfirmedBulging == true) 'Confirmed bulging',
+    if (stockCondition?.needsCurrentAssessment == true) 'Assessment needed',
     if (dependency?.isUnavailable == true) 'Unavailable by Inner Cover issue',
     if (dependency?.isUnfit == true) 'Unfit by Inner Cover issue',
     if (dependency?.hasRedWork == true) 'RED work remains open',
@@ -266,9 +276,15 @@ class PlantInnerCoverState {
       'Maintenance work remains open',
   ];
   String get conditionSummary => [
-    profile.lifecycleState.label,
+    profile.lifecycleState == InnerCoverLifecycleState.available && !isAvailable
+        ? 'Accepted stock'
+        : profile.lifecycleState.label,
+    if (profile.requiresReacceptance) 'Reacceptance required',
     ...conditionReasons,
-    if (hasUnverifiedEvidence) 'evidence unverified',
+    if (evidenceWarnings.isNotEmpty ||
+        dependency?.complete == false ||
+        stockCondition?.evidenceUnverified == true)
+      'evidence unverified',
   ].join(' · ');
 }
 

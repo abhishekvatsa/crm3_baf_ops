@@ -10,6 +10,7 @@ enum InnerCoverStockDisposition {
   installed,
   acceptedUnassigned,
   excluded,
+  assessmentRequired,
   unverified,
 }
 
@@ -25,6 +26,7 @@ class InnerCoverStockRow {
     required this.inconclusiveBulgeAssessment,
     this.activeIssueRestriction = false,
     this.activeMaintenanceRestriction = false,
+    this.needsCurrentAssessment = false,
   });
   final InnerCoverProfile profile;
   final InnerCoverStockDisposition disposition;
@@ -36,6 +38,7 @@ class InnerCoverStockRow {
   final bool inconclusiveBulgeAssessment;
   final bool activeIssueRestriction;
   final bool activeMaintenanceRestriction;
+  final bool needsCurrentAssessment;
 }
 
 /// Recorded stock and concerns, never a certification of current physical fitness.
@@ -106,6 +109,19 @@ class InnerCoverStockSummary {
   int get activeMaintenanceRestrictions =>
       rows.where((r) => r.activeMaintenanceRestriction).length;
   int get unverified => rows.where((r) => r.evidenceUnverified).length;
+  int? get assessmentRequired =>
+      inventoryConfirmed &&
+          linkageConfirmed &&
+          bulgeEvidenceConfirmed &&
+          dependencyEvidenceConfirmed
+      ? rows
+            .where(
+              (r) =>
+                  r.disposition ==
+                  InnerCoverStockDisposition.assessmentRequired,
+            )
+            .length
+      : null;
   List<InnerCoverStockRow> get review =>
       rows.where((r) => r.reviewReasons.isNotEmpty).toList(growable: false);
   InnerCoverStockSummary forClass(String id) => InnerCoverStockSummary(
@@ -177,7 +193,8 @@ InnerCoverStockSummary annotateInnerCoverStockDependencies(
           );
         }
         var disposition = row.disposition;
-        if (disposition == InnerCoverStockDisposition.acceptedUnassigned) {
+        if (disposition == InnerCoverStockDisposition.acceptedUnassigned ||
+            disposition == InnerCoverStockDisposition.assessmentRequired) {
           disposition = workReasons.isNotEmpty
               ? InnerCoverStockDisposition.excluded
               : rowComplete
@@ -206,6 +223,7 @@ InnerCoverStockSummary annotateInnerCoverStockDependencies(
               InnerCoverDependencyKind.preparation,
             }.contains(r.kind),
           ),
+          needsCurrentAssessment: row.needsCurrentAssessment,
         );
       })
       .toList(growable: false);
@@ -382,6 +400,15 @@ InnerCoverStockSummary buildInnerCoverStockSummary({
                   FurnaceStuckupAdjudicationStatus.inconclusive &&
               bulging(c.suspectedCause),
         );
+    final activeInconclusive =
+        concernsQualified &&
+        coverCases.any(
+          (c) =>
+              c.isActive &&
+              c.adjudicationStatus ==
+                  FurnaceStuckupAdjudicationStatus.inconclusive &&
+              bulging(c.suspectedCause),
+        );
     if (inconclusive) {
       final active = coverCases.any(
         (c) =>
@@ -404,14 +431,18 @@ InnerCoverStockSummary buildInnerCoverStockSummary({
       reasons.add('Released obstruction; bulge assessment pending');
     }
     if (history) reasons.add('Bulge history — confirm present condition');
+    final needsCurrentAssessment =
+        !activeConfirmedBulging && (pendingActive || activeInconclusive);
     final disposition = !identityConfirmed || !linkageConfirmed
         ? InnerCoverStockDisposition.unverified
         : p.isInstalled
         ? InnerCoverStockDisposition.installed
-        : !p.isAvailable
+        : !p.isAvailable || activeConfirmedBulging
         ? InnerCoverStockDisposition.excluded
         : !bulgeEvidenceConfirmed
         ? InnerCoverStockDisposition.unverified
+        : needsCurrentAssessment
+        ? InnerCoverStockDisposition.assessmentRequired
         : InnerCoverStockDisposition.acceptedUnassigned;
     rows.add(
       InnerCoverStockRow(
@@ -423,6 +454,7 @@ InnerCoverStockSummary buildInnerCoverStockSummary({
         pendingBulgeAssessment: pendingActive || pendingReleased,
         bulgeHistory: history,
         inconclusiveBulgeAssessment: inconclusive,
+        needsCurrentAssessment: needsCurrentAssessment,
       ),
     );
   }

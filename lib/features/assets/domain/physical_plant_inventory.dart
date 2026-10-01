@@ -38,11 +38,26 @@ PlantAssetOverview physicalPlantInventory({
     byId.putIfAbsent(profile.id, () => []).add(profile);
   }
   final covers = <PlantInnerCoverState>[];
+  final stock = innerCoverStock ?? overview.innerCoverStock;
   for (final entry in byId.entries) {
     final extant = entry.value.where((c) => c.countsAsAssetInventory).toList();
     if (extant.isEmpty) continue;
     final profile = extant.first;
     final rowWarnings = [...coverSourceWarnings];
+    final stockRows = stock?.rows
+        .where((r) => r.profile.id == profile.id)
+        .toList();
+    final stockIdentityMatches =
+        stockRows?.length == 1 &&
+        stockRows!.single.profile.normalizedSerialNumber ==
+            profile.normalizedSerialNumber &&
+        stockRows.single.profile.assetClassId == profile.assetClassId &&
+        stockRows.single.profile.version == profile.version;
+    if (stock != null && !stockIdentityMatches) {
+      rowWarnings.add(
+        'Current Inner Cover condition identity needs verification.',
+      );
+    }
     final matches = classes.where((c) => c.id == profile.assetClassId).toList();
     if (matches.length != 1 ||
         !matches.single.isActive ||
@@ -72,6 +87,7 @@ PlantAssetOverview physicalPlantInventory({
       PlantInnerCoverState(
         profile: profile,
         evidenceWarnings: List.unmodifiable(rowWarnings),
+        stockCondition: stockIdentityMatches ? stockRows.single : null,
       ),
     );
   }

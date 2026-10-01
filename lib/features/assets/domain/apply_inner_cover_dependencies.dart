@@ -37,6 +37,7 @@ PlantAssetOverview applyInnerCoverDependencies({
         return PlantInnerCoverState(
           profile: cover.profile,
           dependency: identityMatches ? dependency : null,
+          stockCondition: cover.stockCondition,
           evidenceWarnings: List.unmodifiable(rowWarnings),
         );
       })

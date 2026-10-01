@@ -19,6 +19,7 @@ import 'package:crm3_baf_ops/features/assets/domain/inner_cover_stock_summary.da
 import 'package:crm3_baf_ops/features/assets/domain/physical_plant_inventory.dart';
 import 'package:crm3_baf_ops/features/assets/domain/plant_asset_overview.dart';
 import 'package:crm3_baf_ops/features/assets/presentation/asset_condition_board.dart';
+import 'package:crm3_baf_ops/features/assets/presentation/widgets/inner_cover_stock_panel.dart';
 import 'package:crm3_baf_ops/features/maintenance/domain/furnace_stuckup_case.dart';
 import 'package:crm3_baf_ops/features/reports/domain/base_inner_cover_register.dart';
 import 'package:crm3_baf_ops/features/assets/domain/inner_cover_dependencies.dart';
@@ -269,6 +270,169 @@ InnerCoverDependencies _dependencies(
 );
 
 void main() {
+  test('assessment with recorded work stays excluded from candidate stock', () {
+    final cover = _cover('ASSESS-WORK');
+    final fixture = _Fixture(extra: [cover]);
+    for (final kind in InnerCoverDependencyKind.values) {
+      final stock = annotateInnerCoverStockDependencies(
+        fixture.build(cases: [_case(cover)]),
+        _dependencies(fixture, reasons: [_workReason(cover, kind)]),
+      );
+      expect(stock.excluded, 1, reason: kind.name);
+      expect(stock.assessmentRequired, 0);
+      expect(stock.acceptedUnassigned, 0);
+      expect(stock.rows.single.needsCurrentAssessment, isTrue);
+    }
+  });
+  test(
+    'confirmed bulging keeps physical unfit precedence over unavailable issue',
+    () {
+      final cover = _cover('BULGE-WORK');
+      final fixture = _Fixture(extra: [cover]);
+      final stock = fixture.build(cases: [_case(cover, confirmed: true)]);
+      final plant = applyInnerCoverDependencies(
+        overview: fixture.overview(stock),
+        register: buildBaseInnerCoverRegister(
+          classes: _batch([_baseClass, _coverClass]),
+          assets: _batch(fixture.bases),
+          assignments: _batch(fixture.assignments),
+          covers: _batch(fixture.profiles),
+          linkages: _batch(fixture.links),
+        ),
+        dependencies: _dependencies(
+          fixture,
+          reasons: [_workReason(cover, InnerCoverDependencyKind.unavailable)],
+        ),
+      );
+      expect(plant.unfit, 1);
+      expect(plant.issueUnavailable, 0);
+      expect(plant.available, 0);
+      expect(
+        plant.innerCovers.single.conditionReasons,
+        contains('Unavailable by Inner Cover issue'),
+      );
+    },
+  );
+  for (final width in [320.0, 360.0, 393.0]) {
+    for (final scale in [1.0, 2.5]) {
+      testWidgets(
+        'compact cover counts keep current and history separate at $width/$scale',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 1000);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final active = _cover('BULGING');
+          final history = _cover('HISTORY');
+          final fixture = _Fixture(installed: 1, extra: [active, history]);
+          await tester.pumpWidget(
+            MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: InnerCoverStockPanel(
+                      summary: fixture.build(
+                        cases: [_case(active, confirmed: true)],
+                        declarations: [_history(history)],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Spare candidates 1'), findsOneWidget);
+          expect(find.text('Installed 1'), findsOneWidget);
+          expect(find.text('Excluded 1'), findsOneWidget);
+          expect(
+            find.text('Current concerns: confirmed bulging 1'),
+            findsOneWidget,
+          );
+          expect(find.textContaining('Bulge history: 2'), findsOneWidget);
+          expect(find.textContaining('Inner Cover HISTORY:'), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+  test('active confirmed bulging excludes a spare and Plant availability', () {
+    final cover = _cover('ACTIVE');
+    final fixture = _Fixture(extra: [cover]);
+    final stock = fixture.build(cases: [_case(cover, confirmed: true)]);
+    expect(stock.acceptedUnassigned, 0);
+    expect(stock.excluded, 1);
+    final plant = fixture.overview(stock);
+    expect(plant.available, 0);
+    expect(plant.unfit, 1);
+    expect(plant.down, 0);
+    expect(
+      plant.innerCovers.single.conditionSummary,
+      contains('Confirmed bulging'),
+    );
+  });
+  test('active unresolved bulging needs assessment without claiming unfit', () {
+    for (final inconclusive in [false, true]) {
+      final cover = _cover('ASSESS');
+      final fixture = _Fixture(extra: [cover]);
+      final stock = fixture.build(
+        cases: [_case(cover, inconclusive: inconclusive)],
+      );
+      expect(stock.acceptedUnassigned, 0);
+      expect(stock.excluded, 0);
+      final plant = fixture.overview(stock);
+      expect(plant.available, 0);
+      expect(plant.unfit, 0);
+      expect(
+        plant.innerCovers.single.conditionSummary,
+        contains('Assessment needed'),
+      );
+    }
+  });
+  test('released assessment and history do not become current bulging', () {
+    for (final inconclusive in [false, true]) {
+      final cover = _cover('RELEASED');
+      final fixture = _Fixture(extra: [cover]);
+      final stock = fixture.build(
+        cases: [_case(cover, active: false, inconclusive: inconclusive)],
+        declarations: [_history(cover)],
+      );
+      expect(stock.acceptedUnassigned, 1);
+      expect(fixture.overview(stock).available, 1);
+      expect(fixture.overview(stock).unfit, 0);
+    }
+  });
+  test(
+    'installed current bulging retains linkage count without available claim',
+    () {
+      final fixture = _Fixture(installed: 1);
+      final stock = fixture.build(
+        cases: [_case(fixture.profiles.single, confirmed: true)],
+      );
+      expect(stock.installed, 1);
+      expect(stock.acceptedUnassigned, 0);
+      expect(fixture.overview(stock).available, 0);
+      expect(fixture.overview(stock).unfit, 1);
+      expect(fixture.overview(stock).down, 0);
+    },
+  );
+  test('unverified current condition cannot be available in Plant', () {
+    final fixture = _Fixture(extra: [_cover('UNKNOWN')]);
+    for (final mode in ['cache', 'pending', 'rejected']) {
+      final stock = fixture.build(unqualified: 'cases', mode: mode);
+      expect(stock.acceptedUnassigned, isNull);
+      expect(fixture.overview(stock).available, 0);
+      expect(fixture.overview(stock).unfit, 0);
+      expect(fixture.overview(stock).unverifiedWorkflowEvidence, 1);
+    }
+  });
   test(
     'dependency overlay excludes a restricted accepted unassigned cover from spare candidates',
     () {
@@ -584,10 +748,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('Accepted, unassigned candidates 1'),
-        findsOneWidget,
-      );
+      expect(find.text('Spare candidates 1'), findsOneWidget);
       expect(find.textContaining('Installed 47'), findsOneWidget);
       expect(find.textContaining('Inner Cover SPARE:'), findsNothing);
     },
@@ -617,7 +778,7 @@ void main() {
     },
   );
   test(
-    'provider keeps missing cached error and pending bulge evidence unverified while stock counts stay unchanged',
+    'provider withholds availability while current bulge evidence is unverified',
     () async {
       final fixture = _Fixture(extra: [_cover('SPARE')]);
       final cases =
@@ -653,7 +814,7 @@ void main() {
       expect(stock().bulgeHistory, isNull);
       expect(
         container.read(plantAssetOverviewProvider).requireValue.available,
-        1,
+        0,
       );
       cases.add(_batch([]));
       declarations.add(_batch([_history(fixture.profiles.single)]));
@@ -833,21 +994,13 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        expect(find.textContaining('Bulge history: 1'), findsOneWidget);
+        expect(find.textContaining('Check current condition'), findsOneWidget);
         expect(
-          find.textContaining('accepted/unassigned with bulge history'),
+          find.text('Current concerns: issues 1 · maintenance 1'),
           findsOneWidget,
         );
-        expect(find.text('Bulge: 1 with history'), findsOneWidget);
-        expect(
-          find.text(
-            'Work concerns: 1 with active issues · 1 with open maintenance',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining('Accepted, unassigned candidates 1'),
-          findsOneWidget,
-        );
+        expect(find.text('Spare candidates 1'), findsOneWidget);
         expect(find.textContaining('Inner Cover FAULTY:'), findsNothing);
         expect(find.textContaining('Inner Cover SPARE:'), findsNothing);
         expect(find.textContaining('Inner Cover C101:'), findsNothing);

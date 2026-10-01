@@ -10,60 +10,55 @@ class InnerCoverStockPanel extends StatelessWidget {
     final review = summary.review;
     final concernCounts = [
       if ((summary.activeConfirmedBulging ?? 0) > 0)
-        '${summary.activeConfirmedBulging} active confirmed',
-      if ((summary.pendingBulgeAssessment ?? 0) > 0)
-        '${summary.pendingBulgeAssessment} assessment pending',
-      if ((summary.inconclusiveBulgeAssessment ?? 0) > 0)
-        '${summary.inconclusiveBulgeAssessment} inconclusive',
-      if ((summary.bulgeHistory ?? 0) > 0)
-        '${summary.bulgeHistory} with history',
-    ];
-    final workCounts = [
+        'confirmed bulging ${summary.activeConfirmedBulging}',
+      if (summary.rows.any((r) => r.needsCurrentAssessment))
+        'assessment needed ${summary.rows.where((r) => r.needsCurrentAssessment).length}',
       if (summary.activeIssueRestrictions > 0)
-        '${summary.activeIssueRestrictions} with active issues',
+        'issues ${summary.activeIssueRestrictions}',
       if (summary.activeMaintenanceRestrictions > 0)
-        '${summary.activeMaintenanceRestrictions} with open maintenance',
+        'maintenance ${summary.activeMaintenanceRestrictions}',
     ];
-    const style = TextStyle(fontSize: 12);
+    final evidenceUnverified =
+        !summary.inventoryConfirmed ||
+        !summary.linkageConfirmed ||
+        !summary.bulgeEvidenceConfirmed ||
+        !summary.dependencyEvidenceConfirmed ||
+        summary.unverified > 0;
+    final style = Theme.of(context).textTheme.bodySmall;
     return Material(
       type: MaterialType.transparency,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Installed ${count(summary.installed)} · Accepted, unassigned candidates ${count(summary.acceptedUnassigned)}',
-            style: style,
+          Wrap(
+            spacing: 16,
+            runSpacing: 4,
+            children: [
+              Text('Installed ${count(summary.installed)}', style: style),
+              Text(
+                'Spare candidates ${count(summary.acceptedUnassigned)}',
+                style: style,
+              ),
+              Text('Excluded ${count(summary.excluded)}', style: style),
+              if (summary.assessmentRequired == null ||
+                  summary.assessmentRequired! > 0)
+                Text(
+                  'Needs assessment ${count(summary.assessmentRequired)}',
+                  style: style,
+                ),
+            ],
           ),
-          Text(
-            'Not spare candidates ${count(summary.excluded)}${summary.unverified == 0 ? '' : ' · ${summary.unverified} evidence unverified'}',
-            style: style,
-          ),
-          if (workCounts.isNotEmpty)
-            Text('Work concerns: ${workCounts.join(' · ')}', style: style),
-          if (!summary.dependencyEvidenceConfirmed)
-            const Text(
-              'Current issue/maintenance evidence is unverified; spare candidates are unconfirmed.',
-              style: style,
-            ),
-          if (summary.bulgeHistory != null)
+          if (concernCounts.isNotEmpty)
             Text(
-              'Bulge: ${concernCounts.isEmpty ? 'none recorded' : concernCounts.join(' · ')}',
+              'Current concerns: ${concernCounts.join(' · ')}',
               style: style,
             ),
-          if ((summary.acceptedUnassignedWithHistory ?? 0) > 0)
+          if (evidenceUnverified)
             Text(
-              '${summary.acceptedUnassignedWithHistory} accepted/unassigned with bulge history — confirm present condition',
+              'Some current records are unverified; candidate count is unconfirmed.',
               style: style,
             ),
-          const Text(
-            'Candidates exclude recorded active work; confirm present condition before installation.',
-            style: style,
-          ),
-          if (!summary.bulgeEvidenceConfirmed)
-            const Text(
-              'Current bulge/condition evidence is unverified.',
-              style: style,
-            ),
+          Text('Candidates need a physical check before use.', style: style),
           if (review.isNotEmpty)
             ExpansionTile(
               key: PageStorageKey(
@@ -81,11 +76,20 @@ class InnerCoverStockPanel extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              subtitle: (summary.bulgeHistory ?? 0) > 0
+                  ? Text(
+                      'Bulge history: ${summary.bulgeHistory} · Check current condition',
+                      style: style,
+                    )
+                  : null,
               children: [
                 for (final row in review)
-                  Text(
-                    'Inner Cover ${row.profile.serialNumber}: ${row.reviewReasons.join(' · ')}',
-                    style: style,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      'Inner Cover ${row.profile.serialNumber}: ${row.reviewReasons.join(' · ')}',
+                      style: style,
+                    ),
                   ),
               ],
             ),
