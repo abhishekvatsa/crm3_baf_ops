@@ -610,27 +610,6 @@ class _MaintenanceFormState extends ConsumerState<MaintenanceForm> {
     });
   }
 
-  AssetInstanceRecord? _selectedStuckupBase() {
-    final id = _stuckupBaseAssetId;
-    final classes = ref.read(assetClassesProvider).valueOrNull;
-    if (id == null || classes == null) return null;
-    final baseClasses = classes
-        .where(
-          (item) =>
-              item.isActive && item.legacyAssetTypeKey == AssetType.base.name,
-        )
-        .toList(growable: false);
-    if (baseClasses.length != 1) return null;
-    return resolveSelectedPhysicalAsset(
-      assetId: id,
-      physicalClassId: baseClasses.single.id,
-      liveAssets: ref
-          .read(assetInstancesProvider(baseClasses.single.id))
-          .valueOrNull,
-      retained: null,
-    );
-  }
-
   Future<void> _chooseGovernedComponent() async {
     final route = _selectedAssetRoute();
     final asset = _selectedPhysicalAsset();

@@ -1,5 +1,30 @@
 part of 'maintenance_form.dart';
 
+// Selection resolution stays in this form's library: the original exact-class
+// and live-instance checks are shared with submission and draft validation.
+extension _MaintenanceFormAssetSelection on _MaintenanceFormState {
+  AssetInstanceRecord? _selectedStuckupBase() {
+    final id = _stuckupBaseAssetId;
+    final classes = ref.read(assetClassesProvider).valueOrNull;
+    if (id == null || classes == null) return null;
+    final baseClasses = classes
+        .where(
+          (item) =>
+              item.isActive && item.legacyAssetTypeKey == AssetType.base.name,
+        )
+        .toList(growable: false);
+    if (baseClasses.length != 1) return null;
+    return resolveSelectedPhysicalAsset(
+      assetId: id,
+      physicalClassId: baseClasses.single.id,
+      liveAssets: ref
+          .read(assetInstancesProvider(baseClasses.single.id))
+          .valueOrNull,
+      retained: null,
+    );
+  }
+}
+
 class _SelectedAssetSummary extends StatelessWidget {
   const _SelectedAssetSummary({required this.asset});
 
