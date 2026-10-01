@@ -1,8 +1,10 @@
 """Exercise the actual ultimate-audit basic-ftp guard without running unrelated audits."""
 import ast
 import copy
+import hashlib
 import json
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -33,6 +35,13 @@ class BasicFtpDependencyPolicyTests(unittest.TestCase):
         for manifest in PINS:
             with self.subTest(manifest=manifest):
                 self.assertTrue(self.check_domain(manifest))
+
+    def test_ci_backend_jobs_bind_the_actual_cli_lockfile_bytes(self):
+        workflow = (ROOT / ".github/workflows/release-gate.yml").read_text(encoding="utf-8")
+        expected = re.findall(r'expected_lock_sha="([A-F0-9]{64})"', workflow)
+        self.assertEqual(len(expected), 2, "Both emulator jobs must retain their lockfile gate")
+        actual = hashlib.sha256((ROOT / "tooling/firebase-cli/package-lock.json").read_bytes()).hexdigest().upper()
+        self.assertEqual(expected, [actual, actual], "CI pins must match the committed CLI lockfile")
 
     def test_changed_override_or_registry_bytes_fail(self):
         original = copy.deepcopy(self.documents)

@@ -326,7 +326,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="1F5F309A981945099801F47FCC5004DA5B9E6BB3409D5878D86891CEB4E13343"
+          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -393,7 +393,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="1F5F309A981945099801F47FCC5004DA5B9E6BB3409D5878D86891CEB4E13343"
+          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
