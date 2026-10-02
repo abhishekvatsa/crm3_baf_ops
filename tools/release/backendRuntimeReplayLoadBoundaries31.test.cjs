@@ -4,6 +4,60 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const a=require('./backendRuntimeAdmission31.cjs'),controls=require('./backendRuntimeControls31.cjs'),closure=require('./backendRuntimeClosure31.cjs');
 const access=require('./backendRuntimeEvidenceAccess31.cjs');
 const readbacks=require('./backendRuntimeReadbacks31.cjs');
+// Exercise both native path implementations on every host; only node:path is
+// substituted in this isolated copy of the actual production module.
+function evidenceAccessWithNativePath(native) {
+ const module={exports:{}};
+ require('node:vm').runInNewContext(fs.readFileSync(require.resolve('./backendRuntimeEvidenceAccess31.cjs'),'utf8'),{
+  module,exports:module.exports,Buffer,process,
+  require:id=>id==='node:path'?{...native,win32:path.win32,posix:path.posix}:require(id),
+ },{filename:'backendRuntimeEvidenceAccess31.cjs'});
+ return module.exports;
+}
+for(const method of ['join','resolve','dirname','basename','extname','normalize'])test('POSIX native '+method+' must not use Windows absolute-path rules',()=>{
+ const api=evidenceAccessWithNativePath(path.posix).path;
+ const args=method==='join'||method==='resolve'?['/tmp/runtime31','tooling/x.js']:['/tmp/runtime31/literal\\name.json'];
+ assert.equal(path.win32.isAbsolute(args[0]),true);
+ assert.equal(api[method](...args),path.posix[method](...args));
+});
+for(const native of ['posix','win32'])test(native+' host preserves Windows drive and backslash UNC custody paths',()=>{
+ const api=evidenceAccessWithNativePath(path[native]).path;
+ for(const original of ['C:\\retained\\source','C:/retained/source','\\\\custody-host\\retained\\source']){
+  for(const method of ['join','resolve'])assert.equal(api[method](original,'proof.json'),path.win32[method](original,'proof.json'));
+  for(const method of ['dirname','basename','extname','normalize'])assert.equal(api[method](original),path.win32[method](original));
+  assert.equal(api.isAbsolute(original),true);
+ }
+});
+test('POSIX slash-prefixed double slash paths retain native semantics, not UNC semantics',()=>{
+ const api=evidenceAccessWithNativePath(path.posix).path,first='//tmp/runtime31/proof.json';
+ for(const method of ['join','resolve'])assert.equal(api[method](first,'child'),path.posix[method](first,'child'));
+ for(const method of ['dirname','basename','extname','normalize'])assert.equal(api[method](first),path.posix[method](first));
+});
+test('native and relative runtime paths retain the host path semantics',()=>{
+ const absolute=path.join(os.tmpdir(),'runtime31','proof.json');
+ assert.equal(access.path.join(path.dirname(absolute),'proof.json'),absolute);
+ assert.equal(access.path.resolve(absolute),path.resolve(absolute));
+ for(const native of ['posix','win32']){
+  const api=evidenceAccessWithNativePath(path[native]).path;
+  assert.equal(api.join('relative','proof.json'),path[native].join('relative','proof.json'));
+  assert.equal(api.isAbsolute('relative/proof.json'),false);
+ }
+});
+for(const original of ['Q:\\archived-runtime31','\\\\custody-host\\retained\\runtime31'])test('Windows custody identity relocates locally without modifying '+original,()=>{
+ const bundle=fs.mkdtempSync(path.join(os.tmpdir(),'crm31-path-')),raw=Buffer.from('bound original evidence'),physical=path.join(bundle,'runtime','proof.json');
+ fs.mkdirSync(path.dirname(physical));fs.writeFileSync(physical,raw);
+ const config={privateBundleRoot:bundle,relocation:{schemaVersion:1,roots:[{original,memberRoot:'runtime'}],files:[]},members:[{path:'runtime/proof.json',bytes:raw.length,sha256:a.helpers.hash(raw)}]};
+ const before=JSON.stringify(config);
+ access.runRelocated31(config,()=>{
+  const requested=access.path.join(original,'proof.json');
+  assert.equal(access.resolveOriginal(requested),physical);
+  assert.deepEqual(access.fs.readFileSync(requested),raw);
+  assert.throws(()=>access.resolveOriginal(access.path.join(original,'..','outside.json')),/no unique immutable relocation/);
+ });
+ assert.equal(JSON.stringify(config),before);
+ fs.appendFileSync(physical,'tampered');
+ assert.throws(()=>access.runRelocated31(config,()=>access.fs.readFileSync(access.path.join(original,'proof.json'))),/Relocated evidence changed/);
+});
 function relocatedControlsFixture(){
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'crm31-cache-')),bundle=path.join(root,'bundle'),runtime=path.join(bundle,'runtime'),original=path.join(root,'original-unavailable'),bindings={},members=[];
  const files={

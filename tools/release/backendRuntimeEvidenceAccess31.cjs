@@ -33,9 +33,12 @@ function runRelocated31({privateBundleRoot,relocation,members,evidenceDirectory,
 const fs={...nativeFs};
 for(const name of ['readFileSync','statSync','lstatSync','readdirSync','existsSync','realpathSync'])fs[name]=function(p,...rest){let mapped=resolveOriginal(p);if(current()?.relocation&&name==='readFileSync')mapped=current().validateFile(p);return nativeFs[name](mapped,...rest);};
 const path={...nativePath};
-for(const key of ['dirname','basename','extname','normalize'])path[key]=p=>(typeof p==='string'&&nativePath.win32.isAbsolute(p)?nativePath.win32:nativePath)[key](p);
-path.join=(first,...rest)=>(typeof first==='string'&&nativePath.win32.isAbsolute(first)?nativePath.win32:nativePath).join(first,...rest);
-path.resolve=(first,...rest)=>(typeof first==='string'&&nativePath.win32.isAbsolute(first)?nativePath.win32:nativePath).resolve(first,...rest);
+// Native absolute paths take precedence: win32 also accepts POSIX /tmp paths.
+// Windows drive and backslash UNC originals still use their custody semantics.
+function pathImplementation(p){return typeof p==='string'&&!nativePath.isAbsolute(p)&&nativePath.win32.isAbsolute(p)?nativePath.win32:nativePath;}
+for(const key of ['dirname','basename','extname','normalize'])path[key]=p=>pathImplementation(p)[key](p);
+path.join=(first,...rest)=>pathImplementation(first).join(first,...rest);
+path.resolve=(first,...rest)=>pathImplementation(first).resolve(first,...rest);
 path.isAbsolute=p=>nativePath.isAbsolute(p)||nativePath.win32.isAbsolute(p);
 function resolveAuthorityRecord31(envelope){
   if(envelope?.documentType!=='build31-runtime-private-record-custody')return envelope;
