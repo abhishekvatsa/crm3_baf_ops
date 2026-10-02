@@ -1,3 +1,4 @@
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_operational_condition.dart';
 import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
 import 'package:crm3_baf_ops/features/assets/domain/inner_cover_stock_summary.dart';
@@ -21,12 +22,13 @@ final _coverClass = f.assetClass(
 
 InnerCoverProfile _coverProfile(
   String id,
-  InnerCoverLifecycleState lifecycle,
-) => InnerCoverProfile(
+  InnerCoverLifecycleState lifecycle, {
+  AssetClassRecord? assetClass,
+}) => InnerCoverProfile(
   id: id,
-  assetClassId: _coverClass.id,
-  assetClassCode: _coverClass.code,
-  assetClassName: _coverClass.name,
+  assetClassId: (assetClass ?? _coverClass).id,
+  assetClassCode: (assetClass ?? _coverClass).code,
+  assetClassName: (assetClass ?? _coverClass).name,
   serialNumber: id,
   normalizedSerialNumber: id,
   sourceType: InnerCoverSourceType.legacyExisting,
@@ -318,6 +320,81 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final lifecycle in [
+    InnerCoverLifecycleState.underRepair,
+    InnerCoverLifecycleState.installed,
+  ]) {
+    testWidgets(
+      'class detail explains retained cover counts for $lifecycle in a non-cover class',
+      (tester) async {
+        final cls = f.assetClass(
+          id: 'bases',
+          code: 'BASE',
+          name: 'Bases',
+          legacyKey: 'base',
+        );
+        final overview = physicalPlantInventory(
+          overview: const PlantAssetOverview(classes: [], assets: []),
+          classes: [cls],
+          profiles: [
+            _coverProfile('MISCLASSIFIED-1', lifecycle, assetClass: cls),
+          ],
+        );
+        final summary = overview.classes.single;
+        final cover = summary.innerCovers.single;
+        final restricted = lifecycle == InnerCoverLifecycleState.underRepair;
+        expect(summary.total, 1);
+        expect(summary.available, 0);
+        expect(summary.unavailable, restricted ? 1 : 0);
+        expect(summary.unverifiedAvailability, restricted ? 0 : 1);
+        expect(
+          cover.evidenceWarnings,
+          contains('Inner Cover class is missing, retired or unverified.'),
+        );
+        var opened = 0;
+        await _pump(tester, overview, onOpen: () => opened++);
+        expect(find.text('Inner Covers: 1 class unverified'), findsOneWidget);
+        expect(find.textContaining('MISCLASSIFIED-1:'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('plant-class-row-bases')));
+        await tester.pumpAndSettle();
+        final detail = find.byKey(const ValueKey('plant-class-details-bases'));
+        final texts = tester
+            .widgetList<Text>(
+              find.descendant(of: detail, matching: find.byType(Text)),
+            )
+            .map((text) => text.data ?? '')
+            .join(' ');
+        expect(
+          texts,
+          contains('Inner Cover MISCLASSIFIED-1: ${cover.conditionSummary}'),
+        );
+        expect(texts, contains(lifecycle.label));
+        expect(
+          texts,
+          contains('Inner Cover class is missing, retired or unverified.'),
+        );
+        expect(
+          texts,
+          isNot(contains('No recorded restrictions in this class.')),
+        );
+        expect(
+          texts,
+          isNot(contains('No registered equipment in this class.')),
+        );
+        // A retained serial belongs in its counted class detail, while the
+        // separate class-unverified review link must remain available.
+        expect(find.text('Inner Covers: 1 class unverified'), findsOneWidget);
+        final open = find.byKey(const ValueKey('plant-class-open-bases'));
+        await tester.ensureVisible(open);
+        await tester.pumpAndSettle();
+        await tester.tap(open);
+        expect(opened, 1);
+        expect(summary.total, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'orphan serial covers retain a separate review link without double counting known classes',

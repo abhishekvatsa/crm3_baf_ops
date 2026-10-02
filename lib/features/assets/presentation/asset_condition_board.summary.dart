@@ -804,7 +804,7 @@ class _HomePlantClassDetails extends StatelessWidget {
             '${summary.assetClass.name} · condition detail',
             style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
           ),
-          if (reasons.isEmpty)
+          if (reasons.isEmpty && summary.innerCovers.isEmpty)
             Text(
               !summary.inventoryComplete
                   ? 'Inventory incomplete. These records cannot establish the full class position.'
@@ -821,6 +821,20 @@ class _HomePlantClassDetails extends StatelessWidget {
               padding: const EdgeInsets.only(top: BafSpacing.sm),
               child: Text(
                 '$label ${assets.length}: ${assets.map((a) => '${summary.assetClass.name} ${a.asset.assetNumber}').join(', ')}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: BafColors.textPrimary,
+                ),
+              ),
+            ),
+          for (final cover in summary.innerCovers)
+            Padding(
+              padding: const EdgeInsets.only(top: BafSpacing.sm),
+              child: Text(
+                [
+                  'Inner Cover ${cover.profile.serialNumber}: ${cover.conditionSummary}',
+                  ...cover.evidenceWarnings,
+                ].join('\n'),
                 style: const TextStyle(
                   fontSize: 12,
                   color: BafColors.textPrimary,

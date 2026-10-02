@@ -119,13 +119,12 @@ PlantAssetOverview physicalPlantInventory({
             covers.any((s) => s.profile.assetClassId == cls.id))
           PlantAssetClassSummary(
             assetClass: cls,
-            inventoryComplete:
-                overview.physicalInventoryComplete &&
-                (!coverClassIds.contains(cls.id) ||
-                    (coverSourceWarnings.isEmpty &&
-                        coverPopulationWarnings.isEmpty &&
-                        rejectedProfiles.isEmpty &&
-                        rejectedClasses.isEmpty)),
+            inventoryComplete: coverClassIds.contains(cls.id)
+                ? coverSourceWarnings.isEmpty &&
+                      coverPopulationWarnings.isEmpty &&
+                      rejectedProfiles.isEmpty &&
+                      rejectedClasses.isEmpty
+                : overview.physicalInventoryComplete,
             assets: numbered
                 .where((s) => s.asset.assetClassId == cls.id)
                 .toList(),

@@ -3,6 +3,13 @@ import 'dart:async';
 import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
 import 'package:crm3_baf_ops/features/assets/data/plant_condition_evidence.dart';
+import 'package:crm3_baf_ops/features/assets/data/inner_cover_lifecycle.dart';
+import 'package:crm3_baf_ops/features/assets/domain/apply_inner_cover_dependencies.dart';
+import 'package:crm3_baf_ops/features/assets/domain/inner_cover_dependencies.dart';
+import 'package:crm3_baf_ops/features/assets/domain/inner_cover_stock_summary.dart';
+import 'package:crm3_baf_ops/features/reports/domain/base_inner_cover_register.dart';
+import 'package:crm3_baf_ops/features/assets/domain/physical_plant_inventory.dart';
+import 'package:crm3_baf_ops/features/assets/domain/qualified_plant_asset_overview.dart';
 import 'package:crm3_baf_ops/features/assets/providers/plant_asset_overview_provider.dart';
 import 'package:crm3_baf_ops/features/maintenance/providers/maintenance_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +93,241 @@ Future<void> _settle(ProviderContainer container) async {
 }
 
 void main() {
+  for (final numberedFeed in ['cached', 'rejected']) {
+    for (final coverEvidence in [
+      'current',
+      'cached profiles',
+      'cached classes',
+      'rejected profiles',
+      'rejected classes',
+    ]) {
+      test(
+        '$numberedFeed numbered register does not determine $coverEvidence cover inventory',
+        () {
+          final coverClass = f.assetClass(
+            id: 'covers',
+            code: 'IC',
+            name: 'Inner Covers',
+            legacyKey: 'innerCover',
+          );
+          final numbered = qualifiedPlantAssetOverview(
+            classes: [_class, coverClass],
+            assets: [_asset],
+            conditions: [],
+            workflow: [f.workflow(key: 'furnace', number: 1)],
+            availability: [],
+            tickets: [],
+            populationWarnings: [],
+            manualSourcesCurrent: true,
+            physicalInventoryComplete: numberedFeed != 'cached',
+            rejectedAssets: numberedFeed == 'rejected'
+                ? {'unreadable-row'}
+                : {},
+          );
+          final overview = physicalPlantInventory(
+            overview: numbered,
+            classes: [_class, coverClass],
+            profiles: [
+              InnerCoverProfile(
+                id: 'IC-CURRENT',
+                assetClassId: coverClass.id,
+                assetClassCode: coverClass.code,
+                assetClassName: coverClass.name,
+                serialNumber: 'IC-CURRENT',
+                normalizedSerialNumber: 'IC-CURRENT',
+                sourceType: InnerCoverSourceType.legacyExisting,
+                lifecycleState: InnerCoverLifecycleState.installed,
+                traceabilityGrade: InnerCoverTraceabilityGrade.t0,
+                version: 1,
+                createdAt: _asset.createdAt,
+                updatedAt: _asset.updatedAt,
+                lastMutationId: 'fixture',
+              ),
+            ],
+            coverSourceWarnings: coverEvidence.startsWith('cached')
+                ? ['Current $coverEvidence evidence is unconfirmed.']
+                : [],
+            coverPopulationWarnings: coverEvidence == 'rejected profiles'
+                ? ['An unreadable cover may be missing from inventory.']
+                : [],
+            rejectedProfiles: coverEvidence == 'rejected profiles'
+                ? {'unreadable-cover'}
+                : {},
+            rejectedClasses: coverEvidence == 'rejected classes'
+                ? {'unreadable-class'}
+                : {},
+          );
+          final physicalClass = overview.classes.singleWhere(
+            (summary) => summary.assetClass.id == _class.id,
+          );
+          final covers = overview.classes.singleWhere(
+            (summary) => summary.assetClass.id == coverClass.id,
+          );
+          expect(overview.physicalInventoryComplete, isFalse);
+          expect(overview.hasCompleteEvidence, isFalse);
+          expect(overview.availabilityRate, isNull);
+          expect(physicalClass.inventoryComplete, isFalse);
+          expect(physicalClass.availabilityRate, isNull);
+          expect(covers.total, 1);
+          expect(covers.inventoryComplete, coverEvidence == 'current');
+          expect(
+            covers.availabilityRate,
+            coverEvidence == 'current' ? 1.0 : isNull,
+          );
+        },
+      );
+    }
+  }
+
+  for (final concern in [
+    'none',
+    'linkage unverified',
+    'fitness assessment required',
+    'confirmed bulging',
+  ]) {
+    test(
+      'complete serial inventory preserves $concern through the dependency pipeline',
+      () {
+        final coverClass = f.assetClass(
+          id: 'covers',
+          code: 'IC',
+          name: 'Inner Covers',
+          legacyKey: 'innerCover',
+        );
+        final profile = InnerCoverProfile(
+          id: 'IC-CURRENT',
+          assetClassId: coverClass.id,
+          assetClassCode: coverClass.code,
+          assetClassName: coverClass.name,
+          serialNumber: 'IC-CURRENT',
+          normalizedSerialNumber: 'IC-CURRENT',
+          sourceType: InnerCoverSourceType.legacyExisting,
+          lifecycleState: InnerCoverLifecycleState.installed,
+          traceabilityGrade: InnerCoverTraceabilityGrade.t0,
+          version: 1,
+          createdAt: _asset.createdAt,
+          updatedAt: _asset.updatedAt,
+          lastMutationId: 'fixture',
+        );
+        final uncertainLinkage = concern == 'linkage unverified';
+        final assessment = concern == 'fitness assessment required';
+        final confirmedBulging = concern == 'confirmed bulging';
+        final stock = InnerCoverStockSummary(
+          inventoryConfirmed: true,
+          linkageConfirmed: !uncertainLinkage,
+          bulgeEvidenceConfirmed: true,
+          dependencyEvidenceConfirmed: true,
+          rows: [
+            InnerCoverStockRow(
+              profile: profile,
+              disposition: uncertainLinkage
+                  ? InnerCoverStockDisposition.unverified
+                  : InnerCoverStockDisposition.installed,
+              reviewReasons: [
+                if (uncertainLinkage) 'Assignment/linkage evidence unverified',
+                if (confirmedBulging)
+                  'Active obstruction with confirmed bulging',
+              ],
+              evidenceUnverified: uncertainLinkage,
+              activeConfirmedBulging: confirmedBulging,
+              pendingBulgeAssessment: false,
+              bulgeHistory: confirmedBulging,
+              inconclusiveBulgeAssessment: false,
+            ),
+          ],
+        );
+        final numbered = qualifiedPlantAssetOverview(
+          classes: [coverClass],
+          assets: [],
+          conditions: [],
+          workflow: [],
+          availability: [],
+          tickets: [],
+          populationWarnings: [],
+          manualSourcesCurrent: true,
+        );
+        final physical = physicalPlantInventory(
+          overview: numbered,
+          classes: [coverClass],
+          profiles: [profile],
+          innerCoverStock: stock,
+        );
+        final overview = applyInnerCoverDependencies(
+          overview: physical,
+          register: const BaseInnerCoverRegister(
+            rows: [],
+            notes: [],
+            populationConfirmed: true,
+            evidenceConfirmed: true,
+          ),
+          dependencies: InnerCoverDependencies(
+            byCoverId: {
+              profile.id: InnerCoverDependencyState(
+                coverId: profile.id,
+                serialNumber: profile.serialNumber,
+                complete: true,
+                warnings: [],
+                reasons: [
+                  if (assessment)
+                    InnerCoverDependencyReason(
+                      key: 'released-case-assessment',
+                      sourceId: 'case-1',
+                      kind: InnerCoverDependencyKind.assessment,
+                      coverId: profile.id,
+                      serialNumber: profile.serialNumber,
+                      eventHostAssetId: 'original-base',
+                      eventHostClassId: 'bases',
+                      eventHostNumber: 1,
+                      eventLinkageId: 'original-link',
+                      awaitingServerConfirmation: false,
+                    ),
+                ],
+              ),
+            },
+            evidenceWarnings: [],
+            complete: true,
+          ),
+        );
+        final covers = overview.classes.single;
+        final cover = covers.innerCovers.single;
+        final unverified = uncertainLinkage || assessment;
+        expect(overview.physicalInventoryComplete, isTrue);
+        expect(covers.inventoryComplete, isTrue);
+        expect(covers.total, 1);
+        expect(covers.available, concern == 'none' ? 1 : 0);
+        expect(covers.unavailable, confirmedBulging ? 1 : 0);
+        expect(covers.unverifiedAvailability, unverified ? 1 : 0);
+        expect(cover.isAvailable, concern == 'none');
+        expect(cover.isUnfit, confirmedBulging);
+        expect(cover.hasUnverifiedEvidence, unverified);
+        expect(cover.dependency!.needsCurrentAssessment, assessment);
+        expect(
+          overview.innerCoverStock!.rows.single.needsCurrentAssessment,
+          assessment,
+        );
+        expect(overview.hasCompleteEvidence, !unverified);
+        expect(
+          covers.availabilityRate,
+          unverified ? isNull : (confirmedBulging ? 0.0 : 1.0),
+        );
+        expect(
+          overview.availabilityRate,
+          unverified ? isNull : (confirmedBulging ? 0.0 : 1.0),
+        );
+        if (uncertainLinkage) {
+          expect(cover.conditionSummary, contains('evidence unverified'));
+          expect(overview.innerCoverStock!.linkageConfirmed, isFalse);
+        }
+        if (assessment) {
+          expect(cover.conditionSummary, contains('Assessment needed'));
+        }
+        if (confirmedBulging) {
+          expect(cover.conditionSummary, contains('Confirmed bulging'));
+        }
+      },
+    );
+  }
+
   test(
     'complete server registers enable only their class denominator',
     () async {
