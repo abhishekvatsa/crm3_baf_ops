@@ -186,7 +186,13 @@ proof = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
 branch = next(node for node in tree.body if isinstance(node, ast.If) and any(
     isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "current_backend_approval_scope_exact" for target in child.targets)
     for child in node.body))
-definitions = compile(ast.Module(body=[helper], type_ignores=[]), str(source), "exec")
+# Select the historical fixture route using the real production selector.
+# These cases exercise historical authority, not the private runtime31 replay.
+selector = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "runtime_backend_route_selected")
+route = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
+    isinstance(target, ast.Name) and target.id == "runtime31_selected" for target in node.targets))
+definitions = compile(ast.Module(body=[helper, selector], type_ignores=[]), str(source), "exec")
+selection = compile(ast.Module(body=[route], type_ignores=[]), str(source), "exec")
 consumer = compile(ast.Module(body=[proof, branch], type_ignores=[]), str(source), "exec")
 original_approvals = {file: (root / file).read_bytes() for file in [
     "release/approvals/build27-backend-deployment-approval.json",
@@ -218,8 +224,11 @@ for case in json.loads((root / "cases.json").read_text(encoding="utf-8")):
         current_backend_deployment_relative=receipt_file, current_backend_approval=approval,
         current_backend_approval_evidence=approval.get("approvalEvidence", {}),
         current_backend_authority_chronology=receipt.get("authorityChronology", {}),
-        current_function_readback=readback)
+        current_function_readback=readback,
+        combined_policy=json.loads((root / "release/production-release-policy.json").read_bytes()))
     exec(definitions, scope)
+    exec(selection, scope)
+    assert scope["runtime31_selected"] is False, "Historical fixtures must execute the original authority branch"
     exec(consumer, scope)
     rows.append(dict(label=case["label"], accepted=scope["current_backend_approval_scope_exact"], expected=case["accepted"]))
     for file, content in original_approvals.items():
@@ -708,10 +717,37 @@ if ($parseErrors.Count) { throw 'Production verifier does not parse' }
 foreach ($definition in $ast.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst]}, $false)) {
   Invoke-Expression $definition.Extent.Text
 }
+function Get-UniqueImmediateCountGuard($Root, [string]$Message) {
+  # Match the guard's own throw, not any parent containing it in an else block.
+  $blocks = @($Root.FindAll({param($node)
+    $node -is [Management.Automation.Language.IfStatementAst] -and
+      $node.Clauses.Count -eq 1 -and $null -eq $node.ElseClause -and
+      $node.Clauses[0].Item2.Statements.Count -eq 1 -and
+      $node.Clauses[0].Item2.Statements[0] -is [Management.Automation.Language.ThrowStatementAst] -and
+      $node.Clauses[0].Item2.Statements[0].Extent.Text -ceq "throw '$Message'"
+  }, $false))
+  if ($blocks.Count -ne 1) { throw "Expected one production count check for $Message" }
+  return $blocks[0]
+}
 $blocks = foreach ($message in @('Exact Function fleet deployment receipt is incomplete.', 'Current Function fleet deployment authority is incomplete.')) {
-  $block = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.IfStatementAst] -and $node.Extent.Text.Contains("throw '$message'")}, $false))
-  if ($block.Count -ne 1) { throw "Expected one production count check for $message" }
-  $block[0].Extent.Text
+  $block = Get-UniqueImmediateCountGuard $ast $message
+  # The current nesting must not make a wrapper an additional match. Missing
+  # and duplicated guards must still fail rather than silently select one.
+  $nestedText = 'if ($outer) { } else { ' + $block.Extent.Text + ' }'
+  $nestedAst = [Management.Automation.Language.Parser]::ParseInput($nestedText, [ref]$tokens, [ref]$parseErrors)
+  if ($parseErrors.Count) { throw 'Nested guard fixture does not parse' }
+  if ((Get-UniqueImmediateCountGuard $nestedAst $message).Extent.Text -cne $block.Extent.Text) {
+    throw 'Guard selector selected its enclosing wrapper'
+  }
+  foreach ($invalidText in @('if ($outer) { }', ($block.Extent.Text + [Environment]::NewLine + $block.Extent.Text))) {
+    $invalidAst = [Management.Automation.Language.Parser]::ParseInput($invalidText, [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors.Count) { throw 'Invalid-count guard fixture does not parse' }
+    $rejected = $false
+    try { $null = Get-UniqueImmediateCountGuard $invalidAst $message }
+    catch { $rejected = $_.Exception.Message -ceq "Expected one production count check for $message" }
+    if (-not $rejected) { throw 'Missing or duplicate count guard was not rejected' }
+  }
+  $block.Extent.Text
 }
 $assignments = foreach ($name in @('$expectedFunctionFleetContract', '$currentFunctionFleetContract')) {
   $assignment = @($ast.FindAll({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and $node.Left.Extent.Text -ceq $name}, $false))
