@@ -18,6 +18,7 @@ PlantAssetOverview qualifiedPlantAssetOverview({
   required List<MaintenanceRecord> tickets,
   required List<String> populationWarnings,
   required bool manualSourcesCurrent,
+  bool physicalInventoryComplete = true,
   List<String> unverifiedSources = const [],
   Set<String> rejectedConditions = const {},
   Set<String> rejectedAssets = const {},
@@ -278,13 +279,29 @@ PlantAssetOverview qualifiedPlantAssetOverview({
       uniqueClasses[cls.id] = cls;
     }
   }
+  // A rejected identity may belong to any class. Do not guess a complete class
+  // denominator from the remaining readable records.
+  final inventoryComplete =
+      physicalInventoryComplete &&
+      rejectedAssets.isEmpty &&
+      rejectedClasses.isEmpty &&
+      uniqueClasses.length == classes.length &&
+      assetsById.values.every((rows) => rows.length == 1) &&
+      states.every((state) {
+        final cls = uniqueClasses[state.asset.assetClassId];
+        return cls != null &&
+            cls.isActive &&
+            cls.code == state.asset.assetClassCode;
+      });
   return PlantAssetOverview(
     assets: List.unmodifiable(states),
+    physicalInventoryComplete: inventoryComplete,
     classes: [
       for (final cls in uniqueClasses.values)
         if (cls.isActive || states.any((s) => s.asset.assetClassId == cls.id))
           PlantAssetClassSummary(
             assetClass: cls,
+            inventoryComplete: inventoryComplete,
             assets: states
                 .where((s) => s.asset.assetClassId == cls.id)
                 .toList(),

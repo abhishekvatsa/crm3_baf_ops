@@ -125,6 +125,15 @@ void main() {
           reason:
               'Late business data must not read the ListView double as an expansion boolean.',
         );
+        if (panel.key == 'fallback Inner Cover summary') {
+          final toggle = find.byKey(
+            const ValueKey('plant-inner-cover-toggle-class-1'),
+          );
+          await tester.ensureVisible(toggle);
+          await tester.pumpAndSettle();
+          await tester.tap(toggle);
+          await tester.pumpAndSettle();
+        }
         final tile = find.byType(ExpansionTile);
         expect(tile, findsOneWidget);
         await tester.ensureVisible(tile);
@@ -143,6 +152,16 @@ void main() {
         content.value = panel.value();
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
+        if (panel.key == 'fallback Inner Cover summary' &&
+            find.byType(ExpansionTile).evaluate().isEmpty) {
+          final toggle = find.byKey(
+            const ValueKey('plant-inner-cover-toggle-class-1'),
+          );
+          await tester.ensureVisible(toggle);
+          await tester.pumpAndSettle();
+          await tester.tap(toggle);
+          await tester.pumpAndSettle();
+        }
         expect(
           bucket.readState(tester.element(find.byType(ExpansionTile))),
           isTrue,

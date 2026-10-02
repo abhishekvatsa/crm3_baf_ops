@@ -43,7 +43,7 @@ void main() {
 
         await tester.pumpWidget(_panel(confirmed, () => retries++));
         expect(find.text('Plant data unavailable'), findsNothing);
-        expect(find.text('0 of 0 assets'), findsOneWidget);
+        expect(find.text('No equipment inventory verified.'), findsOneWidget);
         expect(tester.takeException(), isNull);
       },
     );

@@ -173,6 +173,17 @@ class PlantAssetState {
   bool get isAdministrativelyOutOfService =>
       asset.serviceState == AssetServiceState.outOfService;
 
+  /// A known restriction remains visible even when another evidence family is
+  /// unverified. This is a display union, not a new operational condition.
+  bool get hasKnownAvailabilityRestriction =>
+      isUnderMaintenance ||
+      isDown ||
+      isUnfit ||
+      isIssueUnavailable ||
+      isTemporarilyBlocked ||
+      isStandby ||
+      isAdministrativelyOutOfService;
+
   bool get isAvailable =>
       asset.isActive &&
       asset.serviceState == AssetServiceState.inService &&
@@ -188,17 +199,47 @@ class PlantAssetClassSummary {
   final AssetClassRecord assetClass;
   final List<PlantAssetState> assets;
   final List<PlantInnerCoverState> innerCovers;
+  final bool inventoryComplete;
 
   const PlantAssetClassSummary({
     required this.assetClass,
     required this.assets,
     this.innerCovers = const [],
+    this.inventoryComplete = true,
   });
 
   int get total => assets.length + innerCovers.length;
   int get available =>
       assets.where((asset) => asset.isAvailable).length +
       innerCovers.where((c) => c.isAvailable).length;
+
+  /// Counts physical identities once, even when restriction reasons overlap.
+  /// Missing evidence alone is classified separately from known unavailability.
+  int get unavailable =>
+      assets.where((asset) => asset.hasKnownAvailabilityRestriction).length +
+      innerCovers
+          .where((cover) => cover.hasKnownAvailabilityRestriction)
+          .length;
+  int get unverifiedAvailability =>
+      assets
+          .where(
+            (asset) =>
+                !asset.isAvailable && !asset.hasKnownAvailabilityRestriction,
+          )
+          .length +
+      innerCovers
+          .where(
+            (cover) =>
+                !cover.isAvailable && !cover.hasKnownAvailabilityRestriction,
+          )
+          .length;
+  double? get availabilityRate =>
+      total == 0 ||
+          !inventoryComplete ||
+          unverifiedAvailability > 0 ||
+          unverifiedWorkflowEvidence > 0
+      ? null
+      : available / total;
   int get underMaintenance =>
       assets.where((asset) => asset.isUnderMaintenance).length +
       innerCovers.where((c) => c.isUnderMaintenance).length;
@@ -265,6 +306,11 @@ class PlantInnerCoverState {
       !isUnderMaintenance &&
       !isIssueUnavailable &&
       !isUnfit;
+  bool get hasKnownAvailabilityRestriction =>
+      !profile.isAvailableForPlantCondition ||
+      isUnderMaintenance ||
+      isIssueUnavailable ||
+      isUnfit;
   List<String> get conditionReasons => [
     if (stockCondition?.activeConfirmedBulging == true) 'Confirmed bulging',
     if (stockCondition?.needsCurrentAssessment == true ||
@@ -296,6 +342,10 @@ class PlantAssetOverview {
   final List<PlantAssetClassSummary> classes;
   final List<PlantAssetState> assets;
   final List<String> evidenceWarnings;
+
+  /// Whether the numbered-asset and class registers are current and complete.
+  /// Serial Inner Cover evidence is qualified independently.
+  final bool physicalInventoryComplete;
   final List<PlantInnerCoverState> innerCovers;
   final List<String> innerCoverEvidenceWarnings;
   final bool hasQualifiedInnerCoverInventory;
@@ -306,6 +356,7 @@ class PlantAssetOverview {
     required this.classes,
     required this.assets,
     this.evidenceWarnings = const [],
+    this.physicalInventoryComplete = true,
     this.innerCovers = const [],
     this.innerCoverEvidenceWarnings = const [],
     this.hasQualifiedInnerCoverInventory = false,
@@ -333,7 +384,9 @@ class PlantAssetOverview {
       assets.where((asset) => asset.hasUnverifiedWorkflowEvidence).length +
       innerCovers.where((c) => c.hasUnverifiedEvidence).length;
   bool get hasCompleteEvidence =>
-      evidenceWarnings.isEmpty && unverifiedWorkflowEvidence == 0;
+      physicalInventoryComplete &&
+      evidenceWarnings.isEmpty &&
+      unverifiedWorkflowEvidence == 0;
   double? get availabilityRate =>
       total == 0 || !hasCompleteEvidence ? null : available / total;
   List<PlantAssetState> get unclassifiedAssets => assets

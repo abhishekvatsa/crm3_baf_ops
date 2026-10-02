@@ -84,26 +84,38 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(overview.total, 2);
       expect(find.text('1/2'), findsNothing);
-      expect(find.text('2 recorded'), findsOneWidget);
+      expect(find.text('Plant condition'), findsOneWidget);
       expect(
-        find.text('1 verified available · 1 condition unverified'),
+        find.byKey(const ValueKey('plant-condition-evidence-summary')),
         findsOneWidget,
       );
       expect(
-        find.text('Plant condition — evidence incomplete'),
+        find.byKey(const ValueKey('plant-home-unclassified-orphan')),
         findsOneWidget,
       );
+      expect(find.text('Base 99 · class unverified'), findsOneWidget);
       expect(find.textContaining('Inner Cover IC-1: Installed'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('plant-inner-cover-details-covers')),
+        findsNothing,
+      );
+      expect(
+        find.text('All registered assets are in the available state.'),
+        findsNothing,
+      );
+      final stockToggle = find.byKey(
+        const ValueKey('plant-inner-cover-toggle-covers'),
+      );
+      await tester.ensureVisible(stockToggle);
+      await tester.pumpAndSettle();
+      await tester.tap(stockToggle);
+      await tester.pumpAndSettle();
       expect(
         find.text('Open Plant condition for all inner covers.'),
         findsOneWidget,
       );
-      expect(find.byType(ExpansionTile), findsNothing);
-      expect(
-        find.text('All registered assets are in the available state.'),
-        findsOneWidget,
-      ); // Cover class only, with known evidence.
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -223,8 +235,19 @@ void main() {
           ),
         );
 
-        expect(find.text('48 registered'), findsOneWidget);
-        expect(find.text('Unfit 6'), findsOneWidget);
+        expect(overview.total, 48);
+        expect(
+          find.byKey(const ValueKey('plant-inner-cover-details-covers')),
+          findsNothing,
+        );
+        expect(find.textContaining('Inner Cover IC-'), findsNothing);
+        final stockToggle = find.byKey(
+          const ValueKey('plant-inner-cover-toggle-covers'),
+        );
+        await tester.ensureVisible(stockToggle);
+        await tester.pumpAndSettle();
+        await tester.tap(stockToggle);
+        await tester.pumpAndSettle();
         expect(
           find.text('39 available · 8 unavailable · 1 unverified'),
           findsOneWidget,
@@ -236,23 +259,6 @@ void main() {
         );
         final serialRows = find.textContaining(RegExp(r'^Inner Cover IC-'));
         expect(serialRows, findsNothing);
-        expect(
-          tester
-              .widget<Text>(
-                find.byKey(const ValueKey('plant-condition-available-value')),
-              )
-              .data,
-          '39',
-        );
-        expect(
-          tester
-              .widget<Text>(
-                find.byKey(const ValueKey('plant-condition-maintenance-value')),
-              )
-              .data,
-          '1',
-        );
-
         final review = find.text('Review 9 inner covers');
         await tester.ensureVisible(review);
         await tester.pumpAndSettle();

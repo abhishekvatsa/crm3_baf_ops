@@ -59,25 +59,26 @@ class HomeCommandBar extends StatelessWidget {
         onPressed: onControl,
       );
 
-      if (constraints.maxWidth < 430) {
+      final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+      if (constraints.maxWidth < 600 * scale) {
+        final columns =
+            ((constraints.maxWidth + BafSpacing.sm) /
+                    (96 * scale + 40 + BafSpacing.sm))
+                .floor()
+                .clamp(1, 4);
+        final width =
+            (constraints.maxWidth - BafSpacing.sm * (columns - 1)) / columns;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             raiseIssue,
             const SizedBox(height: BafSpacing.sm),
-            Row(
+            Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.sm,
               children: [
-                Expanded(child: plant),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(child: morningReview),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.sm),
-            Row(
-              children: [
-                Expanded(child: control),
-                const SizedBox(width: BafSpacing.sm),
-                Expanded(child: reports),
+                for (final command in [plant, morningReview, control, reports])
+                  SizedBox(width: width, child: command),
               ],
             ),
           ],
@@ -118,7 +119,7 @@ class _HomeSecondaryCommand extends StatelessWidget {
   Widget build(BuildContext context) => OutlinedButton.icon(
     onPressed: onPressed,
     icon: Icon(icon, size: 19),
-    label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    label: Text(label, textAlign: TextAlign.center),
     style: OutlinedButton.styleFrom(
       foregroundColor: color,
       minimumSize: const Size.fromHeight(48),
@@ -135,6 +136,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
     required this.dataUnavailable,
     required this.onOpenReports,
     required this.onPlantCondition,
+    this.onOpenClass,
     required this.onIssues,
     required this.onWork,
     required this.onControl,
@@ -157,6 +159,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
   final bool dataUnavailable;
   final VoidCallback onOpenReports;
   final VoidCallback onPlantCondition;
+  final ValueChanged<String>? onOpenClass;
   final VoidCallback onIssues;
   final VoidCallback onWork;
   final VoidCallback onControl;
@@ -176,7 +179,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final overview = plantOverview.asData?.value;
+    final overview = plantOverview.isLoading || plantOverview.hasError
+        ? null
+        : plantOverview.asData?.value;
     // These source populations can share related records. Summarize active
     // queues here; each queue keeps its own record count further down Home.
     final actionQueueCount = [
@@ -192,31 +197,38 @@ class HomeManagementPulsePanel extends StatelessWidget {
       activeInspectionFindingCount,
       activeQualityMonitoringCount,
     ].where((count) => count > 0).length;
-    final availableRate = overview?.availabilityRate;
-    final availability = availableRate == null
-        ? '--'
-        : '${(availableRate * 100).round()}%';
+    final equipment =
+        overview?.classes
+            .where((c) => c.assetClass.legacyAssetTypeKey != 'innerCover')
+            .toList() ??
+        const <PlantAssetClassSummary>[];
+    final exceptions = equipment
+        .where(
+          (c) =>
+              c.unavailable > 0 ||
+              c.unverifiedAvailability > 0 ||
+              c.unverifiedWorkflowEvidence > 0 ||
+              !c.inventoryComplete,
+        )
+        .toList();
+    final highRiskClass = equipment
+        .where((c) => c.down > 0 || c.unfit > 0)
+        .firstOrNull;
+    final restrictedClass = equipment
+        .where((c) => c.unavailable > 0)
+        .firstOrNull;
     final availabilityDetail = overview == null
         ? 'Plant data unavailable'
-        : overview.hasCompleteEvidence
-        ? '${overview.available} of ${overview.total} assets'
-        : '${overview.available} verified available · ${overview.total} recorded · evidence incomplete';
-    final availabilityColor = availableRate == null
-        ? BafColors.textSecondary
-        : availableRate >= 0.9
-        ? BafColors.success
-        : availableRate >= 0.75
-        ? BafColors.warning
-        : BafColors.danger;
-    final unavailableAssets = overview == null
-        ? 0
-        : overview.total - overview.available;
-    final highRiskUnavailableAssets = overview == null
-        ? 0
-        : overview.down + overview.unfit;
+        : equipment.isEmpty || equipment.every((c) => c.total == 0)
+        ? 'No equipment inventory verified.'
+        : !overview.hasCompleteEvidence
+        ? 'Evidence incomplete. Review each class before making decisions.'
+        : exceptions.isEmpty
+        ? 'No recorded class restrictions.'
+        : 'Equipment exceptions by class';
     final leading = _leadingSignal(
-      unavailableAssets: unavailableAssets,
-      highRiskUnavailableAssets: highRiskUnavailableAssets,
+      highRiskClass: highRiskClass,
+      restrictedClass: restrictedClass,
     );
 
     return BafSectionSurface(
@@ -225,36 +237,55 @@ class HomeManagementPulsePanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: BafColors.cobalt.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(BafRadius.small),
-                ),
-                child: const Icon(
-                  Icons.insights_rounded,
-                  size: 19,
-                  color: BafColors.cobalt,
-                ),
-              ),
-              const SizedBox(width: BafSpacing.sm),
-              const Expanded(
-                child: Text(
-                  'Management pulse',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-              ),
-              IconButton(
-                tooltip: 'Open operations reports',
-                onPressed: onOpenReports,
-                icon: const Icon(Icons.arrow_forward_rounded),
-                color: BafColors.cobalt,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final stacked =
+                  constraints.maxWidth <
+                  255 * MediaQuery.textScalerOf(context).scale(16) / 16;
+              const title = Text(
+                'Management pulse',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              );
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: BafColors.cobalt.withValues(alpha: 0.11),
+                          borderRadius: BorderRadius.circular(BafRadius.small),
+                        ),
+                        child: const Icon(
+                          Icons.insights_rounded,
+                          size: 19,
+                          color: BafColors.cobalt,
+                        ),
+                      ),
+                      const SizedBox(width: BafSpacing.sm),
+                      if (stacked)
+                        const Spacer()
+                      else
+                        const Expanded(child: title),
+                      IconButton(
+                        tooltip: 'Open operations reports',
+                        onPressed: onOpenReports,
+                        icon: const Icon(Icons.arrow_forward_rounded),
+                        color: BafColors.cobalt,
+                      ),
+                    ],
+                  ),
+                  if (stacked)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: BafSpacing.sm),
+                      child: title,
+                    ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: BafSpacing.xs),
           LayoutBuilder(
@@ -265,7 +296,7 @@ class HomeManagementPulsePanel extends StatelessWidget {
                   ((constraints.maxWidth + BafSpacing.sm) /
                           (minimumWidth + BafSpacing.sm))
                       .floor()
-                      .clamp(1, 3);
+                      .clamp(1, 2);
               final width =
                   (constraints.maxWidth - BafSpacing.sm * (columns - 1)) /
                   columns;
@@ -276,20 +307,12 @@ class HomeManagementPulsePanel extends StatelessWidget {
                   SizedBox(
                     width: width,
                     child: _HomePulseMetric(
-                      value: availability,
-                      label: 'Availability',
-                      detail: availabilityDetail,
-                      color: availabilityColor,
-                      onTap: onPlantCondition,
-                    ),
-                  ),
-                  SizedBox(
-                    width: width,
-                    child: _HomePulseMetric(
                       value: dataUnavailable ? '--' : '$actionQueueCount',
                       label: 'Action queues',
                       detail: 'Active queues for issues, work and disruptions',
-                      color: actionQueueCount == 0
+                      color: dataUnavailable
+                          ? BafColors.textSecondary
+                          : actionQueueCount == 0
                           ? BafColors.success
                           : BafColors.warning,
                       onTap: ticketCount > 0
@@ -306,7 +329,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
                       label: 'Assurance queues',
                       detail:
                           'Active queues for monitoring, overdue maintenance and findings',
-                      color: assuranceQueueCount == 0
+                      color: dataUnavailable
+                          ? BafColors.textSecondary
+                          : assuranceQueueCount == 0
                           ? BafColors.success
                           : BafColors.maintenance,
                       onTap: overdueMaintenanceCount > 0
@@ -331,6 +356,48 @@ class HomeManagementPulsePanel extends StatelessWidget {
               fontSize: 11,
             ),
           ),
+          for (final summary in exceptions)
+            InkWell(
+              key: ValueKey('home-pulse-class-${summary.assetClass.id}'),
+              onTap: () => _openClass(summary.assetClass.id),
+              borderRadius: BorderRadius.circular(BafRadius.small),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(vertical: BafSpacing.sm),
+                child: Row(
+                  children: [
+                    Icon(
+                      summary.unavailable > 0
+                          ? Icons.build_circle_outlined
+                          : Icons.help_outline_rounded,
+                      size: 18,
+                      color: summary.unavailable > 0
+                          ? BafColors.danger
+                          : BafColors.warning,
+                    ),
+                    const SizedBox(width: BafSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        '${summary.assetClass.name} · ${summary.unavailable} unavailable · ${summary.unverifiedAvailability} unverified'
+                        '${summary.unverifiedWorkflowEvidence > summary.unverifiedAvailability ? ' · incomplete condition evidence' : ''}'
+                        '${!summary.inventoryComplete ? ' · inventory incomplete' : ''}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BafColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 18,
+                      color: BafColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           InkWell(
             onTap: leading.onTap,
             borderRadius: BorderRadius.circular(BafRadius.small),
@@ -366,11 +433,22 @@ class HomeManagementPulsePanel extends StatelessWidget {
     );
   }
 
+  void _openClass(String id) {
+    final callback = onOpenClass;
+    if (callback == null) {
+      onPlantCondition();
+    } else {
+      callback(id);
+    }
+  }
+
   _HomeLeadingSignal _leadingSignal({
-    required int unavailableAssets,
-    required int highRiskUnavailableAssets,
+    required PlantAssetClassSummary? highRiskClass,
+    required PlantAssetClassSummary? restrictedClass,
   }) {
     if (dataUnavailable ||
+        plantOverview.isLoading ||
+        plantOverview.hasError ||
         plantOverview.asData?.value.hasCompleteEvidence != true) {
       return _HomeLeadingSignal(
         text: 'Live sources are incomplete. Refresh before final decisions.',
@@ -389,12 +467,28 @@ class HomeManagementPulsePanel extends StatelessWidget {
         onTap: onControl,
       );
     }
-    if (highRiskUnavailableAssets > 0) {
+    if (highRiskClass != null) {
+      final count = highRiskClass.assets
+          .where((a) => a.isDown || a.isUnfit)
+          .length;
       return _HomeLeadingSignal(
-        text: highRiskUnavailableAssets == 1
-            ? '1 asset is down or unfit.'
-            : '$highRiskUnavailableAssets assets are down or unfit.',
+        text:
+            '${highRiskClass.assetClass.name}: $count down or unfit. Review this class.',
         icon: Icons.precision_manufacturing_outlined,
+        color: BafColors.danger,
+        onTap: () => _openClass(highRiskClass.assetClass.id),
+      );
+    }
+    final restrictedCovers =
+        plantOverview.asData?.value.innerCovers
+            .where((c) => c.isUnfit)
+            .length ??
+        0;
+    if (restrictedCovers > 0) {
+      return _HomeLeadingSignal(
+        text:
+            '$restrictedCovers inner covers recorded unfit. Review cover condition.',
+        icon: Icons.layers_outlined,
         color: BafColors.danger,
         onTap: onPlantCondition,
       );
@@ -439,12 +533,25 @@ class HomeManagementPulsePanel extends StatelessWidget {
         onTap: onMaintenanceRhythm,
       );
     }
-    if (unavailableAssets > 0) {
+    if (restrictedClass != null) {
       return _HomeLeadingSignal(
-        text: unavailableAssets == 1
-            ? '1 asset is outside the available state.'
-            : '$unavailableAssets assets are outside the available state.',
+        text:
+            '${restrictedClass.assetClass.name}: ${restrictedClass.unavailable} unavailable. Review the restrictions.',
         icon: Icons.precision_manufacturing_outlined,
+        color: BafColors.warning,
+        onTap: () => _openClass(restrictedClass.assetClass.id),
+      );
+    }
+    final coversForReview =
+        plantOverview.asData?.value.innerCovers
+            .where((c) => !c.isAvailable)
+            .length ??
+        0;
+    if (coversForReview > 0) {
+      return _HomeLeadingSignal(
+        text:
+            '$coversForReview inner covers outside the available state. Review cover condition.',
+        icon: Icons.layers_outlined,
         color: BafColors.warning,
         onTap: onPlantCondition,
       );

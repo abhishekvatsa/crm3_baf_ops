@@ -500,6 +500,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onOperationalEvents: () =>
               _push(context, const OperationalEventsScreen()),
           onPlantCondition: () => _push(context, const AssetConditionBoard()),
+          onPlantConditionClass: (id) =>
+              _push(context, AssetConditionBoard(initialAssetClassId: id)),
           onPlantConditionFiltered: (filter) =>
               _push(context, AssetConditionBoard(initialFilter: filter)),
           onMorningReview: () => _push(context, const MorningReviewScreen()),
@@ -923,6 +925,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQualityMonitoring;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
+  final ValueChanged<String> onPlantConditionClass;
   final ValueChanged<AssetConditionFilter> onPlantConditionFiltered;
   final VoidCallback onMorningReview;
   final VoidCallback onReports;
@@ -960,6 +963,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onQualityMonitoring,
     required this.onOperationalEvents,
     required this.onPlantCondition,
+    required this.onPlantConditionClass,
     required this.onPlantConditionFiltered,
     required this.onMorningReview,
     required this.onReports,
@@ -1142,6 +1146,7 @@ class _DashboardHome extends StatelessWidget {
                 overview: plantOverview,
                 onOpen: onPlantCondition,
                 onOpenFiltered: onPlantConditionFiltered,
+                onOpenClass: onPlantConditionClass,
               ),
               const SizedBox(height: BafSpacing.lg),
               HomeManagementPulsePanel(
@@ -1149,6 +1154,7 @@ class _DashboardHome extends StatelessWidget {
                 dataUnavailable: attentionDataUnavailable,
                 onOpenReports: onReports,
                 onPlantCondition: onPlantCondition,
+                onOpenClass: onPlantConditionClass,
                 onIssues: onIssues,
                 onWork: onWork,
                 onControl: onControl,

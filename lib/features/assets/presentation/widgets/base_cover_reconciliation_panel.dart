@@ -10,9 +10,13 @@ class BaseCoverReconciliationPanel extends StatelessWidget {
     required this.summary,
     required this.onReviewBase,
     required this.onReviewLinks,
+    this.compact = false,
   });
 
   final BaseCoverReconciliation summary;
+
+  /// Home retains exceptions while routine linkage totals stay on the board.
+  final bool compact;
   final ValueChanged<BaseCoverRegisterRow> onReviewBase;
   final VoidCallback onReviewLinks;
 
@@ -22,6 +26,13 @@ class BaseCoverReconciliationPanel extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final needsReview = summary.needsReview;
+    if (compact &&
+        needsReview.isEmpty &&
+        summary.populationConfirmed &&
+        summary.linkageUnverified == 0 &&
+        summary.conditionUnverified == 0) {
+      return const SizedBox.shrink();
+    }
     return Material(
       type: MaterialType.transparency,
       child: Padding(
@@ -29,13 +40,15 @@ class BaseCoverReconciliationPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Base / Inner Cover records',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            ),
-            Text(
-              '${summary.rows.length} ${summary.populationConfirmed ? 'active' : 'observed active'} Bases · ${summary.linked} linked · ${summary.noRecordedLinkage} not linked',
-            ),
+            if (!compact)
+              const Text(
+                'Base / Inner Cover records',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            if (!compact)
+              Text(
+                '${summary.rows.length} ${summary.populationConfirmed ? 'active' : 'observed active'} Bases · ${summary.linked} linked · ${summary.noRecordedLinkage} not linked',
+              ),
             if (!summary.populationConfirmed || summary.linkageUnverified > 0)
               Text(
                 '${summary.linkageUnverified} linkage unverified. Incomplete or conflicting records are not treated as unlinked.',
