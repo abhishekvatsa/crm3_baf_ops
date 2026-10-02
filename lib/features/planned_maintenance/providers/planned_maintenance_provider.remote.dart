@@ -79,6 +79,16 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }
 
   @override
+  Stream<List<JobTemplate>> watchTemplatesIncludingDeleted() =>
+      _templates.orderBy('jobName').snapshots().map(
+        (snap) => decodeSnapshotDocuments(
+          snap,
+          JobTemplate.fromMap,
+          source: 'Admin JobTemplate including deleted',
+        ).toList(),
+      );
+
+  @override
   Stream<List<JobExecution>> watchAllExecutions({int? limit}) {
     var query = _executions
         .where('isDeleted', isEqualTo: false)

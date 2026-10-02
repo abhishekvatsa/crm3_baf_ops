@@ -22,6 +22,23 @@ import '../../maintenance/domain/burner_lockout_case.dart';
 import '../models/burner_reliability_report.dart';
 import '../providers/operations_report_provider.dart';
 
+enum _BurnerEvidenceFilter {
+  lockouts('Lockout reports'),
+  surveys('Witnessed surveys'),
+  open('Open positions'),
+  redHot('Red-hot records');
+
+  const _BurnerEvidenceFilter(this.label);
+  final String label;
+
+  bool includes(BurnerReliabilityRow row) => switch (this) {
+    lockouts => row.issueCount > 0,
+    surveys => row.roundCount > 0,
+    open => row.openCount > 0,
+    redHot => row.redHotCount > 0,
+  };
+}
+
 class BurnerReliabilityScreen extends ConsumerWidget {
   const BurnerReliabilityScreen({
     super.key,
@@ -100,6 +117,7 @@ class _BurnerReliabilityBodyState
   late DateTime _startDate;
   late DateTime _endDate;
   late String? _assetInstanceId;
+  _BurnerEvidenceFilter? _evidenceFilter;
 
   @override
   void initState() {
@@ -225,6 +243,9 @@ class _BurnerReliabilityBodyState
                   'A classified burner record is incomplete or malformed. Reliability totals are withheld.',
             );
           }
+          final visibleRows = report.rows
+              .where((row) => _evidenceFilter?.includes(row) ?? true)
+              .toList(growable: false);
           return RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(assetClassesProvider);
@@ -251,7 +272,20 @@ class _BurnerReliabilityBodyState
                   onDateRangePressed: _selectDateRange,
                 ),
                 const SizedBox(height: BafSpacing.lg),
-                _ReliabilityMetrics(report: report),
+                _ReliabilityMetrics(
+                  report: report,
+                  selected: _evidenceFilter,
+                  onSelected: (value) =>
+                      setState(() => _evidenceFilter = value),
+                ),
+                const SizedBox(height: BafSpacing.sm),
+                const Text(
+                  'Tap a total to show its burner positions. One report or survey can cover several positions.',
+                  style: TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
                 Text(
                   '${report.partialRoundCount} partial or directive updates; ${report.unknownAgeRoundCount} entries include unknown observation ages. Copied readings keep their original observation dates. Undated evidence is excluded from age-based summaries.',
                   style: const TextStyle(
@@ -268,20 +302,35 @@ class _BurnerReliabilityBodyState
                   ),
                 ),
                 const SizedBox(height: BafSpacing.xl),
+                if (_evidenceFilter != null) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: InputChip(
+                      key: const ValueKey('burner-active-evidence-filter'),
+                      deleteButtonTooltipMessage: 'Show all burner positions',
+                      label: Text(_evidenceFilter!.label),
+                      onDeleted: () => setState(() => _evidenceFilter = null),
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                ],
                 _ReportHeader(
-                  count: report.rows.length,
+                  count: visibleRows.length,
                   selectedAsset: selectedAsset,
                 ),
                 const SizedBox(height: BafSpacing.sm),
-                if (report.rows.isEmpty)
-                  const _ReportNotice(
+                if (visibleRows.isEmpty)
+                  _ReportNotice(
                     icon: Icons.local_fire_department_outlined,
-                    title: 'No dated burner evidence in this period',
-                    message:
-                        'Change the date or Furnace filter to inspect another evidence window.',
+                    title: _evidenceFilter == null
+                        ? 'No dated burner evidence in this period'
+                        : 'No matching burner positions',
+                    message: _evidenceFilter == null
+                        ? 'Change the date or Furnace filter to inspect another evidence window.'
+                        : 'Clear the selected total to see all positions in this date and Furnace scope.',
                   )
                 else
-                  ...report.rows.map(
+                  ...visibleRows.map(
                     (row) => Padding(
                       padding: const EdgeInsets.only(bottom: BafSpacing.sm),
                       child: _BurnerReliabilityCard(
@@ -457,33 +506,51 @@ class _BurnerFilters extends StatelessWidget {
 }
 
 class _ReliabilityMetrics extends StatelessWidget {
-  const _ReliabilityMetrics({required this.report});
+  const _ReliabilityMetrics({
+    required this.report,
+    required this.selected,
+    required this.onSelected,
+  });
 
   final BurnerReliabilityReport report;
+  final _BurnerEvidenceFilter? selected;
+  final ValueChanged<_BurnerEvidenceFilter> onSelected;
 
   @override
   Widget build(BuildContext context) {
     final metrics = [
       _Metric(
         label: 'Lockout reports',
+        filter: _BurnerEvidenceFilter.lockouts,
+        selected: selected == _BurnerEvidenceFilter.lockouts,
+        onTap: () => onSelected(_BurnerEvidenceFilter.lockouts),
         value: report.issueCount,
         icon: Icons.warning_amber_rounded,
         color: BafColors.maintenance,
       ),
       _Metric(
         label: 'Witnessed surveys',
+        filter: _BurnerEvidenceFilter.surveys,
+        selected: selected == _BurnerEvidenceFilter.surveys,
+        onTap: () => onSelected(_BurnerEvidenceFilter.surveys),
         value: report.roundCount,
         icon: Icons.fact_check_outlined,
         color: BafColors.assets,
       ),
       _Metric(
         label: 'Open positions',
+        filter: _BurnerEvidenceFilter.open,
+        selected: selected == _BurnerEvidenceFilter.open,
+        onTap: () => onSelected(_BurnerEvidenceFilter.open),
         value: report.openPositionCount,
         icon: Icons.error_outline_rounded,
         color: BafColors.danger,
       ),
       _Metric(
         label: 'Red-hot records',
+        filter: _BurnerEvidenceFilter.redHot,
+        selected: selected == _BurnerEvidenceFilter.redHot,
+        onTap: () => onSelected(_BurnerEvidenceFilter.redHot),
         value: report.redHotObservationCount,
         icon: Icons.local_fire_department_outlined,
         color: BafColors.warning,
@@ -518,54 +585,73 @@ class _Metric extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.color,
+    required this.filter,
+    required this.selected,
+    required this.onTap,
   });
 
   final String label;
   final int value;
   final IconData icon;
   final Color color;
+  final _BurnerEvidenceFilter filter;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minHeight: 104),
-      padding: const EdgeInsets.all(BafSpacing.md),
-      decoration: BoxDecoration(
-        color: BafColors.card,
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    selected: selected,
+    label: '$label: $value. Show matching burner positions',
+    excludeSemantics: true,
+    onTap: onTap,
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('burner-summary-${filter.name}'),
+        onTap: onTap,
         borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: BafColors.border),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color),
-          const SizedBox(width: BafSpacing.sm),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$value',
-                  style: const TextStyle(
-                    color: BafColors.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    color: BafColors.textSecondary,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 104),
+          padding: const EdgeInsets.all(BafSpacing.md),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.08) : BafColors.card,
+            borderRadius: BorderRadius.circular(BafRadius.medium),
+            border: Border.all(color: selected ? color : BafColors.border),
           ),
-        ],
+          child: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: BafSpacing.sm),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$value',
+                      style: const TextStyle(
+                        color: BafColors.textPrimary,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      label,
+                      style: const TextStyle(
+                        color: BafColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _ReportHeader extends StatelessWidget {

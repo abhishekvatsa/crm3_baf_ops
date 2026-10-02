@@ -93,6 +93,10 @@ $integration=@{readerPassed=$readerPassed;readerRefusals=$readerRefusals;exactMa
 }
 
 function probe(mutate = () => {}, options = {}) {
+  const candidateBuild = options.candidateBuild ?? 30;
+  const baseline = candidateBuild === 31 ? '7ed87824447f1349cb0481c448e0b21c3fa5856f' : 'c76cfa38ffdf6ca323613af0270ffe00a40afc7c';
+  const approvalFile = `release/approvals/build${candidateBuild}-private-cloud-custody-approval.json`;
+  const prefix = `gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-${candidateBuild}/synthetic-candidate`;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-gcs-successor-'));
   const run = (command, args, extra = {}) => {
     const result = spawnSync(command, args, {cwd: directory, encoding: 'utf8', windowsHide: true,
@@ -115,17 +119,17 @@ function probe(mutate = () => {}, options = {}) {
       fs.mkdirSync(path.dirname(path.join(directory, file)), {recursive: true});
       fs.writeFileSync(path.join(directory, file), `${JSON.stringify(value, null, 2)}\n`);
     };
-    const ledger = {schemaVersion: 2, entries: [{buildNumber: 30, reservationId: 'synthetic-candidate-30',
-      releaseId: 'synthetic-release-b30', campaignId: 'synthetic-candidate'}]};
+    const ledger = {schemaVersion: 2, entries: [{buildNumber: candidateBuild, reservationId: `synthetic-candidate-${candidateBuild}`,
+      releaseId: `synthetic-release-b${candidateBuild}`, campaignId: 'synthetic-candidate'}]};
     if (options.ledger) options.ledger(ledger);
     write('release/build-number-ledger.json', ledger);
     run('git', ['add', 'release/build-number-ledger.json']);
     const sourceBaseline = run('git', ['commit-tree', run('git', ['write-tree']), '-p', baseline, '-m', 'Synthetic allocation baseline'], {env: gitEnv});
     const approval = {schemaVersion: 2, documentType: 'candidate-specific-private-release-backup-custody-decision',
       approved: true, approvedAtUtc: instant(-10000), approverName: 'Synthetic test decision',
-      authorityType: 'owner-delegated agent decision', sourceBaselineCommit: sourceBaseline, buildNumber: 30,
+      authorityType: 'owner-delegated agent decision', sourceBaselineCommit: sourceBaseline, buildNumber: candidateBuild,
       candidateLedgerGitBlob: run('git', ['rev-parse', `${sourceBaseline}:release/build-number-ledger.json`]),
-      reservationId: 'synthetic-candidate-30', releaseId: 'synthetic-release-b30', campaignId: 'synthetic-candidate',
+      reservationId: `synthetic-candidate-${candidateBuild}`, releaseId: `synthetic-release-b${candidateBuild}`, campaignId: 'synthetic-candidate',
       firebaseProjectId: 'crm3-baf-ops-b8638', permanentApplicationId: 'in.co.sail.bsl.crm3.bafops',
       scope: 'private-release-custody-only', custodyMode: 'local-primary-private-gcs-backup',
       ownerInstruction: {reference: 'synthetic-test-instruction', text: 'Synthetic authorization for test only.', recordedAtUtc: instant(-60000)},
@@ -161,7 +165,7 @@ function probe(mutate = () => {}, options = {}) {
     if (options.dirty) fs.appendFileSync(path.join(directory, approvalFile), ' ');
     fs.mkdirSync(path.join(directory, 'tools/release'), {recursive: true});
     fs.copyFileSync(path.join(root, 'tools/release/Private-GcsReleaseCustody.ps1'), path.join(directory, 'tools/release/Private-GcsReleaseCustody.ps1'));
-    const script = `
+    let script = `
 $ErrorActionPreference='Stop'
 Set-StrictMode -Version Latest
 . ${quote(path.join(root, 'tools/release/Private-GcsReleaseCustody.ps1'))}
@@ -188,12 +192,17 @@ $sourceFile=Join-Path ${quote(directory)} 'release.zip'
 $binding=@{CandidateSourceCommit=${quote(options.wrongSource ? baseline : source)};ApprovalCommit=${quote(commit)};ApprovalSha256=${quote(options.wrongHash ? '0'.repeat(64) : hash)}}
 ${options.noBinding ? '$binding=@{}' : ''}
 try {
-  $proof=Copy-PrivateGcsCustodyFile -RepositoryRoot ${quote(directory)} -Prefix ${quote(options.wrongPrefix ? `${prefix}-other` : prefix)} -BuildNumber ${options.build ?? 30} -SourcePath $sourceFile -ExpectedSha256 (Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256).Hash -Purpose productionPackage -GcloudCommand fake @binding
+  $proof=Copy-PrivateGcsCustodyFile -RepositoryRoot ${quote(directory)} -Prefix ${quote(options.wrongPrefix ? `${prefix}-other` : prefix)} -BuildNumber ${options.build ?? candidateBuild} -SourcePath $sourceFile -ExpectedSha256 (Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256).Hash -Purpose productionPackage -GcloudCommand fake @binding
   $integration=$null
   ${options.integration ? integrationChecks(directory, source, commit, hash) : ''}
   @{ok=$true;proof=$proof;integration=$integration;calls=@($calls.ToArray())} | ConvertTo-Json -Depth 12 -Compress
 } catch { @{ok=$false;error=$_.Exception.Message;calls=@($calls.ToArray())} | ConvertTo-Json -Depth 12 -Compress }
 `;
+    // Reuse the exact synthetic proof/reader/caller exercise for31. Production
+    // code is loaded unchanged; this only selects the fixture's candidate IDs.
+    if (candidateBuild === 31) script = script.replaceAll('build-30', 'build-31')
+      .replaceAll('build30', 'build31').replaceAll('-b30', '-b31')
+      .replaceAll('buildNumber=30', 'buildNumber=31').replaceAll('$BuildNumber -ne 30', '$BuildNumber -ne 31');
     fs.writeFileSync(path.join(directory, 'probe.ps1'), script);
     // The integration fixture re-reads seven complete Git-backed receipts.
     // Keep each simple command bounded while allowing that deliberate matrix
@@ -223,6 +232,29 @@ test('Build30 exact committed candidate approval permits only generation-pinned 
   assert.equal(result.integration.readerRefusals.length, 6);
   assert.ok(result.integration.readerRefusals.every(row => row.refused), JSON.stringify(result.integration.readerRefusals));
 });
+
+test('Build31 separately committed custody is bound through producer, finalizer and six-proof reader', () => {
+  const result = probe(undefined, {candidateBuild: 31, integration: true});
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.proof.buildNumber, 31);
+  assert.equal(result.proof.approval.file, 'release/approvals/build31-private-cloud-custody-approval.json');
+  assert.equal(result.integration.readerPassed, true);
+  assert.equal(result.integration.callerForwarded, true);
+  assert.equal(result.integration.exactMainPassed, true);
+  assert.ok(result.integration.readerRefusals.every(row => row.refused), JSON.stringify(result.integration.readerRefusals));
+});
+
+for (const [label, options] of [
+  ['old Build30 decision', {build: 30}], ['future Build32', {build: 32}],
+  ['missing binding', {noBinding: true}], ['changed ledger', {changedAllocation: true}],
+  ['changed custody', {changedDecision: true}], ['unrelated custody', {unrelatedApproval: true}],
+  ['unrelated artifact', {unrelatedArtifact: true}], ['wrong digest', {wrongHash: true}],
+]) {
+  test(`Build31 refuses ${label} before private cloud access`, () => {
+    const result = probe(undefined, {candidateBuild: 31, ...options});
+    assert.equal(result.ok, false); assert.deepEqual(result.calls, []);
+  });
+}
 
 for (const [name, mutation] of [
   ['unapproved', a => { a.approved = false; }],

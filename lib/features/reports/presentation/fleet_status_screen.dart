@@ -60,6 +60,27 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
   String? _assetClassId;
   String? _assetInstanceId;
   OperationsReportView _view = OperationsReportView.overview;
+  final _sectionAnchor = GlobalKey();
+  final _plantPictureAnchor = GlobalKey();
+
+  void _showReadoutSection(
+    OperationsReportView view, {
+    bool plantPicture = false,
+  }) {
+    setState(() => _view = view);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target =
+          (plantPicture ? _plantPictureAnchor : _sectionAnchor).currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 250),
+        );
+      }
+    });
+  }
+
   late DateTime _startDate;
   late DateTime _endDate;
   @override
@@ -275,10 +296,14 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
                     onChanged: (view) => setState(() => _view = view),
                   ),
                   const SizedBox(height: BafSpacing.lg),
-                  ..._buildReportView(
-                    report: report,
-                    classes: classes,
-                    selection: selection,
+                  Column(
+                    key: _sectionAnchor,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _buildReportView(
+                      report: report,
+                      classes: classes,
+                      selection: selection,
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _SourceWindowNotice(report: report),
@@ -321,7 +346,15 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     List<AssetClassRecord> classes,
     OperationsReportSelection selection,
   ) => [
-    OperationsManagementReadout(report: report),
+    OperationsManagementReadout(
+      report: report,
+      onAvailability: () => _showReadoutSection(
+        OperationsReportView.overview,
+        plantPicture: true,
+      ),
+      onWork: () => _showReadoutSection(OperationsReportView.work),
+      onAssurance: () => _showReadoutSection(OperationsReportView.assurance),
+    ),
     const SizedBox(height: BafSpacing.lg),
     OperationsDecisionBrief(
       report: report,
@@ -340,6 +373,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
     ),
     const SizedBox(height: BafSpacing.xl),
     _SectionTitle(
+      key: _plantPictureAnchor,
       title: 'Current plant picture',
       subtitle: selection.assetClassId == null
           ? 'All governed asset classes'
@@ -526,7 +560,7 @@ class _FleetStatusScreenState extends ConsumerState<FleetStatusScreen> {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.title, required this.subtitle});
+  const _SectionTitle({super.key, required this.title, required this.subtitle});
   final String title;
   final String subtitle;
 

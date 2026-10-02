@@ -2068,6 +2068,24 @@
       "regression": "test/online_retained_row_mutations_test.dart; test/planned_record_creation_wire_test.dart",
       "reArmCondition": "Changed account inherits a retained request, mutable caller data is sent instead of journal bytes, an unconfirmed request is erased, or a newer caller state is falsely acknowledged.",
       "riskFingerprint": "06a6ceae41fec283873b090605b5f367925029226d9f27bc95b6ae456f494a90"
+    },
+    {
+      "id": "inner-cover-workflow-serial-evidence",
+      "file": "lib/features/assets/data/inner_cover_workflow_evidence.dart",
+      "markers": [
+        "factory InnerCoverWorkflowEvidence.fromMap(",
+        "final core = workflowAggregateRecordFromFirestoreData(",
+        "invalid('status', 'contradictory workflow contribution state');",
+        "assignmentVersion: readRequiredPersistedInt("
+      ],
+      "classification": "REMOTE_WORKFLOW_RECORD",
+      "owner": "asset-governance / maintenance-workflow",
+      "authorityBoundary": "Read-only current Inner Cover workflow evidence for shared board, stock and report availability; exact recorded serial, original Base/linkage/assignment and parent execution identity remain distinct from the current verified host; this projection grants no mutation or counter-transfer authority.",
+      "malformedDisposition": "Strict core decoding, explicit required contribution booleans, supported schema/revision and noncontradictory state are required. Active relevant work also requires exact serial and original assignment identity. Invalid documents become rejected batch evidence; incomplete, cached, pending or conflicting evidence cannot certify a serial clear or fit, while already observed adverse restrictions and original-host obligations remain retained.",
+      "compatibility": "Non-Inner-Cover and issue-coordination rows remain outside serial-maintenance qualification. Terminal historical work need not fabricate a missing serial identity; its parent execution and original-host projection are still independently reconciled before removing only that workflow restriction. No persisted model, Isar schema or document bytes are rewritten.",
+      "regression": "test/inner_cover_dependencies_test.dart; test/inner_cover_dependency_integration_test.dart",
+      "reArmCondition": "Missing or malformed active identity is inferred from the current host, absent or coerced contribution flags certify clear, contradictory or unconfirmed evidence certifies availability, historical terminal rows fabricate linkage, a move clears original-host obligations, or this reader gains writes.",
+      "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     }
   ],
   "catchSites": [

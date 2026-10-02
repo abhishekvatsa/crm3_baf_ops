@@ -27,10 +27,9 @@ FurnaceStuckupRecord _case({bool released = false}) => FurnaceStuckupRecord(
   id: 'case-1',
   ticketId: 'case-1',
   version: released ? 2 : 1,
-  obstructionStatus:
-      released
-          ? FurnaceStuckupObstructionStatus.released
-          : FurnaceStuckupObstructionStatus.active,
+  obstructionStatus: released
+      ? FurnaceStuckupObstructionStatus.released
+      : FurnaceStuckupObstructionStatus.active,
   adjudicationStatus: FurnaceStuckupAdjudicationStatus.pending,
   suspectedCause: FurnaceStuckupCause.innerCoverBulging,
   confirmedCause: null,
@@ -116,6 +115,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Adjudicate cause'), findsNothing);
       await tester.ensureVisible(find.text('Confirm removal'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Confirm removal'));
       await tester.tap(find.text('Confirm removal'));
       await tester.pumpAndSettle();
       expect(find.text('Confirm furnace removal'), findsOneWidget);
@@ -167,6 +168,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Confirm removal'), findsNothing);
       expect(find.text('Furnace removal confirmed.'), findsOneWidget);
+      await tester.ensureVisible(find.text('Cause 1'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Cause 1'));
       await tester.pumpAndSettle();
       expect(find.text('Released'), findsOneWidget);
@@ -206,6 +209,8 @@ void main() {
         child: const MaterialApp(home: FurnaceStuckupBoard()),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Confirm removal'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Confirm removal'));
     await tester.tap(find.text('Confirm removal'));

@@ -72,11 +72,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
   }
 
   Future<AppUser?> _readActor() async {
-    try {
-      return await ref.read(currentAppUserProvider.future);
-    } catch (_) {
-      return null;
-    }
+    return CurrentActorAccess.resolve(ref.read(currentAppUserProvider)).actor;
   }
 
   dynamic _transitionId() {
@@ -248,7 +244,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             current.canSaveJobModuleWorkFor(_module.discipline.name),
         child: ActionBottomSheet(
           originActorUid: actor.uid,
-          originPermission: (current) => current.canSaveJobModuleWorkFor(_module.discipline.name),
+          originPermission: (current) =>
+              current.canSaveJobModuleWorkFor(_module.discipline.name),
           workStartedAt: widget.execution.createdAt,
           workCompletedAt: widget.execution.completedAt,
           target: GovernedActionContext(
@@ -345,6 +342,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
 
     final note = await _openReasonSheet(
       title: 'Submit module',
+      originUid: actor.uid,
+      permission: (actor) => actor.canSubmitJobModule(_module.discipline.name),
       description:
           'Submit this process module for supervisor/Admin review or final dossier inclusion.',
       label: 'Submission note',
@@ -358,6 +357,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module submitted',
       action: () async {
+        _verifyLifecycleActor(
+          actor,
+          (current) => current.canSubmitJobModule(_module.discipline.name),
+        );
         await ref
             .read(jobModuleRepositoryProvider)
             .submitModule(
@@ -371,6 +374,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyLifecycleActor(
+          actor,
+          (current) => current.canSubmitJobModule(_module.discipline.name),
+        );
         setState(() {
           _module
             ..status = JobModuleStatus.submitted
@@ -400,6 +407,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
 
     final note = await _openReasonSheet(
       title: 'Accept module',
+      originUid: actor.uid,
+      permission: (actor) => actor.canAcceptJobModule,
       description:
           'Accept this submitted module as reviewed evidence. This does not close the parent planned job.',
       label: 'Acceptance note',
@@ -413,6 +422,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module accepted',
       action: () async {
+        _verifyLifecycleActor(actor, (current) => current.canAcceptJobModule);
         await ref
             .read(jobModuleRepositoryProvider)
             .acceptModule(
@@ -426,6 +436,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyLifecycleActor(actor, (current) => current.canAcceptJobModule);
         setState(() {
           _module
             ..status = JobModuleStatus.accepted
@@ -455,6 +466,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
 
     final reason = await _openReasonSheet(
       title: 'Mark not applicable',
+      originUid: actor.uid,
+      permission: (actor) => actor.canMarkJobModuleNotApplicable,
       description:
           'A preloaded or selected module should only be bypassed with a clear reason.',
       label: 'Reason',
@@ -468,6 +481,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     await _runBusyAction(
       successMessage: 'Module marked not applicable',
       action: () async {
+        _verifyLifecycleActor(
+          actor,
+          (current) => current.canMarkJobModuleNotApplicable,
+        );
         await ref
             .read(jobModuleRepositoryProvider)
             .markModuleNotApplicable(
@@ -481,6 +498,10 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
               ),
             );
         if (!mounted) return;
+        _verifyLifecycleActor(
+          actor,
+          (current) => current.canMarkJobModuleNotApplicable,
+        );
         setState(() {
           _module
             ..status = JobModuleStatus.notApplicable
@@ -500,6 +521,18 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     setState(() => _module = current);
   }
 
+  void _verifyLifecycleActor(
+    AppUser origin,
+    bool Function(AppUser) permission,
+  ) {
+    final message = currentActorActionMessage(
+      CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+      originUid: origin.uid,
+      permission: permission,
+    );
+    if (message != null) throw StateError(message);
+  }
+
   Future<String?> _openReasonSheet({
     required String title,
     required String description,
@@ -508,6 +541,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
     required String actionLabel,
     required Color actionColor,
     String? originUid,
+    bool Function(AppUser)? permission,
   }) {
     return showModalBottomSheet<String>(
       context: context,
@@ -532,7 +566,7 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
             ? form
             : CurrentActorDialogGuard(
                 originUid: originUid,
-                permission: (actor) => actor.canReopenJobModule,
+                permission: permission ?? (actor) => actor.canReopenJobModule,
                 child: form,
               );
       },
@@ -899,7 +933,8 @@ class _JobModuleDetailScreenState extends ConsumerState<JobModuleDetailScreen> {
                   )
                 else
                   JobModuleResponseForm(
-                    inputScopeKey: '${actor?.uid}:${module.firestoreId ?? module.id}',
+                    inputScopeKey:
+                        '${actor?.uid}:${module.firestoreId ?? module.id}',
                     fieldDefinitions: fields,
                     initialResponses: responses,
                     isEditable: canSaveWork,

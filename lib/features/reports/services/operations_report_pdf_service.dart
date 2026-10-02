@@ -63,13 +63,11 @@ class OperationsReportPdfService {
         'This snapshot does not include all sources required by the selected report.',
       );
     }
-    final sailData = await rootBundle.load(BafBrand.sailMarkAsset);
     final manmithasData = await rootBundle.load(BafBrand.markAsset);
     final regularFontData = await rootBundle.load(BafBrand.reportFontAsset);
     final mediumFontData = await rootBundle.load(
       BafBrand.reportFontMediumAsset,
     );
-    final sailLogo = pw.MemoryImage(_assetBytes(sailData));
     final manmithasLogo = pw.MemoryImage(_assetBytes(manmithasData));
     final regularFont = pw.Font.ttf(regularFontData);
     final mediumFont = pw.Font.ttf(mediumFontData);
@@ -78,7 +76,7 @@ class OperationsReportPdfService {
       author: request.generatedByName,
       creator: '${BafBrand.productName} | ${BafBrand.makerName}',
       subject: 'BAF operations and maintenance report ${request.reportId}',
-      keywords: 'BAF, maintenance, operations, SAIL, CRM-III',
+      keywords: 'BAF, maintenance, operations, CRM-III',
     );
 
     document.addPage(
@@ -87,11 +85,8 @@ class OperationsReportPdfService {
         maxPages: 1000,
         theme: pw.ThemeData.withFont(base: regularFont, bold: mediumFont),
         margin: const pw.EdgeInsets.fromLTRB(28, 30, 28, 30),
-        header: (context) => _header(
-          request: request,
-          sailLogo: sailLogo,
-          manmithasLogo: manmithasLogo,
-        ),
+        header: (context) =>
+            _header(request: request, manmithasLogo: manmithasLogo),
         footer: (context) => _footer(context, request, report),
         build: (context) => <pw.Widget>[
           _documentIdentity(
@@ -127,7 +122,6 @@ class OperationsReportPdfService {
 
   static pw.Widget _header({
     required OperationsReportDocumentRequest request,
-    required pw.MemoryImage sailLogo,
     required pw.MemoryImage manmithasLogo,
   }) => pw.Container(
     padding: const pw.EdgeInsets.only(bottom: 9),
@@ -138,18 +132,12 @@ class OperationsReportPdfService {
     child: pw.Row(
       crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: <pw.Widget>[
-        pw.SizedBox(
-          width: 74,
-          height: 35,
-          child: pw.Image(sailLogo, fit: pw.BoxFit.contain),
-        ),
-        pw.SizedBox(width: 12),
         pw.Expanded(
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: <pw.Widget>[
               pw.Text(
-                BafBrand.plantName,
+                BafBrand.productName,
                 style: const pw.TextStyle(
                   color: _graphite,
                   fontSize: 10,
@@ -158,7 +146,7 @@ class OperationsReportPdfService {
               ),
               pw.SizedBox(height: 2),
               pw.Text(
-                '${BafBrand.productName}  |  ${request.title}',
+                '${BafBrand.independentAppLabel}  |  ${request.title}',
                 style: const pw.TextStyle(color: _muted, fontSize: 8),
               ),
             ],
@@ -2149,28 +2137,38 @@ class OperationsReportPdfService {
     ),
   );
 
-  static List<List<String>> _assetConditionRows(OperationsReport report) =>
-      <List<String>>[
-        ...report.assetStates.map(
-          (state) => <String>[
-            '${state.asset.name}\n${state.asset.assetClassName}',
-            _plantAssetStateLabel(state),
-            _assetConditionEvidence(state),
-            _assetConditionReason(state),
-            _assetMaintenanceExposure(state),
-            _assetStateTime(state),
-          ],
+  static List<List<String>> _assetConditionRows(
+    OperationsReport report,
+  ) => <List<String>>[
+    ...report.assetStates.map(
+      (state) => <String>[
+        '${state.asset.name}\n${state.asset.assetClassName}',
+        _plantAssetStateLabel(state),
+        _assetConditionEvidence(state),
+        _assetConditionReason(state),
+        _assetMaintenanceExposure(state),
+        _assetStateTime(state),
+      ],
+    ),
+    if (report.qualifiedInnerCoverStates case final states?)
+      ...states.map(
+        (state) => _innerCoverConditionRow(
+          state.profile,
+          state: state,
+          unverified: report.unverifiedInnerCoverIds.contains(state.profile.id),
         ),
-        ...report.innerCoverProfiles.map((profile) {
-          final row = _innerCoverConditionRow(profile);
-          if (report.unverifiedInnerCoverIds.contains(profile.id)) {
-            row[1] = 'Recorded: ${row[1]}\nCondition unverified';
-          }
-          return row;
-        }),
-      ];
+      )
+    else
+      ...report.innerCoverProfiles.map(
+        (profile) => _innerCoverConditionRow(profile),
+      ),
+  ];
 
-  static List<String> _innerCoverConditionRow(InnerCoverProfile profile) {
+  static List<String> _innerCoverConditionRow(
+    InnerCoverProfile profile, {
+    PlantInnerCoverState? state,
+    bool unverified = false,
+  }) {
     final condition = <String>[
       'Origin: ${profile.originClassification.label}',
       'Traceability: ${profile.traceabilityGrade.label}',
@@ -2183,19 +2181,23 @@ class OperationsReportPdfService {
               : 'No current Base linkage'
         : 'Linked to Base ${profile.currentBaseAssetNumber}'
               '${profile.currentBaseAssetName == null ? '' : ' (${profile.currentBaseAssetName})'}';
-    final maintenance = switch (profile.lifecycleState) {
-      InnerCoverLifecycleState.awaitingInspection ||
-      InnerCoverLifecycleState.underInspection ||
-      InnerCoverLifecycleState.underRepair ||
-      InnerCoverLifecycleState.underFabrication => profile.lifecycleState.label,
-      InnerCoverLifecycleState.quarantined ||
-      InnerCoverLifecycleState.rejected ||
-      InnerCoverLifecycleState.retiredForSalvage ||
-      InnerCoverLifecycleState.partiallyDismantled =>
-        'Unavailable: ${profile.lifecycleState.label}',
-      InnerCoverLifecycleState.installed => 'In service on linked Base',
-      _ => 'Pool status: ${profile.lifecycleState.label}',
-    };
+    final maintenance = <String>[
+      'Recorded lifecycle: ${profile.lifecycleState.label}',
+      if (state != null) ...state.conditionReasons,
+      if (state == null || state.dependency == null)
+        'Current serial dependency evidence not supplied',
+      if (state != null) ...state.evidenceWarnings,
+      if (state?.dependency != null) ...state!.dependency!.warnings,
+    ].join('\n');
+    final status = state == null
+        ? 'Recorded: ${profile.lifecycleState.label}\nCurrent condition not qualified'
+        : [
+            state.conditionSummary,
+            if (unverified &&
+                state.evidenceWarnings.isEmpty &&
+                state.dependency?.complete != false)
+              'Condition unverified',
+          ].join('\n');
     final times = <String>[
       if (profile.receivedOrCompletedOn != null)
         'Received/completed ${_formatInnerCoverLocalDate(profile.receivedOrCompletedOn!)}',
@@ -2207,7 +2209,7 @@ class OperationsReportPdfService {
     ];
     return <String>[
       'Inner Cover ${profile.serialNumber}\n${profile.assetClassName}',
-      profile.lifecycleState.label,
+      status,
       condition.join('\n'),
       linkage,
       <String>[

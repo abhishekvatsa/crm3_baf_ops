@@ -1,6 +1,8 @@
 import '../data/asset_hierarchy_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import 'plant_asset_overview.dart';
+import 'base_cover_reconciliation.dart';
+import 'inner_cover_stock_summary.dart';
 
 /// Physical population shared by Home, Plant condition and reporting. Numbered
 /// Inner Cover positions are not extra covers: serial lifecycle profiles are
@@ -13,6 +15,8 @@ PlantAssetOverview physicalPlantInventory({
   List<String> coverPopulationWarnings = const [],
   Set<String> rejectedProfiles = const {},
   Set<String> rejectedClasses = const {},
+  BaseCoverReconciliation? baseCoverReconciliation,
+  InnerCoverStockSummary? innerCoverStock,
 }) {
   final coverClassIds = classes
       .where((c) => c.legacyAssetTypeKey == 'innerCover')
@@ -34,11 +38,26 @@ PlantAssetOverview physicalPlantInventory({
     byId.putIfAbsent(profile.id, () => []).add(profile);
   }
   final covers = <PlantInnerCoverState>[];
+  final stock = innerCoverStock ?? overview.innerCoverStock;
   for (final entry in byId.entries) {
     final extant = entry.value.where((c) => c.countsAsAssetInventory).toList();
     if (extant.isEmpty) continue;
     final profile = extant.first;
     final rowWarnings = [...coverSourceWarnings];
+    final stockRows = stock?.rows
+        .where((r) => r.profile.id == profile.id)
+        .toList();
+    final stockIdentityMatches =
+        stockRows?.length == 1 &&
+        stockRows!.single.profile.normalizedSerialNumber ==
+            profile.normalizedSerialNumber &&
+        stockRows.single.profile.assetClassId == profile.assetClassId &&
+        stockRows.single.profile.version == profile.version;
+    if (stock != null && !stockIdentityMatches) {
+      rowWarnings.add(
+        'Current Inner Cover condition identity needs verification.',
+      );
+    }
     final matches = classes.where((c) => c.id == profile.assetClassId).toList();
     if (matches.length != 1 ||
         !matches.single.isActive ||
@@ -68,6 +87,7 @@ PlantAssetOverview physicalPlantInventory({
       PlantInnerCoverState(
         profile: profile,
         evidenceWarnings: List.unmodifiable(rowWarnings),
+        stockCondition: stockIdentityMatches ? stockRows.single : null,
       ),
     );
   }
@@ -87,6 +107,9 @@ PlantAssetOverview physicalPlantInventory({
     innerCovers: List.unmodifiable(covers),
     innerCoverEvidenceWarnings: List.unmodifiable(coverSourceWarnings),
     hasQualifiedInnerCoverInventory: true,
+    innerCoverStock: innerCoverStock ?? overview.innerCoverStock,
+    baseCoverReconciliation:
+        baseCoverReconciliation ?? overview.baseCoverReconciliation,
     evidenceWarnings: List.unmodifiable(warnings.toSet().toList()..sort()),
     classes: [
       for (final cls in uniqueClasses.values)

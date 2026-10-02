@@ -131,7 +131,7 @@ class _DirectivesScreenState extends ConsumerState<DirectivesScreen> {
                   _DirectivesHeader(
                     qualified: directivesAreQualified(allDirectives),
                     count: directives.length,
-                    totalCount: visible.length,
+                    totalCount: _filterDirectives(visible, '').length,
                     query: _query,
                     searchController: _searchController,
                     status: _status,

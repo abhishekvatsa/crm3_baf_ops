@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "185C1A811F3F9217AFF48BBC5A2F03D5DDD4A8542522B9EC9A12CB6F0EC68DA6",
+  "inventoryDigest": "57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "A97E308712FA9E8E78D9D9AFB7106E158CA95E9FBCA8D25BF458B30682A6B5BD",
+  "a05ManifestSha256": "A2CFA1CE99AA1D887E586E71469D7B45638DDE8D76BD0AC006E34368D05C3476",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1201,6 +1201,15 @@
       "malformedDisposition": "fail closed before incomplete identity, linkage, assurance invalidation or genealogy enters lifecycle decisions or issue evidence; invalidation evidence must be complete together and preserve physical/recorded chronology",
       "compatibility": "schema version 1 only; optional origin, incorporation, fabrication, acceptance, and assurance invalidation evidence remains optional only where explicitly modelled; absent invalidation timestamps do not manufacture an invalidation",
       "regression": "test/inner_cover_lifecycle_model_test.dart; test/inner_cover_lifecycle_screen_test.dart; functions/test/innerCoverLifecycleMutation.firestoreEmulator.test.js"
+    },
+    {
+      "id": "inner-cover-workflow-serial-evidence",
+      "file": "lib/features/assets/data/inner_cover_workflow_evidence.dart",
+      "classification": "REMOTE_WORKFLOW_RECORD",
+      "authorityBoundary": "Read-only current Inner Cover workflow evidence for shared board, stock and report availability; exact recorded serial, original Base/linkage/assignment and parent execution identity remain distinct from the current verified host; this projection grants no mutation or counter-transfer authority.",
+      "malformedDisposition": "Strict core decoding, explicit required contribution booleans, supported schema/revision and noncontradictory state are required. Active relevant work also requires exact serial and original assignment identity. Invalid documents become rejected batch evidence; incomplete, cached, pending or conflicting evidence cannot certify a serial clear or fit, while already observed adverse restrictions and original-host obligations remain retained.",
+      "compatibility": "Non-Inner-Cover and issue-coordination rows remain outside serial-maintenance qualification. Terminal historical work need not fabricate a missing serial identity; its parent execution and original-host projection are still independently reconciled before removing only that workflow restriction. No persisted model, Isar schema or document bytes are rewritten.",
+      "regression": "test/inner_cover_dependencies_test.dart; test/inner_cover_dependency_integration_test.dart"
     },
     {
       "id": "inspection-context-review-record",

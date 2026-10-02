@@ -15,6 +15,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:crm3_baf_ops/core/dev/dev_environment.dart';
 import 'package:crm3_baf_ops/core/services/local_recovery_session_guard.dart';
+import 'package:crm3_baf_ops/core/widgets/dashboard/dashboard_widgets.dart';
+import 'package:crm3_baf_ops/features/abnormalities/presentation/abnormality_reports_screen.dart';
 import 'package:crm3_baf_ops/features/maintenance/presentation/maintenance_form.dart';
 import 'package:crm3_baf_ops/features/quality/presentation/quality_home_screen.dart';
 import 'package:crm3_baf_ops/home_screen.dart';
@@ -415,6 +417,144 @@ Future<String> logAbnormality(
   await goBack(tester);
   debugPrint('PHONE_QUALITY direct=$id charge=$charge ra=$ra accepted');
   return id!;
+}
+
+// Exercise repeated RA through actual form submissions, server acceptance and
+// the real report repository. Undated legacy ordering is covered by host tests;
+// this journey must keep the mandatory physical RA date in today's write flow.
+Future<Map<String, Object>> verifyRepeatedRaReports(
+  WidgetTester tester,
+  int initialCharge,
+) async {
+  var firstCharge = initialCharge + 1000;
+  var availableChain = false;
+  for (var attempt = 0; attempt < 20; attempt++) {
+    final charges = List.generate(4, (index) => firstCharge + index);
+    final existingSource = await FirebaseFirestore.instance
+        .collection('charge_abnormalities')
+        .where('sourceChargeNo', whereIn: charges)
+        .get(_server);
+    final existingDestination = await FirebaseFirestore.instance
+        .collection('charge_abnormalities')
+        .where('reannealedToChargeNo', whereIn: charges)
+        .get(_server);
+    if (existingSource.docs.isEmpty && existingDestination.docs.isEmpty) {
+      availableChain = true;
+      break;
+    }
+    firstCharge += 4;
+    expect(firstCharge + 3, lessThanOrEqualTo(99999));
+  }
+  expect(
+    availableChain,
+    isTrue,
+    reason: 'A fresh four-charge test range must be found within 20 attempts.',
+  );
+  final caseIds = <String>[];
+  for (var stage = 0; stage < 3; stage++) {
+    final source = firstCharge + stage;
+    final id = await logAbnormality(
+      tester,
+      source,
+      'DEV linked RA stage ${stage + 1} from $source',
+      ra: source + 1,
+    );
+    caseIds.add(id);
+    final accepted = await read('charge_abnormalities/$id');
+    expect(accepted['sourceChargeNo'], source);
+    expect(accepted['reannealedToChargeNo'], source + 1);
+    expect(accepted['reannealingStatus'], 'completed');
+  }
+  await _waitForFeedback(tester);
+  await openMore(tester, 'Abnormalities');
+  final reportCard = find.ancestor(
+    of: find.text('Reports / Intelligence'),
+    matching: find.byType(DashboardCard),
+  );
+  await showControl(tester, reportCard);
+  await tapControl(
+    tester,
+    find.descendant(of: reportCard, matching: find.text('Open')),
+  );
+  await waitFor(
+    tester,
+    () => find.byType(AbnormalityReportsScreen).evaluate().isNotEmpty,
+    'The real report Open button must navigate to Abnormality reports.',
+  );
+  await waitFor(
+    tester,
+    () => find
+        .byKey(const ValueKey('abnormality-metric-RA Done'))
+        .evaluate()
+        .isNotEmpty,
+    'Actual report repository must load the accepted abnormalities.',
+  );
+  // A global summary tap must remove a conflicting text filter, not display
+  // fewer records than the tapped metric promises.
+  await enter(tester, 'Search', 'no matching charge in this isolated test');
+  await tapControl(
+    tester,
+    find.byKey(const ValueKey('abnormality-metric-RA Done')),
+  );
+  expect(tester.widget<TextField>(field('Search')).controller!.text, isEmpty);
+  for (final id in caseIds) {
+    await showControl(
+      tester,
+      find.byKey(ValueKey('abnormality-report-row-$id')),
+    );
+  }
+  final firstRow = find.byKey(
+    ValueKey('abnormality-report-row-${caseIds.first}'),
+  );
+  await tapControl(
+    tester,
+    find.descendant(
+      of: firstRow,
+      matching: find.byKey(ValueKey('abnormality-history-charge-$firstCharge')),
+    ),
+  );
+  final sequence = find.byKey(const ValueKey('abnormality-charge-sequence'));
+  await showControl(tester, sequence);
+  expect(
+    tester
+        .widgetList<Chip>(
+          find.descendant(of: sequence, matching: find.byType(Chip)),
+        )
+        .map((chip) => (chip.label as Text).data)
+        .toList(),
+    List.generate(4, (index) => '${firstCharge + index}'),
+    reason:
+        'Three separately saved RAs must form one ordered four-charge history.',
+  );
+  for (final id in caseIds) {
+    await showControl(
+      tester,
+      find.byKey(ValueKey('abnormality-report-row-$id')),
+    );
+  }
+  // Leaving history through a summary tile must restore a global report scope.
+  await tapControl(
+    tester,
+    find.byKey(const ValueKey('abnormality-metric-RA Pending')),
+  );
+  expect(
+    find.byKey(const ValueKey('abnormality-charge-history')),
+    findsNothing,
+  );
+  for (final id in caseIds) {
+    expect(find.byKey(ValueKey('abnormality-report-row-$id')), findsNothing);
+  }
+  await tapControl(
+    tester,
+    find.byKey(const ValueKey('abnormality-metric-RA Done')),
+  );
+  await showControl(tester, firstRow);
+  debugPrint(
+    'DEV_RA_REPORT_HISTORY_PASS stages=3 charges=4 first=$firstCharge',
+  );
+  await goBack(tester);
+  await goBack(tester);
+  return {'firstCharge': firstCharge, 'caseIds': caseIds, 'stages': 3};
 }
 
 Future<DateTime> confirmCurrentRaTime(WidgetTester tester) async {
@@ -833,7 +973,9 @@ void main() {
       await _waitForFeedback(tester);
       await switchActor(tester, _operationsEmail);
       expect(FirebaseAuth.instance.currentUser!.uid, originalActor);
+      final repeatedRa = await verifyRepeatedRaReports(tester, charge);
       final probe = {
+        'repeatedRaReport': repeatedRa,
         'projectId': crm3DemoProjectId,
         'operationsUid': originalActor,
         'adjudicatorUid': adjudicator,

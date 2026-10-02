@@ -1,5 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
+import 'package:crm3_baf_ops/features/audit/models/audit_event_model.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_edit_directive_dialog.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
@@ -133,6 +136,42 @@ void main() {
         (await store.read(original.submissionId))!.state,
         DurableSubmissionState.reconciled,
       );
+    },
+  );
+  test(
+    'confirmed deletion retains its tombstone and receipt for admin cleanup',
+    () async {
+      final current = draft()..isSynced = true;
+      await db.writeTxn(() => db.operationalDirectives.put(current));
+      final commands = owner();
+      final repo = IsarDirectiveRepository(ordinaryCommands: commands);
+      await repo.deleteDirective(
+        current.id,
+        actor: actor,
+        auditContext: AuditContext(
+          performedByUid: actor.uid,
+          before: current.toAuditMap(),
+          reasonNotes: 'Synthetic cleanup after verified trial',
+        ),
+      );
+      final queued = await pending();
+      expect((await commands.checkAll()).succeeded, 1);
+      final retained = await db.operationalDirectives.get(current.id);
+      expect(retained, isNotNull);
+      expect(retained!.isDeleted, isTrue);
+      expect(retained.isSynced, isTrue);
+      expect(retained.version, 2);
+      final receipt = await store.read(queued.submissionId);
+      expect(receipt!.state, DurableSubmissionState.reconciled);
+      expect((jsonDecode(receipt.receiptJson!)['entity'] as Map)['isDeleted'], isTrue);
+      final container = ProviderContainer(overrides: [
+        directiveRepositoryProvider.overrideWithValue(repo),
+      ]);
+      addTearDown(container.dispose);
+      final rows = await container.read(adminDirectivesStreamProvider.future);
+      expect(rows.single.firestoreId, current.firestoreId);
+      expect(rows.single.isDeleted, isTrue);
+      expect(await repo.watchAllDirectives().first, isEmpty);
     },
   );
   test(

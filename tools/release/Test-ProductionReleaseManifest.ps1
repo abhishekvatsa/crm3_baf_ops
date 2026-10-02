@@ -117,6 +117,71 @@ function Resolve-ContainedFile {
   $candidate
 }
 
+function Invoke-Runtime31SafeGitRead {
+  param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string[]]$Arguments)
+  $dot = Join-Path $Root '.git'
+  $item = Get-Item -LiteralPath $dot -Force
+  if (-not $item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw 'Runtime31 requires a regular local Git directory.'
+  }
+  foreach ($name in @('commondir','gitdir','objects/info/alternates','info/grafts')) {
+    if (Test-Path -LiteralPath (Join-Path $dot $name)) { throw 'Runtime31 Git cannot redirect to external state.' }
+  }
+  $config = Join-Path $dot 'config'
+  if ((Test-Path -LiteralPath $config) -and
+      ([IO.File]::ReadAllText($config) -match '(?im)^\s*\[\s*(?:include(?:If)?|filter|diff)\b' -or
+       [IO.File]::ReadAllText($config) -match '(?im)^\s*worktree\s*=')) {
+    throw 'Executable or external Git configuration is not admitted.'
+  }
+  $start = [Diagnostics.ProcessStartInfo]::new('git')
+  $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+  $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+  foreach ($key in @($start.Environment.Keys)) { if ($key -match '^GIT_') { [void]$start.Environment.Remove($key) } }
+  $start.Environment['GIT_CONFIG_NOSYSTEM'] = '1'
+  $start.Environment['GIT_CONFIG_GLOBAL'] = $(if ($IsWindows) { 'NUL' } else { '/dev/null' })
+  $start.Environment['GIT_TERMINAL_PROMPT'] = '0'; $start.Environment['GIT_PAGER'] = 'cat'
+  $start.Environment['GIT_OPTIONAL_LOCKS'] = '0'
+  foreach ($argument in @('--no-replace-objects','--no-pager','--no-optional-locks',
+      '-c','core.longpaths=true','-c','core.fsmonitor=false','-c',('core.hooksPath=' + (Join-Path $dot 'crm31-disabled-hooks')),
+      '-c','core.untrackedCache=false','-c','core.preloadIndex=false','-c','diff.external=',
+      '-c','credential.helper=','-c','protocol.allow=never','-C',$Root) + $Arguments) {
+    $start.ArgumentList.Add($argument)
+  }
+  $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
+  try {
+    [void]$process.Start()
+    $outTask = $process.StandardOutput.ReadToEndAsync(); $errTask = $process.StandardError.ReadToEndAsync()
+    $process.WaitForExit(); $output = $outTask.GetAwaiter().GetResult(); [void]$errTask.GetAwaiter().GetResult()
+    if ($process.ExitCode -ne 0) { throw 'Runtime31 immutable Git read failed.' }
+    $output.TrimEnd("`r", "`n") -split '\r?\n'
+  } finally { $process.Dispose() }
+}
+
+function Assert-Runtime31HelperGitBinding {
+  param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$Commit,
+    [Parameter(Mandatory)][string]$Entry, [Parameter(Mandatory)][string]$Helper)
+  if ($Commit -cnotmatch '^[0-9a-f]{40}$' -or $Entry -cnotmatch '^tools/release/[A-Za-z0-9_-]+\.ps1$') {
+    throw 'Runtime31 helper binding requires exact source identity.'
+  }
+  $blob = @(Invoke-Runtime31SafeGitRead -Root $Root -Arguments @('rev-parse','--verify',"${Commit}:$Entry"))
+  if ($blob.Count -ne 1 -or $blob[0] -cnotmatch '^[0-9a-f]{40}$') {
+    throw 'Unable to independently bind runtime31 helper to actual Git.'
+  }
+  $item = Get-Item -LiteralPath $Helper
+  if ($item.PSIsContainer -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)) {
+    throw 'Runtime31 helper must be a regular file.'
+  }
+  $bytes = [IO.File]::ReadAllBytes($item.FullName)
+  $header = [Text.Encoding]::UTF8.GetBytes("blob $($bytes.Length)`0")
+  $hash = [Security.Cryptography.IncrementalHash]::CreateHash([Security.Cryptography.HashAlgorithmName]::SHA1)
+  try {
+    $hash.AppendData($header); $hash.AppendData($bytes)
+    if ([Convert]::ToHexString($hash.GetHashAndReset()).ToLowerInvariant() -cne $blob[0]) {
+      throw 'Runtime31 helper differs from immutable Git before execution.'
+    }
+  } finally { $hash.Dispose() }
+}
+
 function Get-ZipEntryBytes {
   param(
     [Parameter(Mandatory)][string]$ArchivePath,
@@ -536,6 +601,35 @@ $environmentApproval = (
 if ($policy.schemaVersion -ne 3) {
   throw 'Unsupported policy schema in source archive.'
 }
+$runtime31Proof = $null
+$runtime31Selected = $null -ne $policy.PSObject.Properties['runtimeBackendPrivateReplay'] -or
+  ($null -ne $policy.PSObject.Properties['clientBackendCompatibility'] -and
+    ($policy.clientBackendCompatibility.file -ceq 'release/approvals/build31-runtime-client-compatibility-approval.json' -or
+     ($null -ne $policy.clientBackendCompatibility.PSObject.Properties['profile'] -and
+      $policy.clientBackendCompatibility.profile -ceq 'build31-exact-grpc-runtime-backend-v1')))
+if ($runtime31Selected) {
+  if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    throw 'Runtime31 package verification requires actual Git ancestry and authenticated private evidence access.'
+  }
+  $runtime31Helper = Join-Path $packageDirectory 'Runtime-BackendPrivateReplay31.ps1'
+  if ((Get-Sha256 $runtime31Helper) -cne (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath `
+      -EntryPath 'tools/release/Runtime-BackendPrivateReplay31.ps1')) {
+    throw 'Runtime31 packaged replay caller differs from canonical source archive.'
+  }
+  Assert-Runtime31HelperGitBinding -Root $RepositoryRoot -Commit ([string]$manifest.source.gitCommit) `
+    -Entry 'tools/release/Runtime-BackendPrivateReplay31.ps1' -Helper $runtime31Helper
+  . $runtime31Helper
+  Assert-ProductionRuntime31SourceArchive -RepositoryRoot $RepositoryRoot -SourceArchivePath $sourceArchivePath `
+    -SourceCommit ([string]$manifest.source.gitCommit)
+  $runtime31Proof = Get-ProductionRuntime31RepositoryEvidence -RepositoryRoot $RepositoryRoot -Policy $policy
+  if ($null -eq $manifest.PSObject.Properties['runtimeBackend31'] -or
+      ($manifest.runtimeBackend31 | ConvertTo-Json -Depth 100 -Compress) -cne
+      ($runtime31Proof.runtimeBackend31 | ConvertTo-Json -Depth 100 -Compress)) {
+    throw 'Runtime31 manifest differs from independent source-bound private replay.'
+  }
+} elseif ($null -ne $manifest.PSObject.Properties['runtimeBackend31']) {
+  throw 'Runtime31 manifest evidence is not selected by the immutable source policy.'
+}
 if ((Get-ZipEntrySha256 `
       -ArchivePath $sourceArchivePath `
       -EntryPath 'release/production-release-policy.json') -ne
@@ -555,13 +649,15 @@ if ($policy.release.buildNumber -ge 30) {
     throw 'App Check verifier helper differs from the immutable source archive.'
   }
   . $appCheckHelper
-  $appCheckApprovalEntry = 'release/approvals/build30-app-check-client-approval.json'
+  if ($policy.release.buildNumber -notin @(30, 31)) { throw 'No App Check archive protocol is admitted for this build.' }
+  $appCheckApprovalEntry = "release/approvals/build$($policy.release.buildNumber)-app-check-client-approval.json"
   $appCheckBackendEntry = $policy.finalization.exactFunctionFleetDeploymentReceiptFile
   $expectedAppCheck = Get-ProductionAppCheckBuildEvidence -Policy $policy `
     -Approval ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) | ConvertFrom-Json) `
     -BackendReceipt ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry) | ConvertFrom-Json) `
     -ApprovalSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) `
-    -BackendReceiptSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry)
+    -BackendReceiptSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry) `
+    -Runtime31Proof $runtime31Proof
   Assert-ProductionAppCheckManifest -Manifest $manifest -Expected $expectedAppCheck
 }
 

@@ -1,55 +1,72 @@
 part of 'operational_events_screen.dart';
 
+bool _isCriticalEvent(OperationalEvent event) =>
+    event.severity == OperationalEventSeverity.critical;
+
+String _eventFilterLabel(_OperationalEventFilter filter) => switch (filter) {
+  _OperationalEventFilter.open => 'Open',
+  _OperationalEventFilter.critical => 'Critical open',
+  _OperationalEventFilter.resolved => 'Recent resolved',
+  _OperationalEventFilter.withdrawn => 'Withdrawn',
+};
+
 class _EventSummary extends StatelessWidget {
   const _EventSummary({
     required this.openCount,
     required this.criticalCount,
     required this.resolvedCount,
     required this.withdrawnCount,
+    required this.selected,
+    required this.onSelected,
   });
 
   final int openCount;
   final int criticalCount;
   final int resolvedCount;
   final int withdrawnCount;
+  final _OperationalEventFilter selected;
+  final ValueChanged<_OperationalEventFilter> onSelected;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
-    child: Row(
-      children: [
-        Expanded(
-          child: _Metric(
-            label: 'Open',
-            value: openCount,
-            color: BafColors.warning,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Metric(
-            label: 'Critical',
-            value: criticalCount,
-            color: BafColors.danger,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Metric(
-            label: 'Recent resolved',
-            value: resolvedCount,
-            color: BafColors.success,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _Metric(
-            label: 'Withdrawn',
-            value: withdrawnCount,
-            color: BafColors.textSecondary,
-          ),
-        ),
-      ],
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final minimumWidth =
+            140 * MediaQuery.textScalerOf(context).scale(12) / 12;
+        final columns = ((constraints.maxWidth + 8) / (minimumWidth + 8))
+            .floor()
+            .clamp(1, 4);
+        final width = (constraints.maxWidth - 8 * (columns - 1)) / columns;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final filter in _OperationalEventFilter.values)
+              SizedBox(
+                width: width,
+                child: _Metric(
+                  filter: filter,
+                  value: switch (filter) {
+                    _OperationalEventFilter.open => openCount,
+                    _OperationalEventFilter.critical => criticalCount,
+                    _OperationalEventFilter.resolved => resolvedCount,
+                    _OperationalEventFilter.withdrawn => withdrawnCount,
+                  },
+                  color: switch (filter) {
+                    _OperationalEventFilter.open => BafColors.warning,
+                    _OperationalEventFilter.critical => BafColors.danger,
+                    _OperationalEventFilter.resolved => BafColors.success,
+                    _OperationalEventFilter.withdrawn =>
+                      BafColors.textSecondary,
+                  },
+                  selected: selected == filter,
+                  onTap: () => onSelected(filter),
+                ),
+              ),
+          ],
+        );
+      },
     ),
   );
 }
@@ -429,45 +446,65 @@ class _IncompleteFeedNotice extends StatelessWidget {
 
 class _Metric extends StatelessWidget {
   const _Metric({
-    required this.label,
+    required this.filter,
     required this.value,
     required this.color,
+    required this.selected,
+    required this.onTap,
   });
 
-  final String label;
+  final _OperationalEventFilter filter;
   final int value;
   final Color color;
+  final bool selected;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-    decoration: BoxDecoration(
-      color: BafColors.card,
-      borderRadius: BorderRadius.circular(BafRadius.medium),
-      border: Border.all(color: color.withValues(alpha: 0.24)),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '$value',
-          style: TextStyle(
-            color: color,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
+  Widget build(BuildContext context) => Semantics(
+    key: ValueKey('operational-event-summary-${filter.name}'),
+    button: true,
+    selected: selected,
+    label: '${_eventFilterLabel(filter)}, $value events',
+    onTap: onTap,
+    child: ExcludeSemantics(
+      child: Material(
+        color: selected ? color.withValues(alpha: 0.10) : BafColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          side: BorderSide(
+            color: color.withValues(alpha: selected ? 0.8 : 0.24),
+            width: selected ? 2 : 1,
           ),
         ),
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: BafColors.textSecondary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$value',
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  _eventFilterLabel(filter),
+                  style: const TextStyle(
+                    color: BafColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
-      ],
+      ),
     ),
   );
 }
@@ -476,7 +513,9 @@ class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.filter});
   final _OperationalEventFilter filter;
 
-  bool get showingOpen => filter == _OperationalEventFilter.open;
+  bool get showingOpen =>
+      filter == _OperationalEventFilter.open ||
+      filter == _OperationalEventFilter.critical;
 
   @override
   Widget build(BuildContext context) => Center(
@@ -497,7 +536,9 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             showingOpen
-                ? 'No open operational events'
+                ? filter == _OperationalEventFilter.critical
+                      ? 'No critical open operational events'
+                      : 'No open operational events'
                 : filter == _OperationalEventFilter.withdrawn
                 ? 'No withdrawn operational events'
                 : 'No resolved events',

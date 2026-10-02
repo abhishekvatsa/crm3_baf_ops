@@ -161,3 +161,39 @@ introduced. Only these two measured ceilings and their regression references
 were re-armed; global growth limits and all other ownership rules remain. Future
 growth still requires review. Historical inventory and release evidence above
 remain unchanged; this addendum is not deployment or device qualification.
+
+
+## Administrative retained-history source review, 2026-09-30
+
+The next tester-source batch adds administrative including-deleted streams for
+retained directives, tickets and templates. The actual A-02 checker identified
+only four existing growth ceilings affected by these reviewed additions:
+
+- directive contract: 677 to 681 lines, for the new retained-history signature;
+- directive local adapter: 649 to 656 lines, for the Isar query;
+- directive remote adapter: 514 to 523 lines, for the Firestore query using its
+  existing strict decoder;
+- maintenance local adapter: 934 to 941 lines, for the Isar query.
+
+Only these four ceilings are re-armed to their exact measured sizes. Their
+responsibility sets, store and transaction ownership, forbidden markers and
+re-arm conditions are unchanged. Each declaration now requires the explicit
+including-deleted method and names `admin_cleanup_tombstone_streams_test.dart`
+as additional regression evidence. No other surface ceiling or global discovery
+threshold changed, and no presentation unit gained persistence ownership.
+
+The retained focused repair result is 32 passing native/provider/widget cases
+and scoped analysis; the new tests prove retained tombstones are visible to
+admin consumers while ordinary lists still exclude them, server-pulled local
+tombstones remain retained, and unsynced/local-only rows remain ineligible for
+cleanup. Firestore stream bodies were source-reviewed and analyzed, not tested
+against production by this repair. Existing role and purge checks are unchanged;
+this is not permission to purge data or a complete cross-device history claim.
+
+The unchanged A-02 discovery/checker passes with 51 classified hotspots and
+inventory digest
+`EB44B0AFD0E157A449B1AC3357C80A7059A086B7CCFF267FB6CB265DCCAA6268`.
+The original four-ceiling failure and prior declarations are retained privately.
+This is a current working-source boundary review, not new admitted CI authority
+or deployment/device/distribution evidence. Historical closure records, counts
+and digests above remain unchanged.

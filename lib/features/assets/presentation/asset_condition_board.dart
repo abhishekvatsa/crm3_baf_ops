@@ -15,16 +15,21 @@ import '../data/asset_operational_condition.dart';
 import '../data/asset_registry_model.dart';
 import '../data/inner_cover_lifecycle.dart';
 import '../domain/plant_asset_overview.dart';
+import '../domain/inner_cover_stock_summary.dart';
 import '../providers/asset_condition_submission_provider.dart';
 import '../providers/asset_hierarchy_provider.dart';
 import '../providers/plant_asset_overview_provider.dart';
 import 'inner_cover_lifecycle_screen.dart';
 import 'widgets/governed_asset_target_picker.dart';
 import 'widgets/pending_asset_condition.dart';
+import 'widgets/base_cover_reconciliation_panel.dart';
+import 'widgets/inner_cover_stock_panel.dart';
 
 part 'asset_condition_board.filters.dart';
 part 'asset_condition_board.asset_actions.dart';
 part 'asset_condition_board.summary.dart';
+
+const _issueUnavailableLabel = 'Unavailable by issue';
 
 enum AssetConditionFilter {
   all,
@@ -281,7 +286,8 @@ class PlantOverviewPanel extends StatelessWidget {
                           _PlantMetric(
                             width: width,
                             value: value.issueUnavailable,
-                            label: 'Unavailable',
+                            label: _issueUnavailableLabel,
+                            keyLabel: 'unavailable',
                             color: BafColors.cobalt,
                             onTap: () =>
                                 _openFilter(AssetConditionFilter.unavailable),
@@ -322,9 +328,51 @@ class PlantOverviewPanel extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: BafSpacing.sm),
+                  const Text(
+                    'Condition counts can overlap.',
+                    style: TextStyle(
+                      color: BafColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
                   ...value.classes
-                      .where((summary) => summary.total > 0)
-                      .map(_PlantClassConditionSummary.new),
+                      .where(
+                        (summary) =>
+                            summary.total > 0 ||
+                            (summary.assetClass.legacyAssetTypeKey ==
+                                    'innerCover' &&
+                                value.innerCoverStock != null),
+                      )
+                      .map(
+                        (summary) => _PlantClassConditionSummary(
+                          summary,
+                          stock:
+                              summary.assetClass.legacyAssetTypeKey ==
+                                  'innerCover'
+                              ? value.innerCoverStock?.forClass(
+                                  summary.assetClass.id,
+                                )
+                              : null,
+                        ),
+                      ),
+                  if (value.baseCoverReconciliation case final reconciliation?)
+                    BaseCoverReconciliationPanel(
+                      summary: reconciliation,
+                      onReviewBase: (row) => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => AssetConditionBoard(
+                            initialFilter: AssetConditionFilter.all,
+                            initialAssetClassId: row.base.assetClassId,
+                          ),
+                        ),
+                      ),
+                      onReviewLinks: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const InnerCoverLifecycleScreen(),
+                        ),
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -408,6 +456,19 @@ class _ConditionBoardBody extends StatelessWidget {
         BafSpacing.xl,
       ),
       children: [
+        if (overview.baseCoverReconciliation case final reconciliation?)
+          BaseCoverReconciliationPanel(
+            summary: reconciliation,
+            onReviewBase: (row) {
+              onFilterChanged(AssetConditionFilter.all);
+              onAssetClassChanged(row.base.assetClassId);
+            },
+            onReviewLinks: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const InnerCoverLifecycleScreen(),
+              ),
+            ),
+          ),
         if (overview.evidenceWarnings.isNotEmpty)
           ExpansionTile(
             title: const Text('Partial evidence — no fleet all-clear'),
@@ -429,7 +490,7 @@ class _ConditionBoardBody extends StatelessWidget {
         ),
         const SizedBox(height: BafSpacing.xs),
         const Text(
-          'Physical inventory includes active numbered assets and serial Inner Covers, including standby and out-of-service stock. Components are not extra assets. Counts may overlap when an asset is both unavailable and under maintenance.',
+          'Physical inventory includes active numbered assets and serial Inner Covers, including standby and out-of-service stock. Components are not extra assets. Condition counts can overlap. Unavailable by issue is the issue restriction category.',
           style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
         ),
         const SizedBox(height: BafSpacing.lg),
@@ -450,7 +511,7 @@ class _ConditionBoardBody extends StatelessWidget {
               onSelected: () => onFilterChanged(AssetConditionFilter.available),
             ),
             _ConditionFilterChip(
-              label: '${overview.issueUnavailable} unavailable',
+              label: '${overview.issueUnavailable} unavailable by issue',
               color: BafColors.cobalt,
               selected: selectedFilter == AssetConditionFilter.unavailable,
               onSelected: () =>
@@ -566,6 +627,11 @@ class _ConditionBoardBody extends StatelessWidget {
           ...visibleClasses.map(
             (summary) => _AssetClassSection(
               summary: summary,
+              stock:
+                  selectedFilter == AssetConditionFilter.all &&
+                      summary.assetClass.legacyAssetTypeKey == 'innerCover'
+                  ? overview.innerCoverStock?.forClass(summary.assetClass.id)
+                  : null,
               user: user,
               openTickets: openTickets,
             ),
@@ -588,22 +654,22 @@ class _ConditionBoardBody extends StatelessWidget {
       switch (selectedFilter) {
         AssetConditionFilter.all => true,
         AssetConditionFilter.available => cover.isAvailable,
-        AssetConditionFilter.maintenance =>
-          cover.profile.isUnderMaintenanceForPlantCondition,
-        AssetConditionFilter.unfit => cover.profile.isUnfitForPlantCondition,
-        AssetConditionFilter.unavailable ||
-        AssetConditionFilter.stuckUp ||
-        AssetConditionFilter.down => false,
+        AssetConditionFilter.maintenance => cover.isUnderMaintenance,
+        AssetConditionFilter.unfit => cover.isUnfit,
+        AssetConditionFilter.unavailable => cover.isIssueUnavailable,
+        AssetConditionFilter.stuckUp || AssetConditionFilter.down => false,
       };
 }
 
 class _AssetClassSection extends StatelessWidget {
   final PlantAssetClassSummary summary;
+  final InnerCoverStockSummary? stock;
   final AppUser? user;
   final List<MaintenanceRecord> openTickets;
 
   const _AssetClassSection({
     required this.summary,
+    this.stock,
     required this.user,
     required this.openTickets,
   });
@@ -637,6 +703,7 @@ class _AssetClassSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: BafSpacing.sm),
+          if (stock case final value?) InnerCoverStockPanel(summary: value),
           Container(
             decoration: BoxDecoration(
               color: BafColors.card,
@@ -664,9 +731,7 @@ class _AssetClassSection extends StatelessWidget {
                     child: ListTile(
                       key: ValueKey('plant-inner-cover-${cover.profile.id}'),
                       title: Text('Inner Cover ${cover.profile.serialNumber}'),
-                      subtitle: Text(
-                        '${cover.profile.lifecycleState.label}${cover.evidenceWarnings.isEmpty ? '' : ' · evidence unverified'}',
-                      ),
+                      subtitle: Text(cover.conditionSummary),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -1250,7 +1315,7 @@ List<Widget> _stateBadges(PlantAssetState state) {
   }
   if (state.isIssueUnavailable) {
     output.add(
-      const StatusBadge(label: 'Unavailable', color: BafColors.cobalt),
+      const StatusBadge(label: _issueUnavailableLabel, color: BafColors.cobalt),
     );
   }
   if (state.isUnderMaintenance) {

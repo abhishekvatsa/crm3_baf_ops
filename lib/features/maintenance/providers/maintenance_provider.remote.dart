@@ -90,6 +90,12 @@ class FirestoreMaintenanceRepository extends MaintenanceRepository {
   }
 
   @override
+  Stream<List<MaintenanceRecord>> watchTicketsIncludingDeleted() =>
+      _collection.orderBy('createdAt', descending: true).snapshots().map(
+        (snap) => _decodeTickets(snap, queryKey: 'admin-including-deleted'),
+      );
+
+  @override
   Stream<List<MaintenanceRecord>> watchTicketsOverlappingPeriod(
     DateTime startInclusive,
     DateTime endExclusive,

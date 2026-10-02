@@ -64,6 +64,7 @@ void main() {
         ],
         'lib/features/abnormalities/presentation/charge_abnormalities_screen': [
           'form',
+          'assets',
           'widgets',
           'assessment',
         ],

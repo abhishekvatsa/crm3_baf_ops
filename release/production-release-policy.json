@@ -69,8 +69,8 @@
     "failedOrWithdrawnBuildConsumesNumber": true
   },
   "finalization": {
-    "status": "pending-source-authorized",
-    "dualCustodyCompleted": false,
+    "status": "completed-non-distributable",
+    "dualCustodyCompleted": true,
     "buildNumber": 30,
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build30-current-source-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45",
@@ -540,11 +540,24 @@
       }
     ],
     "runtimeValidationPassed": false,
-    "runtimeDisposition": "not-adjudicated-before-artifact",
+    "runtimeDisposition": "not-adjudicated-by-build-finalization",
     "fullBusinessFlowValidationCompleted": false,
     "firebaseBackendDeploymentPerformed": false,
     "controlledPilotApproved": false,
-    "unrestrictedPlantReleaseApproved": false
+    "unrestrictedPlantReleaseApproved": false,
+    "completionReceiptFile": "release/evidence/build-30-finalization-closure.json",
+    "completionReceiptSha256": "9AC2CBB7F1521715C1188682D601CD4C20355036CA53EBEF0D21730096D0AB15",
+    "sourceCommit": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
+    "githubRunId": 36577226874,
+    "remoteBuiltTag": "crm3-build-built/30",
+    "remoteReservationTagObject": "9fb33f76373485f3525bd7b6bf4a0025a0ffd41c",
+    "remoteBuiltTagObject": "6e526785c53c27913081d30d0cafb4b2a7949854",
+    "governedPackageSha256": "43D4CBC181BFBEA98AAA72BF68D8ACC557C3EB471089C643FDFEF116E407175A",
+    "closurePackageSha256": "3FE1CD458D34C42C379DA9734DB344F928AB4D0771A942310529499218C7F1F3",
+    "custodyRecordSha256": "3EB56433B617F9ADA4689D02E6BF8E2E76655EA96D9A614FDD7F2858D539519D",
+    "physicalInstallationReceiptFile": null,
+    "physicalInstallationReceiptSha256": null,
+    "recordingScope": "Finalization-time construction and custody only; later owner-only Play publication and device delivery are separately scoped observations, not unrestricted distribution or full saved-work acceptance."
   },
   "postBuildPromotion": {
     "status": "completed-staged-controlled-pilot-only",
@@ -707,7 +720,7 @@
     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
     "firebaseToolsVersion": "15.22.4",
     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
-    "firebaseToolsLockfileSha256": "97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781",
+    "firebaseToolsLockfileSha256": "97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1",
     "linuxIsarCoreSha256": "142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259",
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-community-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",
@@ -720,7 +733,6 @@
     "dartVersion": "3.12.0"
   },
   "knownOpenGates": [
-    "BUILD30_PRODUCTION_SIGNED_FINALIZATION",
     "BUILD30_SIGNED_DEVICE_MIGRATION_AND_BUSINESS_FLOW_VALIDATION",
     "BUILD30_EXPLICIT_PILOT_PROMOTION"
   ],

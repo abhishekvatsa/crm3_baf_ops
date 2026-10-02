@@ -27,16 +27,28 @@ final _authorityMutationBusyProvider = StateProvider.autoDispose
 // Screen
 // ─────────────────────────────────────────────────────────────
 
-class UserManagementScreen extends ConsumerWidget {
+enum _UserFilter { all, pending, approved, withdrawn }
+
+class UserManagementScreen extends ConsumerStatefulWidget {
   const UserManagementScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UserManagementScreen> createState() =>
+      _UserManagementScreenState();
+}
+
+class _UserManagementScreenState extends ConsumerState<UserManagementScreen> {
+  _UserFilter _filter = _UserFilter.all;
+
+  @override
+  Widget build(BuildContext context) {
     final currentUserAsync = ref.watch(currentAppUserProvider);
 
     return ColoredBox(
       color: BafColors.background,
       child: currentUserAsync.when(
+        skipLoadingOnRefresh: false,
+        skipError: false,
         loading: () => const BafLoadingPanel(
           label: 'Checking user-management authority',
           color: BafColors.admin,
@@ -91,6 +103,12 @@ class UserManagementScreen extends ConsumerWidget {
                   )
                   .toList();
               final approved = sortedUsers.where((u) => u.isApproved).toList();
+              final selectedCount = switch (_filter) {
+                _UserFilter.all => sortedUsers.length,
+                _UserFilter.pending => pending.length,
+                _UserFilter.approved => approved.length,
+                _UserFilter.withdrawn => withdrawn.length,
+              };
 
               return ListView(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
@@ -113,10 +131,24 @@ class UserManagementScreen extends ConsumerWidget {
                     pendingCount: pending.length,
                     withdrawnCount: withdrawn.length,
                     approvedCount: approved.length,
+                    selected: _filter,
+                    onSelected: (value) => setState(() => _filter = value),
                   ),
                   const SizedBox(height: 18),
 
-                  if (pending.isNotEmpty) ...[
+                  if (selectedCount == 0)
+                    _AdminUserStateCard(
+                      icon: Icons.people_outline_rounded,
+                      color: BafColors.admin,
+                      title: _filter == _UserFilter.all
+                          ? 'No readable users'
+                          : 'No ${_filter.name} users',
+                      message:
+                          'Choose All to see every readable account. Directory warnings above still apply.',
+                    ),
+                  if (pending.isNotEmpty &&
+                      (_filter == _UserFilter.all ||
+                          _filter == _UserFilter.pending)) ...[
                     const _SectionHeader(
                       title: 'Pending approval',
                       subtitle: 'Review new users before first approval',
@@ -134,7 +166,9 @@ class UserManagementScreen extends ConsumerWidget {
                     const SizedBox(height: 18),
                   ],
 
-                  if (withdrawn.isNotEmpty) ...[
+                  if (withdrawn.isNotEmpty &&
+                      (_filter == _UserFilter.all ||
+                          _filter == _UserFilter.withdrawn)) ...[
                     const _SectionHeader(
                       title: 'Access restoration / prior status review',
                       subtitle:
@@ -153,22 +187,16 @@ class UserManagementScreen extends ConsumerWidget {
                     const SizedBox(height: 18),
                   ],
 
-                  const _SectionHeader(
-                    title: 'Approved users',
-                    subtitle: 'Manage access roles for existing users',
-                    color: BafColors.sync,
-                    icon: Icons.verified_user_rounded,
-                  ),
-                  const SizedBox(height: 10),
-
-                  if (approved.isEmpty)
-                    const _AdminUserStateCard(
-                      icon: Icons.people_outline_rounded,
-                      color: BafColors.admin,
-                      title: 'No approved users',
-                      message: 'Approved users will appear here.',
-                    )
-                  else
+                  if (approved.isNotEmpty &&
+                      (_filter == _UserFilter.all ||
+                          _filter == _UserFilter.approved)) ...[
+                    const _SectionHeader(
+                      title: 'Approved users',
+                      subtitle: 'Manage access roles for existing users',
+                      color: BafColors.sync,
+                      icon: Icons.verified_user_rounded,
+                    ),
+                    const SizedBox(height: 10),
                     ...approved.map(
                       (user) => _UserCard(
                         user: user,
@@ -176,6 +204,7 @@ class UserManagementScreen extends ConsumerWidget {
                         isWithdrawn: false,
                       ),
                     ),
+                  ],
                 ],
               );
             },
@@ -194,11 +223,15 @@ class _UserManagementHeader extends StatelessWidget {
   final int pendingCount;
   final int withdrawnCount;
   final int approvedCount;
+  final _UserFilter selected;
+  final ValueChanged<_UserFilter> onSelected;
 
   const _UserManagementHeader({
     required this.pendingCount,
     required this.withdrawnCount,
     required this.approvedCount,
+    required this.selected,
+    required this.onSelected,
   });
 
   @override
@@ -255,23 +288,34 @@ class _UserManagementHeader extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    StatusBadge(
-                      label: '$pendingCount pending',
-                      color: pendingCount > 0
-                          ? BafColors.warning
-                          : BafColors.admin,
-                      icon: Icons.pending_rounded,
-                    ),
-                    StatusBadge(
-                      label: '$approvedCount approved',
-                      color: BafColors.sync,
-                      icon: Icons.verified_rounded,
-                    ),
-                    if (withdrawnCount > 0)
-                      StatusBadge(
-                        label: '$withdrawnCount withdrawn',
-                        color: BafColors.danger,
-                        icon: Icons.person_off_rounded,
+                    for (final item in [
+                      (
+                        filter: _UserFilter.all,
+                        count: pendingCount + approvedCount + withdrawnCount,
+                        label: 'All',
+                      ),
+                      (
+                        filter: _UserFilter.pending,
+                        count: pendingCount,
+                        label: 'Pending',
+                      ),
+                      (
+                        filter: _UserFilter.approved,
+                        count: approvedCount,
+                        label: 'Approved',
+                      ),
+                      (
+                        filter: _UserFilter.withdrawn,
+                        count: withdrawnCount,
+                        label: 'Withdrawn',
+                      ),
+                    ])
+                      FilterChip(
+                        key: ValueKey('user-summary-${item.filter.name}'),
+                        selected: selected == item.filter,
+                        label: Text('${item.count} ${item.label}'),
+                        onSelected: (_) => onSelected(item.filter),
+                        showCheckmark: true,
                       ),
                   ],
                 ),

@@ -1,5 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/serialization/tolerant_snapshot_decode.dart';
+import '../../planned_maintenance/data/job_template_model.dart';
+import '../data/inner_cover_workflow_evidence.dart';
+import '../domain/inner_cover_dependencies.dart';
+import '../domain/apply_inner_cover_dependencies.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/remote_maintenance_reader.dart';
 import '../../maintenance/providers/maintenance_provider.dart';
@@ -13,6 +18,11 @@ import '../data/inner_cover_lifecycle.dart';
 import '../domain/physical_plant_inventory.dart';
 import '../domain/plant_asset_overview.dart';
 import '../domain/qualified_plant_asset_overview.dart';
+import '../domain/base_cover_reconciliation.dart';
+import '../../reports/domain/base_inner_cover_register.dart';
+import 'asset_hierarchy_provider.dart';
+import 'furnace_stuckup_provider.dart';
+import '../domain/inner_cover_stock_summary.dart';
 
 AutoDisposeStreamProvider<PlantEvidenceBatch<T>> _source<T>(
   String collection,
@@ -54,6 +64,59 @@ final plantInnerCoverEvidenceProvider = _source(
   'inner_cover_profiles',
   InnerCoverProfile.fromMap,
 );
+final plantInnerCoverWorkflowEvidenceProvider = _source(
+  'maintenance_workflows',
+  InnerCoverWorkflowEvidence.fromMap,
+);
+final plantInnerCoverExecutionEvidenceProvider = _source(
+  'job_executions',
+  JobExecution.fromMap,
+);
+
+// Delinking legitimately deletes an assignment and removes the active linkage
+// from the query. Decode each current snapshot rather than retaining deleted rows.
+final plantCoverAssignmentEvidenceProvider =
+    StreamProvider.autoDispose<DecodedSnapshotBatch<BaseInnerCoverAssignment>>((
+      ref,
+    ) {
+      if (ref.watch(currentAppUserProvider).asData?.value?.isApproved != true) {
+        throw StateError('Approved plant-condition access is required.');
+      }
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchInnerCoverAssignmentBatches();
+    });
+
+final plantActiveCoverLinkEvidenceProvider =
+    StreamProvider.autoDispose<DecodedSnapshotBatch<InnerCoverLinkage>>((ref) {
+      if (ref.watch(currentAppUserProvider).asData?.value?.isApproved != true) {
+        throw StateError('Approved plant-condition access is required.');
+      }
+      return ref
+          .watch(assetHierarchyRepositoryProvider)
+          .watchActiveInnerCoverLinkages();
+    });
+
+DecodedSnapshotBatch<T> _registerBatch<T>(
+  AsyncValue<PlantEvidenceBatch<T>> value,
+) {
+  final batch = value.asData?.value;
+  return DecodedSnapshotBatch(
+    records: batch?.rows ?? [],
+    rejectedDocumentIds: batch?.rejected.keys.toList() ?? [],
+    isFromCache: batch?.fromServer != true,
+  );
+}
+
+DecodedSnapshotBatch<T> _currentBatch<T>(
+  AsyncValue<DecodedSnapshotBatch<T>> value,
+) =>
+    value.asData?.value ??
+    const DecodedSnapshotBatch(
+      records: [],
+      rejectedDocumentIds: [],
+      isFromCache: true,
+    );
 
 final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
   ref,
@@ -137,15 +200,109 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
             <MapEntry<String, String>>[])
       'Inner Cover ${entry.key}: ${entry.value}',
   ];
+  final activeBaseIds = overview.assets
+      .where(
+        (state) => classes.requireValue.rows.any(
+          (cls) =>
+              cls.isActive &&
+              cls.legacyAssetTypeKey == 'base' &&
+              cls.id == state.asset.assetClassId,
+        ),
+      )
+      .map((state) => state.asset.id)
+      .toSet();
+  final hasCoverPopulation =
+      classes.requireValue.rows.any(
+        (c) => c.legacyAssetTypeKey == 'innerCover',
+      ) ||
+      covers.asData?.value.rows.isNotEmpty == true;
+  final needsLinkEvidence = activeBaseIds.isNotEmpty || hasCoverPopulation;
+  final assignments = !needsLinkEvidence
+      ? const AsyncData<DecodedSnapshotBatch<BaseInnerCoverAssignment>>(
+          DecodedSnapshotBatch(records: [], rejectedDocumentIds: []),
+        )
+      : ref.watch(plantCoverAssignmentEvidenceProvider);
+  final links = !needsLinkEvidence
+      ? const AsyncData<DecodedSnapshotBatch<InnerCoverLinkage>>(
+          DecodedSnapshotBatch(records: [], rejectedDocumentIds: []),
+        )
+      : ref.watch(plantActiveCoverLinkEvidenceProvider);
+  final register = buildBaseInnerCoverRegister(
+    classes: _registerBatch(classes),
+    assets: _registerBatch(assets),
+    assignments: _currentBatch(assignments),
+    covers: _registerBatch(covers),
+    linkages: _currentBatch(links),
+  );
+  final stock = hasCoverPopulation
+      ? buildInnerCoverStockSummary(
+          classes: _registerBatch(classes),
+          profiles: _registerBatch(covers),
+          assignments: _currentBatch(assignments),
+          links: _currentBatch(links),
+          register: register,
+          cases: _currentBatch(ref.watch(furnaceStuckupCaseBatchProvider)),
+          declarations: _currentBatch(
+            ref.watch(innerCoverBulgeDeclarationBatchProvider),
+          ),
+        )
+      : null;
+  final physical = physicalPlantInventory(
+    overview: overview,
+    classes: classes.requireValue.rows,
+    profiles: covers.asData?.value.rows ?? [],
+    coverSourceWarnings: coverWarnings,
+    coverPopulationWarnings: coverPopulationWarnings,
+    rejectedProfiles: covers.asData?.value.rejected.keys.toSet() ?? {},
+    rejectedClasses: classes.requireValue.rejected.keys.toSet(),
+    innerCoverStock: stock,
+    baseCoverReconciliation: reconcileBaseCoverRegister(
+      register: register,
+      activeBaseIds: activeBaseIds,
+      verifiedConditionBaseIds: conditions.asData?.value.complete == true
+          ? overview.assets
+                .where((state) => state.permitsManualChange)
+                .map((state) => state.asset.id)
+                .toSet()
+          : {},
+      downBaseIds: overview.assets
+          .where((state) => state.isDown)
+          .map((state) => state.asset.id)
+          .toSet(),
+    ),
+  );
+  if (!hasCoverPopulation) return AsyncData(physical);
+  final remoteTickets = _registerBatch(tickets);
+  final dependencies = deriveInnerCoverDependencies(
+    stuckupCases: _currentBatch(ref.watch(furnaceStuckupCaseBatchProvider)),
+    profiles: _registerBatch(covers),
+    tickets: DecodedSnapshotBatch(
+      records: [
+        ...remoteTickets.records,
+        ...?localTickets.asData?.value.where((row) => !row.isSynced),
+      ],
+      rejectedDocumentIds: [
+        ...remoteTickets.rejectedDocumentIds,
+        if (localTickets.isLoading || localTickets.hasError)
+          'local-pending-issue-evidence-unavailable',
+      ],
+      isFromCache: !remoteTickets.isServerConfirmed,
+    ),
+    workflows: _registerBatch(
+      ref.watch(plantInnerCoverWorkflowEvidenceProvider),
+    ),
+    executions: _registerBatch(
+      ref.watch(plantInnerCoverExecutionEvidenceProvider),
+    ),
+  );
   return AsyncData(
-    physicalPlantInventory(
-      overview: overview,
-      classes: classes.requireValue.rows,
-      profiles: covers.asData?.value.rows ?? [],
-      coverSourceWarnings: coverWarnings,
-      coverPopulationWarnings: coverPopulationWarnings,
-      rejectedProfiles: covers.asData?.value.rejected.keys.toSet() ?? {},
-      rejectedClasses: classes.requireValue.rejected.keys.toSet(),
+    applyInnerCoverDependencies(
+      overview: physical,
+      register: register,
+      dependencies: qualifyInnerCoverDependencyProjections(
+        dependencies,
+        _registerBatch(workflow),
+      ),
     ),
   );
 });

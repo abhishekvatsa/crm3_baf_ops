@@ -127,6 +127,13 @@ class IsarDirectiveRepository implements DirectiveRepository {
   }
 
   @override
+  Stream<List<OperationalDirective>> watchDirectivesIncludingDeleted() =>
+      isar.operationalDirectives
+          .where()
+          .sortByCreatedAtDesc()
+          .watch(fireImmediately: true);
+
+  @override
   Future<PaginatedDirectivesResult> getUpdatedDirectives({
     DateTime? since,
     DateTime? through,

@@ -129,6 +129,41 @@ Future<void> _status(WidgetTester tester, String label) async {
 }
 
 void main() {
+  testWidgets(
+    'Closed header and search denominator use only role-visible closed records',
+    (tester) async {
+      await _pump(
+        tester,
+        records: [
+          _directive(1),
+          _directive(2),
+          _directive(3, closed: true),
+          _directive(4, closed: true),
+          _directive(5, closed: true)..directedTo = AppRole.si,
+        ],
+      );
+      await _status(tester, 'Closed');
+      expect(find.text('2 closed visible to your role'), findsOneWidget);
+      expect(find.text('4 closed visible to your role'), findsNothing);
+      await tester.enterText(
+        find.byKey(const ValueKey('directives-search')),
+        'item 03',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 of 2 matching'), findsOneWidget);
+      expect((await _bottom(tester)).totalCount, 1);
+      await _status(tester, 'All');
+      expect(find.text('1 of 4 matching'), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const ValueKey('directives-search')),
+        '',
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('4 directives visible to your role'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('equal-time local records use local identity for stable order', (
     tester,
   ) async {

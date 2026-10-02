@@ -245,7 +245,7 @@ function Copy-BackupCustody {
   param([string]$SourcePath, [string]$ExpectedSha256, [string]$Purpose)
   if ($privateCloudCustody) {
     $candidateCustodyArguments = @{}
-    if ($manifest.release.buildNumber -eq 30) {
+    if ($manifest.release.buildNumber -in @(30, 31)) {
       $candidateCustodyArguments = @{
         CandidateSourceCommit = $expected; ApprovalCommit = $PrivateCustodyApprovalCommit
         ApprovalSha256 = $PrivateCustodyApprovalSha256
@@ -757,7 +757,7 @@ $primaryRoot = [IO.Path]::GetFullPath($PrimaryCustodyDirectory)
 $backupRoot = $null
 if ($privateCloudCustody) {
   $candidateCustodyArguments = @{}
-  if ($manifest.release.buildNumber -eq 30) {
+  if ($manifest.release.buildNumber -in @(30, 31)) {
     $candidateCustodyArguments = @{
       CandidateSourceCommit = $expected; ApprovalCommit = $PrivateCustodyApprovalCommit
       ApprovalSha256 = $PrivateCustodyApprovalSha256

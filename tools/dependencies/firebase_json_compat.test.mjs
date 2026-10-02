@@ -1,3 +1,4 @@
+import './firebase_ftp_compat.test.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,8 +35,10 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   assert.equal(entries.length, 2);
   for (const [, value] of entries) assert.equal(value.version, '3.5.0');
   assert.equal(lock.packages['node_modules/stream-json'].resolved, 'file:../stream-json-compat');
-  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.7');
-  assert.equal(lock.packages['node_modules/ip-address'].version, '10.5.1');
+  assert.equal(lock.packages['node_modules/@grpc/grpc-js'].version, '1.14.5');
+  assert.equal(require('@grpc/grpc-js/package.json').version, '1.14.5');
+  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.8');
+  assert.equal(lock.packages['node_modules/ip-address'].version, '10.7.1');
   assert.equal(lock.packages['node_modules/morgan'].version, '1.12.1');
   assert.equal(lock.packages['node_modules/undici'].version, '8.10.2');
   assert.equal(lock.packages['node_modules/qs'].version, '6.16.0');
@@ -145,4 +148,28 @@ test('all Firebase CLI JSON imports are known and their modules load without per
     else process.env.XDG_CONFIG_HOME = originalConfigRoot;
     fs.rmSync(configRoot, {recursive: true, force: true});
   }
+});
+
+test('URI scheme-relative hosts normalize percent-encoded uppercase octets',()=> {
+  const uri=require('fast-uri');
+  assert.equal(uri.parse('//%41.com').host,'a.com');
+  assert.equal(uri.equal('//%41.com','//a.com'),true);
+  assert.equal(uri.parse('//A.com').host,'a.com');
+});
+test('IPv4/IPv6 subnet checks reject cross-family coincidences and preserve same-family controls',()=> {
+  const {Address4,Address6}=require('ip-address');
+  const pairs=[[new Address6('a00::1'),new Address4('10.0.0.0/8')],[new Address4('32.1.13.184'),new Address6('2001:db8::/32')]];
+  for(const [host,network]of pairs)for(const method of ['isInSubnet','isHostInSubnet'])assert.equal(host[method](network),false,method);
+  assert.equal(new Address4('10.0.0.1').isInSubnet(new Address4('10.0.0.0/8')),true);
+  assert.equal(new Address6('2001:db8::1').isInSubnet(new Address6('2001:db8::/32')),true);
+  assert.equal(new Address6('::ffff:10.0.0.1').to4().isInSubnet(new Address4('10.0.0.0/8')),true);
+});
+test('Oversized IPv6 validation rejects with bounded diagnostic rather than echoing the input',()=> {
+  const {Address6,AddressError}=require('ip-address');
+  let caught;try{new Address6('!'.repeat(5000));}catch(error){caught=error;}
+  assert.ok(caught instanceof AddressError);
+  assert.ok(caught.message.length<1024,'bounded error message');
+  assert.ok((caught.parseMessage??'').length<1024,'bounded HTML diagnostic');
+  assert.equal(Address6.isValid('!'.repeat(5000)),false);
+  assert.equal(Address6.isValid('2001:db8::1'),true);
 });

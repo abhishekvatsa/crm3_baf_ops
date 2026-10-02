@@ -8,6 +8,7 @@ import '../../../../core/widgets/dashboard/status_badge.dart';
 import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../../auth/domain/current_actor_access.dart';
+import '../../../auth/presentation/current_actor_gate.dart';
 import '../../data/compliance_request_record.dart';
 import '../../domain/compliance_visibility_policy.dart';
 import '../../domain/workflow_types.dart';
@@ -517,6 +518,12 @@ class _ComplianceDetailScreenState
     required AppUser actor,
     required bool postClosureFollowUp,
   }) {
+    bool mayConfirmCondition(AppUser current) =>
+        current.canMarkMaintenanceWorkflowConditionDue;
+    bool mayTarget(AppUser current) =>
+        canActAsComplianceTarget(record, current);
+    bool mayOrigin(AppUser current) =>
+        canActAsComplianceOrigin(record, current);
     final widgets = <Widget>[];
     void add(Widget widget) {
       if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 12));
@@ -544,6 +551,8 @@ class _ComplianceDetailScreenState
           onPressed: () async {
             final note = await _askText(
               context,
+              actorUid: actor.uid,
+              permission: mayConfirmCondition,
               title: postClosureFollowUp
                   ? 'Confirm condition (follow-up only)'
                   : 'Confirm release condition met',
@@ -556,6 +565,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.confirmConditionAndReactivate,
               actorUid: actor.uid,
+              permission: mayConfirmCondition,
               expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
@@ -577,6 +587,7 @@ class _ComplianceDetailScreenState
             expectedVersion,
             WorkflowCommandType.acknowledgeCompliance,
             actorUid: actor.uid,
+            permission: mayTarget,
             expectedComplianceVersion: record.version,
           ),
         ),
@@ -595,6 +606,8 @@ class _ComplianceDetailScreenState
           onPressed: () async {
             final note = await _askText(
               context,
+              actorUid: actor.uid,
+              permission: mayTarget,
               title: 'Compliance evidence',
               label: 'What was completed?',
             );
@@ -605,6 +618,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.markComplianceComplied,
               actorUid: actor.uid,
+              permission: mayTarget,
               expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
@@ -620,6 +634,8 @@ class _ComplianceDetailScreenState
               : () async {
                   final revised = await _askText(
                     context,
+                    actorUid: actor.uid,
+                    permission: mayTarget,
                     title: 'Propose one revised condition',
                     label: 'Complete revised condition',
                   );
@@ -630,6 +646,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.proposeCounterCondition,
                     actorUid: actor.uid,
+                    permission: mayTarget,
                     expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'revisedDescription': revised},
                   );
@@ -648,6 +665,8 @@ class _ComplianceDetailScreenState
               : () async {
                   final note = await _askText(
                     context,
+                    actorUid: actor.uid,
+                    permission: mayOrigin,
                     title: 'Accept revised condition',
                     label: 'Decision note (optional)',
                     required: false,
@@ -659,6 +678,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.decideCounterCondition,
                     actorUid: actor.uid,
+                    permission: mayOrigin,
                     expectedComplianceVersion: record.version,
                     extra: <String, Object?>{
                       'accepted': true,
@@ -680,6 +700,8 @@ class _ComplianceDetailScreenState
               : () async {
                   final note = await _askText(
                     context,
+                    actorUid: actor.uid,
+                    permission: mayOrigin,
                     title: 'Reject and escalate',
                     label: 'Reason for rejection',
                   );
@@ -690,6 +712,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.decideCounterCondition,
                     actorUid: actor.uid,
+                    permission: mayOrigin,
                     expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'accepted': false, 'note': note},
                   );
@@ -712,6 +735,8 @@ class _ComplianceDetailScreenState
           onPressed: () async {
             final note = await _askText(
               context,
+              actorUid: actor.uid,
+              permission: mayOrigin,
               title: 'Confirm compliance',
               label: 'Confirmation note (optional)',
               required: false,
@@ -723,6 +748,7 @@ class _ComplianceDetailScreenState
               expectedVersion,
               WorkflowCommandType.confirmComplianceClosed,
               actorUid: actor.uid,
+              permission: mayOrigin,
               expectedComplianceVersion: record.version,
               extra: <String, Object?>{'note': note},
             );
@@ -736,6 +762,8 @@ class _ComplianceDetailScreenState
               : () async {
                   final reason = await _askText(
                     context,
+                    actorUid: actor.uid,
+                    permission: mayOrigin,
                     title: 'Return for correction',
                     label: 'What remains incomplete?',
                   );
@@ -746,6 +774,7 @@ class _ComplianceDetailScreenState
                     expectedVersion,
                     WorkflowCommandType.returnComplianceForCorrection,
                     actorUid: actor.uid,
+                    permission: mayOrigin,
                     expectedComplianceVersion: record.version,
                     extra: <String, Object?>{'reason': reason},
                   );
@@ -769,10 +798,22 @@ class _ComplianceDetailScreenState
     int expectedVersion,
     WorkflowCommandType type, {
     required String actorUid,
+    required bool Function(AppUser) permission,
     required int expectedComplianceVersion,
     Map<String, Object?> extra = const <String, Object?>{},
   }) async {
     if (!mounted) return;
+    final message = currentActorActionMessage(
+      CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+      originUid: actorUid,
+      permission: permission,
+    );
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return;
+    }
     try {
       final receipt = await ref
           .read(workflowCommandControllerProvider.notifier)
@@ -839,6 +880,8 @@ class _ComplianceDetailScreenState
 
   Future<String?> _askText(
     BuildContext context, {
+    required String actorUid,
+    required bool Function(AppUser) permission,
     required String title,
     required String label,
     String initialValue = '',
@@ -846,11 +889,15 @@ class _ComplianceDetailScreenState
   }) {
     return showDialog<String>(
       context: context,
-      builder: (_) => _ComplianceTextPromptDialog(
-        title: title,
-        label: label,
-        initialValue: initialValue,
-        isRequired: required,
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actorUid,
+        permission: permission,
+        child: _ComplianceTextPromptDialog(
+          title: title,
+          label: label,
+          initialValue: initialValue,
+          isRequired: required,
+        ),
       ),
     );
   }

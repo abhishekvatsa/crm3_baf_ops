@@ -1,19 +1,19 @@
 {
   "schemaVersion": 2,
-  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-28-BUILD30",
-  "asOfDate": "2026-09-28",
-  "status": "BUILD30_SOURCE_AUTHORIZED_BACKEND_READY_AWAITING_SIGNED_CONSTRUCTION",
+  "indexId": "CRM3-CURRENT-RELEASE-STATE-2026-09-30-BUILD30-CLOSED",
+  "asOfDate": "2026-09-30",
+  "status": "BUILD30_FINALIZED_SOURCE_SUCCESSOR_AWAITING_GOVERNED_BACKEND_DEPLOYMENT_DEVICE_AND_PILOT_DECISIONS",
   "authorityPlanes": {
     "currentSource": {
       "reference": "refs/heads/main",
       "packageVersion": "1.0.0-rc.20+30",
-      "relationshipToLatestFinalizedArtifact": "BUILD30_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD29",
+      "relationshipToLatestFinalizedArtifact": "BUILD30_SOURCE_SUCCESSOR_OF_FINALIZED_BUILD30",
       "sourceAndCiAuthority": true,
-      "artifactConstructionAuthority": true,
+      "artifactConstructionAuthority": false,
       "deploymentAuthority": false,
       "distributionAuthority": false,
       "sameBuildNumberReuseProhibited": true,
-      "backendDeploymentStatus": "EXACT_SOURCE_BACKEND_DEPLOYED_AND_VERIFIED",
+      "backendDeploymentStatus": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionRuntimeUseAuthorized": false,
       "firestoreRulesAndIndexes": {
         "rulesSha256": "849151D53221FE99A53AB15168652AC8B6E65CB05530770390C198973EAD2067",
@@ -28,16 +28,17 @@
       }
     },
     "latestFinalizedArtifact": {
-      "buildNumber": 29,
-      "version": "1.0.0-rc.19+29",
-      "sourceCommit": "770f1745f7f4440e92ad5ff409e124a48baa107e",
+      "buildNumber": 30,
+      "version": "1.0.0-rc.20+30",
+      "sourceCommit": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
       "status": "COMPLETED_NON_DISTRIBUTABLE",
-      "completionReceiptFile": "release/evidence/build-29-finalization-closure.json",
-      "completionReceiptSha256": "C5EBE789AFBA1D9C40F3D25BB32824C0F29AE2D7AC8C5F269E2F7BFC2D2A3F20",
-      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD29",
+      "completionReceiptFile": "release/evidence/build-30-finalization-closure.json",
+      "completionReceiptSha256": "9AC2CBB7F1521715C1188682D601CD4C20355036CA53EBEF0D21730096D0AB15",
+      "runtimeValidation": "NOT_ADJUDICATED_FOR_EXACT_BUILD30",
       "fullBusinessFlowValidation": "MUTATING_FLOWS_NOT_ADJUDICATED",
       "pilotPromotion": "NOT_AUTHORIZED",
-      "unrestrictedDistribution": "NOT_AUTHORIZED"
+      "unrestrictedDistribution": "NOT_AUTHORIZED",
+      "recordingScope": "Finalization-time construction and custody only; later owner-only Play publication and device delivery are separately scoped observations, not unrestricted distribution or full saved-work acceptance."
     },
     "deployedBackend": {
       "deploymentApprovalFile": "release/approvals/build30-current-source-backend-deployment-approval.json",
@@ -50,7 +51,7 @@
       "rulesAndIndexesSourceCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
       "functionFleetReadbackDecision": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
       "rulesAndIndexesReadbackDecision": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
-      "currentSourceFunctionDeployment": "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK",
+      "currentSourceFunctionDeployment": "SOURCE_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "currentSourceRulesAndIndexesDeployment": "PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK",
       "productionBackendRuntimeAuthorized": true
     },
@@ -89,13 +90,11 @@
       "appliesToCurrentSource": false
     },
     "nextCandidate": {
-      "minimumBuildNumber": 30,
-      "status": "SOURCE_AUTHORIZED_AWAITING_SIGNED_BUILD30_CONSTRUCTION",
-      "constructionRequiresFreshGovernedApproval": false,
+      "minimumBuildNumber": 31,
+      "status": "AWAITING_FRESH_GOVERNED_BUILD31_APPROVAL",
+      "constructionRequiresFreshGovernedApproval": true,
       "deviceValidationRequiresExactNewArtifact": true,
-      "pilotPromotionRequiresSeparateDecision": true,
-      "versionApprovalFile": "release/approvals/build-number-30-successor-approval.json",
-      "environmentApprovalFile": "release/approvals/public-repository-environment-reviewer-approval-build-30.json"
+      "pilotPromotionRequiresSeparateDecision": true
     }
   },
   "localStore": {
@@ -199,7 +198,9 @@
     "release/approvals/build30-private-cloud-custody-approval.json",
     "release/approvals/build30-app-check-client-approval.json",
     "release/evidence/build30-current-source-backend-deployment-closure.json",
-    "release/approvals/build30-current-source-backend-deployment-approval.json"
+    "release/approvals/build30-current-source-backend-deployment-approval.json",
+    "release/evidence/build-30-finalization-closure.json",
+    "release/evidence/build30-private-gcs-custody-readback.json"
   ],
   "historicalDeployedBackendAuthorities": [
     {
@@ -247,5 +248,19 @@
       "currentSourceRulesAndIndexesDeployment": "SOURCE_RULES_SUCCESSOR_PENDING_GOVERNED_DEPLOYMENT",
       "productionBackendRuntimeAuthorized": true
     }
-  ]
+  ],
+  "laterChannelObservations": {
+    "informationalOnly": true,
+    "appliesToCurrentSource": false,
+    "buildNumber": 30,
+    "sourceCommit": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
+    "ownerOnlyInternalPlayPublishedAtUtc": "2026-09-29T14:53:00.965Z",
+    "inPlacePlayDeliveryVerifiedAtUtc": "2026-09-29T15:27:02.8299585Z",
+    "previousBuildNumber": 29,
+    "deliveredBuildNumber": 30,
+    "inPlacePlayUpdateVerified": true,
+    "allHistoricalDraftsRetainedProven": false,
+    "publicDistributionAuthorized": false,
+    "qualification": "Later owner-only channel execution and observed in-place delivery do not alter finalization-time decisions, confer authority on modified source, or establish full business-flow or unknown saved-work retention acceptance."
+  }
 }

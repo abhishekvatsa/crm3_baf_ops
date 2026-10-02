@@ -147,6 +147,8 @@ void main() {
 
       expect(find.text('2 registered'), findsNothing);
       _expectMetric('available', 'Verified available', 1);
+      _expectMetric('unavailable', 'Unavailable by issue', 0);
+      expect(find.text('Condition counts can overlap.'), findsOneWidget);
       _expectMetric('maintenance', 'Maintenance', 1);
       _expectMetric('stuck-up', 'Stuck-up', 0);
       _expectMetric('down', 'Down', 1);
@@ -429,7 +431,7 @@ void main() {
       expect(find.text('Stuck-up 2'), findsOneWidget);
       expect(find.text('Stuck-up 2: Base 101, Base 102'), findsOneWidget);
       expect(
-        tester.widget<Text>(find.text('Unavailable')).overflow,
+        tester.widget<Text>(find.text('Unavailable by issue')).overflow,
         isNot(TextOverflow.ellipsis),
       );
       final heading = tester.getTopLeft(find.text('Base')).dy;
@@ -518,7 +520,11 @@ void main() {
       );
       const tiles = [
         ('available', 'Verified available', AssetConditionFilter.available),
-        ('unavailable', 'Unavailable', AssetConditionFilter.unavailable),
+        (
+          'unavailable',
+          'Unavailable by issue',
+          AssetConditionFilter.unavailable,
+        ),
         ('maintenance', 'Maintenance', AssetConditionFilter.maintenance),
         ('stuck-up', 'Stuck-up', AssetConditionFilter.stuckUp),
         ('down', 'Down', AssetConditionFilter.down),

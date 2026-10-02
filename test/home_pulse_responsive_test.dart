@@ -31,8 +31,7 @@ void main() {
                   plantOverview: const AsyncData(
                     PlantAssetOverview(classes: [], assets: []),
                   ),
-                  actionCount: 17,
-                  assuranceCount: 6,
+
                   dataUnavailable: false,
                   onOpenReports: () => taps.add('reports'),
                   onPlantCondition: () => taps.add('plant'),
@@ -59,29 +58,39 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('17'), findsOneWidget);
-      expect(find.text('6'), findsOneWidget);
+      expect(find.text('1'), findsNWidgets(2));
+      expect(
+        find.text('17 open issues form the leading action queue.'),
+        findsOneWidget,
+      );
       expect(find.text('0 of 0 assets'), findsOneWidget);
       for (final label in [
         'Availability',
-        'Action queue',
-        'Assurance',
-        'Issues, work and disruptions',
-        'Monitoring, overdue and findings',
+        'Action queues',
+        'Assurance queues',
       ]) {
         final text = find.text(label);
         final paragraph = tester.renderObject<RenderParagraph>(text);
         expect(paragraph.didExceedMaxLines, isFalse, reason: label);
       }
       final availability = tester.getTopLeft(find.text('Availability'));
-      final actions = tester.getTopLeft(find.text('Action queue'));
-      if (scenario.$1 < 500) {
-        expect(actions.dy, greaterThan(availability.dy));
-      } else {
-        expect(actions.dy, availability.dy);
-        expect(actions.dx, greaterThan(availability.dx));
+      final actions = tester.getTopLeft(find.text('Action queues'));
+      // Ordinary phone text keeps all three metrics on one compact row.
+      expect(actions.dy, availability.dy);
+      expect(actions.dx, greaterThan(availability.dx));
+      if (scenario.$2 == 1.0) {
+        final assurance = tester.getTopLeft(find.text('Assurance queues'));
+        expect(assurance.dy, availability.dy);
+        expect(
+          tester.getSize(find.byType(HomeManagementPulsePanel)).height,
+          lessThan(270),
+        );
       }
-      for (final label in ['Availability', 'Action queue', 'Assurance']) {
+      for (final label in [
+        'Availability',
+        'Action queues',
+        'Assurance queues',
+      ]) {
         await tester.ensureVisible(find.text(label));
         await tester.tap(find.text(label));
       }

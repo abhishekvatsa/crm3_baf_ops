@@ -55,7 +55,7 @@ Assert-FirebaseCliLockPolicy | Out-Null
 $script:passedCases++
 $workspace = $fixtureRoot
 Restore-LockFixture
-$packages = @('fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
+$packages = @('basic-ftp', '@grpc/grpc-js', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
 foreach ($packageName in $packages) {
   foreach ($field in @('version', 'resolved', 'integrity', 'missing', 'override')) {
     Restore-LockFixture
@@ -75,6 +75,49 @@ foreach ($packageName in $packages) {
   }
 }
 
+# A patched top-level copy must not conceal another unsafe nested copy.
+foreach ($field in @('version', 'resolved', 'integrity')) {
+  Restore-LockFixture
+  $lock = $lockJson | ConvertFrom-Json -AsHashtable
+  $copy = $lock.packages['node_modules/basic-ftp'].Clone()
+  $copy[$field] = 'tampered-regression'
+  $lock.packages['node_modules/fixture/node_modules/basic-ftp'] = $copy
+  $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+  Assert-Rejected -Case "nested basic-ftp $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
+}
+
+foreach ($field in @('version', 'resolved', 'integrity')) {
+  Restore-LockFixture
+  $lock = $lockJson | ConvertFrom-Json -AsHashtable
+  $copy = $lock.packages['node_modules/@grpc/grpc-js'].Clone()
+  $copy[$field] = 'tampered-regression'
+  $lock.packages['node_modules/fixture/node_modules/@grpc/grpc-js'] = $copy
+  $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+  Assert-Rejected -Case "nested @grpc/grpc-js $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
+}
+
+# The shared adapter and aliased upstream have different identities/resolution
+# rules from registry overrides; exercise each actual lock guard independently.
+foreach ($packageName in @('brace-expansion', 'brace-expansion-modern')) {
+  $fields = @('version', 'resolved', 'missing')
+  if ($packageName -eq 'brace-expansion-modern') { $fields += @('name', 'integrity') }
+  else { $fields += @('dependency', 'declared', 'override') }
+  foreach ($field in $fields) {
+    Restore-LockFixture
+    $lock = $lockJson | ConvertFrom-Json -AsHashtable
+    $package = $packageJson | ConvertFrom-Json -AsHashtable
+    $key = "node_modules/$packageName"
+    if ($field -eq 'missing') { $lock.packages.Remove($key) }
+    elseif ($field -eq 'dependency') { $lock.packages[$key].dependencies['brace-expansion-modern'] = 'npm:brace-expansion@0.0.0-regression' }
+    elseif ($field -eq 'declared') { $package.dependencies['brace-expansion'] = '0.0.0-regression' }
+    elseif ($field -eq 'override') { $package.overrides['brace-expansion'] = '0.0.0-regression' }
+    else { $lock.packages[$key][$field] = 'tampered-regression' }
+    $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+    $package | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $packagePath -Encoding utf8
+    Assert-Rejected -Case "$packageName $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
+  }
+}
+
 # Synthetic installation manifests exercise the actual installed-version guard
 # without requiring npm installation or claiming a package runtime test.
 Restore-LockFixture
@@ -88,7 +131,7 @@ foreach ($key in $lock.packages.Keys) {
 }
 Assert-FirebaseCliInstalledVersions | Out-Null
 $script:passedCases++
-foreach ($packageName in $packages) {
+foreach ($packageName in ($packages + @('brace-expansion', 'brace-expansion-modern'))) {
   $target = Join-Path $fixtureCli "node_modules/$packageName/package.json"
   $original = Get-Content -LiteralPath $target -Raw
   try {

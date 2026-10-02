@@ -33,6 +33,7 @@ void main() {
         ),
         containsAll(<String>[
           '.github/workflows/production-artifact.yml',
+          'release/evidence/build-30-finalization-closure.json',
           'release/evidence/build-29-finalization-closure.json',
           'release/evidence/build-28-finalization-closure.json',
           'release/evidence/build-27-finalization-closure.json',
@@ -79,6 +80,7 @@ void main() {
         27,
         28,
         29,
+        30,
       ]);
       expect(artifacts.map((entry) => entry['id']).toSet(), <int>{
         8711253816,
@@ -107,10 +109,11 @@ void main() {
         10040078252,
         10320699579,
         10787430893,
+        11039688859,
       });
       expect(
         artifacts.where((entry) => entry['dualCustodyCompleted'] == true),
-        hasLength(24),
+        hasLength(25),
       );
       expect(
         artifacts.singleWhere(
@@ -232,10 +235,49 @@ void main() {
         )['deletionBasis'],
         'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
       );
+      final build30 = artifacts.singleWhere(
+        (entry) => entry['buildNumber'] == 30,
+      );
+      final build30Closure =
+          jsonDecode(read('release/evidence/build-30-finalization-closure.json'))
+              as Map<String, dynamic>;
+      final build30Artifact =
+          build30Closure['githubArtifact'] as Map<String, dynamic>;
+      expect(
+        build30['authorityReceiptPath'],
+        'release/evidence/build-30-finalization-closure.json',
+      );
+      expect(
+        build30['deletionBasis'],
+        'FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE',
+      );
+      for (final key in ['id', 'name', 'sizeBytes', 'digest']) {
+        expect(
+          build30[key],
+          build30Artifact[key],
+          reason: 'Build 30 $key must bind the retained finalization receipt',
+        );
+      }
+      expect(
+        build30['workflowRunId'],
+        (build30Closure['workflow'] as Map<String, dynamic>)['runId'],
+      );
+      expect(
+        build30['headSha'],
+        (build30Closure['sourceAuthority'] as Map<String, dynamic>)['commit'],
+      );
+      expect(
+        build30['governedPackageSha256'],
+        (build30Closure['governedPackage'] as Map<String, dynamic>)['sha256'],
+      );
+      expect(
+        (build30Closure['dualCustody'] as Map<String, dynamic>)['status'],
+        'passed',
+      );
       expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredPresentArtifactIds'],
-        <int>[10787430893],
+        <int>[11039688859],
       );
       // The deletion phrase is re-keyed to the latest contained artifact, and it
       // is what would later authorize deleting that artifact, so pin it here too
@@ -243,7 +285,7 @@ void main() {
       expect(
         (policy['executionAuthority']
             as Map<String, dynamic>)['requiredOwnerApprovalPhrase'],
-        'APPROVE-LR07-DELETE-EXACT-ARTIFACTS-10787430893',
+        'APPROVE-LR07-DELETE-EXACT-ARTIFACTS-11039688859',
       );
 
       final installation =

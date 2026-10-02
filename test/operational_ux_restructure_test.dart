@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:crm3_baf_ops/core/theme/baf_design_system.dart';
+import 'package:crm3_baf_ops/features/assets/data/asset_hierarchy_model.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
 import 'package:crm3_baf_ops/features/auth/providers/auth_provider.dart';
 import 'package:crm3_baf_ops/features/directives/data/operational_directive_model.dart';
@@ -41,7 +43,7 @@ void main() {
   });
 
   test('operational shell and destinations preserve the intended structure', () {
-    final home = File('lib/home_screen.dart').readAsStringSync();
+    final home = readDartLibrarySource('lib/home_screen.dart');
     final reports = [
       'lib/features/reports/presentation/fleet_status_screen.dart',
       'lib/features/reports/presentation/fleet_status_insight_widgets.dart',
@@ -89,8 +91,13 @@ void main() {
     expect(home, contains('qualityWarningsAsync.valueOrNull == null'));
     expect(home, contains('operationalEventsUnavailable'));
     expect(home, contains('qualityWarningsUnavailable'));
-    expect(home, contains("? 'Unavailable'"));
-    expect(home, contains("'Live attention data unavailable'"));
+    expect(
+      home,
+      contains(
+        'count: qualityWarningsUnavailable ? null : openQualityWarningCount',
+      ),
+    );
+    expect(home, contains("'Refresh incomplete data'"));
     expect(home, contains("'Incomplete'"));
     expect(
       home,
@@ -99,8 +106,8 @@ void main() {
     expect(home, contains('ref.invalidate(qualityWarningsProvider)'));
     expect(home, contains('maintenanceDueStatesProvider'));
     expect(home, contains('allInspectionFindingsProvider'));
-    expect(home, contains("title: 'Overdue maintenance cadence'"));
-    expect(home, contains("title: 'Active inspection findings'"));
+    expect(home, contains('HomeQueueKind.overdueMaintenance'));
+    expect(home, contains('HomeQueueKind.inspectionFindings'));
     expect(operationalControl, contains("title: 'Directives'"));
     expect(operationalControl, contains("title: 'Workflow obligations'"));
     expect(operationalControl, contains("title: 'Plant disruptions'"));
@@ -197,6 +204,7 @@ void main() {
     expect(find.text('Workflow'), findsOneWidget);
     expect(find.text('Templates'), findsNothing);
     expect(find.text('Assign Published'), findsNothing);
+    expect(find.text('Assigned jobs will appear here.'), findsOneWidget);
     expect(templateReads, 0);
 
     await tester.tap(find.text('Workflow'));
@@ -306,6 +314,96 @@ void main() {
     expect(find.byTooltip('Refresh issues'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  for (final coverEvidence in ['linked', 'noneLinked', 'unrecorded']) {
+    testWidgets(
+      'issue asset number remains distinct from event serial: $coverEvidence',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 1000));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final now = DateTime.utc(2026, 9, 15, 17);
+        final linked = coverEvidence == 'linked';
+        final ticket = MaintenanceRecord()
+          ..firestoreId = 'issue-identity-119'
+          ..assetType = AssetType.innerCover
+          ..assetNumber = 119
+          ..maintenanceType = MaintenanceType.breakdown
+          ..description = 'Cold leak test follow-up'
+          ..routedTo = RoutedTo.mechanical
+          ..loggedByName = 'Fixture operator'
+          ..startDate = now
+          ..createdAt = now
+          ..updatedAt = now;
+        if (coverEvidence != 'unrecorded') {
+          ticket.assetHierarchyRefJson = jsonEncode(
+            AssetHierarchyReference(
+              scope: AssetHierarchyReferenceScope.physicalAsset,
+              assetClassId: 'base-class',
+              assetClassCode: 'BASE',
+              assetClassName: 'Base',
+              nodeId: 'base-node',
+              nodeVersion: 1,
+              nodeName: 'Base',
+              assetInstanceId: 'base-119',
+              assetInstanceVersion: 1,
+              assetNumber: 119,
+              assetInstanceName: 'Base 119',
+              hierarchyPath: const ['Base'],
+              ownershipStatus: AssetOwnershipStatus.unassigned,
+              innerCoverAssociation: InnerCoverEventReference(
+                baseAssetInstanceId: 'base-119',
+                baseAssetNumber: 119,
+                positionState: linked
+                    ? InnerCoverPositionState.linked
+                    : InnerCoverPositionState.noneLinked,
+                innerCoverId: linked ? 'cover-g66' : null,
+                innerCoverSerialNumber: linked ? 'G66' : null,
+                linkageId: linked ? 'link-g66-base119' : null,
+                assignmentVersion: linked ? 1 : null,
+                linkedAt: linked ? now.subtract(const Duration(days: 1)) : null,
+                eventAt: now,
+                confirmedAt: now,
+                confirmedByUid: 'fixture-operator',
+                confirmedByName: 'Fixture operator',
+              ),
+            ).toMap(),
+          );
+        }
+        final recordedSnapshot = ticket.assetHierarchyRefJson;
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              currentAppUserProvider.overrideWith(
+                (ref) => Stream<AppUser?>.value(_actor(AppRole.admin)),
+              ),
+              openTicketsProvider.overrideWith(
+                (ref) => Stream<List<MaintenanceRecord>>.value([ticket]),
+              ),
+            ],
+            child: MaterialApp(
+              theme: BafAppTheme.light,
+              home: const Scaffold(body: TicketScreen()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Inner Cover · asset no. 119'), findsOneWidget);
+        expect(find.text('INNERCOVER 119'), findsNothing);
+        expect(
+          find.text('Inner Cover serial at event: G66'),
+          linked ? findsOneWidget : findsNothing,
+        );
+        expect(
+          find.text('At event: no Inner Cover linked'),
+          coverEvidence == 'noneLinked' ? findsOneWidget : findsNothing,
+        );
+        expect(ticket.assetNumber, 119);
+        expect(ticket.assetHierarchyRefJson, recordedSnapshot);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets('populated workflow queue separates actions and confirmations', (
     tester,

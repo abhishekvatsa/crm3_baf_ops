@@ -4,11 +4,15 @@ class _HeaderCard extends StatelessWidget {
   final int total;
   final int active;
   final int inactive;
+  final _TypeStatusFilter selected;
+  final ValueChanged<_TypeStatusFilter> onSelected;
 
   const _HeaderCard({
     required this.total,
     required this.active,
     required this.inactive,
+    required this.selected,
+    required this.onSelected,
   });
 
   @override
@@ -50,7 +54,7 @@ class _HeaderCard extends StatelessWidget {
                     ),
                     SizedBox(height: BafSpacing.xs),
                     Text(
-                      'Govern cycle-event choices and RA routing.',
+                      'Counts follow search. Select a status to filter.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -72,15 +76,30 @@ class _HeaderCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _MetricPill(label: 'Total', value: total),
+                      child: _MetricPill(
+                        label: 'Total',
+                        value: total,
+                        selected: selected == _TypeStatusFilter.all,
+                        onTap: () => onSelected(_TypeStatusFilter.all),
+                      ),
                     ),
                     const SizedBox(width: BafSpacing.sm),
                     Expanded(
-                      child: _MetricPill(label: 'Active', value: active),
+                      child: _MetricPill(
+                        label: 'Active',
+                        value: active,
+                        selected: selected == _TypeStatusFilter.active,
+                        onTap: () => onSelected(_TypeStatusFilter.active),
+                      ),
                     ),
                     const SizedBox(width: BafSpacing.sm),
                     Expanded(
-                      child: _MetricPill(label: 'Inactive', value: inactive),
+                      child: _MetricPill(
+                        label: 'Inactive',
+                        value: inactive,
+                        selected: selected == _TypeStatusFilter.inactive,
+                        onTap: () => onSelected(_TypeStatusFilter.inactive),
+                      ),
                     ),
                   ],
                 ),
@@ -92,11 +111,26 @@ class _HeaderCard extends StatelessWidget {
             children: [
               Expanded(child: introduction),
               const SizedBox(width: BafSpacing.xl),
-              _MetricPill(label: 'Total', value: total),
+              _MetricPill(
+                label: 'Total',
+                value: total,
+                selected: selected == _TypeStatusFilter.all,
+                onTap: () => onSelected(_TypeStatusFilter.all),
+              ),
               const SizedBox(width: BafSpacing.sm),
-              _MetricPill(label: 'Active', value: active),
+              _MetricPill(
+                label: 'Active',
+                value: active,
+                selected: selected == _TypeStatusFilter.active,
+                onTap: () => onSelected(_TypeStatusFilter.active),
+              ),
               const SizedBox(width: BafSpacing.sm),
-              _MetricPill(label: 'Inactive', value: inactive),
+              _MetricPill(
+                label: 'Inactive',
+                value: inactive,
+                selected: selected == _TypeStatusFilter.inactive,
+                onTap: () => onSelected(_TypeStatusFilter.inactive),
+              ),
             ],
           );
         },
@@ -108,36 +142,60 @@ class _HeaderCard extends StatelessWidget {
 class _MetricPill extends StatelessWidget {
   final String label;
   final int value;
+  final bool selected;
+  final VoidCallback onTap;
 
-  const _MetricPill({required this.label, required this.value});
+  const _MetricPill({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 58),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.sm,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        children: [
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
+    return Semantics(
+      key: ValueKey('abnormality-type-filter-${label.toLowerCase()}'),
+      button: true,
+      selected: selected,
+      label: '$label: $value matching types',
+      child: Material(
+        color: Colors.white.withValues(alpha: selected ? 0.24 : 0.12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(BafRadius.medium),
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: selected ? 0.7 : 0.16),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 58, minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: BafSpacing.xs,
+                vertical: BafSpacing.sm,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '$value',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    label,
+                    style: const TextStyle(color: Colors.white70, fontSize: 10),
+                  ),
+                ],
+              ),
             ),
           ),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-        ],
+        ),
       ),
     );
   }

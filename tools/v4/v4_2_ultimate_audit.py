@@ -26,6 +26,38 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def grpc_pin_matches(manifest_rel: str, version: str, integrity: str) -> bool:
+    """Check every gRPC copy in a domain, including override and registry custody."""
+    package = data(manifest_rel)
+    lock = data(manifest_rel.replace("package.json", "package-lock.json"))
+    packages = lock.get("packages", {})
+    if not isinstance(packages, dict) or package.get("overrides", {}).get("@grpc/grpc-js") != version:
+        return False
+    copies = [entry for key, entry in packages.items()
+              if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")]
+    return bool(copies) and all(
+        isinstance(entry, dict)
+        and entry.get("version") == version
+        and entry.get("resolved") == f"https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-{version}.tgz"
+        and entry.get("integrity") == integrity
+        for entry in copies
+    )
+
+
+
+def basic_ftp_pin_matches() -> bool:
+    package = data("tooling/firebase-cli/package.json")
+    packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
+    if not isinstance(packages, dict) or package.get("overrides", {}).get("basic-ftp") != "6.2.1":
+        return False
+    copies = [entry for key, entry in packages.items()
+              if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")]
+    return bool(copies) and all(
+        isinstance(entry, dict) and entry.get("version") == "6.2.1"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        for entry in copies
+    )
 
 
 def powershell_delimiters_balanced(source: str) -> bool:
@@ -227,22 +259,30 @@ check(
     root_versions["protobufjs"] == "7.6.5"
     and functions_versions["protobufjs"] == "7.6.5"
     and functions_versions["body-parser"] == "1.20.6"
-    and root_versions["brace-expansion"] == "5.0.9"
-    and functions_versions["brace-expansion"] == "5.0.9"
+    and root_versions["brace-expansion"] == "5.0.12"
+    and functions_versions["brace-expansion"] == "5.0.12"
     and root_versions["js-yaml"] == "3.15.2"
     and functions_versions["js-yaml"] == "3.15.2",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
+    "gRPC locks retain the reviewed override and exact registry bytes in all three domains",
+    grpc_pin_matches("package.json", "1.13.6", "sha512-S9U8ioEds9fo8zCt4K8CyWHLJPg63FBgZo/hYUPVTiKppwsx/ykTnFg4g4/70beoa/DYao9uROQRcoahVH8PVQ==")
+    and grpc_pin_matches("functions/package.json", "1.14.5", "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==")
+    and grpc_pin_matches("tooling/firebase-cli/package.json", "1.14.5", "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=="),
+    "Functions dependency changes are runtime source changes; these pin checks do not authorize deployment or compatibility.",
+)
+check(
     "Governed Firebase CLI lockfile is separately remediated",
-    tooling_versions["protobufjs"] == "7.6.5"
+    basic_ftp_pin_matches()
+    and tooling_versions["protobufjs"] == "7.6.5"
     and tooling_versions["body-parser"] == "1.20.6"
     and tooling_versions["tar"] == "7.5.21"
-    and tooling_versions["brace-expansion"] == "5.0.9"
+    and tooling_versions["brace-expansion"] == "5.0.12"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.7"
+    and tooling_versions["fast-uri"] == "3.1.8"
     and tooling_versions["hono"] == "4.13.7"
-    and tooling_versions["ip-address"] == "10.5.1"
+    and tooling_versions["ip-address"] == "10.7.1"
     and tooling_versions["js-yaml"] == "4.3.2"
     and tooling_versions["re2"] == "1.26.1"
     and tooling_versions["morgan"] == "1.12.1"

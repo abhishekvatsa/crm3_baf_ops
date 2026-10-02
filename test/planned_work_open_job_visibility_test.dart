@@ -15,6 +15,62 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
+    'Work counts remain unverified while feeds load or fail, then show genuine zero',
+    (tester) async {
+      final jobs = StreamController<List<JobExecution>>();
+      final templates = StreamController<List<JobTemplate>>();
+      final lanes = StreamController<List<JobLaneRecord>>();
+      final compliance = StreamController<List<ComplianceRequestRecord>>();
+      addTearDown(jobs.close);
+      addTearDown(templates.close);
+      addTearDown(lanes.close);
+      addTearDown(compliance.close);
+      await tester.binding.setSurfaceSize(const Size(800, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentAppUserProvider.overrideWith(
+              (ref) => Stream.value(_adminActor()),
+            ),
+            activeTemplatesProvider.overrideWith((ref) => templates.stream),
+            openExecutionsProvider.overrideWith((ref) => jobs.stream),
+            workflowAllLanesProvider.overrideWith((ref) => lanes.stream),
+            workflowAllComplianceProvider.overrideWith(
+              (ref) => compliance.stream,
+            ),
+          ],
+          child: const MaterialApp(home: Scaffold(body: TemplatesScreen())),
+        ),
+      );
+      await _pumpFrames(tester, count: 6);
+      const unknown =
+          'Open jobs not verified · Workflow not verified · Templates not verified';
+      expect(find.text(unknown), findsOneWidget);
+      expect(
+        find.text('0 open jobs · 0 workflow actions · 0 templates'),
+        findsNothing,
+      );
+      jobs.addError(StateError('Synthetic job failure'));
+      templates.addError(StateError('Synthetic template failure'));
+      lanes.addError(StateError('Synthetic lane failure'));
+      compliance.add(const []);
+      await _pumpFrames(tester, count: 6);
+      expect(find.text(unknown), findsOneWidget);
+      jobs.add(const []);
+      templates.add(const []);
+      lanes.add(const []);
+      await _pumpFrames(tester, count: 6);
+      expect(
+        find.text('0 open jobs · 0 workflow actions · 0 templates'),
+        findsOneWidget,
+      );
+      expect(find.text(unknown), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Work defaults to open jobs and shows governed executions even with no legacy templates',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(320, 800));
@@ -110,6 +166,10 @@ void main() {
     await _pumpFrames(tester, count: 6);
     expect(find.text('70F Runtime Archive Test 2026-06-15'), findsOneWidget);
     expect(find.text('Legacy preventive template'), findsNothing);
+    expect(
+      find.text('1 open job · 0 workflow actions · 1 template'),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Templates'));
     await _pumpFrames(tester, count: 5);
@@ -152,6 +212,12 @@ void main() {
       );
 
       await _pumpFrames(tester, count: 6);
+      expect(
+        find.text(
+          'Use Assign Published to assign a job from a published template.',
+        ),
+        findsOneWidget,
+      );
       await tester.tap(find.text('Templates'));
       await _pumpFrames(tester, count: 4);
       expect(find.text('Legacy preventive template'), findsOneWidget);
@@ -162,6 +228,13 @@ void main() {
       expect(find.text('Templates'), findsNothing);
       expect(find.text('Legacy preventive template'), findsNothing);
       expect(find.text('Open assigned jobs'), findsOneWidget);
+      expect(find.text('Assigned jobs will appear here.'), findsOneWidget);
+      expect(
+        find.text(
+          'Use Assign Published to assign a job from a published template.',
+        ),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     },
   );

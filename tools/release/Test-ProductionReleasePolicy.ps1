@@ -563,9 +563,9 @@ function Test-CompletedReleaseCustody {
     # functions performs no bucket or upload calls.
     . (Join-Path $RepositoryRoot 'tools/release/Private-GcsReleaseCustody.ps1')
     $candidateCustodyArguments = @{}
-    if ($Receipt.release.buildNumber -ceq 30) {
+    if ($Receipt.release.buildNumber -cin @(30, 31)) {
       $candidateBinding = $Receipt.dualCustody.backupVerification
-      if ($candidateBinding.file -cne 'release/evidence/build30-private-gcs-custody-readback.json' -or
+      if ($candidateBinding.file -cne "release/evidence/build$($Receipt.release.buildNumber)-private-gcs-custody-readback.json" -or
           $candidateBinding.sha256 -isnot [string] -or $candidateBinding.sha256 -cnotmatch '^[0-9A-F]{64}$') { return $false }
       $candidatePath = Join-Path $RepositoryRoot $candidateBinding.file
       if ((Get-Sha256 $candidatePath) -cne $candidateBinding.sha256) { return $false }
@@ -576,7 +576,7 @@ function Test-CompletedReleaseCustody {
       }
     }
     $descriptor = Get-PrivateGcsCustodyDescriptor -BuildNumber $Receipt.release.buildNumber @candidateCustodyArguments
-    if ($descriptor.buildNumber -eq 30 -and $Receipt.release.releaseId -cne $descriptor.releaseId) { return $false }
+    if ($descriptor.buildNumber -in @(30, 31) -and $Receipt.release.releaseId -cne $descriptor.releaseId) { return $false }
     if ($modeProperty.Value -isnot [string] -or
         $modeProperty.Value -cne 'local-primary-private-gcs-backup' -or
         -not (Test-PrivateCustodyFacts $Receipt @(
@@ -1855,7 +1855,7 @@ $expectedPromotionDecision =
   "PASS_BUILD${promotionBuildNumber}_STAGED_CONTROLLED_PILOT_AUTHORIZED"
 # Share the read-only approval, child-readback and governance-CI adjudication
 # with the distribution collector so these two release gates cannot drift.
-$stagedAuthorityOutput = & node tools/release/stagedPromotionSourceAuthority.js `
+$stagedAuthorityOutput = & node tools/release/clientBackendCompatibility31.js `
   $RepositoryRoot (Resolve-Path -LiteralPath $PolicyPath).Path
 if ($LASTEXITCODE -ne 0) {
   throw "Staged promotion source or governance authority failed: $stagedAuthorityOutput"
@@ -1863,6 +1863,11 @@ if ($LASTEXITCODE -ne 0) {
 $stagedAuthorityProof = ($stagedAuthorityOutput -join "`n") | ConvertFrom-Json
 if ($stagedAuthorityProof.ok -isnot [bool] -or $stagedAuthorityProof.ok -ne $true) {
   throw 'Staged promotion source or governance authority was not verified.'
+}
+. (Join-Path $RepositoryRoot 'tools/release/Runtime-BackendPrivateReplay31.ps1')
+$runtime31Selected = Test-ProductionRuntime31Selected -Policy $policy
+if ($runtime31Selected) {
+  Assert-ProductionRuntime31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
 }
 if ([string]$policy.postBuildPromotion.status -ne
       'completed-staged-controlled-pilot-only' -or
@@ -2236,6 +2241,25 @@ if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
 }
 $functionFleetDeploymentReceipt = Get-Content `
   -LiteralPath $functionFleetDeploymentReceiptPath -Raw | ConvertFrom-Json
+if ($runtime31Selected) {
+  $runtimeBackend = $stagedAuthorityProof.runtimeBackend31
+  $verifiedBackendSourceCommit = [string]$runtimeBackend.source.commit
+  if ($versionSource.requiredSource.exactFunctionFleetDeploymentSourceCommit -cne $verifiedBackendSourceCommit -or
+      $functionFleetDeploymentReceipt.schemaVersion -ne 2 -or
+      $functionFleetDeploymentReceipt.documentType -cne 'build31-runtime-private-record-custody' -or
+      $functionFleetDeploymentReceipt.recordKind -cne 'closure' -or
+      $functionFleetDeploymentReceipt.source.commit -cne $verifiedBackendSourceCommit -or
+      $functionFleetDeploymentReceipt.source.tree -cne $runtimeBackend.source.tree) {
+    throw 'Runtime31 exact source/version/public closure differs from complete private replay.'
+  }
+  $historicalFunctionFleetDeploymentReceiptPath = [string]$stagedAuthorityProof.historicalBackendReceiptFile
+  $currentDeployedBackendAuthority = $currentSuccessorState.authorityPlanes.deployedBackend
+  $currentFunctionFleetDeploymentReceiptPath = [string]$runtimeBackend.closurePointer.file
+  $currentFunctionFleetDeploymentReceiptSha256 = [string]$runtimeBackend.closurePointer.sha256
+  $currentDeploymentApprovalPath = [string]$runtimeBackend.approvalPointer.file
+  $currentDeploymentApprovalSha256 = [string]$runtimeBackend.approvalPointer.sha256
+  $currentFunctionFleetDeploymentReceipt = $functionFleetDeploymentReceipt
+} else {
 $deploymentPullRequestProperty = $versionSource.requiredSource.
   PSObject.Properties['exactFunctionFleetDeploymentPullRequest']
 $expectedFunctionFleetPullRequest = if ($null -eq $deploymentPullRequestProperty) {
@@ -2385,8 +2409,10 @@ $functionFleetDeploymentReceiptPath =
   $currentFunctionFleetDeploymentReceiptPath
 $functionFleetDeploymentReceipt =
   $currentFunctionFleetDeploymentReceipt
+$verifiedBackendSourceCommit = [string]$functionFleetDeploymentReceipt.sourceAuthority.commit
+}
 $deployedFunctionsTree = Get-GitTreeObjectId `
-  -Commit ([string]$functionFleetDeploymentReceipt.sourceAuthority.commit) `
+  -Commit $verifiedBackendSourceCommit `
   -Path 'functions'
 $currentFunctionsTree = Get-GitTreeObjectId -Commit 'HEAD' -Path 'functions'
 $expectedCurrentSourceFunctionDeployment =
@@ -2476,6 +2502,7 @@ if ([string]$firestoreReadback.evidenceType -ne
   throw 'Exact Firestore Rules/index live-readback receipt is incomplete.'
 }
 $historicalFirestoreReadbackPath = $firestoreReadbackPath
+if (-not $runtime31Selected) {
 $firestoreReadbackAuthority =
   $currentFunctionFleetDeploymentReceipt.cleanMainLiveReadbacks.
     firestoreRulesAndIndexes
@@ -2545,6 +2572,12 @@ if ([string]$firestoreReadback.evidenceType -ne
     $firestoreReadback.outputs.indexes.allApiIndexesReady -ne $true -or
     $firestoreReadbackAuthority.allIndexesReady -ne $true) {
   throw 'Current Firestore Rules/index live-readback receipt is incomplete.'
+}
+} else {
+  # The source-specific policy readback above remains fully checked. The new
+  # deployment's post-action raw Rules/index preservation is separately replayed
+  # from private custody; no legacy receipt or fictitious readback is manufactured.
+  Assert-ProductionRuntime31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
 }
 $requiredRulesShaProperty =
   $firestoreReadbackAuthority.PSObject.Properties['rulesSha256']
@@ -2718,7 +2751,7 @@ if ($null -ne $requiredRulesShaProperty) {
     'deployedBackend.functionFleetEvidenceFile matches the receipt path' =
       { [string]$currentDeployedBackendAuthority.functionFleetEvidenceFile -ne $functionFleetDeploymentReceiptPath }
     'deployedBackend.functionFleetSourceCommit matches the receipt commit' =
-      { [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne [string]$functionFleetDeploymentReceipt.sourceAuthority.commit }
+      { [string]$currentDeployedBackendAuthority.functionFleetSourceCommit -ne $verifiedBackendSourceCommit }
     'deployedBackend.functionFleetReadbackDecision is the exact pass decision' =
       { [string]$currentDeployedBackendAuthority.functionFleetReadbackDecision -ne 'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK' }
     'deployedBackend.currentSourceFunctionDeployment matches expected' =

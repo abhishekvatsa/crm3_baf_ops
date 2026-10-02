@@ -33,9 +33,12 @@ class AbnormalityTypesScreen extends ConsumerStatefulWidget {
       _AbnormalityTypesScreenState();
 }
 
+enum _TypeStatusFilter { all, active, inactive }
+
 class _AbnormalityTypesScreenState
     extends ConsumerState<AbnormalityTypesScreen> {
   String _searchQuery = '';
+  _TypeStatusFilter _statusFilter = _TypeStatusFilter.all;
 
   @override
   Widget build(BuildContext context) {
@@ -111,7 +114,7 @@ class _AbnormalityTypesScreenState
           onCreate: () => _showTypeForm(),
         ),
         data: (types) {
-          final visible = types.where((type) {
+          final matchingSearch = types.where((type) {
             final query = _searchQuery.trim().toLowerCase();
             if (query.isEmpty) return true;
 
@@ -120,6 +123,15 @@ class _AbnormalityTypesScreenState
                 (type.description ?? '').toLowerCase().contains(query) ||
                 type.category.name.toLowerCase().contains(query);
           }).toList();
+          final visible = matchingSearch
+              .where(
+                (type) => switch (_statusFilter) {
+                  _TypeStatusFilter.all => true,
+                  _TypeStatusFilter.active => type.isActive,
+                  _TypeStatusFilter.inactive => !type.isActive,
+                },
+              )
+              .toList();
 
           return CustomScrollView(
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -133,9 +145,16 @@ class _AbnormalityTypesScreenState
                 ),
                 sliver: SliverToBoxAdapter(
                   child: _HeaderCard(
-                    total: types.length,
-                    active: types.where((type) => type.isActive).length,
-                    inactive: types.where((type) => !type.isActive).length,
+                    total: matchingSearch.length,
+                    active: matchingSearch
+                        .where((type) => type.isActive)
+                        .length,
+                    inactive: matchingSearch
+                        .where((type) => !type.isActive)
+                        .length,
+                    selected: _statusFilter,
+                    onSelected: (value) =>
+                        setState(() => _statusFilter = value),
                   ),
                 ),
               ),
@@ -155,13 +174,14 @@ class _AbnormalityTypesScreenState
                 ),
               ),
               if (visible.isEmpty)
-                const SliverFillRemaining(
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: _StateCard(
                     icon: Icons.rule_folder_outlined,
                     title: 'No abnormality types found',
-                    message:
-                        'Create master data first. Operators will later select from this list while logging abnormalities.',
+                    message: types.isEmpty
+                        ? 'Create master data first. Operators will later select from this list while logging abnormalities.'
+                        : 'No types match this search and status. Select Total to show all statuses, or change the search.',
                   ),
                 )
               else

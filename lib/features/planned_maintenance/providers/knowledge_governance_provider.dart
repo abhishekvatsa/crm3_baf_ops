@@ -32,6 +32,7 @@ import '../../audit/models/audit_event_model.dart';
 import '../../audit/repositories/audit_repository.dart';
 import '../../audit/providers/audit_provider.dart';
 import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../core/serialization/persisted_data_reader.dart';
 import '../data/baf_knowledge_model.dart';
@@ -150,6 +151,7 @@ class KnowledgeGovernanceController {
       transaction,
     ) async {
       final existing = await transaction.get(ref);
+      _assertCanWrite(actor);
       if (existing.exists) {
         throw KnowledgeGovernanceException(
           'Row ${draft.rowCode} already exists. Use Edit instead.',
@@ -229,6 +231,7 @@ class KnowledgeGovernanceController {
       transaction,
     ) async {
       final current = await transaction.get(ref);
+      _assertCanWrite(actor);
       final data = current.data();
       if (!current.exists || data == null) {
         throw KnowledgeGovernanceException(
@@ -653,6 +656,15 @@ class KnowledgeGovernanceController {
   }
 
   void _assertCanWrite(AppUser actor) {
+    final current = _currentActor?.call();
+    if (_currentActor != null &&
+        (current == null ||
+            current.uid != actor.uid ||
+            !canManageKnowledgeBase(current))) {
+      throw const KnowledgeGovernanceException(
+        'Verify the original account and current Admin or SI access before saving knowledge changes.',
+      );
+    }
     if (!canManageKnowledgeBase(actor)) {
       throw const KnowledgeGovernanceException(
         'Only Admin or SI may manage the BAF Knowledge Base.',
@@ -712,7 +724,8 @@ final knowledgeGovernanceControllerProvider =
         knowledgeRepository: ref.watch(bafKnowledgeRepositoryProvider),
         auditRepository: ref.read(auditRepositoryProvider),
         importJournal: ref.watch(knowledgeImportJournalRepositoryProvider),
-        currentActor: () => ref.read(currentAppUserProvider).valueOrNull,
+        currentActor: () =>
+            CurrentActorAccess.resolve(ref.read(currentAppUserProvider)).actor,
       );
     });
 

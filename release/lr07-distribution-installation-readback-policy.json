@@ -28,13 +28,13 @@
     },
     {
       "path": "release/production-release-policy.json",
-      "bytes": 39043,
-      "sha256": "8061338763C4E6A80E241C844733576F6F867D45577B7AE3FA8EB93AFC7B1088"
+      "bytes": 43664,
+      "sha256": "DAF69F16615776B4D01377A4862F1BB5F8D962783CF339B54ADA9451D232995A"
     },
     {
       "path": "release/build-number-ledger.json",
-      "bytes": 90244,
-      "sha256": "83DDBCE65A101E027953E565665217E613870D29F7A1AEC357565628DA3C8D0C"
+      "bytes": 93913,
+      "sha256": "46C6DF944F8D4B5729E33DFFBA1A70A1680C7AD899715EA79C786FA4C4F2B606"
     },
     {
       "path": "release/evidence/build-8-finalization-closure.json",
@@ -165,6 +165,16 @@
       "path": "release/evidence/build-29-finalization-closure.json",
       "bytes": 4867,
       "sha256": "C5EBE789AFBA1D9C40F3D25BB32824C0F29AE2D7AC8C5F269E2F7BFC2D2A3F20"
+    },
+    {
+      "path": "release/evidence/build-30-finalization-closure.json",
+      "bytes": 4731,
+      "sha256": "9AC2CBB7F1521715C1188682D601CD4C20355036CA53EBEF0D21730096D0AB15"
+    },
+    {
+      "path": "release/evidence/build30-private-gcs-custody-readback.json",
+      "bytes": 12262,
+      "sha256": "47A561EF02E89B396F1340F5D7EE7D6A4293B44E5607A6131D839234E2783F07"
     }
   ],
   "installationReceipt": {
@@ -528,6 +538,20 @@
       "governedPackageSha256": "1A18CEA58A3D2664455C815876756F263C2C0756946896ADBFB61A150E5B26FD",
       "authorityReceiptPath": "release/evidence/build-29-finalization-closure.json",
       "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
+    },
+    {
+      "buildNumber": 30,
+      "id": 11039688859,
+      "name": "crm3-baf-ops-crm3-baf-ops-1.0.0-rc.20-b30-7ed87824447f1349cb0481c448e0b21c3fa5856f-run-36577226874",
+      "sizeBytes": 180986954,
+      "digest": "sha256:05ccae1737e9158f9cc7d0c43c90a8faef0ae069ed0f4ee06c170a02a7396a64",
+      "workflowRunId": 36577226874,
+      "headSha": "7ed87824447f1349cb0481c448e0b21c3fa5856f",
+      "ledgerDisposition": "successful-build-finalized-non-distributable",
+      "dualCustodyCompleted": true,
+      "governedPackageSha256": "43D4CBC181BFBEA98AAA72BF68D8ACC557C3EB471089C643FDFEF116E407175A",
+      "authorityReceiptPath": "release/evidence/build-30-finalization-closure.json",
+      "deletionBasis": "FINALIZED_DUAL_CUSTODY_DEVICE_VALIDATION_PENDING_NON_DISTRIBUTABLE"
     }
   ],
   "strictReadback": {
@@ -543,9 +567,9 @@
   },
   "executionAuthority": {
     "artifactDeletionRequiresExplicitOwnerApproval": true,
-    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-10787430893",
+    "requiredOwnerApprovalPhrase": "APPROVE-LR07-DELETE-EXACT-ARTIFACTS-11039688859",
     "requiredPresentArtifactIds": [
-      10787430893
+      11039688859
     ],
     "deleteOnlyExactArtifactIds": true,
     "workflowRunsAndLogsPreserved": true,
@@ -561,5 +585,6 @@
     "deviceChanged": false,
     "firebaseChanged": false,
     "businessDataReadOrWritten": false
-  }
+  },
+  "recordingScope": "Historical finalization and GitHub artifact containment boundary. Strict Play NOT_USED values are preserved finalization-time channel requirements, not a current Play inventory assertion. Later owner-only Build 30 Play observations are recorded separately in current-successor-state.json. No artifact deletion is approved or performed by this reconciliation."
 }

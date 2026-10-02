@@ -1119,8 +1119,16 @@ class _TicketCard extends StatelessWidget {
     final elapsed = DateTime.now().difference(ticket.startDate);
     final safeElapsed = elapsed.isNegative ? Duration.zero : elapsed;
     final elapsedText = _formatDuration(safeElapsed);
-    final assetLabel =
-        '${ticket.assetType.name.toUpperCase()} ${ticket.assetNumber}';
+    final assetTypeLabel = switch (ticket.assetType) {
+      AssetType.base => 'Base',
+      AssetType.furnace => 'Furnace',
+      AssetType.forceCooler => 'Forced Cooler',
+      AssetType.innerCover => 'Inner Cover',
+      AssetType.governedCustom => 'Asset',
+    };
+    final assetLabel = ticket.assetType == AssetType.innerCover
+        ? '$assetTypeLabel · asset no. ${ticket.assetNumber}'
+        : '$assetTypeLabel ${ticket.assetNumber}';
     final reporter = _firstNonBlank([
       ticket.loggedByName,
       ticket.reportedBy,
@@ -1380,7 +1388,7 @@ class _TicketCard extends StatelessWidget {
                   icon: Icons.layers_outlined,
                   text: innerCover.innerCoverSerialNumber == null
                       ? 'At event: no Inner Cover linked'
-                      : 'At event: Inner Cover ${innerCover.innerCoverSerialNumber}',
+                      : 'Inner Cover serial at event: ${innerCover.innerCoverSerialNumber}',
                 ),
               ],
               if (ticket.acknowledgedByName?.trim().isNotEmpty == true) ...[

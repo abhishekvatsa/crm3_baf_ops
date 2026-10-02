@@ -128,56 +128,80 @@ void main() {
   });
 
   for (final scenario in [
-    (width: 360.0, critical: true, asset: AssetType.furnace),
-    (width: 393.0, critical: false, asset: AssetType.furnace),
-    (width: 360.0, critical: true, asset: AssetType.innerCover),
+    (
+      width: 360.0,
+      critical: true,
+      asset: AssetType.furnace,
+      label: 'Furnace 12',
+    ),
+    (
+      width: 393.0,
+      critical: false,
+      asset: AssetType.furnace,
+      label: 'Furnace 12',
+    ),
+    (
+      width: 360.0,
+      critical: true,
+      asset: AssetType.innerCover,
+      label: 'Inner Cover · asset no. 12',
+    ),
   ]) {
-    testWidgets('Issue header has two readable lines at ${scenario.width}: '
-        '${scenario.asset.name}, critical=${scenario.critical}', (
-      tester,
-    ) async {
-      final ticket = _compactTicket(
-        critical: scenario.critical,
-        assetType: scenario.asset,
-      );
-      await _smallPhone(
-        tester,
-        const Scaffold(body: TicketScreen()),
-        ticket: ticket,
-        width: scenario.width,
-        textScale: 1,
-      );
-      final asset = _inTicket(
-        find.text('${scenario.asset.name.toUpperCase()} 12'),
-      );
-      await _reveal(tester, asset);
-      final lane = _inTicket(find.text('MECHANICAL'));
-      final age = _inTicket(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is Text && widget.data?.startsWith('Open 2 d 3h ') == true,
-        ),
-      );
-      for (final text in [asset, lane, age]) {
-        _expectReadable(tester, text, scenario.width);
-      }
-      expect(tester.getCenter(lane).dy, closeTo(tester.getCenter(age).dy, 1));
-      expect(
-        tester.getTopLeft(lane).dy,
-        greaterThanOrEqualTo(tester.getBottomLeft(asset).dy),
-      );
-      final criticalLabel = _inTicket(find.text('CRITICAL'));
-      if (scenario.critical) {
-        _expectReadable(tester, criticalLabel, scenario.width);
-        expect(
-          tester.getCenter(asset).dy,
-          closeTo(tester.getCenter(criticalLabel).dy, 1),
+    testWidgets(
+      'Issue header preserves readable identity and lane/status at ${scenario.width}: '
+      '${scenario.asset.name}, critical=${scenario.critical}',
+      (tester) async {
+        final ticket = _compactTicket(
+          critical: scenario.critical,
+          assetType: scenario.asset,
         );
-      } else {
-        expect(criticalLabel, findsNothing);
-      }
-      expect(tester.takeException(), isNull);
-    });
+        await _smallPhone(
+          tester,
+          const Scaffold(body: TicketScreen()),
+          ticket: ticket,
+          width: scenario.width,
+          textScale: 1,
+        );
+        final asset = _inTicket(find.text(scenario.label));
+        await _reveal(tester, asset);
+        final lane = _inTicket(find.text('MECHANICAL'));
+        final age = _inTicket(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is Text &&
+                widget.data?.startsWith('Open 2 d 3h ') == true,
+          ),
+        );
+        for (final text in [asset, lane, age]) {
+          _expectReadable(tester, text, scenario.width);
+        }
+        expect(tester.getCenter(lane).dy, closeTo(tester.getCenter(age).dy, 1));
+        expect(
+          tester.getTopLeft(lane).dy,
+          greaterThanOrEqualTo(tester.getBottomLeft(asset).dy),
+        );
+        final criticalLabel = _inTicket(find.text('CRITICAL'));
+        if (scenario.critical) {
+          _expectReadable(tester, criticalLabel, scenario.width);
+          final assetRect = tester.getRect(asset);
+          final criticalRect = tester.getRect(criticalLabel);
+          expect(assetRect.overlaps(criticalRect), isFalse);
+          if (scenario.asset == AssetType.furnace) {
+            expect(assetRect.center.dy, closeTo(criticalRect.center.dy, 1));
+          }
+          expect(
+            criticalRect.top >= assetRect.bottom ||
+                (assetRect.center.dy - criticalRect.center.dy).abs() <= 1,
+            isTrue,
+            reason:
+                'The critical badge must align with or wrap below the full asset identity.',
+          );
+        } else {
+          expect(criticalLabel, findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   testWidgets(
@@ -212,8 +236,8 @@ void main() {
         const Scaffold(body: TicketScreen()),
         ticket: ticket,
       );
-      await _reveal(tester, _inTicket(find.text('FURNACE 12')));
-      for (final label in ['FURNACE 12', 'CRITICAL', 'In progress']) {
+      await _reveal(tester, _inTicket(find.text('Furnace 12')));
+      for (final label in ['Furnace 12', 'CRITICAL', 'In progress']) {
         _expectReadable(tester, _inTicket(find.text(label)), 320);
       }
       for (final entry in {

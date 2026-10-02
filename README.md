@@ -33,25 +33,50 @@ mutating business-flow convergence must be gathered there before expansion.
 Every handout requires a privacy-safe receipt. Build 27 is consumed and cannot
 be reused. Its artifact, device acceptance and pilot approval remain historical.
 
-Build 30 (`1.0.0-rc.20+30`) is the prepared candidate. Its 19-Function backend
-and Firestore Rules are verified against deployed source `2aa30de5`; all 67
-indexes are ready. The original failed Rules command remains recorded as a
-failure, with a separately reviewed method decision and strict live readback
-establishing the deployed state. Existing permissions and limits are preserved.
-The candidate is bound to merged source `9fdaf584`, which passed all five
-main release checks and security analysis, including the patched CLI dependencies
-and authoritative lab guards. Its refreshed source and custody records require normal review
-and release gates before signing. No Build 30 artifact or remote build-number
-reservation is claimed.
-Protected signing,
-independent finalization, exact-device retention and business-flow validation,
-and a separate pilot decision remain required. Play delivery must be proved
-through an actual in-place update before compatible updates are promised.
+Build 30 (`1.0.0-rc.20+30`) is the latest finalized artifact. Protected
+signing completed from merged source `7ed87824` in production run `36577226874`.
+Independent finalization retained the exact package and all six private-cloud
+custody proofs. Build 30 is consumed and cannot be rebuilt or reused. Its
+19-Function backend and Firestore Rules remain verified against deployed source
+`2aa30de5`, with all 67 indexes ready. Original failed commands and prior
+source, custody and approval decisions remain preserved.
 
-Build 29 (`1.0.0-rc.19+29`) is the latest finalized artifact, constructed from
-`770f1745` and retained in local and private-cloud custody. Its finalization
-does not establish signed-device/business-flow acceptance or pilot promotion;
-those gates remain open in its preserved release record.
+After finalization, a separate delegated decision authorized owner-only internal
+Play testing. The exact AAB was published on 29 September 2026, and an actual
+Play-delivered in-place update from 29 to 30 was verified. The original signer,
+installation identity and observed current data were preserved. Retention of
+all unknown historical drafts and full live business-flow acceptance remain
+unproved. These later observations do not rewrite the finalization-time
+non-distribution flags or grant public distribution authority.
+
+The working source batches Home, Inner Cover condition and related tester
+experience corrections for the next governed release. Build 31 is an
+unallocated working label: fresh source review, exact-main checks, a
+source-specific compatibility decision, version allocation, custody, signing
+and channel approval remain required. Current modified source has no artifact
+construction or distribution authority. A missing recorded Inner Cover link is
+a reconciliation warning, not proof that a Base is physically without a cover.
+
+The dependency repair includes the Functions runtime dependency `@grpc/grpc-js`,
+as well as development-tool dependencies. The current Functions tree therefore
+differs from deployed `2aa30de5`; that deployed fleet and its historical receipts
+remain unchanged. The existing development-only compatibility route does not
+admit this runtime change. Construction remains disabled pending a separately
+authorized and reviewed backend deployment route and source-specific decision.
+Local repair and testing do not authorize deployment or distribution.
+
+The pending tester source also makes Abnormality report totals actionable and
+shows repeated RA as a connected history of recorded old/new charge links.
+Undated stages use the plant's lower-charge-number-first convention; missing
+RA dates remain unrecorded. Shared Bases or nearby charge numbers do not create
+links, and conflicting branches are shown for reconciliation. A completed
+entry does not imply that the whole charge history is closed. Diagnostics in
+an App Check-disabled build explain that backend verification is unavailable
+while keeping local reports usable; enabled builds retain bounded checks.
+These changes still require final CI and installed-device acceptance.
+
+Build 29 (`1.0.0-rc.19+29`), constructed from `770f1745`, remains historical
+finalized evidence with its original custody and acceptance boundaries intact.
 
 Build 28 (`1.0.0-rc.18+28`) was constructed and dual-custodied as a
 non-distributable finalized artifact. Its exact-device and business-flow
@@ -72,9 +97,10 @@ separate source-and-CI successor campaign was re-armed on 16 August 2026 for
 audit remediation, remaining business capability and UI/UX redesign. Any new
 artifact requires its own governed reservation, exact signed-device validation
 and a separate pilot decision. Build 27 now has that bounded decision. GitHub
-Release, Firebase App Distribution, Play, web, public and unrestricted
-distribution remain prohibited, and App Check/Play Integrity activation
-remains a governed decision.
+Release, Firebase App Distribution, web, public and unrestricted distribution
+are not authorized by those historical pilot records. Build 30's separately
+authorized owner-only internal Play release does not authorize a wider audience
+or this modified source. App Check/Play Integrity changes remain governed.
 
 ## Product scope
 

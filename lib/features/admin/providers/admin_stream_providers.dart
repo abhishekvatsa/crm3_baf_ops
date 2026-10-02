@@ -10,16 +10,20 @@ import '../../planned_maintenance/providers/planned_maintenance_provider.dart';
 final adminTicketsStreamProvider = StreamProvider<List<MaintenanceRecord>>((
   ref,
 ) {
-  return ref.watch(maintenanceRepositoryProvider).watchAllTickets();
+  return ref
+      .watch(maintenanceRepositoryProvider)
+      .watchTicketsIncludingDeleted();
 });
 
 final adminDirectivesStreamProvider =
     StreamProvider<List<OperationalDirective>>((ref) {
-      return ref.watch(directiveRepositoryProvider).watchAllDirectives();
+      return ref
+          .watch(directiveRepositoryProvider)
+          .watchDirectivesIncludingDeleted();
     });
 
 final adminTemplatesStreamProvider = StreamProvider<List<JobTemplate>>((ref) {
-  return ref.watch(plannedRepositoryProvider).watchAllTemplates();
+  return ref.watch(plannedRepositoryProvider).watchTemplatesIncludingDeleted();
 });
 
 final adminExecutionsStreamProvider = StreamProvider<List<JobExecution>>((ref) {

@@ -72,9 +72,21 @@ jobs:
       - name: Artifact baseline re-bind contracts
         run: python3 -m unittest discover -s tools/v4 -p 'test_rebind_*.py'
 
+      - name: Diagnostics authority and deadline audit rejection contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_canonical_diagnostics_contract.py'
+
+      - name: Dart structural schema audit rejection contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_dart_structural_audit.py'
+
       - name: Laboratory dependency guard rejection contracts
         shell: pwsh
         run: ./tools/v4/Test-FirebaseCliLabPins.ps1
+
+      - name: gRPC dependency pin rejection contracts
+        run: python3 -m unittest discover -s tools/v4 -p 'test_grpc_dependency_policy.py'
+
+      - name: Verify CLI FTP dependency guards
+        run: python3 -m unittest discover -s tools/v4 -p 'test_basic_ftp_dependency_policy.py'
 
       - name: Ultimate source and dependency audit
         run: python3 tools/v4/v4_2_ultimate_audit.py
@@ -314,7 +326,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781"
+          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -381,7 +393,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="97A45F053513FA90BC64FC28B2855A8374286448339E84F8DB6E3093A0E36781"
+          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
@@ -410,6 +422,8 @@ jobs:
           npm run test:functions-live-readback-custody
           npm run test:function-fleet-runtime-campaign
           npm run test:distribution-readback-custody
+          node --test --test-concurrency=2 tools/release/clientBackendCompatibility31.development-tool.test.mjs tools/release/clientBuildToolingCompatibility31.test.cjs tools/release/clientBuildToolingGitSnapshots31.test.cjs tools/release/collectClientBuildToolingRuntime31.test.cjs tools/release/clientBuildToolingReadbacks31.test.cjs tools/release/collectClientDevelopmentToolIam31.test.cjs
+          node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 

@@ -56,6 +56,11 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
   int _monitoringVisibleLimit = businessListPageSize;
   bool _submitting = false;
 
+  void _selectWarningFilter(_WarningFilter filter) => setState(() {
+    _filter = filter;
+    _warningVisibleLimit = businessListPageSize;
+  });
+
   @override
   Widget build(BuildContext context) {
     final actorAsync = ref.watch(currentAppUserProvider);
@@ -152,16 +157,16 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
         onRetry: () => ref.invalidate(qualityWarningsProvider),
       ),
       data: (items) {
-        final open = items
-            .where((warning) => warning.status == QualityWarningStatus.open)
-            .length;
+        final open = items.where((warning) => warning.isOpen).length;
         final review = items
             .where(
               (warning) =>
                   warning.status == QualityWarningStatus.closureRequested,
             )
             .length;
-        final closed = items.length - open - review;
+        final closed = items
+            .where((warning) => warning.status == QualityWarningStatus.closed)
+            .length;
         final filtered =
             items
                 .where(
@@ -202,7 +207,20 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _SummaryStrip(open: open, review: review, closed: closed),
+                    _SummaryStrip(
+                      open: open,
+                      review: review,
+                      closed: closed,
+                      selected: _filter,
+                      onSelected: _selectWarningFilter,
+                    ),
+                    if (review > 0) ...[
+                      const SizedBox(height: BafSpacing.xs),
+                      const Text(
+                        'Open includes warnings awaiting review.',
+                        style: TextStyle(color: BafColors.textSecondary),
+                      ),
+                    ],
                     if (items.length >= qualityWarningLiveWindowLimit) ...[
                       const SizedBox(height: BafSpacing.sm),
                       const _WindowScopeNotice(
@@ -232,10 +250,8 @@ class _QualityHomeScreenState extends ConsumerState<QualityHomeScreen> {
                         ),
                       ],
                       selected: <_WarningFilter>{_filter},
-                      onSelectionChanged: (selection) => setState(() {
-                        _filter = selection.first;
-                        _warningVisibleLimit = businessListPageSize;
-                      }),
+                      onSelectionChanged: (selection) =>
+                          _selectWarningFilter(selection.first),
                     ),
                     const SizedBox(height: BafSpacing.lg),
                     if (visible.isEmpty)

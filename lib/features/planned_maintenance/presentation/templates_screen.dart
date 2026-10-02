@@ -111,9 +111,21 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                 children: [
                   _PlannedWorkSelector(
                     selectedView: selectedView,
-                    openJobCount: executionsAsync.asData?.value.length,
-                    workflowCount: workflowAttention.total,
-                    templateCount: templatesAsync.asData?.value.length,
+                    openJobCount:
+                        !executionsAsync.isLoading && !executionsAsync.hasError
+                        ? executionsAsync.asData?.value.length
+                        : null,
+                    workflowCount:
+                        !lanesAsync.isLoading &&
+                            !lanesAsync.hasError &&
+                            !complianceAsync.isLoading &&
+                            !complianceAsync.hasError
+                        ? workflowAttention.total
+                        : null,
+                    templateCount:
+                        !templatesAsync.isLoading && !templatesAsync.hasError
+                        ? templatesAsync.asData?.value.length
+                        : null,
                     canSeeTemplates: canSeeTemplates,
                     query: _query,
                     onQueryChanged: (value) => setState(() => _query = value),
@@ -141,6 +153,7 @@ class _TemplatesScreenState extends ConsumerState<TemplatesScreen> {
                             data: (_) => OpenExecutionsView(
                               executions: filteredExecutions,
                               bottomPadding: listBottomPadding,
+                              canAssignJob: canAssignJob,
                             ),
                           ),
                         ),
@@ -357,9 +370,18 @@ class _PlannedWorkSelector extends StatelessWidget {
           ),
           const SizedBox(height: BafSpacing.xs),
           Text(
-            '${openJobCount ?? 0} open jobs'
-            ' · ${workflowCount ?? 0} workflow actions'
-            '${canSeeTemplates ? ' · ${templateCount ?? 0} templates' : ''}',
+            [
+              openJobCount == null
+                  ? 'Open jobs not verified'
+                  : '$openJobCount open job${openJobCount == 1 ? '' : 's'}',
+              workflowCount == null
+                  ? 'Workflow not verified'
+                  : '$workflowCount workflow action${workflowCount == 1 ? '' : 's'}',
+              if (canSeeTemplates)
+                templateCount == null
+                    ? 'Templates not verified'
+                    : '$templateCount template${templateCount == 1 ? '' : 's'}',
+            ].join(' · '),
             style: const TextStyle(
               color: BafColors.textSecondary,
               fontSize: 12,

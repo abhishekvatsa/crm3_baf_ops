@@ -94,10 +94,12 @@ void main() {
         find.text('Plant condition — evidence incomplete'),
         findsOneWidget,
       );
+      expect(find.textContaining('Inner Cover IC-1: Installed'), findsNothing);
       expect(
-        find.textContaining('Inner Cover IC-1: Installed'),
+        find.text('Open Plant condition for all inner covers.'),
         findsOneWidget,
       );
+      expect(find.byType(ExpansionTile), findsNothing);
       expect(
         find.text('All registered assets are in the available state.'),
         findsOneWidget,
@@ -142,4 +144,149 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final viewport in [
+    (width: 393.0, scale: 1.0),
+    (width: 320.0, scale: 2.0),
+  ]) {
+    testWidgets(
+      'Home keeps 48 covers compact with review and full inventory access at $viewport',
+      (tester) async {
+        tester.view.physicalSize = Size(viewport.width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final cls = f.assetClass(
+          id: 'covers',
+          code: 'COVER',
+          name: 'Inner Covers',
+          legacyKey: 'innerCover',
+        );
+        final now = DateTime.utc(2026);
+        final covers = List.generate(48, (index) {
+          final serial = 'IC-${index + 1}';
+          final lifecycle = switch (index) {
+            < 40 => InnerCoverLifecycleState.installed,
+            < 46 => InnerCoverLifecycleState.quarantined,
+            46 => InnerCoverLifecycleState.awaitingInspection,
+            _ => InnerCoverLifecycleState.underRepair,
+          };
+          return PlantInnerCoverState(
+            profile: InnerCoverProfile(
+              id: serial,
+              assetClassId: cls.id,
+              assetClassCode: cls.code,
+              assetClassName: cls.name,
+              serialNumber: serial,
+              normalizedSerialNumber: 'IC${index + 1}',
+              sourceType: InnerCoverSourceType.legacyExisting,
+              lifecycleState: lifecycle,
+              traceabilityGrade: InnerCoverTraceabilityGrade.t0,
+              version: 1,
+              createdAt: now,
+              updatedAt: now,
+              lastMutationId: serial,
+            ),
+            evidenceWarnings: index == 0 ? ['Assignment unreadable'] : [],
+          );
+        });
+        final overview = PlantAssetOverview(
+          classes: [
+            PlantAssetClassSummary(
+              assetClass: cls,
+              assets: [],
+              innerCovers: covers,
+            ),
+          ],
+          assets: [],
+          innerCovers: covers,
+          hasQualifiedInnerCoverInventory: true,
+        );
+        var opened = false;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(viewport.scale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: PlantOverviewPanel(
+                  overview: AsyncData(overview),
+                  onOpen: () => opened = true,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(find.text('48 registered'), findsOneWidget);
+        expect(find.text('Unfit 6'), findsOneWidget);
+        expect(
+          find.text('39 available · 8 unavailable · 1 unverified'),
+          findsOneWidget,
+        );
+        expect(find.text('Review 9 inner covers'), findsOneWidget);
+        expect(
+          find.text('All registered assets are in the available state.'),
+          findsNothing,
+        );
+        final serialRows = find.textContaining(RegExp(r'^Inner Cover IC-'));
+        expect(serialRows, findsNothing);
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const ValueKey('plant-condition-available-value')),
+              )
+              .data,
+          '39',
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.byKey(const ValueKey('plant-condition-maintenance-value')),
+              )
+              .data,
+          '1',
+        );
+
+        final review = find.text('Review 9 inner covers');
+        await tester.ensureVisible(review);
+        await tester.pumpAndSettle();
+        await tester.tap(review);
+        await tester.pumpAndSettle();
+        expect(opened, isFalse);
+        expect(serialRows, findsNWidgets(9));
+        expect(
+          find.text('Inner Cover IC-1: Installed · evidence unverified'),
+          findsOneWidget,
+        );
+        expect(find.text('Inner Cover IC-2: Installed'), findsNothing);
+        expect(find.text('Inner Cover IC-41: Quarantined'), findsOneWidget);
+        expect(
+          find.text('Inner Cover IC-47: Awaiting inspection'),
+          findsOneWidget,
+        );
+        expect(find.text('Inner Cover IC-48: Under repair'), findsOneWidget);
+
+        await tester.ensureVisible(review);
+        await tester.pumpAndSettle();
+        await tester.tap(review);
+        await tester.pumpAndSettle();
+        expect(serialRows, findsNothing);
+        final fullInventory = find.text(
+          'Open Plant condition for all inner covers.',
+        );
+        await tester.ensureVisible(fullInventory);
+        await tester.pumpAndSettle();
+        await tester.tap(fullInventory);
+        expect(opened, isTrue);
+        expect(overview.total, 48);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

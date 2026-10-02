@@ -14,8 +14,13 @@ import '../../auth/data/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../maintenance/data/maintenance_model.dart';
 import '../data/abnormality_model.dart';
+import '../domain/charge_ra_history.dart';
 import '../providers/abnormality_provider.dart';
 import 'abnormality_list_filter.dart';
+import 'abnormality_charge_history_card.dart';
+import 'abnormality_report_summary_card.dart';
+
+part 'abnormality_report_breakdown.dart';
 
 class AbnormalityReportsScreen extends ConsumerStatefulWidget {
   const AbnormalityReportsScreen({super.key});
@@ -30,15 +35,23 @@ class _AbnormalityReportsScreenState
   Future<List<ChargeAbnormality>>? _future;
   String? _futureActorUid;
 
+  final _scrollController = ScrollController();
+  final _resultsAnchor = GlobalKey();
+  final _historyAnchor = GlobalKey();
+  int? _historyCharge;
+
   String _searchQuery = '';
   final _searchController = TextEditingController();
   int _visibleLimit = businessListPageSize;
   AbnormalityCategory? _categoryFilter;
   AbnormalityListFilter _raFilter = AbnormalityListFilter.open;
   AbnormalitySeverity? _severityFilter;
+  RootReasonCategory? _rootReasonFilter;
+  AssetType? _assetTypeFilter;
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -50,6 +63,7 @@ class _AbnormalityReportsScreenState
   void _ensureLoadedFor(AppUser actor) {
     if (_future != null && _futureActorUid == actor.uid) return;
     _futureActorUid = actor.uid;
+    _historyCharge = null;
     _visibleLimit = businessListPageSize;
     _future = _load();
   }
@@ -57,6 +71,7 @@ class _AbnormalityReportsScreenState
   void _clearLoadedReport() {
     _futureActorUid = null;
     _future = null;
+    _historyCharge = null;
   }
 
   Future<void> _refresh() async {
@@ -71,6 +86,44 @@ class _AbnormalityReportsScreenState
     });
     await next;
   }
+
+  void _jumpTo(GlobalKey anchor) {
+    // The first list child owns the report controls and anchors. Bring it back
+    // into the viewport before locating an anchor after a filter/history change.
+    if (_scrollController.hasClients) _scrollController.jumpTo(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = anchor.currentContext;
+      if (target != null) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 250),
+          alignment: 0,
+        );
+      }
+    });
+  }
+
+  void _setReportScope({
+    AbnormalityListFilter status = AbnormalityListFilter.all,
+    AbnormalitySeverity? severity,
+    int? historyCharge,
+  }) {
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+      _categoryFilter = null;
+      _severityFilter = severity;
+      _rootReasonFilter = null;
+      _assetTypeFilter = null;
+      _raFilter = status;
+      _historyCharge = historyCharge;
+      _visibleLimit = businessListPageSize;
+    });
+    _jumpTo(historyCharge == null ? _resultsAnchor : _historyAnchor);
+  }
+
+  void _showChargeHistory(int charge) => _setReportScope(historyCharge: charge);
 
   @override
   Widget build(BuildContext context) {
@@ -146,84 +199,210 @@ class _AbnormalityReportsScreenState
           }
 
           final records = snapshot.data ?? const <ChargeAbnormality>[];
-          final filtered = _applyFilters(records);
+          final history = _historyCharge == null
+              ? null
+              : ChargeRaHistoryIndex(records).forCharge(_historyCharge!);
+          final filtered = _applyFilters(history?.records ?? records);
           final visible = filtered.take(_visibleLimit).toList(growable: false);
 
           return RefreshIndicator(
             onRefresh: _refresh,
             child: ListView(
+              controller: _scrollController,
               padding: const EdgeInsets.all(BafSpacing.lg),
               children: [
-                _HeaderCard(
-                  total: records.length,
-                  filtered: filtered.length,
-                  raPending: records
-                      .where(
-                        (record) =>
-                            record.reannealingStatus ==
-                                ReannealingStatus.pendingDecision ||
-                            record.reannealingStatus ==
-                                ReannealingStatus.required,
-                      )
-                      .length,
-                  raCompleted: records
-                      .where(
-                        (record) =>
-                            record.reannealingStatus ==
-                            ReannealingStatus.completed,
-                      )
-                      .length,
-                  critical: records
-                      .where(
-                        (record) =>
-                            record.severity == AbnormalitySeverity.critical,
-                      )
-                      .length,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AbnormalityReportSummaryCard(
+                      selected:
+                          _historyCharge != null ||
+                              _searchQuery.trim().isNotEmpty ||
+                              _categoryFilter != null ||
+                              _rootReasonFilter != null ||
+                              _assetTypeFilter != null
+                          ? null
+                          : _raFilter == AbnormalityListFilter.all &&
+                                _severityFilter == AbnormalitySeverity.critical
+                          ? 'Critical'
+                          : _severityFilter != null
+                          ? null
+                          : switch (_raFilter) {
+                              AbnormalityListFilter.open => 'RA Pending',
+                              AbnormalityListFilter.completed => 'RA Done',
+                              AbnormalityListFilter.all => 'Total',
+                              _ => null,
+                            },
+                      onTotal: () => _setReportScope(),
+                      onMatching: () => _jumpTo(_resultsAnchor),
+                      onRaPending: () =>
+                          _setReportScope(status: AbnormalityListFilter.open),
+                      onRaCompleted: () => _setReportScope(
+                        status: AbnormalityListFilter.completed,
+                      ),
+                      onCritical: () => _setReportScope(
+                        severity: AbnormalitySeverity.critical,
+                      ),
+                      total: records.length,
+                      filtered: filtered.length,
+                      raPending: records
+                          .where(
+                            (record) =>
+                                record.reannealingStatus ==
+                                    ReannealingStatus.pendingDecision ||
+                                record.reannealingStatus ==
+                                    ReannealingStatus.required,
+                          )
+                          .length,
+                      raCompleted: records
+                          .where(
+                            (record) =>
+                                record.reannealingStatus ==
+                                ReannealingStatus.completed,
+                          )
+                          .length,
+                      critical: records
+                          .where(
+                            (record) =>
+                                record.severity == AbnormalitySeverity.critical,
+                          )
+                          .length,
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    _FiltersCard(
+                      searchController: _searchController,
+                      categoryFilter: _categoryFilter,
+                      severityFilter: _severityFilter,
+                      raFilter: _raFilter,
+                      onSearchChanged: (value) {
+                        setState(() {
+                          _historyCharge = null;
+                          _searchQuery = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                      },
+                      onCategoryChanged: (value) {
+                        setState(() {
+                          _historyCharge = null;
+                          _categoryFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                      },
+                      onSeverityChanged: (value) {
+                        setState(() {
+                          _historyCharge = null;
+                          _severityFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                      },
+                      onRaChanged: (value) {
+                        setState(() {
+                          _historyCharge = null;
+                          _raFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                      },
+                      onClear: () {
+                        setState(() {
+                          _historyCharge = null;
+                          _searchQuery = '';
+                          _searchController.clear();
+                          _categoryFilter = null;
+                          _severityFilter = null;
+                          _rootReasonFilter = null;
+                          _assetTypeFilter = null;
+                          _raFilter = AbnormalityListFilter.open;
+                          _visibleLimit = businessListPageSize;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    if (_rootReasonFilter != null ||
+                        _assetTypeFilter != null) ...[
+                      Wrap(
+                        spacing: BafSpacing.sm,
+                        runSpacing: BafSpacing.sm,
+                        children: [
+                          if (_rootReasonFilter != null)
+                            InputChip(
+                              key: const ValueKey(
+                                'abnormality-active-root-filter',
+                              ),
+                              label: Text(
+                                'Reason: ${_rootReasonCategoryLabel(_rootReasonFilter!)}',
+                              ),
+                              onDeleted: () => setState(() {
+                                _rootReasonFilter = null;
+                                _visibleLimit = businessListPageSize;
+                              }),
+                            ),
+                          if (_assetTypeFilter != null)
+                            InputChip(
+                              key: const ValueKey(
+                                'abnormality-active-asset-filter',
+                              ),
+                              label: Text(
+                                'Asset: ${_assetTypeLabel(_assetTypeFilter!)}',
+                              ),
+                              onDeleted: () => setState(() {
+                                _assetTypeFilter = null;
+                                _visibleLimit = businessListPageSize;
+                              }),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: BafSpacing.md),
+                    ],
+                    _InsightGrid(
+                      records: filtered,
+                      onCategory: (value) {
+                        setState(() {
+                          _categoryFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                      onRootReason: (value) {
+                        setState(() {
+                          _rootReasonFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                      onAssetType: (value) {
+                        setState(() {
+                          _assetTypeFilter = value;
+                          _visibleLimit = businessListPageSize;
+                        });
+                        _jumpTo(_resultsAnchor);
+                      },
+                    ),
+                    const SizedBox(height: BafSpacing.lg),
+                    if (history != null) ...[
+                      AbnormalityChargeHistoryCard(
+                        key: _historyAnchor,
+                        chargeNumber: _historyCharge!,
+                        history: history,
+                        onClose: () => _setReportScope(),
+                      ),
+                      const SizedBox(height: BafSpacing.lg),
+                    ],
+                    Semantics(
+                      key: _resultsAnchor,
+                      header: true,
+                      liveRegion: true,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: BafSpacing.md),
+                        child: Text(
+                          history == null
+                              ? '${filtered.length} matching abnormalities'
+                              : '${filtered.length} abnormalities in this charge history',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: BafSpacing.lg),
-                _FiltersCard(
-                  searchController: _searchController,
-                  categoryFilter: _categoryFilter,
-                  severityFilter: _severityFilter,
-                  raFilter: _raFilter,
-                  onSearchChanged: (value) {
-                    setState(() {
-                      _searchQuery = value;
-                      _visibleLimit = businessListPageSize;
-                    });
-                  },
-                  onCategoryChanged: (value) {
-                    setState(() {
-                      _categoryFilter = value;
-                      _visibleLimit = businessListPageSize;
-                    });
-                  },
-                  onSeverityChanged: (value) {
-                    setState(() {
-                      _severityFilter = value;
-                      _visibleLimit = businessListPageSize;
-                    });
-                  },
-                  onRaChanged: (value) {
-                    setState(() {
-                      _raFilter = value;
-                      _visibleLimit = businessListPageSize;
-                    });
-                  },
-                  onClear: () {
-                    setState(() {
-                      _searchQuery = '';
-                      _searchController.clear();
-                      _categoryFilter = null;
-                      _severityFilter = null;
-                      _raFilter = AbnormalityListFilter.open;
-                      _visibleLimit = businessListPageSize;
-                    });
-                  },
-                ),
-                const SizedBox(height: BafSpacing.lg),
-                _InsightGrid(records: filtered),
-                const SizedBox(height: BafSpacing.lg),
                 if (filtered.isEmpty)
                   const _StateCard(
                     icon: Icons.manage_search_rounded,
@@ -237,7 +416,10 @@ class _AbnormalityReportsScreenState
                       key: ValueKey(
                         'abnormality-report-row-${record.firestoreId ?? record.id}',
                       ),
-                      child: _ReportRecordCard(record: record),
+                      child: _ReportRecordCard(
+                        record: record,
+                        onChargeHistory: _showChargeHistory,
+                      ),
                     ),
                   ),
                 IncrementalListFooter(
@@ -263,6 +445,17 @@ class _AbnormalityReportsScreenState
       }
 
       if (_severityFilter != null && record.severity != _severityFilter) {
+        return false;
+      }
+
+      if (_rootReasonFilter != null &&
+          record.possibleRootReasonCategory != _rootReasonFilter) {
+        return false;
+      }
+      if (_assetTypeFilter != null &&
+          !record.affectedAssets.any(
+            (asset) => asset.assetType == _assetTypeFilter,
+          )) {
         return false;
       }
 
@@ -301,126 +494,6 @@ class _AbnormalityReportsScreenState
 // ─────────────────────────────────────────────────────────────
 // UI WIDGETS
 // ─────────────────────────────────────────────────────────────
-
-class _HeaderCard extends StatelessWidget {
-  final int total;
-  final int filtered;
-  final int raPending;
-  final int raCompleted;
-  final int critical;
-
-  const _HeaderCard({
-    required this.total,
-    required this.filtered,
-    required this.raPending,
-    required this.raCompleted,
-    required this.critical,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return DashboardCard(
-      backgroundColor: BafColors.navy,
-      borderColor: BafColors.navySoft.withValues(alpha: 0.28),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(BafRadius.medium),
-                ),
-                child: const Icon(Icons.analytics_rounded, color: Colors.white),
-              ),
-              const SizedBox(width: BafSpacing.md),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Abnormality intelligence',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                      ),
-                    ),
-                    SizedBox(height: BafSpacing.xs),
-                    Text(
-                      'Review recurrence, RA load, critical events and affected-asset patterns.',
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: BafSpacing.lg),
-          Wrap(
-            spacing: BafSpacing.sm,
-            runSpacing: BafSpacing.sm,
-            children: [
-              _MetricPill(label: 'Total', value: total),
-              _MetricPill(label: 'Matching', value: filtered),
-              _MetricPill(label: 'RA Pending', value: raPending),
-              _MetricPill(label: 'RA Done', value: raCompleted),
-              _MetricPill(label: 'Critical', value: critical),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MetricPill extends StatelessWidget {
-  final String label;
-  final int value;
-
-  const _MetricPill({required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(minWidth: 82),
-      padding: const EdgeInsets.symmetric(
-        horizontal: BafSpacing.md,
-        vertical: BafSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '$value',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 11),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _FiltersCard extends StatelessWidget {
   final TextEditingController searchController;
@@ -566,174 +639,15 @@ class _FilterDropdown<T> extends StatelessWidget {
   }
 }
 
-class _InsightGrid extends StatelessWidget {
-  final List<ChargeAbnormality> records;
-
-  const _InsightGrid({required this.records});
-
-  @override
-  Widget build(BuildContext context) {
-    final byCategory = _countBy<AbnormalityCategory>(
-      records,
-      (record) => record.category,
-    );
-
-    final byRoot = _countBy<RootReasonCategory>(
-      records,
-      (record) => record.possibleRootReasonCategory,
-    );
-
-    final byAsset = <AssetType, int>{};
-    for (final record in records) {
-      for (final asset in record.affectedAssets) {
-        byAsset[asset.assetType] = (byAsset[asset.assetType] ?? 0) + 1;
-      }
-    }
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final useTwoColumns = constraints.maxWidth >= 760;
-
-        final cards = [
-          _BreakdownCard<AbnormalityCategory>(
-            title: 'By Category',
-            icon: Icons.category_rounded,
-            color: BafColors.charges,
-            values: byCategory,
-            labelBuilder: _categoryLabel,
-          ),
-          _BreakdownCard<RootReasonCategory>(
-            title: 'By Root Reason',
-            icon: Icons.manage_search_rounded,
-            color: BafColors.audit,
-            values: byRoot,
-            labelBuilder: _rootReasonCategoryLabel,
-          ),
-          _BreakdownCard<AssetType>(
-            title: 'By Asset Type',
-            icon: Icons.precision_manufacturing_rounded,
-            color: BafColors.assets,
-            values: byAsset,
-            labelBuilder: _assetTypeLabel,
-          ),
-        ];
-
-        if (!useTwoColumns) {
-          return Column(
-            children: [
-              cards[0],
-              const SizedBox(height: BafSpacing.md),
-              cards[1],
-              const SizedBox(height: BafSpacing.md),
-              cards[2],
-            ],
-          );
-        }
-
-        return Column(
-          children: [
-            Row(
-              children: [
-                Expanded(child: cards[0]),
-                const SizedBox(width: BafSpacing.md),
-                Expanded(child: cards[1]),
-              ],
-            ),
-            const SizedBox(height: BafSpacing.md),
-            cards[2],
-          ],
-        );
-      },
-    );
-  }
-
-  static Map<T, int> _countBy<T>(
-    List<ChargeAbnormality> records,
-    T Function(ChargeAbnormality record) selector,
-  ) {
-    final result = <T, int>{};
-
-    for (final record in records) {
-      final key = selector(record);
-      result[key] = (result[key] ?? 0) + 1;
-    }
-
-    return result;
-  }
-}
-
-class _BreakdownCard<T> extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color color;
-  final Map<T, int> values;
-  final String Function(T value) labelBuilder;
-
-  const _BreakdownCard({
-    required this.title,
-    required this.icon,
-    required this.color,
-    required this.values,
-    required this.labelBuilder,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final entries = values.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
-    return DashboardCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionHeader(
-            icon: icon,
-            title: title,
-            subtitle: entries.isEmpty
-                ? 'No records in current filter.'
-                : 'Top contributors in current filter.',
-            color: color,
-          ),
-          const SizedBox(height: BafSpacing.md),
-          if (entries.isEmpty)
-            const Text(
-              'No data',
-              style: TextStyle(color: BafColors.textSecondary, fontSize: 13),
-            )
-          else
-            ...entries.take(6).map((entry) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: BafSpacing.sm),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        labelBuilder(entry.key),
-                        style: const TextStyle(
-                          color: BafColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    StatusBadge(
-                      label: '${entry.value}',
-                      color: color,
-                      icon: Icons.numbers_rounded,
-                    ),
-                  ],
-                ),
-              );
-            }),
-        ],
-      ),
-    );
-  }
-}
-
 class _ReportRecordCard extends StatelessWidget {
   final ChargeAbnormality record;
 
-  const _ReportRecordCard({required this.record});
+  final ValueChanged<int> onChargeHistory;
+
+  const _ReportRecordCard({
+    required this.record,
+    required this.onChargeHistory,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -810,15 +724,19 @@ class _ReportRecordCard extends StatelessWidget {
                         spacing: BafSpacing.sm,
                         runSpacing: BafSpacing.sm,
                         children: [
-                          _SoftChip(
-                            icon: Icons.confirmation_number_outlined,
+                          _ChargeHistoryButton(
+                            charge: record.sourceChargeNo,
                             label: 'Old charge ${record.sourceChargeNo}',
+                            onPressed: () =>
+                                onChargeHistory(record.sourceChargeNo),
                           ),
                           if (record.reannealedToChargeNo != null)
-                            _SoftChip(
-                              icon: Icons.repeat_rounded,
+                            _ChargeHistoryButton(
+                              charge: record.reannealedToChargeNo!,
                               label:
                                   'New charge ${record.reannealedToChargeNo}',
+                              onPressed: () =>
+                                  onChargeHistory(record.reannealedToChargeNo!),
                             ),
                           _SoftChip(
                             icon: Icons.precision_manufacturing_rounded,
@@ -833,6 +751,20 @@ class _ReportRecordCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: BafSpacing.md),
+                      if (record.reannealingStatus ==
+                          ReannealingStatus.completed)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: BafSpacing.xs),
+                          child: Text(
+                            record.assessment?.raPerformedAt == null
+                                ? 'RA date: not recorded'
+                                : 'RA date: ${DateFormat('dd MMM yyyy, HH:mm').format(record.assessment!.raPerformedAt!.toLocal())}',
+                            style: const TextStyle(
+                              color: BafColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
                       Text(
                         'Logged ${DateFormat('dd MMM yyyy, HH:mm').format(record.loggedAt)}'
                         '${record.loggedByName == null ? '' : ' by ${record.loggedByName}'}',
@@ -851,6 +783,28 @@ class _ReportRecordCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ChargeHistoryButton extends StatelessWidget {
+  const _ChargeHistoryButton({
+    required this.charge,
+    required this.label,
+    required this.onPressed,
+  });
+  final int charge;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: 'View recorded RA history for charge $charge',
+    child: OutlinedButton.icon(
+      key: ValueKey('abnormality-history-charge-$charge'),
+      onPressed: onPressed,
+      icon: const Icon(Icons.account_tree_outlined, size: 16),
+      label: Text(label),
+    ),
+  );
 }
 
 class _SoftChip extends StatelessWidget {

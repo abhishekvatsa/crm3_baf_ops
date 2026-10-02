@@ -518,7 +518,7 @@ class _SummaryBand extends StatelessWidget {
               runSpacing: BafSpacing.sm,
               children: [
                 _SummaryFilterBadge(
-                  label: '$baseCount Bases',
+                  label: '$baseCount ${baseCount == 1 ? 'Base' : 'Bases'}',
                   color: BafColors.assets,
                   tooltip: 'Show all Bases',
                   onTap: onShowAllBases,
@@ -551,11 +551,12 @@ class _SummaryBand extends StatelessWidget {
                 ),
                 if (!populationIncomplete)
                   _SummaryFilterBadge(
-                    label: '$vacantBases Bases with no Inner Covers',
+                    label:
+                        '$vacantBases ${vacantBases == 1 ? 'Base' : 'Bases'} with no recorded link',
                     color: vacantBases == 0
                         ? BafColors.textSecondary
                         : BafColors.audit,
-                    tooltip: 'Show Bases with no Inner Cover',
+                    tooltip: 'Show Bases with no recorded Inner Cover link',
                     onTap: onShowVacantBases,
                   )
                 else

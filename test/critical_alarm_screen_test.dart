@@ -248,6 +248,7 @@ DurableSubmission _savedRaise() => DurableSubmission(
 );
 
 void main() {
+  _currentActorConfirmationTests();
   testWidgets('multiple saved actions leave the alarm workspace usable', (
     tester,
   ) async {
@@ -453,4 +454,240 @@ void main() {
       expect(find.textContaining('No cached authority'), findsOneWidget);
     },
   );
+}
+
+// All actions here terminate in an in-memory service spy. No alarm is sent.
+class _ConfirmationCommands implements CriticalAlarmCommandService {
+  final calls = <Invocation>[];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    calls.add(invocation);
+    return Future<WorkflowCommandReceipt>.value(
+      WorkflowCommandReceipt(
+        commandId: 'synthetic-command',
+        resultKey: 'synthetic-accepted',
+        aggregateVersion: 2,
+        result: const {},
+        appliedAt: DateTime.utc(2026),
+      ),
+    );
+  }
+}
+
+AppUser _dialogActor({
+  String uid = 'origin-admin',
+  bool approved = true,
+  AppRole role = AppRole.admin,
+}) => AppUser(
+  uid: uid,
+  name: uid,
+  email: '$uid@example.invalid',
+  roles: [role],
+  isApproved: approved,
+  createdAt: DateTime.utc(2026),
+);
+
+CriticalAlarm _dialogAlarm({bool supported = false}) => CriticalAlarm(
+  id: 'synthetic-alarm',
+  definition: CriticalAlarmDefinition.values.first,
+  status: supported
+      ? CriticalAlarmStatus.supportConfirmed
+      : CriticalAlarmStatus.raised,
+  version: supported ? 2 : 1,
+  location: 'Synthetic test bay',
+  assetTypeKey: null,
+  assetNumber: null,
+  details: 'Synthetic retained details',
+  detailsPending: false,
+  raisedByUid: 'origin-admin',
+  raisedByName: 'Origin',
+  raisedAt: DateTime.utc(2026),
+  detailsProvidedByName: 'Origin',
+  detailsProvidedAt: DateTime.utc(2026),
+  supportBasis: supported ? CriticalAlarmSupportBasis.supportDispatched : null,
+  supportNote: supported ? 'Synthetic response' : null,
+  supportConfirmedByName: supported ? 'Origin' : null,
+  supportConfirmedAt: supported ? DateTime.utc(2026) : null,
+  resolutionSummary: null,
+  resolvedByName: null,
+  resolvedAt: null,
+  withdrawalReason: null,
+  withdrawnByName: null,
+  withdrawnAt: null,
+  updatedAt: DateTime.utc(2026),
+);
+
+void _currentActorConfirmationTests() {
+  for (final action in ['raise', 'details', 'support', 'resolve', 'withdraw']) {
+    for (final interruption in [
+      'account switch',
+      'refresh',
+      'error',
+      'approval lost',
+    ]) {
+      testWidgets('alarm $action queued confirmation blocks $interruption', (
+        tester,
+      ) async {
+        final harness = _AlarmConfirmationHarness(action);
+        await harness.pump(tester);
+        await harness.open(tester);
+        final confirm = tester.widget<FilledButton>(harness.confirm).onPressed!;
+        await harness.interrupt(tester, interruption);
+        confirm();
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
+        expect(harness.commands.calls, isEmpty);
+        expect(tester.takeException(), isNull);
+      });
+    }
+    testWidgets('alarm $action dialog waits for its original approved actor', (
+      tester,
+    ) async {
+      final harness = _AlarmConfirmationHarness(action);
+      await harness.pump(tester);
+      await harness.open(tester);
+      await harness.interrupt(tester, 'account switch');
+      expect(find.text('Account verification required'), findsOneWidget);
+      expect(harness.confirm, findsNothing);
+      harness.actors.add(_dialogActor());
+      await tester.pumpAndSettle();
+      expect(find.text('Account verification required'), findsNothing);
+      await tester.tap(harness.confirm);
+      await tester.pumpAndSettle();
+      expect(harness.commands.calls, hasLength(1));
+      expect(harness.commands.calls.single.memberName, switch (action) {
+        'raise' => #raise,
+        'details' => #provideDetails,
+        'support' => #confirmSupport,
+        'resolve' => #resolve,
+        _ => #withdraw,
+      });
+      final call = harness.commands.calls.single;
+      if (action == 'raise') {
+        expect(call.namedArguments[#location], 'Synthetic test bay');
+        expect(
+          call.namedArguments[#initialDetails],
+          'Synthetic retained details',
+        );
+      } else if (action == 'support') {
+        expect(
+          call.namedArguments[#basis],
+          CriticalAlarmSupportBasis.supportDispatched,
+        );
+        expect(call.namedArguments[#responderNote], 'Synthetic response');
+      } else {
+        expect(
+          (call.positionalArguments.first as CriticalAlarm).id,
+          'synthetic-alarm',
+        );
+        expect(call.positionalArguments[1], 'Synthetic retained details');
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+}
+
+class _AlarmConfirmationHarness {
+  _AlarmConfirmationHarness(this.action);
+  final String action;
+  final actors = StreamController<AppUser?>.broadcast();
+  final commands = _ConfirmationCommands();
+  late ProviderContainer container;
+  bool firstAuthority = true;
+
+  Finder get confirm => find.descendant(
+    of: find.byType(AlertDialog),
+    matching: find.widgetWithText(FilledButton, switch (action) {
+      'raise' => 'Confirm and send',
+      'support' => 'Confirm support',
+      _ => 'Confirm',
+    }),
+  );
+
+  Future<void> pump(WidgetTester tester) async {
+    addTearDown(actors.close);
+    await _pump(
+      tester,
+      alarms: [_dialogAlarm(supported: action == 'resolve')],
+      commands: commands,
+      userStream: Stream<AppUser?>.multi((sink) {
+        if (firstAuthority) {
+          firstAuthority = false;
+          sink.add(_dialogActor());
+        }
+        final subscription = actors.stream.listen(
+          sink.add,
+          onError: sink.addError,
+          onDone: sink.close,
+        );
+        sink.onCancel = subscription.cancel;
+      }),
+    );
+    await tester.binding.setSurfaceSize(const Size(1000, 1200));
+    await tester.pumpAndSettle();
+    container = ProviderScope.containerOf(
+      tester.element(find.byType(CriticalAlarmScreen)),
+    );
+  }
+
+  Future<void> open(WidgetTester tester) async {
+    final opener = find.text(switch (action) {
+      'raise' => 'Raise alarm',
+      'details' => 'Update details',
+      'support' => 'Confirm support',
+      'resolve' => 'Resolve',
+      _ => 'Raised in error',
+    });
+    await tester.ensureVisible(opener);
+    await tester.tap(opener);
+    await tester.pumpAndSettle();
+    if (action == 'raise') {
+      final dropdown = tester
+          .widget<DropdownButtonFormField<CriticalAlarmDefinition>>(
+            find.byKey(const ValueKey('critical-alarm-reason')),
+          );
+      dropdown.onChanged!(CriticalAlarmDefinition.values.first);
+      await tester.pump();
+      await tester.enterText(
+        find.byKey(const ValueKey('critical-alarm-location')),
+        'Synthetic test bay',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('critical-alarm-details')),
+        'Synthetic retained details',
+      );
+      await tester.tap(find.byKey(const ValueKey('critical-alarm-review')));
+      await tester.pumpAndSettle();
+    } else if (action == 'support') {
+      final dropdown = tester
+          .widget<DropdownButtonFormField<CriticalAlarmSupportBasis>>(
+            find.byType(DropdownButtonFormField<CriticalAlarmSupportBasis>),
+          );
+      dropdown.onChanged!(CriticalAlarmSupportBasis.supportDispatched);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).last, 'Synthetic response');
+    } else {
+      await tester.enterText(
+        find.byType(TextField).last,
+        'Synthetic retained details',
+      );
+    }
+    await tester.pump();
+  }
+
+  Future<void> interrupt(WidgetTester tester, String interruption) async {
+    switch (interruption) {
+      case 'account switch':
+        actors.add(_dialogActor(uid: 'other-admin'));
+      case 'refresh':
+        container.invalidate(currentAppUserProvider);
+      case 'error':
+        actors.addError(StateError('Synthetic authority unavailable'));
+      case 'approval lost':
+        actors.add(_dialogActor(approved: false));
+    }
+    await tester.pump();
+    await tester.pump();
+  }
 }

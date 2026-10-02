@@ -55,7 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: BafSpacing.sm),
                     const Text(
-                      BafBrand.plantName,
+                      BafBrand.independentAppLabel,
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Color(0xFFB9C8CE),

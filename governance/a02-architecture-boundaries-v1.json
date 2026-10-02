@@ -306,14 +306,16 @@
       "authorityBoundary": "Chooses admitted repository implementations and role-scoped streams but performs no local or remote transaction.",
       "persistenceOwnership": "Persistence implementations are delegated to named local and remote library parts.",
       "transactionOwnership": "No transaction is owned here; local and remote adapters retain their respective transaction semantics.",
-      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers. Reviewed 2026-09-20: Revision-aware directive contracts and complete retained issue/report queries; adapters still own persistence.",
+      "rationale": "The mixed implementation body was decomposed while the public contract and provider identities remain stable for callers. Reviewed 2026-09-20: Revision-aware directive contracts and complete retained issue/report queries; adapters still own persistence. Reviewed 2026-09-30: Adds only the administrative retained-history stream contract; ordinary watchAllDirectives and persistence delegation remain unchanged. The ceiling is re-armed only to the measured current line count; subsequent growth requires a new review.",
       "regressionTests": [
-        "test/a05_operational_directive_integrity_test.dart"
+        "test/a05_operational_directive_integrity_test.dart",
+        "test/admin_cleanup_tombstone_streams_test.dart"
       ],
-      "maximumLines": 677,
+      "maximumLines": 681,
       "requiredMarkers": [
         "part '",
-        "abstract class"
+        "abstract class",
+        "watchDirectivesIncludingDeleted()"
       ],
       "forbiddenMarkers": [
         "class Isar",
@@ -335,13 +337,15 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. Reviewed 2026-09-20: Origin-bound ordinary-command routing and evidence-preserving local adoption; Firestore remains excluded.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. Reviewed 2026-09-20: Origin-bound ordinary-command routing and evidence-preserving local adoption; Firestore remains excluded. Reviewed 2026-09-30: Adds only a live Isar retained-history query including tombstones for existing admin consumers; ordinary active/history filters and all write transactions remain unchanged. The ceiling is re-armed only to the measured current line count; subsequent growth requires a new review.",
       "regressionTests": [
-        "test/a05_operational_directive_integrity_test.dart"
+        "test/a05_operational_directive_integrity_test.dart",
+        "test/admin_cleanup_tombstone_streams_test.dart"
       ],
-      "maximumLines": 649,
+      "maximumLines": 656,
       "requiredMarkers": [
-        "part of '"
+        "part of '",
+        "watchDirectivesIncludingDeleted()"
       ],
       "forbiddenMarkers": [
         "FirebaseFirestore.instance",
@@ -481,15 +485,17 @@
       "authorityBoundary": "Receives already-admitted repository calls; actor evidence is persisted or compared but this adapter does not grant roles.",
       "persistenceOwnership": "Isar access is confined to this local adapter; no Firestore client is permitted.",
       "transactionOwnership": "This adapter alone owns the feature Isar write transactions and compare-and-apply semantics.",
-      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. The 2026-09-21 reviewed extension admits closed or contradictory resolved native rows independently of an old false condition index, then removes only verified noncontributors; qualified consumers retain authority and malformed metadata stays unchanged.",
+      "rationale": "Extracted from the former mixed provider so offline persistence can evolve without recombining remote transport or provider wiring. The 2026-09-21 reviewed extension admits closed or contradictory resolved native rows independently of an old false condition index, then removes only verified noncontributors; qualified consumers retain authority and malformed metadata stays unchanged. Reviewed 2026-09-30: Adds only a live Isar retained-ticket history query including tombstones for existing admin consumers; ordinary ticket filters, qualified plant-condition reads and write transactions remain unchanged. The ceiling is re-armed only to the measured current line count; subsequent growth requires a new review.",
       "regressionTests": [
         "test/maintenance_lifecycle_replay_contract_test.dart",
         "test/maintenance_plant_condition_stream_test.dart",
-        "test/maintenance_closure_evidence_admission_test.dart"
+        "test/maintenance_closure_evidence_admission_test.dart",
+        "test/admin_cleanup_tombstone_streams_test.dart"
       ],
-      "maximumLines": 934,
+      "maximumLines": 941,
       "requiredMarkers": [
-        "part of '"
+        "part of '",
+        "watchTicketsIncludingDeleted()"
       ],
       "forbiddenMarkers": [
         "FirebaseFirestore.instance",
@@ -1432,14 +1438,16 @@
       "authorityBoundary": "Caller authority is checked and ordinary changes are admitted by the origin-bound command service.",
       "persistenceOwnership": "Only Firestore access; no Isar or UI ownership.",
       "transactionOwnership": "Legacy governed operations retain Firestore transaction ownership here; ordinary commands own their server transactions.",
-      "rationale": "The existing remote adapter crossed the mixed-size threshold after revision and audit fixes. Its scope remains one store and feature.",
+      "rationale": "The existing remote adapter crossed the mixed-size threshold after revision and audit fixes. Its scope remains one store and feature. Reviewed 2026-09-30: Adds only the matching Firestore retained-history stream through the existing strict directive decoder; ordinary list filters, server authorization and command ownership remain unchanged. The ceiling is re-armed only to the measured current line count; subsequent growth requires a new review.",
       "regressionTests": [
         "test/governed_directive_acknowledgement_test.dart",
-        "test/a05_operational_directive_integrity_test.dart"
+        "test/a05_operational_directive_integrity_test.dart",
+        "test/admin_cleanup_tombstone_streams_test.dart"
       ],
-      "maximumLines": 514,
+      "maximumLines": 523,
       "requiredMarkers": [
-        "part of '"
+        "part of '",
+        "watchDirectivesIncludingDeleted()"
       ],
       "forbiddenMarkers": [
         "Isar.getInstance()",

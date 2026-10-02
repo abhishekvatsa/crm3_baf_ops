@@ -5,6 +5,7 @@ import '../../../../core/services/sync_coordinator.dart';
 import '../../../../core/services/local_sync_recovery_service.dart';
 import '../../../../core/theme/baf_design_system.dart';
 import '../../../auth/providers/auth_provider.dart';
+import '../../../auth/data/user_model.dart';
 import '../../../maintenance_workflow/domain/workflow_types.dart';
 import '../../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../../maintenance_workflow/services/workflow_command_factory.dart';
@@ -26,14 +27,29 @@ class PilotPurgeTarget {
   String get selectionKey => '$collectionId/$documentId';
 }
 
+AppUser? _freshPurgeActor(WidgetRef ref) {
+  final authority = ref.read(currentAppUserProvider);
+  final actor = authority.asData?.value;
+  if (authority.isLoading ||
+      authority.hasError ||
+      actor == null ||
+      !actor.isApproved ||
+      !actor.isAdmin) {
+    return null;
+  }
+  return actor;
+}
+
 Future<bool> executePilotBusinessRecordPurge({
   required WidgetRef ref,
   required PilotPurgeTarget target,
   required String reason,
   bool resumeSyncAfterCleanup = true,
+  String? originActorUid,
 }) async {
-  final actor = ref.read(currentAppUserProvider).value;
-  if (actor == null || !actor.isApproved || !actor.isAdmin) {
+  final actor = _freshPurgeActor(ref);
+  if (actor == null ||
+      (originActorUid != null && actor.uid != originActorUid)) {
     throw StateError(
       'Fresh Admin authority is required for permanent removal.',
     );
@@ -57,15 +73,14 @@ Future<bool> executePilotBusinessRecordPurge({
       .runWithSyncPaused(
         reason: 'admin_pilot_record_purged',
         resumeSyncAfterRecovery: resumeSyncAfterCleanup,
-        operation:
-            () => ref
-                .read(localSyncRecoveryServiceProvider)
-                .removeAuthoritativelyPurgedTombstone(
-                  actor: actor,
-                  receipt: receipt,
-                  collectionId: target.collectionId,
-                  documentId: target.documentId,
-                ),
+        operation: () => ref
+            .read(localSyncRecoveryServiceProvider)
+            .removeAuthoritativelyPurgedTombstone(
+              actor: actor,
+              receipt: receipt,
+              collectionId: target.collectionId,
+              documentId: target.documentId,
+            ),
       );
 }
 
@@ -77,8 +92,8 @@ Future<bool> purgePilotBusinessRecord({
   required int expectedVersion,
   required String recordLabel,
 }) async {
-  final actor = ref.read(currentAppUserProvider).value;
-  if (actor == null || !actor.isApproved || !actor.isAdmin) {
+  final actor = _freshPurgeActor(ref);
+  if (actor == null) {
     showAdminDataSnack(
       context,
       'Fresh Admin authority is required for permanent removal.',
@@ -87,16 +102,43 @@ Future<bool> purgePilotBusinessRecord({
     return false;
   }
 
-  final decision = await showDialog<_PilotPurgeDecision>(
-    context: context,
-    barrierDismissible: false,
-    builder:
-        (_) => _PilotPurgeDialog(
-          recordLabel: recordLabel,
-          confirmation: 'DELETE $documentId',
-        ),
-  );
+  var interrupted = false;
+  final subscription = ref.listenManual(currentAppUserProvider, (
+    previous,
+    next,
+  ) {
+    final latest = next.asData?.value;
+    if (next.isLoading ||
+        next.hasError ||
+        latest == null ||
+        !latest.isApproved ||
+        !latest.isAdmin ||
+        latest.uid != actor.uid) {
+      interrupted = true;
+    }
+  });
+  _PilotPurgeDecision? decision;
+  try {
+    decision = await showDialog<_PilotPurgeDecision>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _PilotPurgeDialog(
+        recordLabel: recordLabel,
+        confirmation: 'DELETE $documentId',
+      ),
+    );
+  } finally {
+    subscription.close();
+  }
   if (decision == null || !context.mounted) return false;
+  if (interrupted || _freshPurgeActor(ref)?.uid != actor.uid) {
+    showAdminDataSnack(
+      context,
+      'Admin authority changed or needed verification. Open the record and confirm removal again.',
+      color: BafColors.danger,
+    );
+    return false;
+  }
 
   try {
     final removedLocally = await executePilotBusinessRecordPurge(
@@ -108,6 +150,7 @@ Future<bool> purgePilotBusinessRecord({
         recordLabel: recordLabel,
       ),
       reason: decision.reason,
+      originActorUid: actor.uid,
     );
     if (!context.mounted) return true;
     showAdminDataSnack(

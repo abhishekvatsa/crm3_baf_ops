@@ -109,6 +109,18 @@ class _AssetConditionRow extends ConsumerWidget {
                     ),
                   ),
                 ],
+                if (state.linkedInnerCoverDependency case final cover?) ...[
+                  if (cover.reasons.isNotEmpty) ...[
+                    const SizedBox(height: BafSpacing.sm),
+                    Text(
+                      'Linked Inner Cover ${cover.serialNumber}: ${[if (cover.isUnavailable) 'unavailable by issue', if (cover.isUnfit) 'unfit by issue', if (cover.hasRedWork) 'RED work open', if (cover.isAwaitingPreparation) 'awaiting preparation', if (cover.isUnderMaintenance && !cover.hasRedWork && !cover.isAwaitingPreparation) 'maintenance work open', if (cover.needsCurrentAssessment) 'fitness assessment needed'].join(' · ')}',
+                      style: const TextStyle(
+                        color: BafColors.warning,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
                 if (state.issueConditionContributions.isNotEmpty) ...[
                   const SizedBox(height: BafSpacing.sm),
                   for (final contribution

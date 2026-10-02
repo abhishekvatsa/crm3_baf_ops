@@ -29,6 +29,10 @@ void main() {
     expect(BafBrand.productName, 'CRM-III BAF Ops');
     expect(BafBrand.makerName, 'A ManMithas Productions');
     expect(BafBrand.markAsset, 'assets/brand/manmithas_mark.png');
+    expect(
+      BafBrand.independentAppLabel,
+      'Independent workplace maintenance app',
+    );
     expect(BafRadius.small, lessThanOrEqualTo(8));
     expect(BafRadius.medium, lessThanOrEqualTo(8));
     expect(BafRadius.large, lessThanOrEqualTo(8));
@@ -50,7 +54,8 @@ void main() {
 
     expect(find.byType(ManmithasMark), findsOneWidget);
     expect(find.text(BafBrand.productName), findsOneWidget);
-    expect(find.text(BafBrand.plantName), findsOneWidget);
+    expect(find.text('Independent workplace maintenance app'), findsOneWidget);
+    expect(find.textContaining('SAIL'), findsNothing);
     expect(find.text(BafBrand.makerLabel), findsOneWidget);
     expect(find.text('Sign in with Google'), findsOneWidget);
     final systemStyle = tester
@@ -61,6 +66,18 @@ void main() {
     expect(systemStyle.statusBarIconBrightness, Brightness.light);
     expect(tester.takeException(), isNull);
   });
+
+  test(
+    'release assets retain publisher branding without the SAIL mark',
+    () async {
+      final assets = await AssetManifest.loadFromAssetBundle(rootBundle);
+      expect(assets.listAssets(), contains('assets/brand/manmithas_mark.png'));
+      expect(
+        assets.listAssets(),
+        isNot(contains('assets/brand/sail_mark.png')),
+      );
+    },
+  );
 
   testWidgets('feature title and brand lockup adapt at phone width', (
     tester,

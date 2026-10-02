@@ -256,10 +256,15 @@ void main() {
     expect(policy.containsKey('appCheckBuild'), isFalse);
   });
 
-  test('current candidate explicitly preserves the approved deferral', () {
-    final policy = _readJson('release/production-release-policy.json');
-    final release = _object(policy['release']);
-    expect(release['buildNumber'], 30);
+  test('signed Build30 retains its historical App Check deferral', () {
+    final historical = Process.runSync('git', <String>[
+      'show',
+      '7ed87824447f1349cb0481c448e0b21c3fa5856f:'
+          'release/production-release-policy.json',
+    ]);
+    expect(historical.exitCode, 0, reason: '${historical.stderr}');
+    final policy = _object(jsonDecode(historical.stdout as String));
+    expect(_object(policy['release'])['buildNumber'], 30);
     final choice = _object(policy['appCheckBuild']);
     expect(choice['clientEnabled'], isFalse);
     expect(choice['androidProvider'], 'disabled');
@@ -267,57 +272,105 @@ void main() {
       choice['approvalFile'],
       'release/approvals/build30-app-check-client-approval.json',
     );
-    final approvalFile = choice['approvalFile'] as String;
-    expect(
-      sha256
-          .convert(File(approvalFile).readAsBytesSync())
-          .toString()
-          .toUpperCase(),
-      choice['approvalSha256'],
-    );
-    final approval = _readJson(approvalFile);
-    expect(approval['approved'], isTrue);
-    expect(
-      approval['documentType'],
-      'governed-app-check-client-build-approval',
-    );
-    expect(
-      approval['approvalReference'],
-      'BUILD30-APP-CHECK-DISABLED-20260928',
-    );
-    expect(approval['intendedBuildNumber'], release['buildNumber']);
-    expect(approval['releaseId'], release['releaseId']);
-    expect(
-      approval['reservationId'],
-      _object(policy['versionPolicy'])['reservationId'],
-    );
-    expect(approval['applicationId'], policy['permanentApplicationId']);
-    expect(approval['firebaseProjectId'], policy['firebaseProjectId']);
-    expect(approval['clientEnabled'], choice['clientEnabled']);
-    expect(approval['androidProvider'], choice['androidProvider']);
-    expect(approval['enforcementChangeAuthorized'], isFalse);
-
-    final finalization = _object(policy['finalization']);
-    final backendFile =
-        finalization['exactFunctionFleetDeploymentReceiptFile'] as String;
-    final backendHash = sha256
-        .convert(File(backendFile).readAsBytesSync())
-        .toString()
-        .toUpperCase();
-    expect(
-      backendHash,
-      finalization['exactFunctionFleetDeploymentReceiptSha256'],
-    );
-    expect(approval['backendReceiptSha256'], backendHash);
-    final backend = _readJson(backendFile);
-    expect(
-      approval['backendSourceCommit'],
-      _object(backend['sourceAuthority'])['commit'],
-    );
-    expect(approval['serverEnforcementAtBuild'], isFalse);
-    expect(
-      approval['serverEnforcementAtBuild'],
-      _object(backend['deployment'])['appCheckEnforcement'],
-    );
   });
+
+  test(
+    'current candidate binds its explicit generation-specific App Check choice',
+    () {
+      final policy = _readJson('release/production-release-policy.json');
+      final release = _object(policy['release']);
+      final build = release['buildNumber'] as int;
+      expect(build, isIn(<int>[30, 31]));
+      final choice = _object(policy['appCheckBuild']);
+      expect(choice['clientEnabled'], build == 31);
+      expect(
+        choice['androidProvider'],
+        build == 31 ? 'playIntegrity' : 'disabled',
+      );
+      expect(
+        choice['approvalFile'],
+        'release/approvals/build$build-app-check-client-approval.json',
+      );
+      final approvalFile = choice['approvalFile'] as String;
+      expect(
+        sha256
+            .convert(File(approvalFile).readAsBytesSync())
+            .toString()
+            .toUpperCase(),
+        choice['approvalSha256'],
+      );
+      final approval = _readJson(approvalFile);
+      expect(approval['approved'], isTrue);
+      expect(
+        approval['documentType'],
+        'governed-app-check-client-build-approval',
+      );
+      if (build == 30) {
+        expect(
+          approval['approvalReference'],
+          'BUILD30-APP-CHECK-DISABLED-20260928',
+        );
+      } else {
+        expect(
+          approval['approvalReference'],
+          isA<String>().having(
+            (value) => value.trim(),
+            'nonempty reference',
+            isNotEmpty,
+          ),
+        );
+        final scopes = _object(approval['serverEnforcementScopesAtBuild']);
+        expect(scopes['defaultMutatingEnforced'], isFalse);
+        expect(scopes['identityCallable'], 'getBackendReleaseIdentity');
+        expect(scopes['identityCallableEnforced'], isTrue);
+        expect(
+          scopes['identitySourceFile'],
+          'functions/src/stage2dSecurityConfig.ts',
+        );
+        expect(
+          scopes['identitySourceSha256'],
+          sha256
+              .convert(
+                File(scopes['identitySourceFile'] as String).readAsBytesSync(),
+              )
+              .toString()
+              .toUpperCase(),
+        );
+      }
+      expect(approval['intendedBuildNumber'], release['buildNumber']);
+      expect(approval['releaseId'], release['releaseId']);
+      expect(
+        approval['reservationId'],
+        _object(policy['versionPolicy'])['reservationId'],
+      );
+      expect(approval['applicationId'], policy['permanentApplicationId']);
+      expect(approval['firebaseProjectId'], policy['firebaseProjectId']);
+      expect(approval['clientEnabled'], choice['clientEnabled']);
+      expect(approval['androidProvider'], choice['androidProvider']);
+      expect(approval['enforcementChangeAuthorized'], isFalse);
+
+      final finalization = _object(policy['finalization']);
+      final backendFile =
+          finalization['exactFunctionFleetDeploymentReceiptFile'] as String;
+      final backendHash = sha256
+          .convert(File(backendFile).readAsBytesSync())
+          .toString()
+          .toUpperCase();
+      expect(
+        backendHash,
+        finalization['exactFunctionFleetDeploymentReceiptSha256'],
+      );
+      expect(approval['backendReceiptSha256'], backendHash);
+      final backend = _readJson(backendFile);
+      expect(
+        approval['backendSourceCommit'],
+        _object(backend['sourceAuthority'])['commit'],
+      );
+      expect(approval['serverEnforcementAtBuild'], isFalse);
+      expect(
+        approval['serverEnforcementAtBuild'],
+        _object(backend['deployment'])['appCheckEnforcement'],
+      );
+    },
+  );
 }

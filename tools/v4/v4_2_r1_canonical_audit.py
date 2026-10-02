@@ -61,6 +61,81 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def local_diagnostics_access_contract(screen: str, service: str, actor: str) -> bool:
+    """Check the split local/remote reads without depending on a removed await.
+
+    These source guards complement the provider/widget and shared-deadline tests;
+    missing or reordered access checks must fail the audit, never crash it.
+    """
+    screen = re.sub(r"\s+", " ", screen)
+    service = re.sub(r"\s+", " ", service)
+    actor = re.sub(r"\s+", " ", actor)
+
+    def section(source: str, start: str, end: str) -> str:
+        first = source.find(start)
+        last = source.find(end, first + len(start)) if first >= 0 else -1
+        return source[first:last] if last > first else ""
+
+    def ordered(source: str, *markers: str) -> bool:
+        offset = 0
+        for marker in markers:
+            found = source.find(marker, offset)
+            if found < 0:
+                return False
+            offset = found + len(marker)
+        return True
+
+    authority = section(screen, "final localDiagnosticsAuthorityProvider =",
+                        "final localDiagnosticsReadAdapterProvider =")
+    remote = section(screen, "final localDiagnosticsBackendIdentityProvider =",
+                     "final localDiagnosticsInventoryProvider =")
+    inventory = section(screen, "final localDiagnosticsInventoryProvider =",
+                        "final localDiagnosticsReportProvider =")
+    report = section(screen, "final localDiagnosticsReportProvider =",
+                     "void refreshLocalDiagnostics(")
+    ui = section(screen, "class LocalDiagnosticsScreen extends ConsumerWidget",
+                 "final reportAsync = ref.watch(localDiagnosticsReportProvider);")
+    guard = "if (ref.watch(localDiagnosticsAuthorityProvider) == null) {"
+    denial = "throw StateError('Admin/SI access is required for local diagnostics.');"
+    return (
+        "bool get canManageTemplateGovernance => isApproved && (isAdmin || isSI);"
+            in actor
+        and ordered(authority,
+                    "final authority = ref.watch(currentAppUserProvider);",
+                    "if (authority.isLoading || authority.hasError || actor == null || !actor.canManageTemplateGovernance) { return null; }",
+                    "uid: actor.uid,", "revision: actor.authorityRevision,",
+                    "roles: roles.join(',')")
+        and ordered(remote, guard, denial,
+                    "return LocalReleaseDiagnosticsSnapshot.capture(ref, loadBackend: !kIsWeb);")
+        and ordered(inventory, guard, denial,
+                    "final persistence = await ref .read(localDiagnosticsReadAdapterProvider) .read();")
+        and "localDiagnosticsBackendIdentityProvider" not in inventory
+        and "LocalReleaseDiagnosticsSnapshot.capture(" not in inventory
+        and ordered(report, guard, "return AsyncError(",
+                    "final inventory = ref.watch(localDiagnosticsInventoryProvider);",
+                    "final backend = ref.watch(localDiagnosticsBackendIdentityProvider);",
+                    "backendLoading: true,", "backendError: error.toString(),",
+                    "return inventory.whenData(")
+        and "await " not in report and ".future" not in report
+        and ordered(ui, "final actorAsync = ref.watch(currentAppUserProvider);",
+                    "if (actor == null || !actor.canManageTemplateGovernance) {",
+                    "return const _DiagnosticsError(", "'Admin/SI access required'")
+        and "this.timeout = const Duration(seconds: 20)" in service
+        and ordered(service, "if (_inFlightUid == uid && _inFlight != null) return _inFlight!;",
+                    "final elapsed = Stopwatch()..start();",
+                    "if (expired || elapsed.elapsed >= timeout)",
+                    "if (_authClient.currentUser?.uid != uid)",
+                    "return timeout - elapsed.elapsed;",
+                    "operation = _fetchWithAuthRetry(remaining) .timeout( timeout,",
+                    "expired = true;")
+        and "HttpsCallableOptions(timeout: remaining())" in service
+        and "await currentUser.getIdToken(true).timeout(remaining());" in service
+        and "firstError.code != 'unauthenticated' || currentUser == null" in service
+        and service.count("return await attempt();") == 2
+        and "final result = await _fetch(callable); remaining();" in service
+    )
+
+
 def utc_instant(value: object) -> datetime | None:
     if not isinstance(value, str):
         return None
@@ -68,6 +143,68 @@ def utc_instant(value: object) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def runtime_backend_route_selected(policy: dict) -> bool:
+    pointer = policy.get("clientBackendCompatibility", {})
+    return (
+        "runtimeBackendPrivateReplay" in policy
+        or pointer.get("file") == "release/approvals/build31-runtime-client-compatibility-approval.json"
+        or pointer.get("profile") == "build31-exact-grpc-runtime-backend-v1"
+    )
+
+
+def runtime_backend_private_authority_exact(policy: dict, deployment: dict, deployed: dict) -> dict:
+    # The sanitized envelope cannot establish authority. Replay exact private
+    # generation bytes through the same source-bound verifier as signing.
+    try:
+        if not runtime_backend_route_selected(policy):
+            return {}
+        process = subprocess.run(
+            ["node", str(ROOT / "tools/release/clientBackendCompatibility31.js"),
+             str(ROOT), str(ROOT / "release/production-release-policy.json")],
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False,
+        )
+        proof = json.loads(process.stdout) if process.returncode == 0 else {}
+        runtime = proof.get("runtimeBackend31", {})
+        source = runtime.get("source", {})
+        closure = runtime.get("closurePointer", {})
+        approval = runtime.get("approvalPointer", {})
+        backend = runtime.get("currentBackend", {})
+        summary = {key: value for key, value in backend.items()
+                   if key not in {"closurePointer", "rawProofCommitment"}}
+        firestore = policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
+        required = (
+            proof.get("ok") is True and proof.get("route") == "runtime-backend31"
+            and runtime.get("privateEvidenceReplayed") is True
+            and policy.get("release", {}).get("buildNumber") == 31
+            and policy.get("versionPolicy", {}).get("buildNumber") == 31
+            and runtime.get("descriptorPointer") == policy.get("runtimeBackendPrivateReplay")
+            and runtime.get("clientPointer") == policy.get("clientBackendCompatibility")
+            and deployment.get("schemaVersion") == 2
+            and deployment.get("documentType") == "build31-runtime-private-record-custody"
+            and deployment.get("recordKind") == "closure"
+            and deployment.get("source") == source
+            and deployment.get("summary") == summary
+            and backend.get("fleet") == {"callables": 13, "events": 5, "schedulers": 1, "total": 19}
+            and all(backend.get("preserved", {}).get(key) is True
+                    for key in ("rules", "indexes", "iam", "enforcement", "businessLogic"))
+            and backend.get("appCheck") == {"clientRequired": True, "androidProvider": "playIntegrity", "mutatingEnforcementChanged": False}
+            and closure.get("file") == deployed.get("functionFleetEvidenceFile")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptFile")
+            and closure.get("sha256") == deployed.get("functionFleetEvidenceSha256")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptSha256")
+                == sha(ROOT / closure.get("file", ""))
+            and approval.get("file") == deployed.get("deploymentApprovalFile")
+            and approval.get("sha256") == deployed.get("deploymentApprovalSha256")
+                == sha(ROOT / approval.get("file", ""))
+            and source.get("commit") == deployed.get("functionFleetSourceCommit")
+            and deployed.get("rulesAndIndexesEvidenceFile") == firestore.get("receiptFile")
+            and deployed.get("rulesAndIndexesEvidenceSha256") == firestore.get("receiptFileSha256")
+        )
+        return proof if required else {}
+    except (OSError, TypeError, ValueError, KeyError, AttributeError):
+        return {}
 
 
 def current_backend_authority_proof_exact(
@@ -99,7 +236,7 @@ def current_backend_authority_proof_exact(
         process = subprocess.run(
             [
                 "node",
-                str(ROOT / "tools/release/stagedPromotionSourceAuthority.js"),
+                str(ROOT / "tools/release/clientBackendCompatibility31.js"),
                 str(ROOT),
                 str(ROOT / "release/production-release-policy.json"),
             ],
@@ -3101,6 +3238,8 @@ check(
 firebase_cli_package = data("tooling/firebase-cli/package.json")
 firebase_cli_lock = data("tooling/firebase-cli/package-lock.json")
 firebase_cli_packages = firebase_cli_lock.get("packages", {})
+basic_ftp = firebase_cli_packages.get("node_modules/basic-ftp", {})
+grpc_js = firebase_cli_packages.get("node_modules/@grpc/grpc-js", {})
 hono = firebase_cli_packages.get("node_modules/@hono/node-server", {})
 fast_uri = firebase_cli_packages.get("node_modules/fast-uri", {})
 hono_runtime = firebase_cli_packages.get("node_modules/hono", {})
@@ -3117,8 +3256,30 @@ mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {}
 check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
+    and firebase_cli_package.get("overrides", {}).get("basic-ftp") == "6.2.1"
+    and basic_ftp.get("version") == "6.2.1"
+    and basic_ftp.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+    and basic_ftp.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+    and all(
+        entry.get("version") == "6.2.1"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
+        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        for key, entry in firebase_cli_packages.items()
+        if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")
+    )
+    and firebase_cli_package.get("overrides", {}).get("@grpc/grpc-js") == "1.14.5"
+    and grpc_js.get("version") == "1.14.5"
+    and grpc_js.get("resolved") == "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz"
+    and grpc_js.get("integrity") == "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=="
+    and all(
+        entry.get("version") == "1.14.5"
+        and entry.get("resolved") == "https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz"
+        and entry.get("integrity") == "sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=="
+        for key, entry in firebase_cli_packages.items()
+        if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")
+    )
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.7"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.8"
     and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.0"
     and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
     and firebase_cli_package.get("overrides", {}).get("stream-json") == "$stream-json"
@@ -3127,7 +3288,7 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.5.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-dobB7zipGW8o11PvdRljQSWuyMxifADLvoHeA4elwNWOTbZo6+BlNa+P6aCq7Y9jRiWTy2Ucu2xSv0Y2/T+/kQ=="
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.7"
-    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.5.1"
+    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.1"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
     and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.1"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
@@ -3139,27 +3300,28 @@ check(
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.7"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.7.tgz"
-    and fast_uri.get("integrity") == "sha512-dOvZVzjdZdz7phd9v6jCbwxrBW3fK6n8Rc0CtdmM4bumzMnxywBYhuph6J819RRw/ku+rLbelwfMunktuzVVHg=="
+    and fast_uri.get("version") == "3.1.8"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz"
+    and fast_uri.get("integrity") == "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg=="
     and hono_runtime.get("version") == "4.13.7"
     and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.7.tgz"
     and hono_runtime.get("integrity") == "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="
-    and ip_address.get("version") == "10.5.1"
-    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.5.1.tgz"
-    and ip_address.get("integrity") == "sha512-EXujUp9jyOI/chPgtqk6uy7fDq8AeCB/WlfEuPg9LN0fN9lzKAKfuDYi60SMhHwgUiEhZvVYsbGZN+RUU1INiA=="
+    and ip_address.get("version") == "10.7.1"
+    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz"
+    and ip_address.get("integrity") == "sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA=="
     and js_yaml.get("version") == "4.3.2"
     and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz"
     and js_yaml.get("integrity") == "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
     and morgan.get("version") == "1.12.1"
     and morgan.get("resolved") == "https://registry.npmjs.org/morgan/-/morgan-1.12.1.tgz"
     and morgan.get("integrity") == "sha512-tljKC0ex20AjO58Ob/eZ53JloycbVswbVNCHx6V6VLGzqt/w8dIynVGL0G8qVjNKwiA7sYSogCrN6QtJ82IV+g=="
-    and brace_expansion.get("version") == "5.0.9"
+    and brace_expansion.get("version") == "5.0.12"
     and brace_expansion.get("resolved") == "file:../brace-expansion-compat"
+    and brace_expansion.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.12"
     and brace_expansion_upstream.get("name") == "brace-expansion"
-    and brace_expansion_upstream.get("version") == "5.0.9"
-    and brace_expansion_upstream.get("resolved") == "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.9.tgz"
-    and brace_expansion_upstream.get("integrity") == "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg=="
+    and brace_expansion_upstream.get("version") == "5.0.12"
+    and brace_expansion_upstream.get("resolved") == "https://registry.npmjs.org/brace-expansion/-/brace-expansion-5.0.12.tgz"
+    and brace_expansion_upstream.get("integrity") == "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ=="
     and tar.get("version") == "7.5.21"
     and tar.get("resolved") == "https://registry.npmjs.org/tar/-/tar-7.5.21.tgz"
     and tar.get("integrity") == "sha512-XdhtCvlMywwxpCW8YEq3lOXBJpUPTR2OHHcwLPO3HwsJqOHa2Ok/oJ7ruGzp+JrKoRPVCzJwAdEjqLW/vNRPHA=="
@@ -3178,8 +3340,8 @@ brace_compat_smoke = text("tools/dependencies/verify_brace_expansion_compat.mjs"
 check(
     "Patched brace-expansion adapter preserves legacy and modern interfaces",
     brace_adapter_package.get("name") == "brace-expansion"
-    and brace_adapter_package.get("version") == "5.0.9"
-    and brace_adapter_package.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.9"
+    and brace_adapter_package.get("version") == "5.0.12"
+    and brace_adapter_package.get("dependencies", {}).get("brace-expansion-modern") == "npm:brace-expansion@5.0.12"
     and "module.exports = Object.assign(upstream.expand, upstream)" in brace_adapter_cjs
     and "export default expand" in brace_adapter_esm
     and "PASS_BRACE_EXPANSION_COMPAT" in brace_compat_smoke
@@ -3229,15 +3391,15 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
-        "3.1.7",
+        "3.1.8",
         "4.13.7",
-        "10.5.1",
+        "10.7.1",
         "4.3.2",
         "1.12.1",
         "8.10.2",
         "morganIntegrity",
         "undiciIntegrity",
-        "5.0.9",
+        "5.0.12",
         "1.26.1",
         "7.5.21",
         "verify_brace_expansion_compat.mjs",
@@ -3604,9 +3766,11 @@ check(
     and "readPrivacySafeIsarProvenanceInventory()"
         in local_diagnostics_adapter
     and "writeTxn(" not in local_diagnostics_adapter
-    and local_diagnostics.index(
-        "await ref.watch(currentAppUserProvider.future)"
-    ) < local_diagnostics.index("LocalDiagnosticsReadAdapter().read()")
+    and local_diagnostics_access_contract(
+        local_diagnostics,
+        text("lib/core/release/backend_release_identity_service.dart"),
+        text("lib/features/auth/data/user_model.dart"),
+    )
     and "'localDatabaseProvenance': provenanceInventory.toMap()"
         in local_diagnostics
     and "633c58bb0d936011e391b42627f8b8f02c510e95" in isar_fixture_test
@@ -4749,6 +4913,11 @@ current_backend_deployment_relative = current_deployed_backend.get(
 )
 current_backend_deployment_path = ROOT / current_backend_deployment_relative
 current_backend_deployment = data(current_backend_deployment_relative)
+runtime31_selected = runtime_backend_route_selected(combined_policy)
+runtime31_source_proof = (
+    runtime_backend_private_authority_exact(combined_policy, current_backend_deployment, current_deployed_backend)
+    if runtime31_selected else {}
+)
 current_backend_readbacks = current_backend_deployment.get(
     "cleanMainLiveReadbacks", {}
 )
@@ -4761,20 +4930,35 @@ current_iam_readback_authority = current_backend_readbacks.get(
 current_firestore_authority = current_backend_readbacks.get(
     "firestoreRulesAndIndexes", {}
 )
-current_function_readback_path = ROOT / current_function_readback_authority.get(
-    "file", ""
-)
-current_function_readback = data(
-    current_function_readback_authority.get("file", "")
-)
-current_iam_readback_path = ROOT / current_iam_readback_authority.get(
-    "file", ""
-)
-current_iam_readback = data(current_iam_readback_authority.get("file", ""))
-current_firestore_readback_path = ROOT / current_firestore_authority.get(
-    "file", ""
-)
-current_firestore_readback = data(current_firestore_authority.get("file", ""))
+if runtime31_selected:
+    # Preserve the independently checked source-specific Firestore observation;
+    # private replay proves post-deployment preservation separately.
+    source_firestore = combined_policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
+    current_firestore_authority = {
+        **source_firestore,
+        "file": source_firestore.get("receiptFile", ""),
+        "physicalSha256": source_firestore.get("receiptFileSha256", ""),
+        "canonicalReceiptSha256": source_firestore.get("receiptCanonicalSha256", ""),
+    }
+    current_firestore_readback_path = ROOT / current_firestore_authority["file"]
+    current_firestore_readback = data(current_firestore_authority["file"])
+    current_function_readback_path = current_iam_readback_path = None
+    current_function_readback = current_iam_readback = {}
+else:
+    current_function_readback_path = ROOT / current_function_readback_authority.get(
+        "file", ""
+    )
+    current_function_readback = data(
+        current_function_readback_authority.get("file", "")
+    )
+    current_iam_readback_path = ROOT / current_iam_readback_authority.get(
+        "file", ""
+    )
+    current_iam_readback = data(current_iam_readback_authority.get("file", ""))
+    current_firestore_readback_path = ROOT / current_firestore_authority.get(
+        "file", ""
+    )
+    current_firestore_readback = data(current_firestore_authority.get("file", ""))
 current_backend_approval_relative = current_deployed_backend.get(
     "deploymentApprovalFile", ""
 )
@@ -4786,12 +4970,16 @@ current_backend_approval_evidence = current_backend_approval.get(
 current_backend_authority_chronology = current_backend_deployment.get(
     "authorityChronology", {}
 )
-current_backend_immutable_authority_exact = current_backend_authority_proof_exact(
+current_backend_immutable_authority_exact = bool(runtime31_source_proof) if runtime31_selected else (
+current_backend_authority_proof_exact(
     current_backend_deployment_relative,
     current_backend_deployment,
     current_deployed_backend,
 )
-if current_backend_approval_evidence.get("authorityType") == (
+)
+if runtime31_selected:
+    current_backend_approval_scope_exact = bool(runtime31_source_proof)
+elif current_backend_approval_evidence.get("authorityType") == (
     "owner-delegated agent decision"
 ):
     # The shared verifier retains fixed c00 custody and requires the successor's
@@ -8095,6 +8283,8 @@ check(
         == "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547"
     and sha(build18_iam_readback_path)
         == "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F"
+    and ((runtime31_selected and bool(runtime31_source_proof)) or (
+        not runtime31_selected
     and current_backend_approval.get("approved") is True
     and current_backend_approval.get("firebaseProjectId")
         == "crm3-baf-ops-b8638"
@@ -8180,6 +8370,7 @@ check(
     )
     and current_iam_readback.get("source", {}).get("before", {}).get("commit")
         == current_deployed_backend.get("functionFleetSourceCommit")
+    ))
     and sha(current_firestore_readback_path)
         == current_deployed_backend.get("rulesAndIndexesEvidenceSha256")
         == current_firestore_authority.get("physicalSha256")
@@ -8274,7 +8465,8 @@ check(
     and current_deployed_backend.get("functionFleetEvidenceFile")
         == current_backend_deployment_relative
     and current_deployed_backend.get("functionFleetSourceCommit")
-        == current_backend_deployment.get("sourceAuthority", {}).get("commit")
+        == (runtime31_source_proof.get("runtimeBackend31", {}).get("source", {}).get("commit")
+            if runtime31_selected else current_backend_deployment.get("sourceAuthority", {}).get("commit"))
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"
     and current_deployed_backend.get("currentSourceFunctionDeployment")
@@ -12777,6 +12969,7 @@ a03_dedicated_surface_tests = {
         "test/a03_persistence_boundary_contract_test.dart",
         "test/maintenance_plant_condition_stream_test.dart",
         "test/maintenance_closure_evidence_admission_test.dart",
+        "test/admin_cleanup_tombstone_streams_test.dart",
     },
     "lib/features/planned_maintenance/providers/template_governance_publication.dart": {
         "test/template_publication_transaction_test.dart",
@@ -13063,10 +13256,10 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 625
-    and a03_inventory_report.get("siteCount") == 2196
+    and a03_inventory_report.get("operationCount") == 633
+    and a03_inventory_report.get("siteCount") == 2217
     and a03_inventory_report.get("inventoryDigest")
-        == "9DCDBFDE91816018F603C1F782AC2AB8273C9027BACEA3013D67D47961E7D9DD"
+        == "FB027D26DD2C6E5CF9E4CC997D8567F9AFB3C3D11B3A38E23519BD24197A9E19"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
@@ -13122,9 +13315,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 128
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 129
     and a04_inventory_report.get("inventoryDigest")
-        == "185C1A811F3F9217AFF48BBC5A2F03D5DDD4A8542522B9EC9A12CB6F0EC68DA6"
+        == "57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13132,8 +13325,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 128
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 128
+    and len(a04_inherited_decoders) == 129
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 129
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13443,16 +13636,16 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 128
+    and a05_decoder_inventory_report.get("surfaceCount") == 129
     and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 112
-    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 66
+    and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 67
     and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 61
     and a05_decoder_inventory_report.get("riskCandidateCount") == 561
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 128
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 129
     and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 112
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool

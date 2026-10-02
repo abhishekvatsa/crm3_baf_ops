@@ -38,6 +38,7 @@ import 'ra_performed_at_field.dart';
 import 'abnormality_list_filter.dart';
 
 part 'charge_abnormalities_screen.form.dart';
+part 'charge_abnormalities_screen.assets.dart';
 part 'charge_abnormalities_screen.widgets.dart';
 part 'charge_abnormalities_screen.assessment.dart';
 
@@ -62,6 +63,11 @@ class _ChargeAbnormalitiesScreenState
     extends ConsumerState<ChargeAbnormalitiesScreen> {
   AbnormalityListFilter _filter = AbnormalityListFilter.open;
   int _visibleLimit = businessListPageSize;
+
+  void _selectFilter(AbnormalityListFilter filter) => setState(() {
+    _filter = filter;
+    _visibleLimit = businessListPageSize;
+  });
 
   @override
   void didUpdateWidget(covariant ChargeAbnormalitiesScreen oldWidget) {
@@ -190,11 +196,13 @@ class _ChargeAbnormalitiesScreenState
                         sourceChargeNo: widget.sourceChargeNo,
                         subtitle: widget.subtitle,
                         total: records.length,
+                        selected: _filter,
+                        onSelected: _selectFilter,
                         raCount: records
-                            .where((record) => record.requiresReannealing)
+                            .where(AbnormalityListFilter.open.includes)
                             .length,
                         completedRaCount: records
-                            .where((record) => record.hasCompletedReannealing)
+                            .where(AbnormalityListFilter.completed.includes)
                             .length,
                       ),
                     ),
@@ -208,29 +216,31 @@ class _ChargeAbnormalitiesScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          DropdownButtonFormField<AbnormalityListFilter>(
-                            key: const ValueKey(
-                              'charge-abnormality-status-filter',
-                            ),
-                            initialValue: _filter,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Status',
-                            ),
-                            items: [
-                              for (final filter in AbnormalityListFilter.values)
-                                DropdownMenuItem(
-                                  value: filter,
-                                  child: Text(filter.label),
+                          KeyedSubtree(
+                            key: ValueKey(_filter),
+                            child:
+                                DropdownButtonFormField<AbnormalityListFilter>(
+                                  key: const ValueKey(
+                                    'charge-abnormality-status-filter',
+                                  ),
+                                  initialValue: _filter,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Status',
+                                  ),
+                                  items: [
+                                    for (final filter
+                                        in AbnormalityListFilter.values)
+                                      DropdownMenuItem(
+                                        value: filter,
+                                        child: Text(filter.label),
+                                      ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    _selectFilter(value);
+                                  },
                                 ),
-                            ],
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                _filter = value;
-                                _visibleLimit = businessListPageSize;
-                              });
-                            },
                           ),
                           const SizedBox(height: BafSpacing.sm),
                           const Text(

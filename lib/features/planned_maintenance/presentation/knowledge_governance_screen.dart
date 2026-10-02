@@ -70,6 +70,8 @@ class _KnowledgeGovernanceScreenState
   Widget build(BuildContext context) {
     final appUserAsync = ref.watch(currentAppUserProvider);
     return appUserAsync.when(
+      skipLoadingOnRefresh: false,
+      skipError: false,
       loading: () => const _LoadingScaffold(),
       error: (e, _) => _ErrorScaffold(message: '$e'),
       data: (appUser) {

@@ -6,6 +6,9 @@ import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
 import '../../../core/widgets/brand/brand_widgets.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../auth/data/user_model.dart';
+import '../../auth/domain/current_actor_access.dart';
+import '../../auth/presentation/current_actor_gate.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
 import '../../maintenance_workflow/providers/workflow_providers.dart';
@@ -28,6 +31,8 @@ class _FrequentIssueCatalogueScreenState
   Widget build(BuildContext context) {
     final actor = ref.watch(currentAppUserProvider);
     return actor.when(
+      skipLoadingOnRefresh: false,
+      skipError: false,
       loading:
           () => BafScreenStateScaffold.loading(
             appBarTitle: 'Frequent issues',
@@ -136,10 +141,35 @@ class _FrequentIssueCatalogueScreenState
     );
   }
 
+  bool _mayManageCatalogue(AppUser actor) =>
+      actor.canManageFrequentIssueDefinitions;
+
+  AppUser? _requireCatalogueActor({String? originUid}) {
+    final access = CurrentActorAccess.resolve(ref.read(currentAppUserProvider));
+    final message = currentActorActionMessage(
+      access,
+      originUid: originUid,
+      permission: _mayManageCatalogue,
+    );
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      return null;
+    }
+    return access.actor;
+  }
+
   Future<void> _editDefinition([FrequentIssueDefinition? existing]) async {
+    final actor = _requireCatalogueActor();
+    if (actor == null) return;
     final draft = await showDialog<_DefinitionDraft>(
       context: context,
-      builder: (_) => _DefinitionEditor(existing: existing),
+      builder: (_) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: _mayManageCatalogue,
+        child: _DefinitionEditor(existing: existing),
+      ),
     );
     if (!mounted || draft == null) return;
     final id = existing?.id ?? 'frequent-${const Uuid().v4()}';
@@ -171,40 +201,43 @@ class _FrequentIssueCatalogueScreenState
     );
     await _execute(
       command,
-      success:
-          existing == null
-              ? 'Frequent issue added.'
-              : 'Frequent issue updated.',
+      originUid: actor.uid,
+      success: existing == null
+          ? 'Frequent issue added.'
+          : 'Frequent issue updated.',
     );
   }
 
   Future<void> _changeStatus(FrequentIssueDefinition definition) async {
+    final actor = _requireCatalogueActor();
+    if (actor == null) return;
     final next = definition.isActive ? 'retired' : 'active';
     final confirmed = await showDialog<bool>(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(
-              definition.isActive
-                  ? 'Retire this issue?'
-                  : 'Restore this issue?',
-            ),
-            content: Text(
-              definition.isActive
-                  ? 'It will no longer appear when a new issue is raised. Existing tickets keep their frozen definition.'
-                  : 'It will become available for new matching issues again.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: Text(definition.isActive ? 'Retire' : 'Restore'),
-              ),
-            ],
+      builder: (context) => CurrentActorDialogGuard(
+        originUid: actor.uid,
+        permission: _mayManageCatalogue,
+        child: AlertDialog(
+          title: Text(
+            definition.isActive ? 'Retire this issue?' : 'Restore this issue?',
           ),
+          content: Text(
+            definition.isActive
+                ? 'It will no longer appear when a new issue is raised. Existing tickets keep their frozen definition.'
+                : 'It will become available for new matching issues again.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(definition.isActive ? 'Retire' : 'Restore'),
+            ),
+          ],
+        ),
+      ),
     );
     if (confirmed != true || !mounted) return;
     await _execute(
@@ -215,23 +248,26 @@ class _FrequentIssueCatalogueScreenState
         expectedVersion: definition.version,
         payload: <String, Object?>{
           'status': next,
-          'reason':
-              definition.isActive
-                  ? 'Retired through the governed catalogue.'
-                  : 'Restored through the governed catalogue.',
+          'reason': definition.isActive
+              ? 'Retired through the governed catalogue.'
+              : 'Restored through the governed catalogue.',
         },
       ),
-      success:
-          definition.isActive
-              ? 'Frequent issue retired.'
-              : 'Frequent issue restored.',
+      originUid: actor.uid,
+      success: definition.isActive
+          ? 'Frequent issue retired.'
+          : 'Frequent issue restored.',
     );
   }
 
   Future<void> _execute(
     WorkflowCommand command, {
+    required String originUid,
     required String success,
   }) async {
+    if (!mounted || _requireCatalogueActor(originUid: originUid) == null) {
+      return;
+    }
     try {
       await ref
           .read(workflowCommandControllerProvider.notifier)

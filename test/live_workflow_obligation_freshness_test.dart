@@ -316,7 +316,7 @@ void main() {
 
     expect(find.text('Workflow queue'), findsOneWidget);
     expect(find.text('Operations support required'), findsOneWidget);
-    expect(find.textContaining('1 workflow actions'), findsOneWidget);
+    expect(find.textContaining('1 workflow action'), findsOneWidget);
     expect(find.byTooltip('Refresh workflow obligations'), findsOneWidget);
 
     await tester.tap(find.text('Jobs'));
