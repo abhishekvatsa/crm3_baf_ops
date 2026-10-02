@@ -111,9 +111,11 @@ setup, five permission-bootstrap debug builds, and eight separate Flutter
 integration invocations; each business process
 also has its own shorter deadline.
 
-All twelve DEV suites are classified in the manifest. The five excluded files
-cover account diagnostic tracing, frequent-issue/PDF fixtures,
-population-sensitive paging, historical adjudication, and human visual
-review. They are not silently included or represented as automated coverage.
+All fourteen DEV suites are classified in the manifest: seven selected and
+seven explicitly excluded. The excluded files cover account diagnostic
+tracing, frequent-issue/PDF fixtures, population-sensitive paging, historical
+adjudication, human visual review, and the two Inner Cover journeys with
+separate lifecycle or copied released-obstruction fixtures. Those local DEV
+proofs are not represented as execution by this CI gate.
 The gate does not certify physical-device behavior, production IAM/App Check,
 offline network loss, PDF appearance, or production distribution.
