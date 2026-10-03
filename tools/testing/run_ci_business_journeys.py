@@ -342,6 +342,18 @@ def execute_journeys(device, manifest, env):
             pass  # Diagnostics cannot turn a failed business journey into success.
 
 
+def prepare_functions_parameters():
+    # Only the dedicated demo Functions child opts in; production stays closed.
+    if PROJECT != "demo-crm3-ci-journeys":
+        raise RuntimeError("Inspection authoring opt-in is confined to the dedicated demo project")
+    params = ROOT / f"functions/.env.{PROJECT}"
+    expected = ("CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false\n"
+                "CRM_INSPECTION_V2_AUTHORING_ENABLED=true\n")
+    if params.exists() and params.read_text(encoding="utf-8") != expected:
+        raise RuntimeError("Existing CI Functions parameters differ; refusing overwrite")
+    params.write_text(expected, encoding="utf-8")
+
+
 def main(argv=None):
     # Flutter's failure report includes Unicode. On Windows a legacy console
     # encoding must not hide the original assertion behind an encoding error.
@@ -394,11 +406,7 @@ def main(argv=None):
             if probe.connect_ex(("127.0.0.1", port)) == 0:
                 raise RuntimeError(f"Dedicated CI port {port} is occupied; refusing to attach to another session")
     prepare_android_config()
-    params = ROOT / f"functions/.env.{PROJECT}"
-    expected = "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false\n"
-    if params.exists() and params.read_text(encoding="utf-8") != expected:
-        raise RuntimeError("Existing CI Functions parameters differ; refusing overwrite")
-    params.write_text(expected, encoding="utf-8")
+    prepare_functions_parameters()
     child_args = [sys.executable, "tools/testing/run_ci_business_journeys.py",
                   "--inside-emulators", "--device-id", device]
     child = (subprocess.list2cmdline(child_args) if os.name == "nt"

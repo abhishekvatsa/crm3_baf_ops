@@ -208,25 +208,34 @@ StructuredReportDocument buildInspectionCampaignReport({
               'Occurrence time and record time are both shown. Superseded readings remain visible.',
           pageBreakBefore: true,
           tables: <StructuredReportTable>[
-            StructuredReportTable(
-              headers: const <String>[
-                'Observed / recorded',
-                'Target / component',
-                'Result',
-                'Operating context',
-                'Observer',
-                'Trace and evidence',
-              ],
-              rows: orderedObservations
-                  .map(
-                    (row) => _observationRow(
-                      row,
-                      isSuperseded: supersededObservationIds.contains(row.id),
-                    ),
-                  )
-                  .toList(growable: false),
-              columnFlex: const <double>[1.25, 1.8, 1.25, 1.65, 1.2, 2.35],
-            ),
+            if (campaign.definition.isMultiReading)
+              for (final observation in orderedObservations)
+                ..._labelledObservationTables(
+                  observation,
+                  isSuperseded: supersededObservationIds.contains(
+                    observation.id,
+                  ),
+                )
+            else
+              StructuredReportTable(
+                headers: const <String>[
+                  'Observed / recorded',
+                  'Target / component',
+                  'Result',
+                  'Operating context',
+                  'Observer',
+                  'Trace and evidence',
+                ],
+                rows: orderedObservations
+                    .map(
+                      (row) => _observationRow(
+                        row,
+                        isSuperseded: supersededObservationIds.contains(row.id),
+                      ),
+                    )
+                    .toList(growable: false),
+                columnFlex: const <double>[1.25, 1.8, 1.25, 1.65, 1.2, 2.35],
+              ),
           ],
         ),
       if (orderedFindings.isNotEmpty)
@@ -295,6 +304,10 @@ List<String> _targetRow(
       '${target.dispositionReason == null ? '' : '\n${target.dispositionReason}'}',
   latest == null
       ? 'No reading recorded'
+      : latest.definition.isMultiReading
+      ? '${latest.definition.readingFields.length} labelled readings\n${latest.conditionLabel}'
+            '${latest.comparisonOutcome == null ? '' : '\n${inspectionObservationComparisonLabel(latest.comparisonOutcome!, latest.definition)}'}'
+            '\nObservation ${latest.id} - full values in immutable readings below.'
       : '${latest.displayValue}\n${latest.conditionLabel}',
   '${_dateTime(target.dispositionAt)}\nby ${target.dispositionByName}',
   'Asset v${target.assetInstanceVersion}'
@@ -321,6 +334,46 @@ List<String> _observationRow(
       '${observation.note == null ? '' : '\nNote: ${observation.note}'}'
       '${observation.evidenceUrls.isEmpty ? '' : '\nEvidence: ${observation.evidenceUrls.join(', ')}'}',
 ];
+
+List<StructuredReportTable> _labelledObservationTables(
+  InspectionObservation observation, {
+  required bool isSuperseded,
+}) {
+  final status = isSuperseded ? 'Superseded' : 'Current';
+  final identity =
+      '${observation.rowLabel} · Observation ${observation.id} · $status';
+  final details = _observationRow(observation, isSuperseded: isSuperseded);
+  return [
+    StructuredReportTable(
+      headers: ['$identity · Evidence', 'Recorded detail'],
+      rows: [
+        ['Observed / recorded', details[0]],
+        ['Target / component', details[1]],
+        ['Condition', observation.conditionLabel],
+        ['Operating context', details[3]],
+        ['Observer', details[4]],
+        ['Trace and evidence', details[5]],
+      ],
+      columnFlex: const [1, 3],
+    ),
+    // A repeated table header retains both the immutable observation identity
+    // and the reading label when a complete long value crosses a page.
+    for (var i = 0; i < observation.definition.readingFields.length; i++)
+      StructuredReportTable(
+        headers: [
+          '$identity · ${observation.definition.readingFields[i].label}',
+        ],
+        rows: [
+          [
+            displayInspectionReading(
+              observation.definition.readingFields[i],
+              observation.readings[i],
+            ),
+          ],
+        ],
+      ),
+  ];
+}
 
 List<String> _findingRow(InspectionFinding finding) => <String>[
   '${finding.rowLabel}\n${finding.targetKey}',

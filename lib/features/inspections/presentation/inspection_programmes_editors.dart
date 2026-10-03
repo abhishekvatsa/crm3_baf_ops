@@ -100,6 +100,7 @@ class _InspectionDefinitionEditorState
   late List<InspectionReadingField> _readingFields;
   late bool _requiresCharge;
   late Set<String> _componentIds;
+  bool _checkingCapability = false;
 
   @override
   void initState() {
@@ -168,6 +169,10 @@ class _InspectionDefinitionEditorState
       orElse: () => activeClasses.first,
     );
     final nodes = ref.watch(assetHierarchyNodesProvider(_assetClassId));
+    final v2Available = inspectionV2AuthoringAvailable(
+      ref.watch(inspectionV2AuthoringAvailabilityProvider),
+      ref.watch(currentAppUserProvider),
+    );
     return AlertDialog(
       insetPadding: const EdgeInsets.all(BafSpacing.md),
       title: Text(
@@ -320,40 +325,45 @@ class _InspectionDefinitionEditorState
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
                 const SizedBox(height: BafSpacing.sm),
+                if (!v2Available) const _InspectionAuthoringNotice(),
                 if (_readingFields.isNotEmpty)
-                  InspectionReadingContractEditor(
-                    fields: _readingFields,
-                    onChanged: (fields) =>
-                        setState(() => _readingFields = fields),
+                  AbsorbPointer(
+                    absorbing: !v2Available,
+                    child: InspectionReadingContractEditor(
+                      fields: _readingFields,
+                      onChanged: (fields) =>
+                          setState(() => _readingFields = fields),
+                    ),
                   )
                 else ...[
                   BafHorizontalControlRail(
                     child: SegmentedButton<InspectionValueType>(
-                      segments: const [
-                        ButtonSegment(
+                      segments: [
+                        const ButtonSegment(
                           value: InspectionValueType.number,
                           icon: Icon(Icons.numbers_rounded),
                           label: Text('Number'),
                         ),
-                        ButtonSegment(
+                        const ButtonSegment(
                           value: InspectionValueType.boolean,
                           icon: Icon(Icons.toggle_on_outlined),
                           label: Text('Yes/No'),
                         ),
-                        ButtonSegment(
+                        const ButtonSegment(
                           value: InspectionValueType.text,
                           icon: Icon(Icons.notes_rounded),
                           label: Text('Text'),
                         ),
-                        ButtonSegment(
+                        const ButtonSegment(
                           value: InspectionValueType.choice,
                           icon: Icon(Icons.list_alt_rounded),
                           label: Text('Choice'),
                         ),
                         ButtonSegment(
                           value: InspectionValueType.date,
-                          icon: Icon(Icons.calendar_today_outlined),
-                          label: Text('Date'),
+                          enabled: v2Available,
+                          icon: const Icon(Icons.calendar_today_outlined),
+                          label: const Text('Date'),
                         ),
                       ],
                       selected: {_valueType},
@@ -427,7 +437,7 @@ class _InspectionDefinitionEditorState
                     ),
                   OutlinedButton.icon(
                     key: const ValueKey('inspection-enable-multiple-readings'),
-                    onPressed: _upgradeReadingContract,
+                    onPressed: v2Available ? _upgradeReadingContract : null,
                     icon: const Icon(Icons.add),
                     label: const Text('Add another reading'),
                   ),
@@ -474,7 +484,10 @@ class _InspectionDefinitionEditorState
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          onPressed: () => _submit(selectedClass),
+          onPressed:
+              _checkingCapability || (_readingFields.isNotEmpty && !v2Available)
+              ? null
+              : () => _submit(selectedClass),
           icon: const Icon(Icons.save_outlined),
           label: const Text('Save version'),
         ),
@@ -483,6 +496,12 @@ class _InspectionDefinitionEditorState
   }
 
   Future<void> _upgradeReadingContract({bool asDate = false}) async {
+    if (!inspectionV2AuthoringAvailable(
+      ref.read(inspectionV2AuthoringAvailabilityProvider),
+      ref.read(currentAppUserProvider),
+    )) {
+      return;
+    }
     final title = _title.text.trim();
     final label = title.isNotEmpty && title.length <= 120 ? title : 'Reading 1';
     final id = 'reading_${const Uuid().v4().replaceAll('-', '')}';
@@ -524,7 +543,7 @@ class _InspectionDefinitionEditorState
     setState(() => _readingFields = [original, added]);
   }
 
-  void _submit(AssetClassRecord selectedClass) {
+  Future<void> _submit(AssetClassRecord selectedClass) async {
     if (!_formKey.currentState!.validate()) return;
     final min = double.tryParse(_minimum.text.trim());
     final max = double.tryParse(_maximum.text.trim());
@@ -544,6 +563,13 @@ class _InspectionDefinitionEditorState
         );
         return;
       }
+    }
+    if (_readingFields.isNotEmpty) {
+      setState(() => _checkingCapability = true);
+      final allowed = await _requireNewInspectionV2Authoring(context, ref);
+      if (!mounted) return;
+      setState(() => _checkingCapability = false);
+      if (!allowed) return;
     }
     Navigator.pop(
       context,
@@ -618,7 +644,7 @@ class _InspectionCampaignDraft {
   };
 }
 
-class _InspectionCampaignEditor extends StatefulWidget {
+class _InspectionCampaignEditor extends ConsumerStatefulWidget {
   const _InspectionCampaignEditor({
     required this.definitions,
     required this.assets,
@@ -636,11 +662,13 @@ class _InspectionCampaignEditor extends StatefulWidget {
   final List<InspectionCampaign> closedCampaigns;
 
   @override
-  State<_InspectionCampaignEditor> createState() =>
+  ConsumerState<_InspectionCampaignEditor> createState() =>
       _InspectionCampaignEditorState();
 }
 
-class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
+class _InspectionCampaignEditorState
+    extends ConsumerState<_InspectionCampaignEditor> {
+  bool _checkingCapability = false;
   final _formKey = GlobalKey<FormState>();
   late InspectionDefinition _definition;
   late final TextEditingController _purpose;
@@ -680,6 +708,10 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final v2Available = inspectionV2AuthoringAvailable(
+      ref.watch(inspectionV2AuthoringAvailabilityProvider),
+      ref.watch(currentAppUserProvider),
+    );
     return AlertDialog(
       insetPadding: const EdgeInsets.all(BafSpacing.md),
       title: const Text('New inspection programme'),
@@ -724,6 +756,8 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
                     _baselineCampaignId = null;
                   }),
                 ),
+                if (_definition.frozen.isMultiReading && !v2Available)
+                  const _InspectionAuthoringNotice(),
                 const SizedBox(height: BafSpacing.md),
                 TextFormField(
                   controller: _purpose,
@@ -829,7 +863,11 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
           child: const Text('Cancel'),
         ),
         FilledButton.icon(
-          onPressed: _submit,
+          onPressed:
+              _checkingCapability ||
+                  (_definition.frozen.isMultiReading && !v2Available)
+              ? null
+              : _submit,
           icon: const Icon(Icons.radar_outlined),
           label: const Text('Open programme'),
         ),
@@ -837,7 +875,7 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
     );
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_roles.isEmpty) {
       _showEditorError(context, 'Select at least one observer role.');
@@ -882,6 +920,13 @@ class _InspectionCampaignEditorState extends State<_InspectionCampaignEditor> {
         'This programme creates $expected targets. Split it so each campaign has at most 500.',
       );
       return;
+    }
+    if (_definition.frozen.isMultiReading) {
+      setState(() => _checkingCapability = true);
+      final allowed = await _requireNewInspectionV2Authoring(context, ref);
+      if (!mounted) return;
+      setState(() => _checkingCapability = false);
+      if (!allowed) return;
     }
     Navigator.pop(
       context,

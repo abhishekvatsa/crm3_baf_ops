@@ -452,7 +452,11 @@ jobs:
           npm run test:function-fleet-runtime-campaign
           npm run test:distribution-readback-custody
           node --test --test-concurrency=2 tools/release/clientBackendCompatibility31.development-tool.test.mjs tools/release/clientBuildToolingCompatibility31.test.cjs tools/release/clientBuildToolingGitSnapshots31.test.cjs tools/release/collectClientBuildToolingRuntime31.test.cjs tools/release/clientBuildToolingReadbacks31.test.cjs tools/release/collectClientDevelopmentToolIam31.test.cjs
-          node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs
+          # Expand only the separately versioned business-source and neutral bundle suites.
+          shopt -s failglob
+          test -f tools/release/privateEvidenceBundle31.test.cjs
+          business31_tests=(tools/release/business31*.test.cjs tools/release/privateEvidenceBundle31.test.cjs)
+          node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs "${business31_tests[@]}"
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 

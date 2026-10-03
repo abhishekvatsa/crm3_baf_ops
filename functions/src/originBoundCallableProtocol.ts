@@ -1,5 +1,7 @@
 import {HttpsError} from "firebase-functions/v2/https";
 import {canonicalApprovedUserAuthority} from "./userAuthority";
+import {INSPECTION_V2_AUTHORING_CAPABILITY, inspectionV2AuthoringEnabled}
+  from "./maintenanceWorkflow/inspectionAuthoringPolicy";
 
 type JsonMap = {[key: string]: unknown};
 export type OriginBoundCallableName =
@@ -95,7 +97,9 @@ export async function executeOriginBoundCallable<T>(args: {
     return {
       schemaVersion: 1, callableName: args.callableName, protocolVersion: 2,
       capabilityRevision: contract.capabilityRevision,
-      capabilities: [...contract.capabilities],
+      capabilities: [...contract.capabilities,
+        ...(args.callableName === "executeMaintenanceWorkflowCommandV2" &&
+          inspectionV2AuthoringEnabled() ? [INSPECTION_V2_AUTHORING_CAPABILITY] : [])],
     };
   }
   if (recovery) {
