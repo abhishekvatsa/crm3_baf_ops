@@ -144,252 +144,51 @@ class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
 class PlantOverviewPanel extends StatelessWidget {
   final AsyncValue<PlantAssetOverview> overview;
   final VoidCallback onOpen;
-  final ValueChanged<AssetConditionFilter>? onOpenFiltered;
+  final ValueChanged<String>? onOpenClass;
 
   const PlantOverviewPanel({
     super.key,
     required this.overview,
     required this.onOpen,
-    this.onOpenFiltered,
+    this.onOpenClass,
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: BafColors.card,
-        border: Border.all(color: BafColors.border),
-        borderRadius: BorderRadius.circular(BafRadius.medium),
-        boxShadow: BafShadows.subtle,
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(
+      color: BafColors.card,
+      border: Border.all(color: BafColors.border),
+      borderRadius: BorderRadius.circular(BafRadius.medium),
+      boxShadow: BafShadows.subtle,
+    ),
+    child: overview.when(
+      skipLoadingOnRefresh: false,
+      skipLoadingOnReload: false,
+      loading: () => const SizedBox(
+        height: 132,
+        child: Center(child: CircularProgressIndicator()),
       ),
-      child: overview.when(
-        loading: () => const SizedBox(
-          height: 132,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-        error: (error, _) => InkWell(
+      error: (error, _) => Material(
+        color: Colors.transparent,
+        child: ListTile(
           onTap: onOpen,
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          child: const Padding(
-            padding: EdgeInsets.all(BafSpacing.lg),
-            child: Row(
-              children: [
-                Icon(Icons.error_outline_rounded, color: BafColors.danger),
-                SizedBox(width: BafSpacing.md),
-                Expanded(
-                  child: Text(
-                    'Plant condition data needs attention. Open the board for details.',
-                    style: TextStyle(color: BafColors.textPrimary),
-                  ),
-                ),
-                Icon(Icons.chevron_right_rounded),
-              ],
-            ),
+          leading: const Icon(
+            Icons.error_outline_rounded,
+            color: BafColors.danger,
           ),
-        ),
-        data: (value) => InkWell(
-          onTap: onOpen,
-          borderRadius: BorderRadius.circular(BafRadius.medium),
-          child: Padding(
-            padding: const EdgeInsets.all(BafSpacing.lg),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: BafColors.assets.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(BafRadius.small),
-                      ),
-                      child: const Icon(
-                        Icons.precision_manufacturing_outlined,
-                        color: BafColors.assets,
-                        size: 22,
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.sm),
-                    Expanded(
-                      child: Text(
-                        value.hasCompleteEvidence
-                            ? 'Plant condition'
-                            : 'Plant condition — evidence incomplete',
-                        style: const TextStyle(
-                          color: BafColors.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    Flexible(
-                      child: Text(
-                        value.hasCompleteEvidence
-                            ? '${value.available}/${value.total}'
-                            : '${value.total} recorded',
-                        textAlign: TextAlign.end,
-                        style: const TextStyle(
-                          color: BafColors.assets,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: BafSpacing.xs),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: BafColors.textSecondary,
-                    ),
-                  ],
-                ),
-                if (!value.hasCompleteEvidence) ...[
-                  const SizedBox(height: BafSpacing.sm),
-                  Text(
-                    '${value.available} verified available · '
-                    '${value.unverifiedWorkflowEvidence > 0 ? '${value.unverifiedWorkflowEvidence} condition unverified' : 'inventory evidence incomplete'}',
-                    key: const ValueKey('plant-condition-evidence-summary'),
-                    style: const TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: BafSpacing.md),
-                if (value.total == 0)
-                  Text(
-                    value.evidenceWarnings.isEmpty
-                        ? 'No active physical assets are registered yet.'
-                        : 'No active assets could be verified from the available evidence.',
-                    style: const TextStyle(color: BafColors.textSecondary),
-                  )
-                else ...[
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final width = _metricWidth(context, constraints);
-                      return Wrap(
-                        spacing: BafSpacing.xs,
-                        runSpacing: BafSpacing.xs,
-                        children: [
-                          _PlantMetric(
-                            width: width,
-                            value: value.available,
-                            label: value.hasCompleteEvidence
-                                ? 'Available'
-                                : 'Verified available',
-                            keyLabel: 'available',
-                            color: BafColors.success,
-                            onTap: () =>
-                                _openFilter(AssetConditionFilter.available),
-                          ),
-                          _PlantMetric(
-                            width: width,
-                            value: value.issueUnavailable,
-                            label: _issueUnavailableLabel,
-                            keyLabel: 'unavailable',
-                            color: BafColors.cobalt,
-                            onTap: () =>
-                                _openFilter(AssetConditionFilter.unavailable),
-                          ),
-                          _PlantMetric(
-                            width: width,
-                            value: value.underMaintenance,
-                            label: 'Maintenance',
-                            color: BafColors.maintenance,
-                            onTap: () =>
-                                _openFilter(AssetConditionFilter.maintenance),
-                          ),
-                          _PlantMetric(
-                            width: width,
-                            value: value.temporarilyBlocked,
-                            label: 'Stuck-up',
-                            color: BafColors.instrument,
-                            onTap: () =>
-                                _openFilter(AssetConditionFilter.stuckUp),
-                          ),
-                          _PlantMetric(
-                            width: width,
-                            value: value.down,
-                            label: 'Down',
-                            color: BafColors.danger,
-                            onTap: () => _openFilter(AssetConditionFilter.down),
-                          ),
-                          _PlantMetric(
-                            width: width,
-                            value: value.unfit,
-                            label: 'Unfit',
-                            color: BafColors.warning,
-                            onTap: () =>
-                                _openFilter(AssetConditionFilter.unfit),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: BafSpacing.sm),
-                  const Text(
-                    'Condition counts can overlap.',
-                    style: TextStyle(
-                      color: BafColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: BafSpacing.sm),
-                  ...value.classes
-                      .where(
-                        (summary) =>
-                            summary.total > 0 ||
-                            (summary.assetClass.legacyAssetTypeKey ==
-                                    'innerCover' &&
-                                value.innerCoverStock != null),
-                      )
-                      .map(
-                        (summary) => _PlantClassConditionSummary(
-                          summary,
-                          stock:
-                              summary.assetClass.legacyAssetTypeKey ==
-                                  'innerCover'
-                              ? value.innerCoverStock?.forClass(
-                                  summary.assetClass.id,
-                                )
-                              : null,
-                        ),
-                      ),
-                  if (value.baseCoverReconciliation case final reconciliation?)
-                    BaseCoverReconciliationPanel(
-                      summary: reconciliation,
-                      onReviewBase: (row) => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => AssetConditionBoard(
-                            initialFilter: AssetConditionFilter.all,
-                            initialAssetClassId: row.base.assetClassId,
-                          ),
-                        ),
-                      ),
-                      onReviewLinks: () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const InnerCoverLifecycleScreen(),
-                        ),
-                      ),
-                    ),
-                ],
-              ],
-            ),
+          title: const Text(
+            'Plant condition data needs attention. Open the board for details.',
           ),
+          trailing: const Icon(Icons.chevron_right_rounded),
         ),
       ),
-    );
-  }
-
-  void _openFilter(AssetConditionFilter filter) {
-    final callback = onOpenFiltered;
-    if (callback != null) {
-      callback(filter);
-    } else {
-      onOpen();
-    }
-  }
+      data: (value) => _HomePlantClassOverview(
+        overview: value,
+        onOpen: onOpen,
+        onOpenClass: onOpenClass,
+      ),
+    ),
+  );
 }
 
 class _ConditionBoardBody extends StatelessWidget {
@@ -415,7 +214,9 @@ class _ConditionBoardBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (overview.total == 0 && overview.evidenceWarnings.isEmpty) {
+    if (overview.total == 0 &&
+        overview.hasCompleteEvidence &&
+        overview.classes.every((summary) => summary.inventoryComplete)) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(BafSpacing.xl),
@@ -430,13 +231,14 @@ class _ConditionBoardBody extends StatelessWidget {
     final visibleClasses = overview.classes
         .where(
           (summary) =>
-              summary.total > 0 &&
+              (summary.total > 0 || !summary.inventoryComplete) &&
               (selectedAssetClassId == null ||
                   summary.assetClass.id == selectedAssetClassId),
         )
         .map(
           (summary) => PlantAssetClassSummary(
             assetClass: summary.assetClass,
+            inventoryComplete: summary.inventoryComplete,
             assets: summary.assets
                 .where(_matchesSelectedCondition)
                 .toList(growable: false),
@@ -445,7 +247,7 @@ class _ConditionBoardBody extends StatelessWidget {
                 .toList(growable: false),
           ),
         )
-        .where((summary) => summary.total > 0)
+        .where((summary) => summary.total > 0 || !summary.inventoryComplete)
         .toList(growable: false);
 
     return ListView(
@@ -563,7 +365,7 @@ class _ConditionBoardBody extends StatelessWidget {
               onSelected: (_) => onAssetClassChanged(null),
             ),
             for (final summary in overview.classes.where(
-              (item) => item.total > 0,
+              (item) => item.total > 0 || !item.inventoryComplete,
             ))
               ChoiceChip(
                 key: ValueKey<String>(
@@ -694,7 +496,7 @@ class _AssetClassSection extends StatelessWidget {
                 ),
               ),
               Text(
-                '${summary.total} assets',
+                '${summary.total} ${summary.inventoryComplete ? 'assets' : 'recorded'}',
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 12,
@@ -703,6 +505,17 @@ class _AssetClassSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: BafSpacing.sm),
+          if (!summary.inventoryComplete)
+            Padding(
+              padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+              child: Text(
+                'Inventory incomplete. The records shown cannot establish the full class position. Refresh before making decisions.',
+                key: ValueKey(
+                  'plant-class-incomplete-${summary.assetClass.id}',
+                ),
+                style: const TextStyle(color: BafColors.warning, fontSize: 13),
+              ),
+            ),
           if (stock case final value?) InnerCoverStockPanel(summary: value),
           Container(
             decoration: BoxDecoration(

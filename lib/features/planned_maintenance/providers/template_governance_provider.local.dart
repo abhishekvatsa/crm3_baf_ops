@@ -104,7 +104,11 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     required AppUser actor,
     String? reason,
   }) async {
-    final published = await _publishReviewedVersion(record, actor: actor, reason: reason);
+    final published = await _publishReviewedVersion(
+      record,
+      actor: actor,
+      reason: reason,
+    );
     // The caller changes only after all version, pointer and audit writes commit.
     _copyTemplateVersionLifecycleState(record, published, isSynced: false);
     record
@@ -677,8 +681,9 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
 
   @override
   Future<RemoteRecordApplyResult<TemplateVersion>> applyVersionFromRemote(
-    TemplateVersion remote,
-  ) async {
+    TemplateVersion remote, {
+    Future<void> Function()? beforeApply,
+  }) async {
     final firestoreId = remote.firestoreId?.trim();
     if (firestoreId == null || firestoreId.isEmpty || remote.isDeleted) {
       throw ArgumentError(
@@ -687,10 +692,13 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
     }
 
     return isar.writeTxn<RemoteRecordApplyResult<TemplateVersion>>(() async {
+      await beforeApply?.call();
       final locals = await isar.templateVersions
           .filter()
           .firestoreIdEqualTo(firestoreId)
           .findAll();
+      // Recheck after the query await while the same write transaction is held.
+      await beforeApply?.call();
       if (locals.length > 1) {
         return RemoteRecordApplyResult<TemplateVersion>(
           RemoteRecordApplyOutcome.duplicateLocalIdentity,
@@ -704,6 +712,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
           ..firestoreId = firestoreId
           ..isSynced = true;
         await isar.templateVersions.put(remote);
+        await beforeApply?.call();
         return RemoteRecordApplyResult<TemplateVersion>(
           RemoteRecordApplyOutcome.inserted,
           localRecord: remote,
@@ -753,6 +762,7 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
         ..firestoreId = firestoreId
         ..isSynced = true;
       await isar.templateVersions.put(remote);
+      await beforeApply?.call();
       return RemoteRecordApplyResult<TemplateVersion>(
         RemoteRecordApplyOutcome.updated,
         localRecord: remote,

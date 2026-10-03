@@ -138,6 +138,7 @@ PlantAssetOverview applyInnerCoverDependencies({
       .toList(growable: false);
   return PlantAssetOverview(
     assets: List.unmodifiable(assets),
+    physicalInventoryComplete: overview.physicalInventoryComplete,
     innerCovers: List.unmodifiable(covers),
     evidenceWarnings: List.unmodifiable(warnings.toList()..sort()),
     innerCoverEvidenceWarnings: overview.innerCoverEvidenceWarnings,
@@ -153,6 +154,7 @@ PlantAssetOverview applyInnerCoverDependencies({
       for (final cls in overview.classes)
         PlantAssetClassSummary(
           assetClass: cls.assetClass,
+          inventoryComplete: cls.inventoryComplete,
           assets: assets
               .where((a) => a.asset.assetClassId == cls.assetClass.id)
               .toList(),

@@ -222,32 +222,10 @@ extension _TemplatePublisherSupport on _TemplatePublisherScreenState {
     TemplateVersion source, {
     required int versionNumber,
   }) {
-    final successor = _cloneVersion(source)
-      ..id = 0
-      ..firestoreId = null
-      ..sourceVersionFirestoreId = source.firestoreId
-      ..versionNumber = versionNumber
-      ..version = 1
-      ..status = TemplateVersionStatus.draft
-      ..isSynced = false
-      ..isDeleted = false
-      ..deletedAt = null
-      ..deletedByUid = null
-      ..deletedByName = null
-      ..deleteReason = null
-      ..publishedByUid = null
-      ..publishedByName = null
-      ..publishedAt = null
-      ..retiredByUid = null
-      ..retiredByName = null
-      ..retiredAt = null
-      ..retireReason = null
-      ..createdByUid = null
-      ..createdByName = null
-      ..createdAt = DateTime.now()
-      ..updatedAt = DateTime.now();
-    successor.refreshClosureReviewStateFromSnapshots();
-    return successor;
+    return TemplateVersion.newPublicationCopy(
+      source,
+      versionNumber: versionNumber,
+    );
   }
 
   TemplatePackage _clonePackage(TemplatePackage source) {

@@ -104,7 +104,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Management pulse'), findsOneWidget);
-      expect(find.text('Availability'), findsOneWidget);
+      expect(find.text('Availability'), findsNothing);
       expect(find.text('Action queues'), findsOneWidget);
       expect(find.text('Assurance queues'), findsOneWidget);
       expect(find.byTooltip('Open operations reports'), findsOneWidget);

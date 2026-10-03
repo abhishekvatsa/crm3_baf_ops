@@ -6,7 +6,8 @@
     "brace-expansion": "file:../brace-expansion-compat",
     "crm3_baf_ops": "file:../..",
     "firebase-tools": "15.22.4",
-    "stream-json": "file:../stream-json-compat"
+    "stream-json": "file:../stream-json-compat",
+    "braces": "file:../braces-depth-guard"
   },
   "overrides": {
     "@google-cloud/pubsub@5.3.1": {
@@ -29,6 +30,7 @@
     "re2": "1.26.1",
     "stream-json": "$stream-json",
     "tar": "7.5.21",
-    "undici": "8.10.2"
+    "undici": "8.10.2",
+    "braces": "$braces"
   }
 }

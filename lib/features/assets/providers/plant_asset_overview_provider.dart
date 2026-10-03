@@ -175,6 +175,8 @@ final plantAssetOverviewProvider = Provider<AsyncValue<PlantAssetOverview>>((
       ...?localTickets.asData?.value.where((row) => !row.isSynced),
     ],
     populationWarnings: warnings,
+    physicalInventoryComplete:
+        classes.requireValue.complete && assets.requireValue.complete,
     unverifiedSources: unverifiedSources,
     manualSourcesCurrent:
         classes.requireValue.fromServer &&

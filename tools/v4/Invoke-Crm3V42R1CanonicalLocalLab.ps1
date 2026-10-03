@@ -720,6 +720,8 @@ try {
     $compatibilityScript = Join-Path $workspace 'tools/dependencies/verify_brace_expansion_compat.mjs'
     & node $compatibilityScript
     if ($LASTEXITCODE -ne 0) { throw 'Brace expansion compatibility checks failed.' }
+    & node (Join-Path $workspace 'tools/dependencies/verify_braces_depth_guard.mjs') $workspace
+    if ($LASTEXITCODE -ne 0) { throw 'Braces depth and consumer compatibility checks failed.' }
     & node --test (Join-Path $workspace 'tools/dependencies/firebase_json_compat.test.mjs')
     if ($LASTEXITCODE -ne 0) { throw 'Firebase JSON compatibility checks failed.' }
     $firebaseCliEntry = Join-Path (Get-Location) 'node_modules/firebase-tools/lib/bin/firebase.js'

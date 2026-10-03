@@ -9,10 +9,19 @@ import '../../../auth/data/user_model.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../data/workflow_command_record.dart';
 import '../../providers/workflow_providers.dart';
+import '../../repositories/workflow_repository.dart';
 import '../../services/workflow_pull_service.dart';
 
 class WorkflowDiagnosticsScreen extends ConsumerStatefulWidget {
-  const WorkflowDiagnosticsScreen({super.key});
+  const WorkflowDiagnosticsScreen({
+    super.key,
+    this.aggregateId,
+    this.commandTypeKey,
+  }) : assert((aggregateId == null) == (commandTypeKey == null));
+
+  /// Optional exact saved-action review; does not load unrelated quarantine.
+  final String? aggregateId;
+  final String? commandTypeKey;
 
   @override
   ConsumerState<WorkflowDiagnosticsScreen> createState() =>
@@ -25,9 +34,26 @@ class _WorkflowDiagnosticsScreenState
   String? _futureActorUid;
 
   Future<_WorkflowDiagnosticsSnapshot> _load() async {
+    final aggregateId = widget.aggregateId;
+    if (aggregateId != null) {
+      final repository = ref.read(workflowRepositoryProvider);
+      if (repository is! WorkflowCommandJournalReader) {
+        throw StateError('The complete saved-action journal is unavailable.');
+      }
+      final commands = await (repository as WorkflowCommandJournalReader)
+          .readUnsettledCommands(
+            aggregateId: aggregateId,
+            commandTypeKey: widget.commandTypeKey!,
+          );
+      return _WorkflowDiagnosticsSnapshot(
+        quarantine: const [],
+        pendingCommands: commands,
+      );
+    }
     final quarantine = await WorkflowPullService.readQuarantine();
-    final pending =
-        await ref.read(workflowRepositoryProvider).getPendingCommands();
+    final pending = await ref
+        .read(workflowRepositoryProvider)
+        .getPendingCommands();
     return _WorkflowDiagnosticsSnapshot(
       quarantine: quarantine,
       pendingCommands: pending,
@@ -47,8 +73,9 @@ class _WorkflowDiagnosticsScreenState
 
   void _refresh() {
     final actorAsync = ref.read(currentAppUserProvider);
-    final actor =
-        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
+    final actor = actorAsync.isLoading || actorAsync.hasError
+        ? null
+        : actorAsync.value;
     if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
       setState(_clearLoadedDiagnostics);
       return;
@@ -61,8 +88,9 @@ class _WorkflowDiagnosticsScreenState
 
   Future<void> _clearQuarantine() async {
     final actorAsync = ref.read(currentAppUserProvider);
-    final actor =
-        actorAsync.isLoading || actorAsync.hasError ? null : actorAsync.value;
+    final actor = actorAsync.isLoading || actorAsync.hasError
+        ? null
+        : actorAsync.value;
     if (actor == null || !actor.canViewMaintenanceWorkflowDiagnostics) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -152,24 +180,62 @@ class _WorkflowDiagnosticsScreenState
               return BafStatePanel(
                 icon: Icons.sync_problem_outlined,
                 color: BafColors.danger,
-                title:
-                    quarantineNeedsRepair
-                        ? 'Workflow diagnostics need repair'
-                        : 'Workflow diagnostics unavailable',
-                message:
-                    quarantineNeedsRepair
-                        ? 'The local quarantine log is malformed. Clear only this local log before retrying diagnostics.'
-                        : '${snapshot.error}',
-                primaryLabel:
-                    quarantineNeedsRepair ? 'Clear local log' : 'Try again',
-                primaryIcon:
-                    quarantineNeedsRepair
-                        ? Icons.delete_sweep_outlined
-                        : Icons.refresh_rounded,
+                title: quarantineNeedsRepair
+                    ? 'Workflow diagnostics need repair'
+                    : 'Workflow diagnostics unavailable',
+                message: quarantineNeedsRepair
+                    ? 'The local quarantine log is malformed. Clear only this local log before retrying diagnostics.'
+                    : '${snapshot.error}',
+                primaryLabel: quarantineNeedsRepair
+                    ? 'Clear local log'
+                    : 'Try again',
+                primaryIcon: quarantineNeedsRepair
+                    ? Icons.delete_sweep_outlined
+                    : Icons.refresh_rounded,
                 onPrimary: quarantineNeedsRepair ? _clearQuarantine : _refresh,
               );
             }
             final data = snapshot.data!;
+            if (widget.aggregateId != null) {
+              return ListView(
+                padding: const EdgeInsets.all(BafSpacing.lg),
+                children: [
+                  const Text(
+                    'Saved assessment requests',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: BafSpacing.sm),
+                  const Text(
+                    'Check these original requests and the current assessment with an Admin or SI. This view preserves the records; it does not retry, clear, or replace a decision.',
+                  ),
+                  if (data.pendingCommands.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: BafSpacing.lg),
+                      child: Text(
+                        'No saved request remains in this local journal. Check the current server assessment before starting another decision.',
+                      ),
+                    ),
+                  for (final command in data.pendingCommands)
+                    Card(
+                      child: ListTile(
+                        key: ValueKey('saved-assessment-${command.commandId}'),
+                        title: Text(
+                          command.stateKey == 'manualReview' ||
+                                  command.stateKey == 'rejected'
+                              ? 'Needs technical review'
+                              : 'Outcome is still being checked',
+                        ),
+                        subtitle: Text(
+                          'Request: ${command.commandId}\n'
+                          'Recorded status: ${command.stateKey}\n'
+                          'Attempts: ${command.attemptCount}'
+                          '${command.lastErrorMessage == null ? '' : '\n${command.lastErrorMessage}'}',
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            }
             return RefreshIndicator(
               onRefresh: () async {
                 _refresh();
@@ -186,14 +252,14 @@ class _WorkflowDiagnosticsScreenState
                     trailing: StatusBadge(
                       label:
                           data.quarantine.isEmpty &&
-                                  data.pendingCommands.isEmpty
-                              ? 'Healthy'
-                              : 'Attention needed',
+                              data.pendingCommands.isEmpty
+                          ? 'Healthy'
+                          : 'Attention needed',
                       color:
                           data.quarantine.isEmpty &&
-                                  data.pendingCommands.isEmpty
-                              ? BafColors.success
-                              : BafColors.warning,
+                              data.pendingCommands.isEmpty
+                          ? BafColors.success
+                          : BafColors.warning,
                     ),
                   ),
                   const SizedBox(height: BafSpacing.lg),
@@ -211,8 +277,9 @@ class _WorkflowDiagnosticsScreenState
                         ),
                       ),
                       TextButton.icon(
-                        onPressed:
-                            data.quarantine.isEmpty ? null : _clearQuarantine,
+                        onPressed: data.quarantine.isEmpty
+                            ? null
+                            : _clearQuarantine,
                         icon: const Icon(Icons.delete_sweep_outlined),
                         label: const Text('Clear local log'),
                       ),
@@ -323,15 +390,14 @@ class _DiagnosticsAccessState extends StatelessWidget {
           accent: BafColors.admin,
         ),
       ),
-      body:
-          showProgress
-              ? BafLoadingPanel(label: title, color: BafColors.admin)
-              : BafStatePanel(
-                icon: Icons.lock_outline_rounded,
-                color: BafColors.audit,
-                title: title,
-                message: message,
-              ),
+      body: showProgress
+          ? BafLoadingPanel(label: title, color: BafColors.admin)
+          : BafStatePanel(
+              icon: Icons.lock_outline_rounded,
+              color: BafColors.audit,
+              title: title,
+              message: message,
+            ),
     );
   }
 }

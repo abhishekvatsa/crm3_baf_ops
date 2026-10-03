@@ -104,6 +104,7 @@ PlantAssetOverview physicalPlantInventory({
   }
   return PlantAssetOverview(
     assets: List.unmodifiable(numbered),
+    physicalInventoryComplete: overview.physicalInventoryComplete,
     innerCovers: List.unmodifiable(covers),
     innerCoverEvidenceWarnings: List.unmodifiable(coverSourceWarnings),
     hasQualifiedInnerCoverInventory: true,
@@ -118,6 +119,12 @@ PlantAssetOverview physicalPlantInventory({
             covers.any((s) => s.profile.assetClassId == cls.id))
           PlantAssetClassSummary(
             assetClass: cls,
+            inventoryComplete: coverClassIds.contains(cls.id)
+                ? coverSourceWarnings.isEmpty &&
+                      coverPopulationWarnings.isEmpty &&
+                      rejectedProfiles.isEmpty &&
+                      rejectedClasses.isEmpty
+                : overview.physicalInventoryComplete,
             assets: numbered
                 .where((s) => s.asset.assetClassId == cls.id)
                 .toList(),

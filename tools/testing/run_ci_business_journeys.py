@@ -7,6 +7,7 @@ and starts/stops only its dedicated Firebase processes through emulators:exec.
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack, contextmanager
 import json
 import os
 from pathlib import Path
@@ -22,11 +23,102 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "governance/ci-business-journeys.json"
 PROJECT = "demo-crm3-ci-journeys"
 DEV_APP = "in.co.sail.bsl.crm3.bafops.dev"
-PORTS = (19099, 18080, 15001, 14400, 14500, 19150, 19299, 19499)
+PORTS = (19099, 18080, 15001, 15002, 14400, 14500, 19150, 19299, 19499)
 OUTPUT = ROOT / "output/ci-business-journeys"
 CLI = ROOT / "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js"
 HTTP_BOUNDARY_COMMAND = ["node", "functions/tools/run_retained_queue_emulator_tests.mjs", "--existing-ci"]
 HTTP_BOUNDARY_MARKER = "CF01_HTTP_BOUNDARY_PASS"
+RED_PATHS = ("integration_test/dev_required_red_journey_test.dart",
+             "integration_test/dev_required_red_resume_journey_test.dart")
+RED_RELAY = "tools/testing/required_red_transport_relay.py"
+IC_PATHS = ("integration_test/dev_inner_cover_fitness_journey_test.dart",
+            "integration_test/dev_withdrawn_inner_cover_journey_test.dart")
+
+
+def require_red_sequence(journeys):
+    selected = [row for row in journeys if row["path"] in RED_PATHS]
+    if not selected:
+        return
+    if ([row["path"] for row in selected] != list(RED_PATHS)
+            or [row["preserveAppData"] for row in selected] != [False, True]
+            or [row["successMarker"] for row in selected] !=
+               ["DEV_REQUIRED_RED_PREPARED", "DEV_REQUIRED_RED_PASS"]):
+        raise ValueError("Required RED proof needs the exact prepare/resume pair")
+    indexes = [journeys.index(row) for row in selected]
+    if indexes[1] != indexes[0] + 1:
+        raise ValueError("Required RED resume must immediately follow prepare")
+
+
+def require_inner_cover_sequence(journeys):
+    # Withdrawal consumes the case created and released by the actual fitness
+    # journey. Resetting this pair's app data is safe; resetting its backend or
+    # substituting a pre-seeded case is not a valid business proof.
+    selected = [row for row in journeys if row["path"] in IC_PATHS]
+    if not selected:
+        return
+    if ([row["path"] for row in selected] != list(IC_PATHS)
+            or [row["preserveAppData"] for row in selected] != [False, False]
+            or [row["successMarker"] for row in selected] !=
+               ["DEV_IC_FITNESS_PASS", "DEV_WITHDRAWN_PASS"]
+            or [row["actorEmail"] for row in selected] !=
+               ["dev.operations@example.invalid", "dev.cf01-b@example.invalid"]):
+        raise ValueError("Inner Cover proof needs the exact fitness/withdrawal pair and actors")
+    indexes = [journeys.index(row) for row in selected]
+    if indexes[1] != indexes[0] + 1:
+        raise ValueError("Inner Cover withdrawal must immediately follow fitness")
+
+
+@contextmanager
+def required_red_relay(env):
+    """Own only this child; do not attach to an existing relay or reuse evidence."""
+    require_isolated_environment(env, inside=True)
+    evidence = OUTPUT / "required-red-relay"
+    log_path = OUTPUT / "required-red-relay.log"
+    if evidence.exists() or log_path.exists():
+        raise RuntimeError("Required RED relay evidence already exists; refusing reuse")
+    with socket.socket() as probe:
+        if probe.connect_ex(("127.0.0.1", 15002)) == 0:
+            raise RuntimeError("Required RED relay port is occupied")
+    with log_path.open("x", encoding="utf-8") as log:
+        process = subprocess.Popen([sys.executable, RED_RELAY, "--evidence-dir", str(evidence)],
+                                   cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            deadline = time.monotonic() + 20
+            while True:
+                if process.poll() is not None:
+                    raise RuntimeError("Required RED relay exited before readiness")
+                lines = log_path.read_text(encoding="utf-8", errors="replace").splitlines()
+                ready = [line.removeprefix("REQUIRED_RED_RELAY_READY ") for line in lines
+                         if line.startswith("REQUIRED_RED_RELAY_READY ")]
+                if ready:
+                    expected = {"listen": ["127.0.0.1", 15002], "upstream": ["127.0.0.1", 15001],
+                                "project": PROJECT, "businessResponsesFabricated": False}
+                    if len(ready) != 1 or json.loads(ready[0]) != expected:
+                        raise RuntimeError("Unexpected Required RED relay readiness identity")
+                    break
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("Required RED relay readiness timed out")
+                time.sleep(0.1)
+            yield process
+            if process.poll() is not None:
+                raise RuntimeError("Required RED relay exited during the two-process proof")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=10)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait(timeout=10)
+
+
+
+
+def require_fresh_output():
+    # A later attempt must retain the original seed, assertion and result logs.
+    # The outer process creates this directory empty; only its child fills it.
+    if OUTPUT.exists() and (not OUTPUT.is_dir() or any(OUTPUT.iterdir())):
+        raise RuntimeError("Business journey output already contains evidence; use a fresh attempt without overwriting it")
 
 
 def load_manifest():
@@ -52,7 +144,7 @@ def flutter_command(journey, device):
             f"--dart-define=CRM_DEMO_PROJECT_ID={PROJECT}",
             "--dart-define=CRM_FIRESTORE_EMULATOR_PORT=18080",
             "--dart-define=CRM_AUTH_EMULATOR_PORT=19099",
-            "--dart-define=CRM_FUNCTIONS_EMULATOR_PORT=15001",
+            f"--dart-define=CRM_FUNCTIONS_EMULATOR_PORT={15002 if journey['path'] in RED_PATHS else 15001}",
             f"--dart-define=CRM_DEV_EMAIL={journey['actorEmail']}",
             f"--dart-define=CRM_DEV_DISPLAY_NAME={journey['actorName']}",
             "--dart-define=CRM_QUALITY_SI_EMAIL=dev.usability-si@example.invalid",
@@ -199,7 +291,12 @@ def prepare_ci_journey(journey, device, env):
 
 
 def execute_journeys(device, manifest, env):
+    require_red_sequence(manifest["journeys"])
+    require_inner_cover_sequence(manifest["journeys"])
+    require_fresh_output()
     report = {"project": PROJECT, "physicalDeviceEvidence": False,
+              "artifactKind": "CI demo candidate attempt", "productionDistribution": False,
+              "attempts": [{"path": row["path"], "status": "untested"} for row in manifest["journeys"]],
               "productionBackendUsed": False, "httpBoundary": {"status": "notRun"},
               "journeys": [], "status": "failed"}
     try:
@@ -209,24 +306,33 @@ def execute_journeys(device, manifest, env):
         if not re.search(r"^" + HTTP_BOUNDARY_MARKER + r" tests=7 report=.+$", boundary, re.MULTILINE):
             raise RuntimeError("Authenticated CF01 HTTP proof did not provide its verified completion marker")
         report["httpBoundary"] = {"status": "passed", "tests": 7, "log": "cf01-http-boundary.log"}
-        for journey in manifest["journeys"]:
-            if not journey["preserveAppData"]:
-                prepare_ci_journey(journey, device, env)
-            else:
-                # A real new process, retaining the preceding journey's local data.
-                subprocess.run(["adb", "-s", device, "shell", "am", "force-stop", DEV_APP],
-                               timeout=15, check=True)
-            started = time.monotonic()
-            log = run_logged(flutter_command(journey, device), Path(journey["path"]).stem,
-                             journey["timeoutSeconds"], env)
-            if "Uninstalling old version..." in log:
-                raise RuntimeError("Flutter replaced the installed app by uninstalling; data/permission continuity is unproven")
-            if journey["successMarker"] not in log:
-                raise RuntimeError("Flutter exited without the journey's canonical-readback completion marker")
-            if "dev_planned_work" in journey["path"] and "DEV_PLANNED_UI_PUBLISHED" not in log:
-                raise RuntimeError("Fresh CI planned work must publish through the UI during this run")
-            report["journeys"].append({"path": journey["path"], "status": "passed",
-                                       "seconds": round(time.monotonic() - started, 2)})
+        with ExitStack() as owned:
+            relay = None
+            for index, journey in enumerate(manifest["journeys"]):
+                attempt = report["attempts"][index]
+                attempt["status"] = "failed"
+                if journey["path"] == RED_PATHS[0]:
+                    relay = owned.enter_context(required_red_relay(env))
+                if journey["path"] in RED_PATHS and (relay is None or relay.poll() is not None):
+                    raise RuntimeError("Required RED process needs its owned live relay")
+                if not journey["preserveAppData"]:
+                    prepare_ci_journey(journey, device, env)
+                else:
+                    # A real new process, retaining the preceding journey's local data.
+                    subprocess.run(["adb", "-s", device, "shell", "am", "force-stop", DEV_APP],
+                                   timeout=15, check=True)
+                started = time.monotonic()
+                log = run_logged(flutter_command(journey, device), Path(journey["path"]).stem,
+                                 journey["timeoutSeconds"], env)
+                if "Uninstalling old version..." in log:
+                    raise RuntimeError("Flutter replaced the installed app by uninstalling; data/permission continuity is unproven")
+                if journey["successMarker"] not in log:
+                    raise RuntimeError("Flutter exited without the journey's canonical-readback completion marker")
+                if "dev_planned_work" in journey["path"] and "DEV_PLANNED_UI_PUBLISHED" not in log:
+                    raise RuntimeError("Fresh CI planned work must publish through the UI during this run")
+                report["journeys"].append({"path": journey["path"], "status": "passed",
+                                           "seconds": round(time.monotonic() - started, 2)})
+                attempt.update(status="passed", seconds=round(time.monotonic() - started, 2))
         report["status"] = "passed"
     finally:
         (OUTPUT / "result.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -251,7 +357,16 @@ def main(argv=None):
     env = {**os.environ, "CRM3_DEV_APP": "true", "CRM_DEMO_PROJECT_ID": PROJECT,
            "CRM_FIRESTORE_EMULATOR": "127.0.0.1:18080"}
     if args.plan:
-        print(json.dumps({"project": PROJECT, "config": manifest["firebaseConfig"],
+        require_red_sequence(manifest["journeys"])
+        require_inner_cover_sequence(manifest["journeys"])
+        print(json.dumps({"artifactKind": "CI demo candidate plan", "productionDistribution": False,
+                          "requiredRedRelay": {"command": [sys.executable, RED_RELAY, "--evidence-dir", str(OUTPUT / "required-red-relay")],
+                                               "paths": list(RED_PATHS), "port": 15002,
+                                               "lifetime": "one owned child across adjacent prepare/resume; no reused evidence"},
+                          "innerCoverSequence": {"paths": list(IC_PATHS),
+                                                 "backendState": "fitness-created case retained for withdrawal; seed once",
+                                                 "appData": "independent DEV sessions; no seeded case or disposition"},
+                          "project": PROJECT, "config": manifest["firebaseConfig"],
                           "httpBoundary": {"command": HTTP_BOUNDARY_COMMAND,
                                            "after": "seed", "before": "Android journeys",
                                            "successMarker": HTTP_BOUNDARY_MARKER},
@@ -267,6 +382,7 @@ def main(argv=None):
                           "commands": [flutter_command(row, device) for row in manifest["journeys"]]}, indent=2))
         return 0
     require_isolated_environment(os.environ, inside=args.inside_emulators)
+    require_fresh_output()
     OUTPUT.mkdir(parents=True, exist_ok=True)
     if args.inside_emulators:
         execute_journeys(device, manifest, env)

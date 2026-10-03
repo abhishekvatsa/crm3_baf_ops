@@ -113,6 +113,7 @@ enum WorkflowCommandType {
   identifyMaintenanceTicketComponent,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  settleInnerCoverAssessment,
   correctBurnerBlockInstallation,
   correctUvDetectorInstallation,
   raiseCriticalAlarm,

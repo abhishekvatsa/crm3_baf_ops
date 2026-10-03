@@ -9,6 +9,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 MARKER = "PROVISIONAL_V4_ISAR_CODEGEN"
+CURRENT_SCHEMA_VERSION = 12
+
+# Reuse the structural scanner so annotations in comments or strings are inert.
+sys.path.insert(0, str(ROOT / "tools/v4"))
+from dart_structural_audit import strip_strings_and_comments
 
 WORKFLOW = {
     "compliance_attempt_record.dart": "ComplianceAttemptRecord",
@@ -42,16 +47,45 @@ REQUIRED_EXISTING = {
 }
 
 FIELD_RE = re.compile(
-    r"^\s*(?:late\s+)?(String|int|bool|DateTime)(\?)?\s+(\w+)"
-    r"\s*(?:=[^;]*)?;\s*(?://[^\n]*)?$",
+    r"(?:late\s+)?(?:String|int|bool|DateTime)\??\s+(?P<name>\w+)"
+    r"\s*(?:=[^;]*)?;[ \t]*$",
     re.MULTILINE,
 )
+ANNOTATION_NAME_RE = re.compile(r"@[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+IGNORE_RE = re.compile(r"(?<![\w.])@ignore(?=\s|$)")
 
 def fail(msg: str) -> None:
     raise AssertionError(msg)
 
+def annotation_end(text: str, offset: int) -> int:
+    """Consume metadata once; nested arguments cannot repartition annotations."""
+    while offset < len(text) and text[offset] == '@':
+        name = ANNOTATION_NAME_RE.match(text, offset)
+        if name is None:
+            break
+        offset = name.end()
+        while offset < len(text) and text[offset].isspace():
+            offset += 1
+        if offset < len(text) and text[offset] == '(':
+            depth = 1
+            offset += 1
+            while offset < len(text) and depth:
+                char = text[offset]
+                if char == '(':
+                    depth += 1
+                elif char == ')':
+                    depth -= 1
+                elif char == ';':
+                    fail('Unterminated annotation before declaration')
+                offset += 1
+            if depth:
+                fail('Unterminated annotation arguments')
+            while offset < len(text) and text[offset].isspace():
+                offset += 1
+    return offset
+
 def source_fields(path: Path, class_name: str) -> set[str]:
-    text=path.read_text(encoding="utf-8")
+    text=strip_strings_and_comments(path.read_text(encoding="utf-8"))
     class_match=re.search(rf"^class\s+{re.escape(class_name)}\s*{{", text, re.MULTILINE)
     if class_match is None: fail(f"Class {class_name} is absent from {path}")
     open_offset=text.index('{', class_match.start())
@@ -66,10 +100,30 @@ def source_fields(path: Path, class_name: str) -> set[str]:
     if close_offset is None: fail(f"Class {class_name} is unterminated in {path}")
     body=text[open_offset + 1:close_offset]
     fields=set()
-    for match in FIELD_RE.finditer(body):
-        prefix=body[:match.start()]
-        if prefix.count('{') == prefix.count('}') and match.group(3) != 'id':
-            fields.add(match.group(3))
+    offset=0; depth=0
+    while offset < len(body):
+        if depth == 0:
+            while offset < len(body) and body[offset] in ' \t':
+                offset += 1
+            metadata_start=offset
+            offset=annotation_end(body, offset)
+            match=FIELD_RE.match(body, offset)
+            if match is not None:
+                if (match.group('name') != 'id'
+                        and not IGNORE_RE.search(body[metadata_start:offset])):
+                    fields.add(match.group('name'))
+                # An initializer can enter a closure before its first semicolon.
+                # Account for this consumed span before scanning later lines.
+                consumed=body[offset:match.end()]
+                depth += consumed.count('{') - consumed.count('}')
+                offset=match.end()
+        # Visit each remaining character once, keeping method-local fields out.
+        while offset < len(body):
+            char=body[offset]
+            offset += 1
+            if char == '{': depth += 1
+            elif char == '}': depth -= 1
+            elif char == '\n': break
     if not fields: fail(f"No fields parsed from {path}:{class_name}")
     return fields
 
@@ -142,7 +196,8 @@ def verify_migration() -> None:
     startup=(ROOT/'lib/main.dart').read_text(encoding="utf-8")
     identity_repair=(ROOT/'lib/core/services/governed_asset_identity_local_repair.dart').read_text(encoding="utf-8")
     plant_condition_repair=(ROOT/'lib/core/services/maintenance_plant_condition_index_repair.dart').read_text(encoding="utf-8")
-    if 'currentSchemaVersion = 11' not in text: fail('Isar schema version is not v11')
+    if not re.search(r'currentSchemaVersion\s*=\s*12\s*;', text):
+        fail('Isar schema version is not v12')
     if "'v4:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v4 schema fingerprint missing')
     if "'v5:Charge,MaintenanceRecord+WorkflowBridge" not in text: fail('retained v5 schema fingerprint missing')
     if "'v6:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks" not in text: fail('v6 schema fingerprint missing')
@@ -159,6 +214,15 @@ def verify_migration() -> None:
     if '10: _addMaintenancePlantConditionContributionIndex' not in text: fail('v9->v10 migration step missing')
     if '11: _addDurableSubmissionCollection' not in text: fail('v10->v11 migration step missing')
     if '10: <String>{v10SchemaFingerprint}' not in text: fail('retained v10 fingerprint missing')
+    if '12: _addDurableSubmissionReviewOutcomes' not in text: fail('v11->v12 migration step missing')
+    if '11: <String>{v11SchemaFingerprint}' not in text: fail('retained v11 fingerprint missing')
+    if '12: <String>{currentSchemaFingerprint}' not in text: fail('current v12 fingerprint mapping missing')
+    if "'v11:Charge,MaintenanceRecord+WorkflowBridge+OperationalEventIssueLinks+'" not in text:
+        fail('retained v11 fingerprint declaration missing')
+    if not re.search(r"currentSchemaFingerprint\s*=\s*'v12:", text):
+        fail('current v12 fingerprint declaration missing')
+    if 'DurableSubmissionRecord+ReviewOutcomes' not in text:
+        fail('v12 durable review outcome semantics missing')
     if 'DurableSubmissionRecordSchema' not in startup: fail('durable submission collection is not opened')
     if 'repairLegacyOperationalAssuranceRequests(' not in startup:
         fail('v4 operational-assurance post-open repair missing')
@@ -192,7 +256,7 @@ def verify_migration() -> None:
     accepted_block=text.split("acceptedFingerprintsByVersion:",1)[1].split(
         "stepsByTargetVersion:",1
     )[0]
-    if "2: <String>{" in accepted_block:
+    if re.search(r"(?m)^\s*2\s*:\s*<String>\s*\{", accepted_block):
         fail("Repository-unproved v2 fingerprint must not be accepted")
     if ".isar.lock" in guard:
         fail("Lock-only Isar residue must not be treated as durable data")
@@ -242,7 +306,7 @@ def main() -> int:
         if MARKER in path.read_text(encoding='utf-8', errors='ignore'): marked.append(path.relative_to(ROOT))
     if args.release and marked:
         fail('Pinned build_runner output required before release; provisional files: '+', '.join(map(str,marked)))
-    print(f"PASS: v11 Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
+    print(f"PASS: v{CURRENT_SCHEMA_VERSION} Isar schema structure and P-06 provenance verified; provisional_bindings={len(marked)}; release_authority={'NO' if marked else 'YES'}")
     return 0
 
 if __name__=='__main__':

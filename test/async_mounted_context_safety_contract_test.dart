@@ -138,7 +138,7 @@ void main() {
         );
         final showForm = _bodyStartingAt(
           charge,
-          'Future<void> _showAbnormalityForm',
+          'Future<void> _openAbnormalityForm',
         );
         expect(showForm, contains('if (!mounted || draft == null) return;'));
         final confirmDelete = _bodyStartingAt(
@@ -260,7 +260,7 @@ void main() {
         _expectCapturedSyncBeforeAwait(
           path:
               'lib/features/abnormalities/presentation/charge_abnormalities_screen.dart',
-          methodMarker: 'Future<void> _showAbnormalityForm',
+          methodMarker: 'Future<void> _openAbnormalityForm',
           awaitMarker: 'await repository.getActiveTypes();',
           syncReason: 'charge_abnormality_created',
         );

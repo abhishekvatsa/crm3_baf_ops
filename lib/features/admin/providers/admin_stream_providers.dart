@@ -27,5 +27,5 @@ final adminTemplatesStreamProvider = StreamProvider<List<JobTemplate>>((ref) {
 });
 
 final adminExecutionsStreamProvider = StreamProvider<List<JobExecution>>((ref) {
-  return ref.watch(plannedRepositoryProvider).watchAllExecutions();
+  return ref.watch(plannedRepositoryProvider).watchExecutionsIncludingDeleted();
 });

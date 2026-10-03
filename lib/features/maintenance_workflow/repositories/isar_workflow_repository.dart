@@ -43,7 +43,8 @@ bool _sameEquipmentProjection(
 /// Scoped reads use the generated index queries so unrelated records are not
 /// loaded into Dart or included in watched results. Remaining predicates and
 /// ordering also run in Isar, including filters on fields without an index.
-class IsarWorkflowRepository implements WorkflowRepository {
+class IsarWorkflowRepository
+    implements WorkflowRepository, WorkflowCommandJournalReader {
   final Isar isar;
   const IsarWorkflowRepository(this.isar);
 
@@ -400,6 +401,20 @@ class IsarWorkflowRepository implements WorkflowRepository {
       manualReview: await count('manualReview'),
     );
   }
+
+  @override
+  Future<List<WorkflowCommandRecord>> readUnsettledCommands({
+    required String aggregateId,
+    required String commandTypeKey,
+  }) => isar.workflowCommandRecords
+      .where()
+      .aggregateIdEqualTo(aggregateId)
+      .filter()
+      .commandTypeKeyEqualTo(commandTypeKey)
+      .not()
+      .stateKeyEqualTo('applied')
+      .sortByCreatedLocallyAt()
+      .findAll();
 
   @override
   Future<List<WorkflowCommandRecord>> getPendingCommands() => isar

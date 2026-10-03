@@ -421,6 +421,22 @@
           "occurrence": 1
         }
       ]
+    },
+    {
+      "id": "inner-cover-assessment-recovery-exact-time",
+      "classification": "FAIL_CLOSED_AUTHORITY_PARSER",
+      "owner": "asset-assessment-recovery",
+      "purpose": "Validate simulated/proposed server recovery decision and accepted receipt timestamps by exact UTC millisecond syntax and canonical roundtrip.",
+      "authorityBoundary": "Exact original immutable assessment request and actor, receipt/result identity and strict timestamps. Client proposal only; server recovery extension remains unapplied and no timestamp grants settlement or replacement authority alone.",
+      "regression": "test/inner_cover_assessment_recovery_test.dart",
+      "reArmCondition": "Malformed or repaired timestamps, wrong original request/actor, or unverified receipt outcomes permit replacement or journal removal.",
+      "sites": [
+        {
+          "file": "lib/features/assets/services/inner_cover_assessment_recovery.dart",
+          "expression": "DateTime.tryParse(",
+          "occurrence": 1
+        }
+      ]
     }
   ]
 }

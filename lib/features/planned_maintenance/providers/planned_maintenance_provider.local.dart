@@ -116,10 +116,7 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
 
   @override
   Stream<List<JobTemplate>> watchTemplatesIncludingDeleted() =>
-      isar.jobTemplates
-          .where()
-          .sortByJobName()
-          .watch(fireImmediately: true);
+      isar.jobTemplates.where().sortByJobName().watch(fireImmediately: true);
 
   @override
   Future<JobTemplate?> getTemplateById(dynamic id) async {
@@ -429,6 +426,13 @@ class IsarPlannedRepository extends PlannedMaintenanceRepository {
           return list;
         });
   }
+
+  @override
+  Stream<List<JobExecution>> watchExecutionsIncludingDeleted() => isar
+      .jobExecutions
+      .where()
+      .sortByUpdatedAtDesc()
+      .watch(fireImmediately: true);
 
   @override
   Stream<List<JobExecution>> watchOpenExecutions() {

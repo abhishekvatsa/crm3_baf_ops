@@ -143,15 +143,15 @@ Future<int> _verifyPhysicalPopulation(WidgetTester tester) async {
     find.byType(PlantOverviewPanel),
   );
   expect(panel.overview.requireValue.total, expected);
-  await tapControl(
-    tester,
-    find
-        .descendant(
-          of: find.byType(PlantOverviewPanel),
-          matching: find.textContaining('Plant condition'),
-        )
-        .first,
+  final openPlantCondition = find.descendant(
+    of: find.byType(PlantOverviewPanel),
+    matching: find.byWidgetPredicate(
+      (widget) =>
+          widget is IconButton && widget.tooltip == 'Open plant condition',
+    ),
   );
+  expect(openPlantCondition, findsOneWidget);
+  await tapControl(tester, openPlantCondition);
   await waitFor(
     tester,
     () => find.byType(AssetConditionBoard).evaluate().isNotEmpty,

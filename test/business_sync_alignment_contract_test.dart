@@ -239,6 +239,12 @@ void main() {
         'lib/features/assets/providers/burner_condition_round_provider.dart': [
           'BurnerConditionSubmissionController(',
         ],
+        'lib/features/assets/providers/inner_cover_assessment_recovery_provider.dart':
+            [
+              'InnerCoverAssessmentRecovery(',
+              'executeMaintenanceWorkflowCommandV2',
+              'savedSubmissionReview.v1',
+            ],
         'lib/features/maintenance_workflow/services/workflow_command_gateway.dart':
             ['WorkflowCommandReceipt.fromMap'],
         'lib/features/morning_review/services/morning_review_command_service.dart':
@@ -299,6 +305,18 @@ void main() {
               'BurnerDirectiveComplianceResult.fromCallableData(',
               'store.settleAccepted(',
             ],
+        // This inventories the client proposal's strict response owner only.
+        // Server admission, fleet activation and atomic fence proof are separate.
+        'lib/features/assets/services/inner_cover_assessment_recovery.dart': [
+          "_validate(response, evidence, uid, status: phase == 'status');",
+          '_validate(response, inspected.evidence, uid, decisionRequired: true);',
+          'await _unchanged(inspected.evidence);',
+          "data['evidenceSha256'] != evidence.sha256Hex",
+          "data['originalActorUid'] != evidence.actorUid",
+          '!summary.keys.toSet().containsAll(const {',
+          "summary['entityId'] != evidence.caseId",
+          "summary['version'] != evidence.expectedVersion + 1",
+        ],
         'lib/features/maintenance/services/maintenance_creation_successor_service.dart':
             [
               'WorkflowCommandReceipt.fromMap(',

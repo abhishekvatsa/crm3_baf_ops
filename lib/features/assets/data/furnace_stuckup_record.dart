@@ -35,6 +35,7 @@ class FurnaceStuckupRecord {
     this.furnaceAssetClassId,
     this.innerCoverLinkageId,
     this.innerCoverAssignmentVersion,
+    this.concernDisposition,
   });
 
   final String id;
@@ -66,6 +67,7 @@ class FurnaceStuckupRecord {
   final String? furnaceAssetClassId;
   final String? innerCoverLinkageId;
   final int? innerCoverAssignmentVersion;
+  final InnerCoverConcernDisposition? concernDisposition;
 
   bool get isActive =>
       obstructionStatus == FurnaceStuckupObstructionStatus.active;
@@ -102,6 +104,12 @@ class FurnaceStuckupRecord {
       );
     }
     return FurnaceStuckupRecord(
+      concernDisposition: map['concernDisposition'] == null
+          ? null
+          : InnerCoverConcernDisposition.fromMap(
+              map['concernDisposition'],
+              source,
+            ),
       baseAssetClassId: readOptionalPersistedString(
         map['baseAssetClassId'],
         field: 'baseAssetClassId',
@@ -309,4 +317,123 @@ class AssetConditionDeclarationRecord {
       ),
     );
   }
+}
+
+/// Server-authored technical settlement, separate from the retained withdrawal.
+/// The private inspection audit and receipt are verified by the command handler.
+class InnerCoverConcernDisposition {
+  const InnerCoverConcernDisposition({
+    required this.caseId,
+    required this.ticketId,
+    required this.innerCoverId,
+    required this.serialNumber,
+    required this.eventLinkageId,
+    required this.originalCaseVersion,
+    required this.withdrawnTicketVersion,
+    required this.inspectedAt,
+    required this.settledAt,
+    required this.reason,
+    required this.settledByName,
+    required this.settledByUid,
+    required this.acceptanceReference,
+    required this.acceptanceRequestId,
+    required this.assuranceEpisodeId,
+    required this.commandId,
+  });
+  final String caseId, ticketId, innerCoverId, serialNumber, eventLinkageId;
+  final int originalCaseVersion, withdrawnTicketVersion;
+  final DateTime inspectedAt, settledAt;
+  final String reason, settledByName, settledByUid, acceptanceReference;
+  final String acceptanceRequestId, assuranceEpisodeId, commandId;
+
+  factory InnerCoverConcernDisposition.fromMap(dynamic raw, String source) {
+    if (raw is! Map ||
+        raw['schemaVersion'] != 1 ||
+        raw['kind'] != 'postEventInspectionAccepted' ||
+        raw['assessorConfirmed'] != true) {
+      throw PersistedDataFormatException(
+        field: 'concernDisposition',
+        source: source,
+        detail: 'unsupported or incomplete technical settlement',
+      );
+    }
+    final map = Map<String, dynamic>.from(raw);
+    String text(String key) => readRequiredPersistedString(
+      map[key],
+      field: 'concernDisposition.$key',
+      source: source,
+    );
+    int number(String key) => readRequiredPersistedInt(
+      map[key],
+      field: 'concernDisposition.$key',
+      source: source,
+      minimum: 1,
+    );
+    DateTime date(String key) => readRequiredPersistedDateTime(
+      map[key],
+      field: 'concernDisposition.$key',
+      source: source,
+    );
+    for (final key in [
+      'withdrawalAuditSha256',
+      'withdrawalReceiptSha256',
+      'acceptanceAuditSha256',
+      'acceptanceReceiptSha256',
+    ]) {
+      if (!RegExp(r'^[a-f0-9]{64}$').hasMatch(text(key))) {
+        throw PersistedDataFormatException(
+          field: 'concernDisposition.$key',
+          source: source,
+          detail: 'invalid immutable evidence binding',
+        );
+      }
+    }
+    final request = text('acceptanceRequestId');
+    final withdrawal = text('withdrawalRequestId');
+    if (text('acceptanceAuditId') != 'inner_cover_$request' ||
+        text('withdrawalAuditId') != 'server_maintenance_ticket_$withdrawal') {
+      throw PersistedDataFormatException(
+        field: 'concernDisposition',
+        source: source,
+        detail: 'evidence identity does not match',
+      );
+    }
+    number('acceptanceProfileVersion');
+    text('acceptedByUid');
+    return InnerCoverConcernDisposition(
+      caseId: text('caseId'),
+      ticketId: text('ticketId'),
+      innerCoverId: text('innerCoverId'),
+      serialNumber: text('innerCoverSerialNumber'),
+      eventLinkageId: text('eventLinkageId'),
+      originalCaseVersion: number('originalCaseVersion'),
+      withdrawnTicketVersion: number('withdrawnTicketVersion'),
+      inspectedAt: date('inspectedAt'),
+      settledAt: date('settledAt'),
+      reason: text('reason'),
+      settledByName: text('settledByName'),
+      settledByUid: text('settledByUid'),
+      acceptanceReference: text('acceptanceReference'),
+      acceptanceRequestId: request,
+      assuranceEpisodeId: text('assuranceEpisodeId'),
+      commandId: text('commandId'),
+    );
+  }
+
+  bool matches(FurnaceStuckupRecord record, int ticketVersion) =>
+      caseId == record.id &&
+      ticketId == record.ticketId &&
+      innerCoverId == record.innerCoverId &&
+      serialNumber == record.innerCoverSerialNumber &&
+      eventLinkageId == record.innerCoverLinkageId &&
+      originalCaseVersion + 1 <= record.version &&
+      withdrawnTicketVersion == ticketVersion &&
+      reason.trim().length >= 20 &&
+      record.releasedAt != null &&
+      record.adjudicatedAt != null &&
+      inspectedAt.isAfter(record.reportedAt) &&
+      inspectedAt.isAfter(record.releasedAt!) &&
+      inspectedAt.isAfter(record.adjudicatedAt!) &&
+      !settledAt.isBefore(inspectedAt) &&
+      !record.updatedAt.isBefore(settledAt);
 }

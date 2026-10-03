@@ -39,6 +39,84 @@ const _package = 'dev-usability-planned-final-package';
 const _title = 'DEV Furnace planned final inspection';
 const _si = 'dev.usability-si@example.invalid';
 
+// Source.server can still overlay this client's pending writes. Acceptance
+// requires the committed package, version and immutable audit to agree.
+Future<({String id, Map<String, dynamic> version})> _awaitCommittedPublication(
+  WidgetTester tester,
+  String actorUid,
+) async {
+  final db = FirebaseFirestore.instance;
+  final deadline = DateTime.now().add(const Duration(seconds: 90));
+  var last = 'No committed package pointer observed';
+  bool committed(DocumentSnapshot<Map<String, dynamic>> row) =>
+      row.exists && !row.metadata.hasPendingWrites && !row.metadata.isFromCache;
+  while (DateTime.now().isBefore(deadline)) {
+    final package = await db.doc('template_packages/$_package').get(_server);
+    final id = package.data()?['activeVersionFirestoreId'];
+    last = 'packageCommitted=${committed(package)}, pointer=$id';
+    if (committed(package) && id is String && id.isNotEmpty) {
+      final version = await db.doc('template_versions/$id').get(_server);
+      final data = version.data();
+      last +=
+          ', versionCommitted=${committed(version)}, status=${data?['status']}';
+      if (committed(version) &&
+          data?['status'] == 'published' &&
+          data?['publishedByUid'] == actorUid &&
+          data?['publishedAt'] != null &&
+          data?['packageFirestoreId'] == _package) {
+        final audits = await db
+            .collection('template_publish_audits')
+            .where('packageFirestoreId', isEqualTo: _package)
+            .get(_server);
+        final matching = audits.docs
+            .where(
+              (row) =>
+                  row.data()['versionFirestoreId'] == id &&
+                  row.data()['action'] == 'published',
+            )
+            .toList();
+        last += ', publicationAudits=${matching.length}';
+        expect(
+          matching.length,
+          lessThanOrEqualTo(1),
+          reason: 'One immutable publication audit per version.',
+        );
+        if (!audits.metadata.hasPendingWrites &&
+            !audits.metadata.isFromCache &&
+            matching.length == 1 &&
+            committed(matching.single)) {
+          final audit = matching.single.data();
+          expect(audit['performedByUid'], actorUid);
+          expect(audit['afterHash'], data!['contentHash']);
+          expect(
+            audit['afterHash'],
+            isA<String>().having(
+              (value) => value.isNotEmpty,
+              'nonempty',
+              isTrue,
+            ),
+          );
+          final confirm = await db
+              .doc('template_packages/$_package')
+              .get(_server);
+          if (committed(confirm) &&
+              confirm.data()?['activeVersionFirestoreId'] == id) {
+            debugPrint(
+              'DEV_PLANNED_COMMITTED_PUBLICATION $id audit=${matching.single.id}',
+            );
+            return (id: id, version: data);
+          }
+        }
+      }
+    }
+    await tester.pump(const Duration(milliseconds: 500));
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+  }
+  throw TestFailure(
+    'Publication did not converge to committed package/version/audit evidence: $last',
+  );
+}
+
 Future<void> _home(WidgetTester tester) async {
   while (find.byType(HomeScreen).evaluate().isEmpty) {
     await goBack(tester);
@@ -220,7 +298,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 350));
         await _home(tester);
       }
-      var package = await read('template_packages/$_package');
+      final package = await read('template_packages/$_package');
       final publishedHere = package['activeVersionFirestoreId'] == null;
       if (publishedHere) {
         await openMore(tester, 'Legacy template publisher');
@@ -261,17 +339,14 @@ void main() {
         );
         expect(find.text('Review closure requirements'), findsOneWidget);
         await tapControl(tester, confirmReview);
-        package = await awaitRecord(
-          tester,
-          'template_packages/$_package',
-          (row) => row['activeVersionFirestoreId'] is String,
-        );
-        debugPrint(
-          'DEV_PLANNED_UI_PUBLISHED ${package['activeVersionFirestoreId']}',
-        );
       }
-      final versionId = package['activeVersionFirestoreId'] as String;
-      final published = await read('template_versions/$versionId');
+      final publication = await _awaitCommittedPublication(
+        tester,
+        FirebaseAuth.instance.currentUser!.uid,
+      );
+      final versionId = publication.id;
+      final published = publication.version;
+      if (publishedHere) debugPrint('DEV_PLANNED_UI_PUBLISHED $versionId');
       expect(published['status'], 'published');
       expect(
         published['publishedByUid'],

@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/services/sync_coordinator.dart';
+import '../../../core/providers/sync_status_provider.dart';
 import '../../../core/services/sync_push_snapshot.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/widgets/baf_ui.dart';
@@ -63,6 +64,8 @@ class _ChargeAbnormalitiesScreenState
     extends ConsumerState<ChargeAbnormalitiesScreen> {
   AbnormalityListFilter _filter = AbnormalityListFilter.open;
   int _visibleLimit = businessListPageSize;
+  bool _preparingForm = false;
+  bool _refreshingCatalogue = false;
 
   void _selectFilter(AbnormalityListFilter filter) => setState(() {
     _filter = filter;
@@ -146,8 +149,16 @@ class _ChargeAbnormalitiesScreenState
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.add_rounded),
-                      label: const Text('Log Abnormality'),
-                      onPressed: () => _showAbnormalityForm(),
+                      label: Text(
+                        _preparingForm
+                            ? 'Checking abnormality types…'
+                            : _refreshingCatalogue
+                            ? 'Refreshing abnormality types…'
+                            : 'Log Abnormality',
+                      ),
+                      onPressed: _preparingForm || _refreshingCatalogue
+                          ? null
+                          : () => _showAbnormalityForm(),
                     ),
                   ),
                 ),
@@ -305,6 +316,76 @@ class _ChargeAbnormalitiesScreenState
   }
 
   Future<void> _showAbnormalityForm({ChargeAbnormality? existing}) async {
+    if (_preparingForm || _refreshingCatalogue) return;
+    setState(() => _preparingForm = true);
+    try {
+      await _openAbnormalityForm(existing: existing);
+    } catch (_) {
+      if (!mounted) return;
+      _showCatalogueMessage(
+        'Could not load abnormality types. Check connectivity and retry. If this continues, ask Admin to check the active types.',
+      );
+    } finally {
+      if (mounted) setState(() => _preparingForm = false);
+    }
+  }
+
+  void _showCatalogueMessage(String message) {
+    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: 'Retry sync',
+          onPressed: () => unawaited(_refreshCatalogue()),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshCatalogue() async {
+    if (_refreshingCatalogue) return;
+    final actor = CurrentActorAccess.resolve(
+      ref.read(currentAppUserProvider),
+    ).actor;
+    if (actor == null || !actor.canLogChargeAbnormality) return;
+    setState(() => _refreshingCatalogue = true);
+    try {
+      final outcome = await ref
+          .read(syncCoordinatorProvider)
+          .runFullSyncWithResult(
+            reason: 'charge_abnormality_catalogue_retry',
+            force: true,
+          );
+      if (!mounted ||
+          currentActorActionMessage(
+                CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+                originUid: actor.uid,
+                permission: (user) => user.canLogChargeAbnormality,
+              ) !=
+              null) {
+        return;
+      }
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(
+          content: Text(
+            outcome.isSuccessful
+                ? 'Sync completed. Try Log Abnormality again. If no types are available, ask Admin to check the active types.'
+                : '${outcome.manualSyncMessage} Check Sync health, then try Log Abnormality again.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        _showCatalogueMessage(
+          'Could not refresh abnormality types. Check connectivity and retry.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _refreshingCatalogue = false);
+    }
+  }
+
+  Future<void> _openAbnormalityForm({ChargeAbnormality? existing}) async {
     final actor = CurrentActorAccess.resolve(
       ref.read(currentAppUserProvider),
     ).actor;
@@ -331,16 +412,25 @@ class _ChargeAbnormalitiesScreenState
     final syncCoordinator = ref.read(syncCoordinatorProvider);
 
     final activeTypes = await repository.getActiveTypes();
+    if (!mounted ||
+        currentActorActionMessage(
+              CurrentActorAccess.resolve(ref.read(currentAppUserProvider)),
+              originUid: actor.uid,
+              permission: (user) => existing == null
+                  ? user.canLogChargeAbnormality
+                  : user.canEditChargeAbnormality,
+            ) !=
+            null) {
+      return;
+    }
 
     if (existing == null && activeTypes.isEmpty) {
       if (!mounted) return;
 
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(
-          content: Text(
-            'No active abnormality types found. Seed or create master data first.',
-          ),
-        ),
+      _showCatalogueMessage(
+        ref.read(syncStatusProvider) == SyncStatus.syncing
+            ? 'Abnormality types are still syncing. Wait for sync to finish, then try Log Abnormality again.'
+            : 'Abnormality types are not available on this device. Retry sync; if they remain unavailable, ask Admin to check the active types.',
       );
       return;
     }

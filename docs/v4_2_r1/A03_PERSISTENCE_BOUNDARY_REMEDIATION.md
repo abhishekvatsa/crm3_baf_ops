@@ -533,3 +533,47 @@ the two evidence streams. No file under a presentation or widget directory
 acquires direct persistence. The scanner and classification algorithms are
 unchanged; this addendum does not rewrite the original closure or claim new CI,
 physical acceptance, distribution approval or a new build allocation.
+
+
+## Assessment evidence and retained-request reads — 3 October 2026
+
+The reviewed current working source measures 640 operations across 2236 primitive
+sites and 88 classified persistence surfaces, with digest
+`42DC96696AD923AD07DE66D3B01E7086799F5F69D31FDB159B86EF81E42DB809`.
+The preceding 633-operation measurement remains historical. The seven added
+read operations are four analyzer-owned provider/read operations for assessment
+evidence and confirmed-case readback, one retained-command lookup in the existing
+workflow repository, and the two existing planned-work repository adapters
+exposing execution tombstones for the admitted administrator view.
+Existing surface order and authority/store/mode classifications remain intact;
+the new provider is appended and has direct refusal/evidence regression coverage.
+Presentation code performs no direct database access. The recovery client is a
+local proposal: its terminal-request server extension remains unapplied. This
+working-source inventory adds no deployed-runtime, new CI, pilot, distribution
+or historical closure authority.
+
+
+## Exact missing-publication refresh — 3 October 2026
+
+This current working-source addendum supersedes the preceding 640-operation
+measurement: 642 operations across 2240 primitive sites and 89 classified
+persistence surfaces, digest
+`55E9C89BB5C7BB5407E5EC15F04EBE9B085C9462550A9856D676CE6C06B893B0`.
+The only new primitive operations are the exact server document read and
+version-scoped publication-audit query in the dedicated refresh provider.
+Both are read-only and reject cache or pending-write evidence.
+
+The admitted current actor, active package pointer, publication content hash and
+matching synchronized audit are checked before the existing native repository
+may restore only the missing version. Its transaction rechecks the actor,
+package, audit and unchanged local row before and after awaited writes. Dirty,
+different and duplicate versions remain held; package/audit records and saved
+drafts are preserved. Exact instants are compared after UTC representation
+normalization, without timestamp tolerance or payload normalization.
+
+All previous surface order, profiles and operation classifications remain
+unchanged. The new provider is appended, and the existing native adapter gains
+its targeted refresh regression reference. The new-publication model factory
+allocates fresh native identity without introducing presentation persistence or
+changing remote decoding. This source qualification adds no actual-device,
+production, distribution, historical-closure or Build31 authority.

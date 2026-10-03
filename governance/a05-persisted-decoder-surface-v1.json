@@ -1072,14 +1072,15 @@
       "file": "lib/features/assets/data/furnace_stuckup_record.dart",
       "markers": [
         "factory FurnaceStuckupRecord.fromMap",
-        "factory AssetConditionDeclarationRecord.fromMap"
+        "factory AssetConditionDeclarationRecord.fromMap",
+        "factory InnerCoverConcernDisposition.fromMap"
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "asset-operations",
       "authorityBoundary": "stuck-up case lifecycle and accumulated asset-condition evidence",
       "malformedDisposition": "fail closed before mismatched Furnace, Base, Inner Cover, charge, lifecycle, cause, or condition evidence enters operations",
       "compatibility": "schema version 1 only; lifecycle fields and condition evidence obey complete state-specific contracts",
-      "regression": "test/furnace_stuckup_case_test.dart",
+      "regression": "test/furnace_stuckup_case_test.dart; test/released_inner_cover_fitness_test.dart",
       "reArmCondition": "stuck-up identity, lifecycle, chronology, association, condition, or version validation changes",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
@@ -2086,6 +2087,22 @@
       "regression": "test/inner_cover_dependencies_test.dart; test/inner_cover_dependency_integration_test.dart",
       "reArmCondition": "Missing or malformed active identity is inferred from the current host, absent or coerced contribution flags certify clear, contradictory or unconfirmed evidence certifies availability, historical terminal rows fabricate linkage, a move clears original-host obligations, or this reader gains writes.",
       "riskFingerprint": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "inner-cover-assessment-recovery",
+      "file": "lib/features/assets/services/inner_cover_assessment_recovery.dart",
+      "markers": [
+        "factory InnerCoverRecoveryEvidence.from(",
+        "static void _validate("
+      ],
+      "classification": "LOCAL_CONTROL_STATE",
+      "owner": "asset-assessment-recovery",
+      "authorityBoundary": "Original-actor bound immutable workflow journal bytes and strict recovery response. Client proposal only; the terminal recovery server extension is unapplied.",
+      "malformedDisposition": "Throw InnerCoverRecoveryException and preserve the original journal row; malformed envelope, actor, identity, hash, time, receipt or decision never permits replacement or acceptance.",
+      "compatibility": "Only exact settleInnerCoverAssessment origin-bound envelopes are reviewed. Unknown, malformed or older-server responses remain held; the client does not manufacture a cancellation fence or mutate original saved payloads.",
+      "regression": "test/inner_cover_assessment_recovery_test.dart",
+      "reArmCondition": "Any journal identity/parser/catch/receipt/actor/replacement guard changes, or client simulation is represented as deployed recovery proof.",
+      "riskFingerprint": "951a074bab76211d31f888183e172693c24ec123f808c6e74aaaf1492adf35d9"
     }
   ],
   "catchSites": [
@@ -3593,6 +3610,19 @@
       "malformedDisposition": "Return null to Material calendar validation, keep the input editable, and display the explicit dd-MM-yyyy error; no command is prepared or sent.",
       "regression": "test/inner_cover_date_entry_test.dart",
       "reArmCondition": "Malformed input becomes a valid fallback date, month-first text is silently reinterpreted, or the helper starts decoding persisted records or mutating state."
+    },
+    {
+      "id": "inner-cover-assessment-original-envelope-refusal",
+      "file": "lib/features/assets/services/inner_cover_assessment_recovery.dart",
+      "siteFingerprint": "d01d397733e8e0c156d2f744328a911a8f3b6784b2ef1db091721050d83383f1",
+      "classification": "FAIL_CLOSED_ERROR_TRANSLATION",
+      "purpose": "Translate malformed original assessment journal JSON or identity into an explicit blocking recovery exception.",
+      "authorityBoundary": "Original actor and exact immutable command payload before any recovery request.",
+      "mutability": "Read-only local envelope parsing; no journal update, deletion, dispatch, settlement or fence creation.",
+      "dataScope": "The original saved workflow command payloadJson and identity fields.",
+      "malformedDisposition": "Throw InnerCoverRecoveryException; preserve original bytes and do not issue a network request.",
+      "regression": "test/inner_cover_assessment_recovery_test.dart",
+      "reArmCondition": "Malformed input falls through as absent or new-request permission, original actor is inferred, or original bytes are rewritten."
     }
   ],
   "staleRegressionReferences": [

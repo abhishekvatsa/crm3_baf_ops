@@ -317,6 +317,43 @@ class TemplatePackage {
 class TemplateVersion {
   TemplateVersion();
 
+  /// Copies a draft's publication payload with a fresh local identity.
+  /// The source keeps its native row and all of its lifecycle history.
+  factory TemplateVersion.newPublicationCopy(
+    TemplateVersion source, {
+    required int versionNumber,
+  }) {
+    final copy = TemplateVersion()
+      ..packageFirestoreId = source.packageFirestoreId
+      ..schemaVersion = source.schemaVersion
+      ..versionNumber = versionNumber
+      ..versionLabel = source.versionLabel
+      ..sourceVersionFirestoreId = source.firestoreId
+      ..contentHash = source.contentHash
+      ..jobTemplateSnapshotJson = source.jobTemplateSnapshotJson
+      ..moduleSnapshotsJson = source.moduleSnapshotsJson
+      ..fieldDefinitionsJson = source.fieldDefinitionsJson
+      ..checklistJson = source.checklistJson
+      ..releaseNotes = source.releaseNotes
+      ..changeSummary = source.changeSummary
+      ..updatedByUid = source.updatedByUid
+      ..updatedByName = source.updatedByName
+      ..minAppVersion = source.minAppVersion
+      ..createdAt = DateTime.now()
+      ..updatedAt = DateTime.now()
+      ..targetRefs = List<String>.from(source.targetRefs)
+      ..deviceTagRefs = List<String>.from(source.deviceTagRefs)
+      ..safetyClass = source.safetyClass
+      ..safetyGatePolicyJson = source.safetyGatePolicyJson
+      ..procedureRefs = List<String>.from(source.procedureRefs)
+      ..operationalStatePreconditions = List<String>.from(
+        source.operationalStatePreconditions,
+      )
+      ..metadataJson = source.metadataJson;
+    copy.refreshClosureReviewStateFromSnapshots();
+    return copy;
+  }
+
   Id id = Isar.autoIncrement;
 
   @Index()

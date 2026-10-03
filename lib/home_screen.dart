@@ -500,8 +500,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onOperationalEvents: () =>
               _push(context, const OperationalEventsScreen()),
           onPlantCondition: () => _push(context, const AssetConditionBoard()),
-          onPlantConditionFiltered: (filter) =>
-              _push(context, AssetConditionBoard(initialFilter: filter)),
+          onPlantConditionClass: (id) =>
+              _push(context, AssetConditionBoard(initialAssetClassId: id)),
           onMorningReview: () => _push(context, const MorningReviewScreen()),
           onReports: () => _push(context, const FleetStatusScreen()),
           onControl: () => _selectTab(3),
@@ -923,7 +923,7 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onQualityMonitoring;
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
-  final ValueChanged<AssetConditionFilter> onPlantConditionFiltered;
+  final ValueChanged<String> onPlantConditionClass;
   final VoidCallback onMorningReview;
   final VoidCallback onReports;
   final VoidCallback onControl;
@@ -960,7 +960,7 @@ class _DashboardHome extends StatelessWidget {
     required this.onQualityMonitoring,
     required this.onOperationalEvents,
     required this.onPlantCondition,
-    required this.onPlantConditionFiltered,
+    required this.onPlantConditionClass,
     required this.onMorningReview,
     required this.onReports,
     required this.onControl,
@@ -1141,7 +1141,7 @@ class _DashboardHome extends StatelessWidget {
               PlantOverviewPanel(
                 overview: plantOverview,
                 onOpen: onPlantCondition,
-                onOpenFiltered: onPlantConditionFiltered,
+                onOpenClass: onPlantConditionClass,
               ),
               const SizedBox(height: BafSpacing.lg),
               HomeManagementPulsePanel(
@@ -1149,6 +1149,7 @@ class _DashboardHome extends StatelessWidget {
                 dataUnavailable: attentionDataUnavailable,
                 onOpenReports: onReports,
                 onPlantCondition: onPlantCondition,
+                onOpenClass: onPlantConditionClass,
                 onIssues: onIssues,
                 onWork: onWork,
                 onControl: onControl,

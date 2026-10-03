@@ -777,6 +777,15 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(find.text('Spare candidates 1'), findsNothing);
+      expect(find.textContaining('Installed 47'), findsNothing);
+      final stockToggle = find.byKey(
+        const ValueKey('plant-inner-cover-toggle-covers'),
+      );
+      await tester.ensureVisible(stockToggle);
+      await tester.pumpAndSettle();
+      await tester.tap(stockToggle);
+      await tester.pumpAndSettle();
       expect(find.text('Spare candidates 1'), findsOneWidget);
       expect(find.textContaining('Installed 47'), findsOneWidget);
       expect(find.textContaining('Inner Cover SPARE:'), findsNothing);
@@ -1008,7 +1017,9 @@ void main() {
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Synthetic preview — not phone evidence'),
+                          const Text(
+                            'Synthetic preview — not phone evidence',
+                          ),
                           PlantOverviewPanel(
                             overview: AsyncData(overview),
                             onOpen: () => opens++,
@@ -1022,6 +1033,15 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
+        final stockToggle = find.byKey(
+          const ValueKey('plant-inner-cover-toggle-covers'),
+        );
+        expect(find.text('Spare candidates 1'), findsNothing);
+        expect(find.textContaining('Bulge history: 1'), findsNothing);
+        await tester.ensureVisible(stockToggle);
+        await tester.pumpAndSettle();
+        await tester.tap(stockToggle);
         await tester.pumpAndSettle();
         expect(find.textContaining('Bulge history: 1'), findsOneWidget);
         expect(find.textContaining('Check current condition'), findsOneWidget);

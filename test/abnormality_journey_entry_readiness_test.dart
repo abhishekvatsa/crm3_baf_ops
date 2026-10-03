@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:crm3_baf_ops/core/providers/sync_status_provider.dart';
 
 import 'package:crm3_baf_ops/core/services/sync_coordinator.dart';
 import 'package:crm3_baf_ops/features/abnormalities/data/abnormality_model.dart';
@@ -31,7 +32,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(fixture.repository.reads, 1);
       expect(
-        find.textContaining('No active abnormality types found.'),
+        find.textContaining(
+          'Abnormality types are not available on this device.',
+        ),
         findsOneWidget,
       );
       expect(find.text('Log charge abnormality'), findsNothing);
@@ -45,6 +48,74 @@ void main() {
       );
       expect(fixture.repository.reads, 2);
       expect(find.text('Log charge abnormality'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'empty catalogue during sync is not reported as missing master data',
+    (tester) async {
+      final fixture = await _mount(tester);
+      final target = find.byKey(const ValueKey('charge-abnormalities-create'));
+      final container = ProviderScope.containerOf(tester.element(target));
+      container.read(syncStatusProvider.notifier).state = SyncStatus.syncing;
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Abnormality types are still syncing.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Seed or create'), findsNothing);
+      expect(fixture.repository.reads, 1);
+      expect(find.text('Log charge abnormality'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'catalogue preparation handles failed reads and can be retried without duplicate dialogs',
+    (tester) async {
+      final fixture = await _mount(tester);
+      final target = find.byKey(const ValueKey('charge-abnormalities-create'));
+      final read = Completer<void>();
+      fixture.repository.beforeReadCompletes = () => read.future;
+      await tester.tap(target);
+      await tester.pump();
+      expect(tester.widget<FilledButton>(target).onPressed, isNull);
+      expect(find.text('Checking abnormality types…'), findsOneWidget);
+      read.completeError(StateError('catalogue unavailable'));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Could not load abnormality types.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      fixture.repository.beforeReadCompletes = null;
+      fixture.publishTypes();
+      await tester.pumpAndSettle();
+      await tester.tap(target);
+      await tester.pumpAndSettle();
+      expect(find.text('Log charge abnormality'), findsOneWidget);
+      expect(fixture.repository.reads, 2);
+    },
+  );
+
+  testWidgets(
+    'empty catalogue retry requests ordinary sync only after explicit action',
+    (tester) async {
+      final fixture = await _mount(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('charge-abnormalities-create')),
+      );
+      await tester.pumpAndSettle();
+      expect(fixture.sync.calls, 0);
+      await tester.tap(find.text('Retry sync'));
+      await tester.pumpAndSettle();
+      expect(fixture.sync.calls, 1);
+      expect(find.text('Log charge abnormality'), findsNothing);
+      expect(
+        find.textContaining('Sync completed. Try Log Abnormality again.'),
+        findsOneWidget,
+      );
+      expect(fixture.repository.reads, 1);
     },
   );
 
@@ -163,7 +234,7 @@ Future<_Fixture> _mount(
           (ref, charge) => Stream.value([]),
         ),
         abnormalityRepositoryProvider.overrideWithValue(fixture.repository),
-        syncCoordinatorProvider.overrideWithValue(_Sync()),
+        syncCoordinatorProvider.overrideWithValue(fixture.sync),
         assetClassesProvider.overrideWith((ref) => Stream.value([])),
       ],
       child: MaterialApp(
@@ -197,6 +268,10 @@ Future<_Fixture> _mount(
   } else {
     await tester.pumpAndSettle();
   }
+  addTearDown(() async {
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
   return fixture;
 }
 
@@ -211,7 +286,8 @@ AppUser _actor({bool approved = true}) => AppUser(
 
 class _Fixture {
   final repository = _Repository();
-  final types = StreamController<List<AbnormalityType>>();
+  final sync = _Sync();
+  final types = StreamController<List<AbnormalityType>>.broadcast();
   final actors = StreamController<AppUser>();
   void publishTypes() {
     repository.types = [
@@ -241,4 +317,16 @@ class _Repository extends Fake implements AbnormalityRepository {
   }
 }
 
-class _Sync extends Fake implements SyncCoordinator {}
+class _Sync extends Fake implements SyncCoordinator {
+  int calls = 0;
+  @override
+  Future<SyncRequestOutcome> runFullSyncWithResult({
+    String reason = 'unknown',
+    bool force = false,
+  }) async {
+    expect(reason, 'charge_abnormality_catalogue_retry');
+    expect(force, isTrue);
+    calls++;
+    return SyncRequestOutcome.succeeded;
+  }
+}

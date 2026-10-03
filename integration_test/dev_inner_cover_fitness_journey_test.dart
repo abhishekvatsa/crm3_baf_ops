@@ -1,7 +1,9 @@
 // Actual DEV UI -> authenticated local Functions -> server readback -> Plant.
 // Run only on a separate emulator with the isolated CI namespace/ports. Setup
-// creates the fresh catalogue and registers/accepts/installs the cover through
-// lifecycle commands; no stuck-up issue, cause or release may be pre-seeded.
+// seeds fresh synthetic installed inventory with prior acceptance/link evidence;
+// no stuck-up issue, cause, release or recovery outcome may be pre-seeded.
+// This journey proves the subsequent issue/cause/release flow, not that seeded
+// historical registration/acceptance/installation occurred through app forms.
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' show PlatformDispatcher;
@@ -339,7 +341,7 @@ Future<PlantAssetOverview> _openPlant(
     find
         .descendant(
           of: find.byType(PlantOverviewPanel),
-          matching: find.textContaining('Plant condition'),
+          matching: find.byTooltip('Open plant condition'),
         )
         .first,
   );

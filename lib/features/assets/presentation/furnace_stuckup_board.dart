@@ -13,6 +13,7 @@ import '../../maintenance_workflow/providers/workflow_providers.dart';
 import '../../maintenance_workflow/services/workflow_command_factory.dart';
 import '../data/furnace_stuckup_record.dart';
 import '../providers/furnace_stuckup_provider.dart';
+import 'inner_cover_assessment_panel.dart';
 
 enum _CaseView { active, pendingCause, history, bulgeRecords }
 
@@ -210,6 +211,17 @@ class _FurnaceStuckupBoardState extends ConsumerState<FurnaceStuckupBoard> {
                 onRelease: () => _release(record),
                 onAdjudicate: () => _adjudicate(record),
               ),
+              if (!record.isActive &&
+                  record.adjudicationStatus ==
+                      FurnaceStuckupAdjudicationStatus.confirmed &&
+                  const {
+                    FurnaceStuckupCause.innerCoverBulging,
+                    FurnaceStuckupCause.combinedCondition,
+                  }.contains(record.confirmedCause))
+                InnerCoverAssessmentPanel(
+                  key: ValueKey('ic-assessment-panel-${record.id}'),
+                  record: record,
+                ),
               const SizedBox(height: BafSpacing.md),
             ],
           if (declarationRows.isNotEmpty) ...[

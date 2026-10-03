@@ -12,6 +12,7 @@ class MorningReviewAgendaView extends StatefulWidget {
     super.key,
     required this.session,
     required this.joined,
+    this.attendanceVerified = true,
     required this.busy,
     required this.entries,
     required this.concerns,
@@ -25,6 +26,7 @@ class MorningReviewAgendaView extends StatefulWidget {
 
   final MorningReviewSession session;
   final bool joined;
+  final bool attendanceVerified;
   final bool busy;
   final List<MorningReviewEntry> entries;
   final List<MorningReviewStandingConcern> concerns;
@@ -79,7 +81,9 @@ class _MorningReviewAgendaViewState extends State<MorningReviewAgendaView> {
                     ? 'Today\'s room'
                     : 'Meeting follow-through (live)',
                 subtitle: widget.session.isOpen
-                    ? widget.joined
+                    ? !widget.attendanceVerified
+                          ? 'Attendance is being verified. Contributions are available after your attendance is confirmed.'
+                          : widget.joined
                           ? 'Add updates under your own name; source facts remain read-only.'
                           : 'Join explicitly to contribute. Viewing alone is not attendance.'
                     : widget.session.finalSummary ?? 'Meeting finalized.',

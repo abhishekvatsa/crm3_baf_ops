@@ -1,6 +1,8 @@
 name: release-gate
 
 # Source, host-runtime, emulator, and package CI gates for CRM-III BAF Ops.
+# Each of the five jobs runs the same cheap source preflight before setup.
+# Existing full job groups remain required; preflight success is not their success.
 # Mirrors the local release_gate.ps1 source gates:
 #   format warning -> analyze -> full Flutter test -> no-loss spine
 #   -> secret-isolated Android release packaging -> Firestore rules/Jest
@@ -34,6 +36,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cheap checked-in source preflight (no install or device)
+        run: python3 tools/testing/run_source_preflight.py
+
       - name: Validate and publish test evidence taxonomy
         run: python3 tools/testing/verify_test_evidence_taxonomy.py
 
@@ -62,6 +67,9 @@ jobs:
 
       - name: Install Flutter dependencies
         run: flutter pub get
+
+      - name: Persistence boundary audit before construction
+        run: dart run tools/v4/a03_persistence_boundary_inventory.dart
 
       - name: Regenerate current Isar bindings
         run: dart run build_runner build --delete-conflicting-outputs
@@ -252,6 +260,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Cheap checked-in source preflight (no install or device)
+        run: python3 tools/testing/run_source_preflight.py
+
       - name: Set up Java 21 for Android packaging
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
@@ -264,6 +275,12 @@ jobs:
           channel: stable
           flutter-version: "3.44.0"
           cache: true
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Persistence boundary audit before construction
+        run: dart run tools/v4/a03_persistence_boundary_inventory.dart
 
       - name: Build and verify secret-isolated release packages
         shell: pwsh
@@ -301,6 +318,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
+      - name: Cheap checked-in source preflight (no install or device)
+        run: python3 tools/testing/run_source_preflight.py
+
       - name: Set up Java 21 for Android integration
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
         with:
@@ -317,6 +337,9 @@ jobs:
       - name: Install Flutter dependencies
         run: flutter pub get
 
+      - name: Persistence boundary audit before construction
+        run: dart run tools/v4/a03_persistence_boundary_inventory.dart
+
       - name: Set up Node 22 for isolated business journeys
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -326,13 +349,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
+          expected_lock_sha="AFCCCC1625CEC68A83214E63C1A5F22328E0155DFF760F14C175923DBB0694CB"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
           npm --prefix tooling/firebase-cli ci --ignore-scripts
+          node tools/dependencies/verify_braces_depth_guard.mjs
           npm --prefix functions run build
           python3 -m unittest discover -s tools/testing -p 'test_*business_journey*.py'
+          python3 -m unittest discover -s tools/testing -p 'test_required_red_transport_relay.py'
+          python3 -m unittest discover -s tools/testing -p 'test_seed_inner_cover_inventory.py'
 
       - name: Enable KVM
         shell: bash
@@ -377,6 +403,9 @@ jobs:
           # Release evidence is verified against the actual historical Git trees.
           fetch-depth: 0
 
+      - name: Cheap checked-in source preflight (no install or device)
+        run: python3 tools/testing/run_source_preflight.py
+
       - name: Set up Node 22
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -393,7 +422,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="97361DFBE82BBD8B5B22240584EE5AC60EE5A628556849C779EEBBF2745335E1"
+          expected_lock_sha="AFCCCC1625CEC68A83214E63C1A5F22328E0155DFF760F14C175923DBB0694CB"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
@@ -471,6 +500,9 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+
+      - name: Cheap checked-in source preflight (no install or device)
+        run: python3 tools/testing/run_source_preflight.py
 
       - name: Set up Node 22
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020

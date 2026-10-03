@@ -4,7 +4,8 @@ from pathlib import Path
 import tempfile
 import subprocess
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+from contextlib import contextmanager
 
 import run_ci_business_journeys as runner
 import seed_ci_business_journeys as seed
@@ -264,6 +265,8 @@ class BusinessJourneyGateTest(unittest.TestCase):
 
     def test_full_orchestration_preserves_data_only_for_separate_process_recovery(self):
         manifest = runner.load_manifest()
+        # Keep the original seven-journey sequence asserted verbatim.
+        manifest["journeys"] = [row for row in manifest["journeys"] if row["path"] not in (*runner.RED_PATHS, *runner.IC_PATHS)]
         events = []
         def logged(command, name, timeout, env):
             events.append(name)
@@ -340,7 +343,9 @@ class BusinessJourneyGateTest(unittest.TestCase):
                          [row["path"] for row in runner.load_manifest()["journeys"] if not row["preserveAppData"]])
         for row in plan["preparations"]:
             self.assertEqual(row["steps"][-1][-2:], [runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
-        self.assertEqual(len(plan["commands"]), 7)
+        self.assertEqual(len(plan["commands"]), 11)
+        self.assertEqual(plan["requiredRedRelay"]["port"], 15002)
+        self.assertFalse(plan["productionDistribution"])
 
     def test_each_queue_ownership_process_requires_its_own_completion_marker(self):
         journeys = [row for row in runner.load_manifest()["journeys"]
@@ -434,6 +439,196 @@ class BusinessJourneyGateTest(unittest.TestCase):
         prepare.assert_not_called()
         self.assertEqual(events, ["seed", "android-logcat"])
         self.assertEqual(report["httpBoundary"]["status"], "notRun")
+
+
+    def test_required_red_pair_routes_only_its_functions_calls_via_loss_relay(self):
+        rows = runner.load_manifest()["journeys"]
+        red = [row for row in rows if row["path"] in runner.RED_PATHS]
+        self.assertEqual([row["path"] for row in red], list(runner.RED_PATHS))
+        self.assertEqual([row["preserveAppData"] for row in red], [False, True])
+        self.assertEqual([row["timeoutSeconds"] for row in red], [1200, 900])
+        for row in rows:
+            port = 15002 if row in red else 15001
+            self.assertIn(f"--dart-define=CRM_FUNCTIONS_EMULATOR_PORT={port}",
+                          runner.flutter_command(row, "emulator-5554"))
+        for invalid in ([red[1]], list(reversed(red)), [red[0], rows[0], red[1]],
+                        [dict(red[0], preserveAppData=True), red[1]],
+                        [red[0], dict(red[1], successMarker="DEV_REQUIRED_RED_PREPARED")]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                runner.require_red_sequence(invalid)
+
+    def test_red_relay_spans_both_processes_and_failure_keeps_later_untested(self):
+        rows = [row for row in runner.load_manifest()["journeys"] if row["path"] in runner.RED_PATHS]
+        for fail_at in (None, 0, 1):
+            events = []
+            @contextmanager
+            def relay(env):
+                events.append("relay-start")
+                try:
+                    yield MagicMock(poll=lambda: None)
+                finally:
+                    events.append("relay-stop")
+            def logged(command, name, timeout, env):
+                events.append(name)
+                if name == "cf01-http-boundary":
+                    return HTTP_PROOF
+                for index, row in enumerate(rows):
+                    if name == Path(row["path"]).stem:
+                        return "missing marker" if fail_at == index else row["successMarker"]
+                return ""
+            with self.subTest(fail_at=fail_at), tempfile.TemporaryDirectory() as folder, \
+                    patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "required_red_relay", side_effect=relay), \
+                    patch.object(runner, "prepare_ci_journey") as prepare, \
+                    patch.object(runner, "run_logged", side_effect=logged), \
+                    patch.object(runner.subprocess, "run") as restart:
+                if fail_at is None:
+                    runner.execute_journeys("emulator-5554", {"journeys": rows}, {})
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "completion marker"):
+                        runner.execute_journeys("emulator-5554", {"journeys": rows}, {})
+                report = json.loads((Path(folder)/"result.json").read_text(encoding="utf-8"))
+            self.assertEqual(events.count("relay-start"), 1)
+            self.assertEqual(events.count("relay-stop"), 1)
+            self.assertEqual(prepare.call_count, 1)
+            self.assertEqual(restart.call_count, 0 if fail_at == 0 else 1)
+            self.assertEqual([row["status"] for row in report["attempts"]],
+                             ["passed", "passed"] if fail_at is None else
+                             (["failed", "untested"] if fail_at == 0 else ["passed", "failed"]))
+            self.assertFalse(report["productionDistribution"])
+            self.assertLess(events.index("relay-start"), events.index(Path(rows[0]["path"]).stem))
+            self.assertLess(events.index("relay-stop"), events.index("android-logcat"))
+
+    def test_relay_child_ready_identity_and_owned_cleanup(self):
+        isolated = {"FIRESTORE_EMULATOR_HOST":"127.0.0.1:18080", "FIREBASE_AUTH_EMULATOR_HOST":"127.0.0.1:19099"}
+        for wrong_identity in (False, True):
+            with self.subTest(wrong_identity=wrong_identity), tempfile.TemporaryDirectory() as folder:
+                child = MagicMock()
+                child.poll.return_value = None
+                def start(command, **kwargs):
+                    self.assertEqual(command[:2], [runner.sys.executable, runner.RED_RELAY])
+                    self.assertEqual(command[2:], ["--evidence-dir", str(Path(folder)/"required-red-relay")])
+                    ready = {"listen":["127.0.0.1",15002], "upstream":["127.0.0.1",15001],
+                             "project":"production" if wrong_identity else runner.PROJECT,
+                             "businessResponsesFabricated":False}
+                    kwargs["stdout"].write("REQUIRED_RED_RELAY_READY "+json.dumps(ready)+"\n")
+                    kwargs["stdout"].flush()
+                    return child
+                with patch.object(runner,"OUTPUT",Path(folder)), \
+                        patch.object(runner.socket,"socket") as socket, \
+                        patch.object(runner.subprocess,"Popen",side_effect=start):
+                    socket.return_value.__enter__.return_value.connect_ex.return_value = 1
+                    if wrong_identity:
+                        with self.assertRaisesRegex(RuntimeError,"readiness identity"):
+                            with runner.required_red_relay(isolated):
+                                self.fail("wrong relay must not be yielded")
+                    else:
+                        with self.assertRaisesRegex(RuntimeError,"journey failed"):
+                            with runner.required_red_relay(isolated) as yielded:
+                                self.assertIs(yielded,child)
+                                raise RuntimeError("journey failed")
+                    child.terminate.assert_called_once()
+                    child.wait.assert_called_once_with(timeout=10)
+                    child.kill.assert_not_called()
+                    with self.assertRaisesRegex(RuntimeError,"already exists"):
+                        with runner.required_red_relay(isolated):
+                            self.fail("relay log/evidence cannot be reused")
+
+
+
+    def test_inner_cover_pair_requires_actual_fitness_before_withdrawal(self):
+        rows = runner.load_manifest()["journeys"]
+        ic = [row for row in rows if row["path"] in runner.IC_PATHS]
+        self.assertEqual([row["path"] for row in ic], list(runner.IC_PATHS))
+        self.assertEqual([row["preserveAppData"] for row in ic], [False, False])
+        self.assertEqual([row["actorEmail"] for row in ic],
+                         ["dev.operations@example.invalid", "dev.cf01-b@example.invalid"])
+        self.assertEqual(len(rows), 11)
+        self.assertEqual(len(runner.load_manifest()["excluded"]), 7)
+        for invalid in ([ic[1]], list(reversed(ic)), [ic[0], rows[0], ic[1]],
+                        [dict(ic[0], preserveAppData=True), ic[1]],
+                        [ic[0], dict(ic[1], successMarker="DEV_IC_FITNESS_PASS")],
+                        [ic[0], dict(ic[1], actorEmail="dev.operations@example.invalid")]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                runner.require_inner_cover_sequence(invalid)
+
+    def test_inner_cover_pair_keeps_backend_state_but_requires_both_actual_markers(self):
+        rows = [row for row in runner.load_manifest()["journeys"] if row["path"] in runner.IC_PATHS]
+        for fail_at in (None, 0, 1):
+            events = []
+            def logged(command, name, timeout, env):
+                events.append(name)
+                if name == "cf01-http-boundary":
+                    return HTTP_PROOF
+                for index, row in enumerate(rows):
+                    if name == Path(row["path"]).stem:
+                        return rows[1-index]["successMarker"] if fail_at == index else row["successMarker"]
+                return ""
+            with self.subTest(fail_at=fail_at), tempfile.TemporaryDirectory() as folder, \
+                    patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "run_logged", side_effect=logged), \
+                    patch.object(runner, "prepare_ci_journey") as prepare, \
+                    patch.object(runner, "required_red_relay") as relay, \
+                    patch.object(runner.subprocess, "run") as restart:
+                if fail_at is None:
+                    runner.execute_journeys("emulator-5554", {"journeys": rows}, {})
+                else:
+                    with self.assertRaisesRegex(RuntimeError, "completion marker"):
+                        runner.execute_journeys("emulator-5554", {"journeys": rows}, {})
+                report = json.loads((Path(folder)/"result.json").read_text(encoding="utf-8"))
+            self.assertEqual(events.count("seed"), 1)
+            self.assertEqual(prepare.call_count, 1 if fail_at == 0 else 2)
+            restart.assert_not_called()
+            relay.assert_not_called()
+            self.assertEqual([row["status"] for row in report["attempts"]],
+                             ["passed", "passed"] if fail_at is None else
+                             (["failed", "untested"] if fail_at == 0 else ["passed", "failed"]))
+            if fail_at == 0:
+                self.assertNotIn(Path(rows[1]["path"]).stem, events)
+
+    def test_invalid_inner_cover_order_fails_before_seeding_or_android(self):
+        ic = [row for row in runner.load_manifest()["journeys"] if row["path"] in runner.IC_PATHS]
+        with patch.object(runner, "run_logged") as run, \
+                patch.object(runner, "prepare_ci_journey") as prepare:
+            with self.assertRaisesRegex(ValueError, "Inner Cover"):
+                runner.execute_journeys("emulator-5554", {"journeys": list(reversed(ic))}, {})
+        run.assert_not_called()
+        prepare.assert_not_called()
+
+    def test_previous_attempt_output_is_preserved_before_seed_or_backend(self):
+        for argv in ([], ["--inside-emulators"]):
+            with self.subTest(argv=argv), tempfile.TemporaryDirectory() as folder:
+                previous = Path(folder)/"seed.log"
+                previous.write_bytes(b"original partial fixture failure\n")
+                with patch.object(runner, "OUTPUT", Path(folder)), \
+                        patch.object(runner, "require_isolated_environment"), \
+                        patch.object(runner, "run_logged") as run, \
+                        patch.object(runner.subprocess, "run") as backend:
+                    with self.assertRaisesRegex(RuntimeError, "already contains evidence"):
+                        runner.main(argv)
+                run.assert_not_called()
+                backend.assert_not_called()
+                self.assertEqual(previous.read_bytes(), b"original partial fixture failure\n")
+                self.assertEqual([p.name for p in Path(folder).iterdir()], ["seed.log"])
+
+    def test_direct_execution_also_refuses_existing_attempt_results(self):
+        with tempfile.TemporaryDirectory() as folder:
+            previous = Path(folder)/"result.json"
+            previous.write_bytes(b'{"status":"failed"}\n')
+            with patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "run_logged") as run, \
+                    self.assertRaisesRegex(RuntimeError, "already contains evidence"):
+                runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
+            run.assert_not_called()
+            self.assertEqual(previous.read_bytes(), b'{"status":"failed"}\n')
+
+    def test_output_file_is_refused_without_replacement(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder)/"evidence"
+            path.write_bytes(b"preserve")
+            with patch.object(runner, "OUTPUT", path), self.assertRaisesRegex(RuntimeError, "already contains evidence"):
+                runner.require_fresh_output()
+            self.assertEqual(path.read_bytes(), b"preserve")
 
 
 if __name__ == "__main__":

@@ -19,6 +19,7 @@ import 'dev_issue_quality_journey_test.dart'
 
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  WidgetController.hitTestWarningShouldBeFatal = true;
   testWidgets('DEV visual review across operational screens', (tester) async {
     expect(crm3UseEmulators, isTrue);
     final oldFlutter = FlutterError.onError;
@@ -55,11 +56,11 @@ void main() {
       );
     }
 
-    await tester.tap(find.text('Home'));
+    await tapControl(tester, find.text('Home'));
     await capture('01-home');
     await showControl(tester, find.text('Management pulse'));
     await capture('02-home-pulse');
-    await tester.tap(find.text('Issues'));
+    await tapControl(tester, find.text('Issues'));
     await capture('03-issues');
 
     await openMore(tester, 'Directives');
@@ -130,9 +131,9 @@ void main() {
     );
     await capture('09-reports');
     await goBack(tester);
-    await tester.tap(find.text('Work'));
+    await tapControl(tester, find.text('Work'));
     await capture('11-work');
-    await tester.tap(find.text('More'));
+    await tapControl(tester, find.text('More'));
     await capture('12-more');
     await openMore(tester, 'Raise issue');
     await capture('10-issue-form');

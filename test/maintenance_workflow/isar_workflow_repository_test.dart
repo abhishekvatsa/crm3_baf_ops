@@ -44,6 +44,64 @@ void main() {
   });
 
   test(
+    'assessment journal includes every unresolved state without changing retry selection',
+    () async {
+      const type = 'settleInnerCoverAssessment';
+      final records = [
+        for (final state in [
+          'ready',
+          'sending',
+          'uncertainOutcome',
+          'manualReview',
+          'rejected',
+          'applied',
+        ])
+          _command('assessment-$state', state: state)
+            ..aggregateId = 'case-exact'
+            ..commandTypeKey = type,
+        _command('other-case')
+          ..aggregateId = 'case-other'
+          ..commandTypeKey = type,
+        _command('other-kind')..aggregateId = 'case-exact',
+      ];
+      await isar.writeTxn(() => isar.workflowCommandRecords.putAll(records));
+      final before = await isar.workflowCommandRecords.where().count();
+      final result = await repository.readUnsettledCommands(
+        aggregateId: 'case-exact',
+        commandTypeKey: type,
+      );
+      expect(
+        result.map((row) => row.commandId),
+        unorderedEquals([
+          'assessment-ready',
+          'assessment-sending',
+          'assessment-uncertainOutcome',
+          'assessment-manualReview',
+          'assessment-rejected',
+        ]),
+      );
+      expect(
+        await repository.readUnsettledCommands(
+          aggregateId: 'missing',
+          commandTypeKey: type,
+        ),
+        isEmpty,
+      );
+      expect(await isar.workflowCommandRecords.where().count(), before);
+      expect(
+        (await repository.getPendingCommands()).map((row) => row.commandId),
+        isNot(contains('assessment-rejected')),
+        reason:
+            'The added journal read must not change existing retry/diagnostic selection.',
+      );
+      expect(
+        (await repository.getRetryCommand('assessment-rejected'))!.stateKey,
+        'rejected',
+      );
+    },
+  );
+
+  test(
     'workflow lookup and watcher follow only the requested identity',
     () async {
       final watched = _observe(repository.watchWorkflow('selected'));
@@ -415,24 +473,16 @@ void main() {
   );
 
   test('equipment pull ignores a stale remote projection', () async {
-    final current = _equipment(
-      'base-7',
-      type: 'base',
-      number: 7,
-      state: 'underMaintenance',
-    )
-      ..version = 4
-      ..updatedAt = _time(20);
+    final current =
+        _equipment('base-7', type: 'base', number: 7, state: 'underMaintenance')
+          ..version = 4
+          ..updatedAt = _time(20);
     await repository.upsertEquipmentFromRemote(current);
 
-    final stale = _equipment(
-      'base-7',
-      type: 'base',
-      number: 7,
-      state: 'inService',
-    )
-      ..version = 3
-      ..updatedAt = _time(21);
+    final stale =
+        _equipment('base-7', type: 'base', number: 7, state: 'inService')
+          ..version = 3
+          ..updatedAt = _time(21);
     await repository.upsertEquipmentFromRemote(stale);
 
     expect(
@@ -442,30 +492,30 @@ void main() {
     expect((await repository.getEquipment('base', 7))?.version, 4);
   });
 
-  test('equipment pull quarantines a conflicting same-version projection', () async {
-    final current = _equipment(
-      'base-8',
-      type: 'base',
-      number: 8,
-      state: 'inService',
-    )
-      ..version = 2
-      ..updatedAt = _time(20);
-    await repository.upsertEquipmentFromRemote(current);
+  test(
+    'equipment pull quarantines a conflicting same-version projection',
+    () async {
+      final current =
+          _equipment('base-8', type: 'base', number: 8, state: 'inService')
+            ..version = 2
+            ..updatedAt = _time(20);
+      await repository.upsertEquipmentFromRemote(current);
 
-    final conflicting = _equipment(
-      'base-8',
-      type: 'base',
-      number: 8,
-      state: 'underMaintenance',
-    )
-      ..version = 2
-      ..updatedAt = _time(20);
-    await expectLater(
-      repository.upsertEquipmentFromRemote(conflicting),
-      throwsA(isA<StateError>()),
-    );
-  });
+      final conflicting =
+          _equipment(
+              'base-8',
+              type: 'base',
+              number: 8,
+              state: 'underMaintenance',
+            )
+            ..version = 2
+            ..updatedAt = _time(20);
+      await expectLater(
+        repository.upsertEquipmentFromRemote(conflicting),
+        throwsA(isA<StateError>()),
+      );
+    },
+  );
 
   test(
     'retry queries preserve the due boundary, nulls, and manual-review policy',

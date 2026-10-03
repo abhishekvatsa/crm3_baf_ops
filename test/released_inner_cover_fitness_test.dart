@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:crm3_baf_ops/features/assets/presentation/inner_cover_assessment_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crm3_baf_ops/core/serialization/tolerant_snapshot_decode.dart';
 import 'package:crm3_baf_ops/features/assets/data/furnace_stuckup_record.dart';
@@ -109,6 +111,209 @@ InnerCoverDependencies _derive(
 );
 
 void main() {
+  Map<String, dynamic> disposition(f.Fixture fixture) => {
+    'schemaVersion': 1,
+    'kind': 'postEventInspectionAccepted',
+    'assessorConfirmed': true,
+    'caseId': _id,
+    'ticketId': _id,
+    'innerCoverId': fixture.profiles.first.id,
+    'innerCoverSerialNumber': fixture.profiles.first.serialNumber,
+    'eventLinkageId': fixture.links.first.id,
+    'originalCaseVersion': 3,
+    'withdrawnTicketVersion': _ticket(fixture).version,
+    'inspectedAt': _released.add(const Duration(days: 1)),
+    'settledAt': _released.add(const Duration(days: 2)),
+    'reason':
+        'Post-event inspection and repair resolve this exact physical concern.',
+    'settledByName': 'Synthetic SI',
+    'settledByUid': 'fixture-si',
+    'acceptedByUid': 'fixture-admin',
+    'acceptanceReference': 'INSPECT-41',
+    'acceptanceRequestId': 'accept-1',
+    'acceptanceAuditId': 'inner_cover_accept-1',
+    'withdrawalRequestId': 'withdraw-1',
+    'withdrawalAuditId': 'server_maintenance_ticket_withdraw-1',
+    'assuranceEpisodeId': 'repair-1',
+    'commandId': 'settle-1',
+    'acceptanceProfileVersion': 5,
+    for (final name in [
+      'withdrawalAuditSha256',
+      'withdrawalReceiptSha256',
+      'acceptanceAuditSha256',
+      'acceptanceReceiptSha256',
+    ])
+      name: 'a' * 64,
+  };
+  FurnaceStuckupRecord settledCase(
+    f.Fixture fixture, [
+    Map<String, dynamic> delta = const {},
+  ]) => _case(fixture, {
+    'version': 4,
+    'updatedAt': _released.add(const Duration(days: 2)),
+    'concernDisposition': {...disposition(fixture), ...delta},
+  });
+
+  test(
+    'explicit server-confirmed disposition settles withdrawn exact case and retains unrelated maintenance',
+    () {
+      final fixture = f.Fixture();
+      final withdrawn = _ticket(fixture)..isDeleted = true;
+      final cases = [settledCase(fixture)];
+      final clear = _derive(fixture, tickets: [withdrawn], cases: cases);
+      expect(clear.complete, isTrue);
+      expect(
+        clear.byCoverId[fixture.profiles.first.id]!.needsCurrentAssessment,
+        isFalse,
+      );
+      final working = _derive(
+        fixture,
+        tickets: [withdrawn],
+        cases: cases,
+        maintenance: true,
+      );
+      expect(
+        working.byCoverId[fixture.profiles.first.id]!.needsCurrentAssessment,
+        isFalse,
+      );
+      expect(
+        working.byCoverId[fixture.profiles.first.id]!.confirmsNoRestriction,
+        isFalse,
+      );
+      expect(withdrawn.isDeleted, isTrue);
+    },
+  );
+  for (final delta in <Map<String, dynamic>>[
+    {'innerCoverId': 'other-cover'},
+    {'eventLinkageId': 'other-event'},
+    {'withdrawnTicketVersion': 999},
+    {'originalCaseVersion': 999},
+    {'inspectedAt': f.at},
+    {'settledAt': f.at},
+  ]) {
+    test('misbound disposition stays unverified: ${delta.keys.single}', () {
+      final fixture = f.Fixture();
+      final state = _derive(
+        fixture,
+        tickets: [_ticket(fixture)..isDeleted = true],
+        cases: [settledCase(fixture, delta)],
+      );
+      expect(state.complete, isFalse);
+      expect(
+        state.byCoverId[fixture.profiles.first.id]!.confirmsNoRestriction,
+        isFalse,
+      );
+    });
+  }
+  test(
+    'settling one withdrawn case preserves a second confirmed concern on the same cover',
+    () {
+      final fixture = f.Fixture();
+      final secondTicket = _ticket(fixture)..firestoreId = 'second-case';
+      final secondCase = FurnaceStuckupRecord.fromMap({
+        ..._caseMap(fixture),
+        'caseId': 'second-case',
+        'ticketId': 'second-case',
+      }, 'second-case');
+      final result = _derive(
+        fixture,
+        tickets: [_ticket(fixture)..isDeleted = true, secondTicket],
+        cases: [settledCase(fixture), secondCase],
+      );
+      expect(result.complete, isTrue);
+      expect(
+        result.byCoverId[fixture.profiles.first.id]!.needsCurrentAssessment,
+        isTrue,
+      );
+      expect(
+        result.byCoverId[fixture.profiles.first.id]!.reasons.single.sourceId,
+        'second-case',
+      );
+    },
+  );
+  test('cached disposition cannot certify assessment settlement', () {
+    final fixture = f.Fixture();
+    final result = _derive(
+      fixture,
+      tickets: [_ticket(fixture)..isDeleted = true],
+      cases: [settledCase(fixture)],
+      cache: true,
+    );
+    expect(result.complete, isFalse);
+    expect(
+      result.byCoverId[fixture.profiles.first.id]!.confirmsNoRestriction,
+      isFalse,
+    );
+  });
+  test(
+    'disposition chronology rejects absent or malformed persisted times',
+    () {
+      final fixture = f.Fixture();
+      for (final field in ['inspectedAt', 'settledAt']) {
+        for (final invalid in <Object?>[
+          null,
+          '',
+          'not-a-date',
+          true,
+          <String, Object?>{},
+        ]) {
+          expect(
+            () => settledCase(fixture, {field: invalid}),
+            throwsFormatException,
+            reason: '$field: $invalid',
+          );
+        }
+        final absent = disposition(fixture)..remove(field);
+        expect(
+          () => InnerCoverConcernDisposition.fromMap(absent, 'A05 regression'),
+          throwsFormatException,
+          reason: 'missing $field',
+        );
+      }
+    },
+  );
+  test('disposition decoder rejects missing immutable proof bindings', () {
+    final fixture = f.Fixture();
+    expect(
+      () => settledCase(fixture, {'acceptanceAuditSha256': null}),
+      throwsFormatException,
+    );
+  });
+  testWidgets(
+    'settlement form requires technical reason and explicit assessor confirmation',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: InnerCoverAssessmentDialog(
+              record: _case(f.Fixture()),
+              acceptanceReference: 'INSPECT-41',
+            ),
+          ),
+        ),
+      );
+      FilledButton submit() =>
+          tester.widget(find.byKey(const ValueKey('ic-assessment-submit')));
+      expect(submit().onPressed, isNull);
+      await tester.enterText(
+        find.byKey(const ValueKey('ic-assessment-reason')),
+        'The post-event inspection resolves this exact concern.',
+      );
+      await tester.pump();
+      expect(submit().onPressed, isNull);
+      await tester.tap(find.byKey(const ValueKey('ic-assessment-confirm')));
+      await tester.pump();
+      expect(submit().onPressed, isNotNull);
+      await tester.enterText(
+        find.byKey(const ValueKey('ic-assessment-reason')),
+        'okay',
+      );
+      await tester.pump();
+      expect(submit().onPressed, isNull);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test(
     'physical release retains current fitness assessment and exact host warning',
     () {

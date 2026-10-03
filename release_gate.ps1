@@ -31,6 +31,38 @@ $stamp = $startedAt.ToString('yyyyMMdd_HHmmss')
 $EvidenceDir = [System.IO.Path]::GetFullPath((Join-Path $EvidenceRoot $stamp))
 New-Item -ItemType Directory -Force -Path $EvidenceDir | Out-Null
 
+. (Join-Path $PSScriptRoot 'tools/testing/local_gate_reporting.ps1')
+$script:gateReport = New-LocalGateReport -Names @(
+  'checked-in source preflight',
+  'dart format (warning-only)',
+  'production policy and composite backend authority',
+  'test evidence taxonomy and critical-path coverage',
+  'Flutter dependency resolution',
+  'A03 persistence boundary audit',
+  'flutter analyze',
+  'flutter host suite (source contracts + unit + widget)',
+  'no-loss host regression contracts',
+  'Firestore Rules + governed callable emulator',
+  'rules expression-limit check (must be ABSENT)',
+  'Functions host build + non-emulator tests',
+  'Android release APK construction (no install)',
+  'Android 16 KB native-library compatibility',
+  'Android compiled backup and device-transfer exclusion'
+)
+$script:gateReportPath = Join-Path $EvidenceDir 'gate-results.json'
+if ($SkipRules) {
+  Set-LocalGateResult $script:gateReport 'Firestore Rules + governed callable emulator' skipped '-SkipRules selected'
+  Set-LocalGateResult $script:gateReport 'rules expression-limit check (must be ABSENT)' skipped '-SkipRules selected'
+}
+if ($SkipFunctions) {
+  Set-LocalGateResult $script:gateReport 'Functions host build + non-emulator tests' skipped '-SkipFunctions selected'
+}
+if ($SkipBuild) {
+  Set-LocalGateResult $script:gateReport 'Android release APK construction (no install)' skipped '-SkipBuild selected'
+  Set-LocalGateResult $script:gateReport 'Android 16 KB native-library compatibility' skipped '-SkipBuild selected'
+  Set-LocalGateResult $script:gateReport 'Android compiled backup and device-transfer exclusion' skipped '-SkipBuild selected'
+}
+
 function Run-Gate {
   param([string]$Name, [scriptblock]$Action)
   $script:step++
@@ -39,18 +71,30 @@ function Run-Gate {
   Write-Host "[$script:step] $Name" -ForegroundColor Cyan
   Write-Host "============================================================" -ForegroundColor Cyan
   $global:LASTEXITCODE = 0
-  & $Action
-  $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+  try {
+    & $Action
+    $exitCode = if ($null -eq $LASTEXITCODE) { 0 } else { $LASTEXITCODE }
+  } catch {
+    Set-LocalGateResult $script:gateReport $Name failed $_.Exception.Message
+    Write-LocalGateReport $script:gateReport $script:gateReportPath
+    throw
+  }
   if ($exitCode -ne 0) {
-    Write-Host ""
+    Set-LocalGateResult $script:gateReport $Name failed "exit $exitCode"
     Write-Host ">>> GATE FAILED: $Name (exit $exitCode)" -ForegroundColor Red
+    Write-LocalGateReport $script:gateReport $script:gateReportPath
     exit $exitCode
   }
+  Set-LocalGateResult $script:gateReport $Name passed
   Write-Host ">>> PASS: $Name" -ForegroundColor Green
 }
 
 Write-Host "CRM-III BAF Ops — release gate starting at $startedAt" -ForegroundColor Yellow
 Write-Host "Evidence directory: $EvidenceDir" -ForegroundColor Yellow
+
+Run-Gate "checked-in source preflight" {
+  python tools/testing/run_source_preflight.py 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "source_preflight.log")
+}
 
 # Record tool identity.
 flutter --version | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_version.log")
@@ -66,8 +110,10 @@ Write-Host "[$script:step] dart format (WARN-ONLY — not blocking)" -Foreground
 Write-Host "============================================================" -ForegroundColor Cyan
 dart format lib test --output=none --set-exit-if-changed *> (Join-Path $EvidenceDir "dart_format.log")
 if ($LASTEXITCODE -ne 0) {
+  Set-LocalGateResult $script:gateReport 'dart format (warning-only)' warning 'Formatting differences are non-blocking'
   Write-Host ">>> WARN: some files are not dart-formatted (non-blocking; run 'dart format lib test' later)" -ForegroundColor Yellow
 } else {
+  Set-LocalGateResult $script:gateReport 'dart format (warning-only)' passed
   Write-Host ">>> PASS: formatting clean" -ForegroundColor Green
 }
 $global:LASTEXITCODE = 0
@@ -88,6 +134,15 @@ Run-Gate "test evidence taxonomy and critical-path coverage" {
     2>&1 | Tee-Object -FilePath (
       Join-Path $EvidenceDir "test_evidence_taxonomy.log"
     )
+}
+
+Run-Gate "Flutter dependency resolution" {
+  flutter pub get 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_pub_get.log")
+}
+
+Run-Gate "A03 persistence boundary audit" {
+  dart run tools/v4/a03_persistence_boundary_inventory.dart `
+    2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "a03_persistence_boundary.log")
 }
 
 Run-Gate "flutter analyze" {
@@ -156,13 +211,13 @@ if (-not $SkipFunctions) {
 }
 
 if (-not $SkipBuild) {
+  $apk = "build\app\outputs\flutter-apk\app-release.apk"
   Run-Gate "Android release APK construction (no install)" {
     flutter build apk --release 2>&1 | Tee-Object -FilePath (Join-Path $EvidenceDir "flutter_build_apk_release.log")
-  }
-
-  $apk = "build\app\outputs\flutter-apk\app-release.apk"
-  if (-not (Test-Path -LiteralPath $apk -PathType Leaf)) {
-    throw "Android release APK was not produced at $apk."
+    if ($LASTEXITCODE -ne 0) { return }
+    if (-not (Test-Path -LiteralPath $apk -PathType Leaf)) {
+      throw "Android release APK was not produced at $apk."
+    }
   }
 
   Run-Gate "Android 16 KB native-library compatibility" {
@@ -185,7 +240,7 @@ if (-not $SkipBuild) {
 
   $hash = (Get-FileHash $apk -Algorithm SHA256).Hash
   $line = "$((Get-Date).ToString('o'))  app-release.apk  $hash"
-  Write-Host "Release APK SHA-256: $hash"
+  Write-Host "Local candidate APK SHA-256 (not signing or distribution proof): $hash"
   $line | Out-File -Append -FilePath (
     Join-Path $EvidenceDir "release_gate_artifacts.log"
   )
@@ -194,10 +249,8 @@ if (-not $SkipBuild) {
 git status --short --untracked-files=all | Tee-Object -FilePath (Join-Path $EvidenceDir "git_status_end.log")
 
 $elapsed = (Get-Date) - $startedAt
-Write-Host ""
-Write-Host "============================================================" -ForegroundColor Green
-Write-Host "ALL AUTOMATED LOCAL GATES GREEN  ($([int]$elapsed.TotalSeconds)s)" -ForegroundColor Green
-Write-Host "============================================================" -ForegroundColor Green
+$script:gateReport['elapsedSeconds'] = [int]$elapsed.TotalSeconds
+Write-LocalGateReport $script:gateReport $script:gateReportPath
 Write-Host "Evidence directory: $EvidenceDir" -ForegroundColor Green
 Write-Host ""
 Write-Host "Source gate is NOT the whole release. Field gates remain manual:" -ForegroundColor Yellow
