@@ -6,6 +6,13 @@ const {MaintenanceWorkflowCommandService, MemoryWorkflowStore, at, seedActor,
   seedFurnaceHierarchy, upsertDefinition, createCampaign, observation,
 } = require('./helpers/inspectionFixture');
 
+const priorAuthoringFlag = process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED;
+beforeEach(() => { process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED = 'true'; });
+afterEach(() => {
+  if (priorAuthoringFlag === undefined) delete process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED;
+  else process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED = priorAuthoringFlag;
+});
+
 const field = (id, valueType, extra = {}) => ({id, label: id,
   valueType, unit: valueType === 'number' ? 'bar' : null,
   choiceValues: [], minimumValue: null, maximumValue: null, ...extra});

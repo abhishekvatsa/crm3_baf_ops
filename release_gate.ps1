@@ -207,6 +207,18 @@ if (-not $SkipFunctions) {
     } finally {
       Pop-Location
     }
+    if ($LASTEXITCODE -ne 0) { return }
+    $business31Tests = @(
+      Get-ChildItem -Path "tools/release" -Filter "business31*.test.cjs" -File |
+        Sort-Object Name
+    )
+    if ($business31Tests.Count -eq 0) {
+      throw "Build31 business-source test discovery found no suites."
+    }
+    $privateBundleTest = Get-Item -LiteralPath "tools/release/privateEvidenceBundle31.test.cjs"
+    $business31TestPaths = @($business31Tests.FullName) + @($privateBundleTest.FullName)
+    node --test --test-concurrency=2 @business31TestPaths 2>&1 |
+      Tee-Object -FilePath (Join-Path $EvidenceDir "business31_source_custody_test.log")
   }
 }
 

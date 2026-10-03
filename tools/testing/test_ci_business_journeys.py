@@ -14,6 +14,28 @@ HTTP_PROOF = "CF01_HTTP_BOUNDARY_PASS tests=7 report=.dart_tool/cf01-emulator-ru
 
 
 class BusinessJourneyGateTest(unittest.TestCase):
+    def test_v2_authoring_opt_in_only_writes_exact_dedicated_demo_parameters(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "functions").mkdir()
+            with patch.object(runner, "ROOT", root):
+                runner.prepare_functions_parameters()
+                params = root / "functions/.env.demo-crm3-ci-journeys"
+                self.assertEqual(params.read_text(encoding="utf-8"),
+                                 "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false\n"
+                                 "CRM_INSPECTION_V2_AUTHORING_ENABLED=true\n")
+                runner.prepare_functions_parameters()
+                for original in ("CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK=false\n",
+                                 "CRM_INSPECTION_V2_AUTHORING_ENABLED=false\n"):
+                    params.write_text(original, encoding="utf-8")
+                    with self.assertRaisesRegex(RuntimeError, "refusing overwrite"):
+                        runner.prepare_functions_parameters()
+                    self.assertEqual(params.read_text(encoding="utf-8"), original)
+                with patch.object(runner, "PROJECT", "production-project"), \
+                        self.assertRaisesRegex(RuntimeError, "dedicated demo"):
+                    runner.prepare_functions_parameters()
+                self.assertEqual([p.name for p in (root / "functions").iterdir()], [params.name])
+
     def test_notification_setup_builds_matching_dev_source_before_install_and_grant(self):
         journey = runner.load_manifest()["journeys"][0]
         events = []
