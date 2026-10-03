@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/services/app_logger.dart';
 import '../../maintenance_workflow/data/workflow_command_record.dart';
 import '../../maintenance_workflow/domain/workflow_command_contract.dart';
 import '../../maintenance_workflow/domain/workflow_types.dart';
@@ -80,93 +81,78 @@ class _InnerCoverAssessmentPanelState
             (recoveryUnavailable ? _unavailableRecovery?.message : null);
         final canSettle = actor?.canAdjudicateFurnaceStuckup == true;
         final sameActor = _pending == null || _pendingActorUid == actor?.uid;
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            key: ValueKey('ic-assessment-retained-${record.id}'),
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              InnerCoverAssessmentGuidance(
-                serialNumber: record.innerCoverSerialNumber,
-                sameActor: sameActor,
-                failure: failure,
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : () => Navigator.of(context).push<void>(
-                            MaterialPageRoute(
-                              builder: (_) => const InnerCoverLifecycleScreen(),
-                            ),
-                          ),
-                    icon: const Icon(Icons.layers_outlined),
-                    label: const Text('Open Inner Cover records'),
-                  ),
-                  if (canSettle &&
-                      sameActor &&
-                      !_heldForReview &&
-                      (_pending != null ||
-                          data.canUseAcceptance(currentRecord)))
-                    FilledButton(
-                      onPressed: _busy ? null : () => _settle(data),
-                      key: ValueKey('ic-assessment-review-${record.id}'),
-                      child: Text(
-                        _busy
-                            ? 'Checking…'
-                            : _pending == null
-                            ? 'Review assessment'
-                            : 'Check saved assessment',
+        return InnerCoverAssessmentRetainedView(
+          caseId: record.id,
+          serialNumber: record.innerCoverSerialNumber,
+          sameActor: sameActor,
+          failure: failure,
+          showAcceptanceReminder:
+              canSettle &&
+              _pending == null &&
+              !data.canUseAcceptance(currentRecord),
+          actions: [
+            OutlinedButton.icon(
+              onPressed: _busy
+                  ? null
+                  : () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => const InnerCoverLifecycleScreen(),
                       ),
                     ),
-                  if (_pending != null || _heldForReview)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => ref.invalidate(
-                              innerCoverAssessmentEvidenceProvider(record),
-                            ),
-                      child: const Text('Check current assessment'),
-                    ),
-                  if (_heldForReview)
-                    InnerCoverSavedRequestReviewAction(
-                      caseId: record.id,
-                      isAdmin: actor?.isAdmin == true,
-                      busy: _busy,
-                      unavailable: recoveryUnavailable,
-                      onInspect: _reviewSaved,
-                    ),
-                  if (_heldForReview &&
-                      sameActor &&
-                      actor?.canViewMaintenanceWorkflowDiagnostics == true)
-                    OutlinedButton(
-                      onPressed: _busy
-                          ? null
-                          : () => Navigator.of(context).push<void>(
-                              MaterialPageRoute(
-                                builder: (_) => WorkflowDiagnosticsScreen(
-                                  aggregateId: currentRecord.id,
-                                  commandTypeKey: WorkflowCommandType
-                                      .settleInnerCoverAssessment
-                                      .name,
-                                ),
-                              ),
-                            ),
-                      child: const Text('Review saved workflow action'),
-                    ),
-                ],
-              ),
-              if (canSettle &&
-                  _pending == null &&
-                  !data.canUseAcceptance(currentRecord))
-                const Text(
-                  'A current, unassigned cover with a recorded post-event acceptance is required before review.',
+              icon: const Icon(Icons.layers_outlined),
+              label: const Text('Open Inner Cover records'),
+            ),
+            if (canSettle &&
+                sameActor &&
+                !_heldForReview &&
+                (_pending != null || data.canUseAcceptance(currentRecord)))
+              FilledButton(
+                onPressed: _busy ? null : () => _settle(data),
+                key: ValueKey('ic-assessment-review-${record.id}'),
+                child: Text(
+                  _busy
+                      ? 'Checking…'
+                      : _pending == null
+                      ? 'Review assessment'
+                      : 'Check saved assessment',
                 ),
-            ],
-          ),
+              ),
+            if (_pending != null || _heldForReview)
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => ref.invalidate(
+                        innerCoverAssessmentEvidenceProvider(record),
+                      ),
+                child: const Text('Check current assessment'),
+              ),
+            if (_heldForReview)
+              InnerCoverSavedRequestReviewAction(
+                caseId: record.id,
+                isAdmin: actor?.isAdmin == true,
+                busy: _busy,
+                unavailable: recoveryUnavailable,
+                onInspect: _reviewSaved,
+              ),
+            if (_heldForReview &&
+                sameActor &&
+                actor?.canViewMaintenanceWorkflowDiagnostics == true)
+              OutlinedButton(
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.of(context).push<void>(
+                        MaterialPageRoute(
+                          builder: (_) => WorkflowDiagnosticsScreen(
+                            aggregateId: currentRecord.id,
+                            commandTypeKey: WorkflowCommandType
+                                .settleInnerCoverAssessment
+                                .name,
+                          ),
+                        ),
+                      ),
+                child: const Text('Review saved workflow action'),
+              ),
+          ],
         );
       },
     );
@@ -483,7 +469,7 @@ class _InnerCoverAssessmentPanelState
       } on Object {
         // An unreadable journal cannot establish a terminal outcome.
       }
-      debugPrint('Assessment request ${command.commandId} retained: $error');
+      AppLogger.warning('Assessment request retained.', error: error);
       if (mounted) {
         setState(() {
           _heldForReview = heldForReview;

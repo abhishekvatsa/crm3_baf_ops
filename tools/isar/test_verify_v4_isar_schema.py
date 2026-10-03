@@ -1,6 +1,8 @@
 """Persisted-field and migration rejection tests; no database is opened."""
 import importlib.util
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -32,6 +34,59 @@ class PersistedFieldsTest(unittest.TestCase):
 
     def test_ignored_method_does_not_hide_following_persisted_field(self):
         self.assertEqual(self.fields("  @ignore\n  String helper() { return 'not a field'; }\n  String? persisted;"), {"persisted"})
+
+    def test_nested_and_qualified_annotations_preserve_field_population(self):
+        self.assertEqual(self.fields(
+            "  @pkg.Index(composite: [CompositeIndex('kind')], "
+            "options: {'nested': call((1 + 2))})\n"
+            "  @ignore\n  String? transient;\n"
+            "  @pkg.ignore\n  @Index(name: '@ignore')\n"
+            "  late String persisted;\n"
+            "  @ignore() String? notTheIgnoreMarker;"
+        ), {"persisted", "notTheIgnoreMarker"})
+
+    def test_annotation_on_method_does_not_include_method_local_field(self):
+        self.assertEqual(self.fields(
+            "  @ignore\n  String helper() {\n"
+            "    @Index() String? local;\n    return '';\n  }\n"
+            "  @Index() String? persisted;"
+        ), {"persisted"})
+
+    def test_closure_initializer_preserves_following_field_and_excludes_locals(self):
+        self.assertEqual(self.fields(
+            "  String computed = (() {\n"
+            "    String local = 'local';\n"
+            "    String? anotherLocal;\n"
+            "    return local;\n  })();\n"
+            "  String? persisted;"
+        ), {"computed", "persisted"})
+
+    def test_unterminated_annotation_is_rejected(self):
+        with self.assertRaisesRegex(AssertionError, "Unterminated annotation"):
+            self.fields("  @Index(\n  String? persisted;")
+
+    def test_adversarial_annotation_chain_has_bounded_rejection(self):
+        # This is the reported ReDoS shape followed by a non-field. A process
+        # deadline also keeps a regressed verifier from hanging the test runner.
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "record.dart"
+            source.write_text(
+                "class Sample {\n  @A(" + ")@A(" * 2000
+                + ") notAField;\n  String persisted;\n}\n",
+                encoding="utf-8",
+            )
+            script = (
+                "import importlib.util, pathlib, sys; "
+                "spec=importlib.util.spec_from_file_location('verifier', sys.argv[1]); "
+                "module=importlib.util.module_from_spec(spec); "
+                "spec.loader.exec_module(module); "
+                "assert module.source_fields(pathlib.Path(sys.argv[2]), 'Sample') == {'persisted'}"
+            )
+            completed = subprocess.run(
+                [sys.executable, "-B", "-c", script, str(Path(verifier.__file__)), str(source)],
+                capture_output=True, text=True, timeout=5, check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
 
     def test_actual_workflow_matches_generated_persisted_population(self):
         source = ROOT / "lib/features/maintenance_workflow/data/workflow_aggregate_record.dart"

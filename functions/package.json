@@ -42,7 +42,8 @@
     "@types/node": "^22.15.0",
     "brace-expansion": "file:../tooling/brace-expansion-compat",
     "jest": "^29.7.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "braces": "file:../tooling/braces-depth-guard"
   },
   "overrides": {
     "qs": "6.16.0",
@@ -50,6 +51,7 @@
     "@grpc/grpc-js": "1.14.5",
     "browserslist": "4.28.8",
     "js-yaml": "3.15.2",
-    "brace-expansion": "$brace-expansion"
+    "brace-expansion": "$brace-expansion",
+    "braces": "$braces"
   }
 }

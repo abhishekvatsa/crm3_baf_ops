@@ -201,6 +201,9 @@ class _Executor implements WorkflowOnlineExecutor {
   final _Journal journal;
   final List<WorkflowCommand> calls = [];
   String state = 'manualReview';
+  Object failure = StateError(
+    'Private backend diagnostic should not appear in UI',
+  );
   @override
   Future<WorkflowCommandReceipt> execute(
     WorkflowCommand command, {
@@ -210,7 +213,7 @@ class _Executor implements WorkflowOnlineExecutor {
     calls.add(command);
     journal.rows[command.commandId] = _saved(command.commandId, state: state)
       ..payloadJson = jsonEncode(command.payload);
-    throw StateError('Private backend diagnostic should not appear in UI');
+    throw failure;
   }
 
   @override
@@ -888,6 +891,45 @@ void main() {
       expect(h.journal.rows, hasLength(1));
     });
   }
+
+  testWidgets('retained assessment failure keeps console and UI private', (
+    tester,
+  ) async {
+    const privateError = 'PRIVATE_ASSESSMENT_ERROR_80471';
+    final h = await _mount(
+      tester,
+      configure: (h) => h.executor.failure = StateError(privateError),
+    );
+    final originalPrint = debugPrint;
+    final console = <String>[];
+    debugPrint = (message, {wrapWidth}) => console.add(message ?? '');
+    try {
+      await _tap(tester, find.text('Review assessment'));
+      await _confirm(tester);
+      expect(h.executor.calls, hasLength(1));
+      final original = h.executor.calls.single;
+      final saved = h.journal.rows[original.commandId]!;
+      final savedBytes = saved.payloadJson;
+      expect(savedBytes, jsonEncode(original.payload));
+      expect(saved.stateKey, 'manualReview');
+      expect(find.text('Check saved assessment'), findsNothing);
+      expect(find.text('Review saved workflow action'), findsOneWidget);
+      expect(find.textContaining(privateError), findsNothing);
+      expect(find.textContaining(original.commandId), findsNothing);
+      await _tap(tester, find.text('Check current assessment'));
+      expect(h.executor.calls, hasLength(1));
+      expect(h.journal.rows, hasLength(1));
+      expect(h.journal.rows[original.commandId], same(saved));
+      expect(saved.payloadJson, savedBytes);
+      expect(saved.stateKey, 'manualReview');
+      final output = console.join('\n');
+      expect(output, isNot(contains(privateError)));
+      expect(output, isNot(contains(original.commandId)));
+      expect(output, contains('SanitizedCrashException<StateError>'));
+    } finally {
+      debugPrint = originalPrint;
+    }
+  });
 
   testWidgets(
     'uncertain outcome repeats exact identity and preserves origin actor',

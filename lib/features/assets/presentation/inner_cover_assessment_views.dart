@@ -237,6 +237,45 @@ class InnerCoverSavedRequestConfirmationDialog extends StatelessWidget {
   );
 }
 
+/// Layout only; the panel supplies admitted actions and prerequisite state.
+class InnerCoverAssessmentRetainedView extends StatelessWidget {
+  const InnerCoverAssessmentRetainedView({
+    required this.caseId,
+    required this.serialNumber,
+    required this.sameActor,
+    required this.failure,
+    required this.showAcceptanceReminder,
+    required this.actions,
+    super.key,
+  });
+  final String caseId;
+  final String serialNumber;
+  final bool sameActor;
+  final String? failure;
+  final bool showAcceptanceReminder;
+  final List<Widget> actions;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Column(
+      key: ValueKey('ic-assessment-retained-$caseId'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InnerCoverAssessmentGuidance(
+          serialNumber: serialNumber,
+          sameActor: sameActor,
+          failure: failure,
+        ),
+        Wrap(spacing: 8, runSpacing: 8, children: actions),
+        if (showAcceptanceReminder)
+          const Text(
+            'A current, unassigned cover with a recorded post-event acceptance is required before review.',
+          ),
+      ],
+    ),
+  );
+}
+
 /// Plain guidance is separated from current-evidence admission and command state.
 class InnerCoverAssessmentGuidance extends StatelessWidget {
   const InnerCoverAssessmentGuidance({

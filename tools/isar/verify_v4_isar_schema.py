@@ -47,16 +47,42 @@ REQUIRED_EXISTING = {
 }
 
 FIELD_RE = re.compile(
-    r"^[ \t]*(?P<metadata>(?:@[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*"
-    r"(?:\s*\([^;]*?\))?\s*)*)"
     r"(?:late\s+)?(?:String|int|bool|DateTime)\??\s+(?P<name>\w+)"
     r"\s*(?:=[^;]*)?;[ \t]*$",
     re.MULTILINE,
 )
+ANNOTATION_NAME_RE = re.compile(r"@[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 IGNORE_RE = re.compile(r"(?<![\w.])@ignore(?=\s|$)")
 
 def fail(msg: str) -> None:
     raise AssertionError(msg)
+
+def annotation_end(text: str, offset: int) -> int:
+    """Consume metadata once; nested arguments cannot repartition annotations."""
+    while offset < len(text) and text[offset] == '@':
+        name = ANNOTATION_NAME_RE.match(text, offset)
+        if name is None:
+            break
+        offset = name.end()
+        while offset < len(text) and text[offset].isspace():
+            offset += 1
+        if offset < len(text) and text[offset] == '(':
+            depth = 1
+            offset += 1
+            while offset < len(text) and depth:
+                char = text[offset]
+                if char == '(':
+                    depth += 1
+                elif char == ')':
+                    depth -= 1
+                elif char == ';':
+                    fail('Unterminated annotation before declaration')
+                offset += 1
+            if depth:
+                fail('Unterminated annotation arguments')
+            while offset < len(text) and text[offset].isspace():
+                offset += 1
+    return offset
 
 def source_fields(path: Path, class_name: str) -> set[str]:
     text=strip_strings_and_comments(path.read_text(encoding="utf-8"))
@@ -74,12 +100,30 @@ def source_fields(path: Path, class_name: str) -> set[str]:
     if close_offset is None: fail(f"Class {class_name} is unterminated in {path}")
     body=text[open_offset + 1:close_offset]
     fields=set()
-    for match in FIELD_RE.finditer(body):
-        prefix=body[:match.start()]
-        if (prefix.count('{') == prefix.count('}')
-                and match.group('name') != 'id'
-                and not IGNORE_RE.search(match.group('metadata'))):
-            fields.add(match.group('name'))
+    offset=0; depth=0
+    while offset < len(body):
+        if depth == 0:
+            while offset < len(body) and body[offset] in ' \t':
+                offset += 1
+            metadata_start=offset
+            offset=annotation_end(body, offset)
+            match=FIELD_RE.match(body, offset)
+            if match is not None:
+                if (match.group('name') != 'id'
+                        and not IGNORE_RE.search(body[metadata_start:offset])):
+                    fields.add(match.group('name'))
+                # An initializer can enter a closure before its first semicolon.
+                # Account for this consumed span before scanning later lines.
+                consumed=body[offset:match.end()]
+                depth += consumed.count('{') - consumed.count('}')
+                offset=match.end()
+        # Visit each remaining character once, keeping method-local fields out.
+        while offset < len(body):
+            char=body[offset]
+            offset += 1
+            if char == '{': depth += 1
+            elif char == '}': depth -= 1
+            elif char == '\n': break
     if not fields: fail(f"No fields parsed from {path}:{class_name}")
     return fields
 
