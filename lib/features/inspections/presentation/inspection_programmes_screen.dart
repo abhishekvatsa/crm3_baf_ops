@@ -20,6 +20,7 @@ import '../../reports/presentation/report_provenance_builder.dart';
 import '../../reports/presentation/structured_report_pdf_screen.dart';
 import '../data/inspection_campaign.dart';
 import '../domain/inspection_campaign_report.dart';
+import '../domain/inspection_observation_comparison_label.dart';
 import '../providers/inspection_provider.dart';
 import '../providers/inspection_target_context_provider.dart';
 import '../providers/inspection_campaign_submission_provider.dart';
@@ -1448,8 +1449,9 @@ class _ObservationCard extends StatelessWidget {
                       if (observation.comparisonOutcome != null)
                         _InfoChip(
                           icon: Icons.compare_arrows_rounded,
-                          text: _comparisonLabel(
+                          text: inspectionObservationComparisonLabel(
                             observation.comparisonOutcome!,
+                            observation.definition,
                           ),
                         ),
                     ],

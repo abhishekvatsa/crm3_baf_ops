@@ -132,6 +132,25 @@ export const multiReadingOutOfRange = (value: MultiReadingValue, definition: Jso
     deviation(value.readings[index].value as number, field) > 0);
 };
 
+/** Compare admitted decimal values without subtraction rounding or overflow. */
+const compareOppositeBreachDistances = (
+  previous: number, current: number, minimum: number, maximum: number,
+): -1 | 0 | 1 => {
+  // Number parsing has already fixed stored precision. Align each finite
+  // value's canonical decimal representation rather than inventing an epsilon.
+  const parts = [previous, current, minimum, maximum].map((value) => {
+    const [coefficient, exponent = "0"] = value.toString().split("e");
+    const [whole, fraction = ""] = coefficient.split(".");
+    return {digits: BigInt(whole + fraction), exponent: Number(exponent) - fraction.length};
+  });
+  const scale = Math.min(...parts.map((part) => part.exponent));
+  const [before, next, lower, upper] = parts.map((part) =>
+    part.digits * 10n ** BigInt(part.exponent - scale));
+  const previousDistance = before < lower ? lower - before : before - upper;
+  const nextDistance = next < lower ? lower - next : next - upper;
+  return nextDistance < previousDistance ? -1 : nextDistance > previousDistance ? 1 : 0;
+};
+
 /** Never combine unlike units into one magnitude or infer health from a date. */
 export const compareMultiReadingValue = (
   current: MultiReadingValue, baseline: JsonMap, definition: JsonMap,
@@ -160,6 +179,18 @@ export const compareMultiReadingValue = (
     const next = current.readings[index].value;
     if (field.valueType !== "number") {
       if (before !== next) return "notComparable";
+      continue;
+    }
+    if (field.minimumValue !== null && field.maximumValue !== null &&
+        (((before as number) < field.minimumValue && (next as number) > field.maximumValue) ||
+         ((next as number) < field.minimumValue && (before as number) > field.maximumValue))) {
+      const direction = compareOppositeBreachDistances(
+        before as number, next as number, field.minimumValue, field.maximumValue);
+      if (direction === 0) return "notComparable";
+      previousBreach = true;
+      nextBreach = true;
+      improved ||= direction < 0;
+      deteriorated ||= direction > 0;
       continue;
     }
     const beforeDeviation = deviation(before as number, field);

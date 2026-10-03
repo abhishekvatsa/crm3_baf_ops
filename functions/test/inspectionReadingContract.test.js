@@ -189,6 +189,30 @@ describe('versioned multi-reading workflow boundaries', () => {
     expect(store.entries().filter(([path]) => path.startsWith('asset_'))).toEqual(assets);
     expect(store.entries().filter(([path]) => path.startsWith('equipment') || path.startsWith('inner_cover_assessments'))).toEqual([]);
   });
+  test.each([[1.9, 4.1], [4.1, 1.9]])('persists equal opposite decimal breaches %s to %s as not comparable', async (before, after) => {
+    const {store, run, admin} = await fixture();
+    await run(readingCommand({}, {inlet: before}));
+    const original = store.read('inspection_observations/observation-1');
+    const finding = store.read('inspection_findings/inspection-finding-observation-1');
+    await run({commandId: 'adjudicate-baseline', commandType: 'adjudicateInspectionFinding',
+      aggregateId: 'campaign-furnace-pt-august', expectedVersion: 2,
+      payload: {findingId: finding.findingId, expectedFindingVersion: finding.version,
+        status: 'acceptedCondition', reason: 'Retain the measured baseline deviation under explicit review.'}}, admin);
+    expect(store.read('inspection_findings/inspection-finding-observation-1').status).toBe('acceptedCondition');
+    const baselineVersion = store.read('inspection_campaigns/campaign-furnace-pt-august').version;
+    await run({commandId: 'close-baseline', commandType: 'setInspectionCampaignStatus',
+      aggregateId: 'campaign-furnace-pt-august', expectedVersion: baselineVersion,
+      payload: {status: 'closed', reason: 'Freeze the completed survey with its adjudicated finding retained.'}}, admin);
+    await run(createCampaign({commandId: 'create-decimal-reaudit', campaignId: 'decimal-reaudit',
+      targetAssetNumbers: [1], baselineCampaignId: 'campaign-furnace-pt-august'}), admin);
+    const result = await run(readingCommand({commandId: 'decimal-followup', observationId: 'decimal-followup',
+      campaignId: 'decimal-reaudit', observedAt: '2026-08-21T05:30:00.000Z'}, {inlet: after}));
+    expect(result.result.comparisonOutcome).toBe('notComparable');
+    expect(store.read('inspection_observations/decimal-followup')).toMatchObject({
+      baselineObservationId: 'observation-1', comparisonOutcome: 'notComparable', outOfRange: true,
+    });
+    expect(store.read('inspection_observations/observation-1')).toEqual(original);
+  });
   test('v1 title edits keep scalar shape; explicit upgrade removes obsolete keys and leaves old campaign usable', async () => {
     const store = new MemoryWorkflowStore(); seedFurnaceHierarchy(store);
     const admin = seedActor(store, 'admin', ['admin']);
@@ -243,6 +267,38 @@ describe('conservative full-contract baseline comparison', () => {
     const definition = contract([field('pressure', 'number', limits)]);
     const value = n => ({schemaVersion: 2, readings: [{fieldId: 'pressure', valueType: 'number', value: n}]});
     expect(compareMultiReadingValue(value(3.2), {schemaVersion: 2, definition, value: value(3)}, definition)).toBe('unchanged');
+  });
+  const comparePressure = (before, after, minimumValue, maximumValue) => {
+    const definition = contract([field('pressure', 'number', {minimumValue, maximumValue})]);
+    const value = n => ({schemaVersion: 2, readings: [{fieldId: 'pressure', valueType: 'number', value: n}]});
+    return compareMultiReadingValue(value(after), {schemaVersion: 2, definition, value: value(before)}, definition);
+  };
+  test.each([
+    [1.9, 4.1, 2, 4], [-4.1, -1.9, -4, -2],
+    [1.9e-10, 4.1e-10, 2e-10, 4e-10], [1.9e100, 4.1e100, 2e100, 4e100],
+    [5e-324, 2e-323, 1e-323, 1.5e-323], [-0.1, 0.1, 0, 0],
+    [999999999999999.5, 1000000000000002.5, 1000000000000000, 1000000000000002],
+    [-Number.MAX_VALUE, Number.MAX_VALUE, -1e308, 1e308],
+  ])('refuses equal opposite decimal breaches %p -> %p (bounds %p to %p) in both directions', (before, after, minimum, maximum) => {
+    expect(comparePressure(before, after, minimum, maximum)).toBe('notComparable');
+    expect(comparePressure(after, before, minimum, maximum)).toBe('notComparable');
+  });
+  test.each([
+    [1.8, 4.1, 2, 4], [1.8e-10, 4.1e-10, 2e-10, 4e-10],
+    [999999999999999.5, 1000000000000002.2, 1000000000000000, 1000000000000002],
+    [-Number.MAX_VALUE, Number.MAX_VALUE, 1e308, 1.5e308],
+  ])('preserves genuinely unequal opposite decimal trends %p -> %p (bounds %p to %p)', (before, after, minimum, maximum) => {
+    expect(comparePressure(before, after, minimum, maximum)).toBe('improved');
+    expect(comparePressure(after, before, minimum, maximum)).toBe('deteriorated');
+  });
+  test('retains same-side and one-sided trend behavior', () => {
+    expect(comparePressure(1.8, 1.9, 2, 4)).toBe('improved');
+    expect(comparePressure(4.1, 4.2, 2, 4)).toBe('deteriorated');
+    expect(comparePressure(1.8, 1.9, 2, null)).toBe('improved');
+    expect(comparePressure(4.1, 4.2, null, 4)).toBe('deteriorated');
+  });
+  test('exact opposite-bound improvement cannot hide another field deteriorating', () => {
+    expect(compareMultiReadingValue(values({inlet: 4.1, outlet: 7}), baseline({inlet: 1.8, outlet: 6}), contract())).toBe('notComparable');
   });
   test('does not add different unit magnitudes or hide mixed directions', () => {
     expect(compareMultiReadingValue(values({inlet: 1, outlet: 7}), baseline({inlet: 0, outlet: 6}), contract())).toBe('notComparable');

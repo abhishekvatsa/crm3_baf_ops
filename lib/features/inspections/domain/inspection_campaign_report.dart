@@ -1,4 +1,5 @@
 import '../data/inspection_campaign.dart';
+import 'inspection_observation_comparison_label.dart';
 import '../data/inspection_evidence_snapshot.dart';
 import '../../reports/domain/report_provenance.dart';
 import '../../reports/domain/structured_report_document.dart';
@@ -316,7 +317,7 @@ List<String> _observationRow(
       '${observation.targetContextRevision == 0 ? "" : "\nContext review ${observation.targetContextRevision}: ${observation.targetContextAuditId}"}'
       '${observation.supersedesObservationId == null ? '' : '\nCorrects ${observation.supersedesObservationId}'}'
       '${observation.baselineObservationId == null ? '' : '\nBaseline ${observation.baselineObservationId}'}'
-      '${observation.comparisonOutcome == null ? '' : '\n${_enumLabel(observation.comparisonOutcome!.name)}'}'
+      '${observation.comparisonOutcome == null ? '' : '\n${inspectionObservationComparisonLabel(observation.comparisonOutcome!, observation.definition)}'}'
       '${observation.note == null ? '' : '\nNote: ${observation.note}'}'
       '${observation.evidenceUrls.isEmpty ? '' : '\nEvidence: ${observation.evidenceUrls.join(', ')}'}',
 ];

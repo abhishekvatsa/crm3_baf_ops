@@ -12,6 +12,73 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'bounded comparison report distinguishes limit status from evidence',
+    () {
+      const definition = FrozenInspectionDefinition(
+        schemaVersion: 2,
+        id: 'definition-1',
+        version: 3,
+        code: 'PRESSURE',
+        title: 'Pressure',
+        description: 'Record pressure.',
+        assetTypeKeys: ['furnace'],
+        assetClassIds: ['class-furnace'],
+        componentNodeIds: ['burner-block'],
+        valueType: null,
+        unit: null,
+        choiceValues: [],
+        minimumValue: null,
+        maximumValue: null,
+        preconditions: [],
+        requiresChargeNo: false,
+        readingFields: [
+          InspectionReadingField(
+            id: 'pressure',
+            label: 'Pressure',
+            valueType: InspectionValueType.number,
+            unit: 'bar',
+            maximumValue: 5,
+          ),
+        ],
+      );
+      final campaign = _campaign(
+        definition: definition,
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'reading-1',
+        lastObservedAt: _time(1),
+        observationCount: 1,
+      );
+      final observation = _observation(
+        campaign,
+        id: 'reading-1',
+        value: true,
+        observedAt: _time(1),
+        comparisonOutcome: InspectionComparisonOutcome.unchanged,
+        readings: const [
+          InspectionReadingValue(
+            fieldId: 'pressure',
+            valueType: InspectionValueType.number,
+            value: 4,
+          ),
+        ],
+      );
+      final report = buildInspectionCampaignReport(
+        campaign: campaign,
+        observations: [observation],
+        findings: [],
+        createdFindingIds: [],
+        generatedAt: _time(3),
+        generatedByName: 'Admin One',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+      final row = report.sections[2].tables.single.rows.single;
+      expect(row[5], contains('Limit status unchanged from baseline'));
+      expect(row[5].split('\n'), isNot(contains('Unchanged')));
+      expect(row[2], contains('Pressure: 4 bar'));
+    },
+  );
+
+  test(
     'multi-reading dossier keeps every label, date and superseded value',
     () async {
       const definition = FrozenInspectionDefinition(
@@ -385,8 +452,8 @@ void main() {
       evidenceReviewRequired: true,
       evidenceReviewReason: 'inspection-episode-adverse-basis-corrected',
       linkedTicketId: 'ticket-44',
-      verificationCount: 0,
-      lastVerificationOutcome: null,
+      verificationCount: 1,
+      lastVerificationOutcome: InspectionComparisonOutcome.unchanged,
       updatedAt: _time(2),
     );
 
@@ -449,6 +516,14 @@ void main() {
       contains('Issue ticket-44'),
     );
     expect(report.sections[3].tables.single.rows.single[4], '0');
+    expect(
+      report.sections[3].tables.single.rows.single.last,
+      contains('Last: Unchanged'),
+    );
+    expect(
+      report.sections[3].tables.single.rows.single.last,
+      isNot(contains('Limit status')),
+    );
     expect(
       report.sections[3].tables.single.rows.single.last,
       contains('record a decision'),
@@ -593,6 +668,7 @@ InspectionCampaign _campaign({
 InspectionObservation _observation(
   InspectionCampaign campaign, {
   List<InspectionReadingValue> readings = const [],
+  InspectionComparisonOutcome? comparisonOutcome,
   required String id,
   required bool value,
   required DateTime observedAt,
@@ -640,9 +716,11 @@ InspectionObservation _observation(
         ? const <String>[]
         : const <String>['https://evidence.invalid/photo-1'],
     supersedesObservationId: supersedesObservationId,
-    baselineCampaignId: null,
-    baselineObservationId: null,
-    comparisonOutcome: null,
+    baselineCampaignId: comparisonOutcome == null ? null : 'baseline-campaign',
+    baselineObservationId: comparisonOutcome == null
+        ? null
+        : 'baseline-reading',
+    comparisonOutcome: comparisonOutcome,
     recordedAt: observedAt.add(const Duration(minutes: 2)),
   );
 }
