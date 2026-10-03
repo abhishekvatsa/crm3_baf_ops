@@ -266,7 +266,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
     def test_full_orchestration_preserves_data_only_for_separate_process_recovery(self):
         manifest = runner.load_manifest()
         # Keep the original seven-journey sequence asserted verbatim.
-        manifest["journeys"] = [row for row in manifest["journeys"] if row["path"] not in (*runner.RED_PATHS, *runner.IC_PATHS)]
+        manifest["journeys"] = manifest["journeys"][:7]
         events = []
         def logged(command, name, timeout, env):
             events.append(name)
@@ -311,6 +311,26 @@ class BusinessJourneyGateTest(unittest.TestCase):
             runner.execute_journeys("emulator-5554", runner.load_manifest(), {})
         self.assertNotIn("dev_planned_work_journey_test", events)
 
+    def test_inspection_journey_requires_its_own_real_readback_marker(self):
+        rows = runner.load_manifest()["journeys"]
+        row = rows[-1]
+        self.assertEqual(row["path"], "integration_test/dev_inspection_readings_journey_test.dart")
+        self.assertEqual(row["actorEmail"], "dev.cf01-b@example.invalid")
+        self.assertFalse(row["preserveAppData"])
+        self.assertEqual(row["successMarker"], "DEV_INSPECTION_READINGS_PASS")
+        for marker in ("DEV_WITHDRAWN_PASS", row["successMarker"]):
+            with self.subTest(marker=marker), tempfile.TemporaryDirectory() as folder, \
+                    patch.object(runner, "OUTPUT", Path(folder)), \
+                    patch.object(runner, "run_logged", return_value=HTTP_PROOF + marker), \
+                    patch.object(runner, "prepare_ci_journey"):
+                if marker != row["successMarker"]:
+                    with self.assertRaisesRegex(RuntimeError, "completion marker"):
+                        runner.execute_journeys("emulator-5554", {"journeys": [row]}, {})
+                else:
+                    runner.execute_journeys("emulator-5554", {"journeys": [row]}, {})
+                result = json.loads((Path(folder) / "result.json").read_text(encoding="utf-8"))
+                self.assertEqual(result["status"], "passed" if marker == row["successMarker"] else "failed")
+
     def test_fresh_planned_gate_cannot_pass_by_reusing_a_pre_published_fixture(self):
         manifest = {"journeys": [next(row for row in runner.load_manifest()["journeys"]
             if row["successMarker"] == "DEV_PLANNED_WORK_PASS")]}
@@ -343,7 +363,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
                          [row["path"] for row in runner.load_manifest()["journeys"] if not row["preserveAppData"]])
         for row in plan["preparations"]:
             self.assertEqual(row["steps"][-1][-2:], [runner.DEV_APP, "android.permission.POST_NOTIFICATIONS"])
-        self.assertEqual(len(plan["commands"]), 11)
+        self.assertEqual(len(plan["commands"]), 12)
         self.assertEqual(plan["requiredRedRelay"]["port"], 15002)
         self.assertFalse(plan["productionDistribution"])
 
@@ -543,7 +563,7 @@ class BusinessJourneyGateTest(unittest.TestCase):
         self.assertEqual([row["preserveAppData"] for row in ic], [False, False])
         self.assertEqual([row["actorEmail"] for row in ic],
                          ["dev.operations@example.invalid", "dev.cf01-b@example.invalid"])
-        self.assertEqual(len(rows), 11)
+        self.assertEqual(len(rows), 12)
         self.assertEqual(len(runner.load_manifest()["excluded"]), 7)
         for invalid in ([ic[1]], list(reversed(ic)), [ic[0], rows[0], ic[1]],
                         [dict(ic[0], preserveAppData=True), ic[1]],

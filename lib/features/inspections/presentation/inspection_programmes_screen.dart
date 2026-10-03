@@ -25,8 +25,11 @@ import '../providers/inspection_target_context_provider.dart';
 import '../providers/inspection_campaign_submission_provider.dart';
 import '../domain/inspection_campaign_submission.dart';
 import 'saved_inspection_campaign_panel.dart';
+import 'inspection_reading_fields_editor.dart';
+import 'inspection_reading_contract_editor.dart';
 
 part 'inspection_programmes_editors.dart';
+part 'inspection_observation_editor.dart';
 part 'inspection_observation_submission.dart';
 part 'inspection_programmes_audit_board.dart';
 part 'inspection_programmes_dialogs.dart';
@@ -608,7 +611,9 @@ class _DefinitionCard extends StatelessWidget {
               children: [
                 _InfoChip(
                   icon: Icons.data_object_rounded,
-                  text: value.valueType.name,
+                  text: value.isMultiReading
+                      ? '${value.readingFields.length} labelled readings'
+                      : value.valueType!.name,
                 ),
                 if (value.unit != null)
                   _InfoChip(icon: Icons.straighten_rounded, text: value.unit!),
@@ -626,6 +631,20 @@ class _DefinitionCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (value.isMultiReading) ...[
+              const SizedBox(height: BafSpacing.sm),
+              for (final field in value.readingFields)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: BafSpacing.xs),
+                  child: Text(
+                    '${field.label} · ${field.valueType == InspectionValueType.boolean
+                        ? 'Yes / No'
+                        : field.valueType == InspectionValueType.date
+                        ? 'Date · DD-MM-YYYY'
+                        : field.valueType.name}${field.unit == null ? '' : ' · ${field.unit}'}',
+                  ),
+                ),
+            ],
           ],
         ),
       ),

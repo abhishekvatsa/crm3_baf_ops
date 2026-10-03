@@ -345,17 +345,38 @@ String _populationLabel(InspectionCampaign campaign) =>
     ? 'Installed Inner Covers presented by governed Base linkage'
     : '${_assetTypeLabel(campaign.assetTypeKey)} governed asset instances';
 
-String _valueContract(
-  FrozenInspectionDefinition definition,
-) => switch (definition.valueType) {
+String _valueContract(FrozenInspectionDefinition definition) {
+  if (definition.isMultiReading) {
+    return definition.readingFields
+        .map((field) => '${field.label}: ${_readingContract(field)}')
+        .join('\n');
+  }
+  return switch (definition.valueType) {
+    InspectionValueType.number =>
+      'Number in ${definition.unit}'
+          '${definition.minimumValue == null ? '' : '; minimum ${definition.minimumValue}'}'
+          '${definition.maximumValue == null ? '' : '; maximum ${definition.maximumValue}'}',
+    InspectionValueType.boolean => 'Yes / No',
+    InspectionValueType.text => 'Recorded text',
+    InspectionValueType.choice =>
+      'Governed choice: ${definition.choiceValues.join(', ')}',
+    InspectionValueType.date ||
+    null => throw StateError('Unsupported legacy inspection value contract.'),
+  };
+}
+
+String _readingContract(
+  InspectionReadingField field,
+) => switch (field.valueType) {
   InspectionValueType.number =>
-    'Number in ${definition.unit}'
-        '${definition.minimumValue == null ? '' : '; minimum ${definition.minimumValue}'}'
-        '${definition.maximumValue == null ? '' : '; maximum ${definition.maximumValue}'}',
+    'Number in ${field.unit}'
+        '${field.minimumValue == null ? '' : '; minimum ${field.minimumValue}'}'
+        '${field.maximumValue == null ? '' : '; maximum ${field.maximumValue}'}',
   InspectionValueType.boolean => 'Yes / No',
+  InspectionValueType.date => 'Date (DD-MM-YYYY)',
   InspectionValueType.text => 'Recorded text',
   InspectionValueType.choice =>
-    'Governed choice: ${definition.choiceValues.join(', ')}',
+    'Governed choice: ${field.choiceValues.join(', ')}',
 };
 
 String _operatingContext(InspectionObservation observation) {

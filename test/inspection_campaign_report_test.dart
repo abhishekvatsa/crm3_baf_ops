@@ -11,6 +11,227 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'multi-reading dossier keeps every label, date and superseded value',
+    () async {
+      const definition = FrozenInspectionDefinition(
+        schemaVersion: 2,
+        id: 'definition-1',
+        version: 3,
+        code: 'FURNACE_READING_SET',
+        title: 'Furnace examination',
+        description: 'Record the complete examination.',
+        assetTypeKeys: ['furnace'],
+        assetClassIds: ['class-furnace'],
+        componentNodeIds: ['burner-block'],
+        valueType: null,
+        unit: null,
+        choiceValues: [],
+        minimumValue: null,
+        maximumValue: null,
+        preconditions: [],
+        requiresChargeNo: false,
+        readingFields: [
+          InspectionReadingField(
+            id: 'verified',
+            label: 'Seal verified',
+            valueType: InspectionValueType.boolean,
+          ),
+          InspectionReadingField(
+            id: 'date',
+            label: 'Next examination',
+            valueType: InspectionValueType.date,
+          ),
+          InspectionReadingField(
+            id: 'pressure',
+            label: 'Pressure',
+            valueType: InspectionValueType.number,
+            unit: 'bar',
+            maximumValue: 5,
+          ),
+        ],
+      );
+      final campaign = _campaign(
+        definition: definition,
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'corrected',
+        lastObservedAt: _time(1),
+        observationCount: 2,
+      );
+      final readings = [
+        const InspectionReadingValue(
+          fieldId: 'verified',
+          valueType: InspectionValueType.boolean,
+          value: false,
+        ),
+        const InspectionReadingValue(
+          fieldId: 'date',
+          valueType: InspectionValueType.date,
+          value: '2032-02-29',
+        ),
+        const InspectionReadingValue(
+          fieldId: 'pressure',
+          valueType: InspectionValueType.number,
+          value: 7.5,
+        ),
+      ];
+      final original = _observation(
+        campaign,
+        id: 'original',
+        value: false,
+        observedAt: _time(1),
+        readings: readings,
+      );
+      final corrected = _observation(
+        campaign,
+        id: 'corrected',
+        value: false,
+        observedAt: _time(1),
+        supersedesObservationId: 'original',
+        readings: [
+          readings[0],
+          const InspectionReadingValue(
+            fieldId: 'date',
+            valueType: InspectionValueType.date,
+            value: '2040-12-31',
+          ),
+          readings[2],
+        ],
+      );
+      final report = buildInspectionCampaignReport(
+        campaign: campaign,
+        observations: [original, corrected],
+        findings: [
+          InspectionFinding(
+            id: 'pressure-finding',
+            version: 1,
+            campaignId: campaign.id,
+            targetKey: original.targetKey,
+            assetTypeKey: 'furnace',
+            assetNumber: 22,
+            assetClassId: 'class-furnace',
+            assetInstanceId: 'furnace-22',
+            componentNodeId: 'burner-block',
+            componentName: 'Burner Block',
+            physicalPosition: 'Position 4',
+            status: InspectionFindingStatus.open,
+            firstObservationId: original.id,
+            currentObservationId: corrected.id,
+            firstObservedAt: original.observedAt,
+            latestObservedAt: corrected.observedAt,
+            recurrenceCount: 1,
+            linkedTicketId: null,
+            verificationCount: 0,
+            lastVerificationOutcome: null,
+            updatedAt: _time(2),
+          ),
+        ],
+        createdFindingIds: ['pressure-finding'],
+        generatedAt: _time(3),
+        generatedByName: 'Admin One',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+      final contracts = report.sections.first.fields
+          .map((field) => field.value)
+          .join('\n');
+      expect(contracts, contains('Seal verified: Yes / No'));
+      expect(contracts, contains('Next examination: Date (DD-MM-YYYY)'));
+      expect(contracts, contains('Pressure: Number in bar; maximum 5.0'));
+      final target = report.sections[1].tables.single.rows.single.join('\n');
+      expect(
+        target,
+        contains(
+          'Seal verified: No\nNext examination: 31-12-2040\nPressure: 7.5 bar',
+        ),
+      );
+      final history = report.sections[2].tables.single.rows
+          .map((row) => row.join('\n'))
+          .join('\n');
+      expect(history, contains('Next examination: 29-02-2032'));
+      expect(history, contains('Superseded'));
+      expect(history, contains('Corrects original'));
+      expect(history, contains('Exception recorded'));
+      expect(history, isNot(contains('2032-02-29')));
+      final bytes = await StructuredReportPdfService.build(report);
+      expect(ascii.decode(bytes.take(4).toList()), '%PDF');
+    },
+  );
+
+  test(
+    'maximum labelled text readings paginate without dropping values',
+    () async {
+      final fields = [
+        for (var i = 0; i < 20; i++)
+          InspectionReadingField(
+            id: 'field_$i',
+            label: 'Witnessed condition $i',
+            valueType: InspectionValueType.text,
+          ),
+      ];
+      final definition = FrozenInspectionDefinition(
+        schemaVersion: 2,
+        readingFields: fields,
+        id: 'definition-1',
+        version: 3,
+        code: 'MULTI_TEXT',
+        title: 'Full reading set',
+        description: 'Twenty labelled readings.',
+        assetTypeKeys: ['furnace'],
+        assetClassIds: ['class-furnace'],
+        componentNodeIds: ['burner-block'],
+        valueType: null,
+        unit: null,
+        choiceValues: [],
+        minimumValue: null,
+        maximumValue: null,
+        preconditions: [],
+        requiresChargeNo: false,
+      );
+      final campaign = _campaign(
+        definition: definition,
+        disposition: InspectionTargetDisposition.observed,
+        lastObservationId: 'all-fields',
+        lastObservedAt: _time(1),
+        observationCount: 1,
+      );
+      final observation = _observation(
+        campaign,
+        id: 'all-fields',
+        value: true,
+        observedAt: _time(1),
+        readings: [
+          for (final field in fields)
+            InspectionReadingValue(
+              fieldId: field.id,
+              valueType: field.valueType,
+              value: '${field.id} ${'Observed detail. ' * 60}',
+            ),
+        ],
+      );
+      final report = buildInspectionCampaignReport(
+        campaign: campaign,
+        observations: [observation],
+        findings: [],
+        createdFindingIds: [],
+        generatedAt: _time(3),
+        generatedByName: 'Admin One',
+        provenance: const ReportProvenance.applicationSnapshot(),
+      );
+      for (final field in fields) {
+        expect(
+          report.sections
+              .expand((section) => section.tables)
+              .expand((table) => table.rows)
+              .expand((row) => row)
+              .join('\n'),
+          contains('${field.label}:'),
+        );
+      }
+      final bytes = await StructuredReportPdfService.build(report);
+      expect(ascii.decode(bytes.take(4).toList()), '%PDF');
+    },
+  );
+
   test('campaign freshness does not erase rejected population identities', () {
     const snapshot = InspectionEvidenceSnapshot<String>(
       records: ['valid'],
@@ -291,6 +512,7 @@ void main() {
 DateTime _time(int hour) => DateTime.utc(2026, 9, 6, hour);
 
 InspectionCampaign _campaign({
+  FrozenInspectionDefinition? definition,
   InspectionTargetDisposition disposition = InspectionTargetDisposition.pending,
   String? dispositionReason,
   String? lastObservationId,
@@ -329,23 +551,25 @@ InspectionCampaign _campaign({
     id: 'campaign-1',
     version: 4,
     status: InspectionCampaignStatus.open,
-    definition: const FrozenInspectionDefinition(
-      id: 'definition-1',
-      version: 2,
-      code: 'FURNACE_BURNER_BLOCK',
-      title: 'Burner Block condition',
-      description: 'Record governed Burner Block condition by position.',
-      assetTypeKeys: <String>['furnace'],
-      assetClassIds: <String>['class-furnace'],
-      componentNodeIds: <String>['burner-block'],
-      valueType: InspectionValueType.boolean,
-      unit: null,
-      choiceValues: <String>[],
-      minimumValue: null,
-      maximumValue: null,
-      preconditions: <String>['Furnace safely observable'],
-      requiresChargeNo: false,
-    ),
+    definition:
+        definition ??
+        const FrozenInspectionDefinition(
+          id: 'definition-1',
+          version: 2,
+          code: 'FURNACE_BURNER_BLOCK',
+          title: 'Burner Block condition',
+          description: 'Record governed Burner Block condition by position.',
+          assetTypeKeys: <String>['furnace'],
+          assetClassIds: <String>['class-furnace'],
+          componentNodeIds: <String>['burner-block'],
+          valueType: InspectionValueType.boolean,
+          unit: null,
+          choiceValues: <String>[],
+          minimumValue: null,
+          maximumValue: null,
+          preconditions: <String>['Furnace safely observable'],
+          requiresChargeNo: false,
+        ),
     purpose: 'Fleet condition audit',
     assetTypeKey: 'furnace',
     assetClassId: 'class-furnace',
@@ -368,6 +592,7 @@ InspectionCampaign _campaign({
 
 InspectionObservation _observation(
   InspectionCampaign campaign, {
+  List<InspectionReadingValue> readings = const [],
   required String id,
   required bool value,
   required DateTime observedAt,
@@ -376,6 +601,7 @@ InspectionObservation _observation(
 }) {
   final target = campaign.targets.single;
   return InspectionObservation(
+    readings: readings,
     id: id,
     campaignId: campaignId ?? campaign.id,
     definition: campaign.definition,
@@ -402,7 +628,7 @@ InspectionObservation _observation(
     observerUid: 'operations-1',
     observerName: 'Operations One',
     numericValue: null,
-    booleanValue: value,
+    booleanValue: campaign.definition.isMultiReading ? null : value,
     textValue: null,
     choiceValue: null,
     unit: null,

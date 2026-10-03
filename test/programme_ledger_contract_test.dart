@@ -764,10 +764,10 @@ void main() {
     // PR #235 closure assertions above retain their historical evidence.
     expect(
       a04Manifest['inventoryDigest'],
-      '3A49E0A4E69983DC3E7D4F9D7EEA4DDD8C1B3548FBCBF8A68B0EF592DA3971F0',
+      '4CD06C61E6387871FDB5D34DE250F953F205EB950C78AC3C4513287432B977B0',
     );
     expect(_objects(a04Manifest['fields']), hasLength(55));
-    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(130));
+    expect(_objects(a04Manifest['inheritedDecoderSurfaces']), hasLength(131));
 
     final a05 = architecture['A-05']!;
     expect(a05['currentStatus'], 'CLOSED');

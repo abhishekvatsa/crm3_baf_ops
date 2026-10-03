@@ -1,3 +1,6 @@
+import {InspectionReadingField, MultiReadingValue, compareMultiReadingValue,
+  isMultiReadingValue, multiReadingOutOfRange, parseInspectionReadingFields,
+  parseMultiReadingValue} from "./inspectionReadingContract";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
@@ -175,6 +178,8 @@ const optionalNumber = (value: unknown, field: string): number | null => {
 };
 
 interface ParsedInspectionDefinition {
+  readonly schemaVersion: 1 | 2;
+  readonly readingFields?: readonly InspectionReadingField[];
   readonly code: string;
   readonly title: string;
   readonly description: string;
@@ -194,11 +199,11 @@ const parseDefinition = (value: unknown): ParsedInspectionDefinition => {
   const data = record(value, "definition");
   exactKeys(data, [
     "schemaVersion", "code", "title", "description", "assetTypeKeys",
-    "assetClassIds", "componentNodeIds", "valueType", "unit",
-    "choiceValues", "minimumValue", "maximumValue", "preconditions",
-    "requiresChargeNo",
+    "assetClassIds", "componentNodeIds", "preconditions", "requiresChargeNo",
+    ...(data.schemaVersion === 2 ? ["readingFields"] :
+      ["valueType", "unit", "choiceValues", "minimumValue", "maximumValue"]),
   ], "definition");
-  if (data.schemaVersion !== 1) {
+  if (data.schemaVersion !== 1 && data.schemaVersion !== 2) {
     throw new WorkflowError("invalid-argument", "definition.schemaVersion is unsupported.");
   }
   const code = boundedText(data.code, "definition.code", 2, 48).toUpperCase();
@@ -213,12 +218,15 @@ const parseDefinition = (value: unknown): ParsedInspectionDefinition => {
   if (assetTypeKeys.some((item) => !ASSET_TYPES.has(item))) {
     throw new WorkflowError("invalid-argument", "definition.assetTypeKeys is unsupported.");
   }
-  const valueType = cleanText(data.valueType, "definition.valueType");
-  if (!VALUE_TYPES.has(valueType)) {
+  const readingFields = data.schemaVersion === 2 ?
+    parseInspectionReadingFields(data.readingFields) : undefined;
+  const valueType = readingFields == null ? cleanText(data.valueType, "definition.valueType") : "multi";
+  if (readingFields == null && !VALUE_TYPES.has(valueType)) {
     throw new WorkflowError("invalid-argument", "definition.valueType is unsupported.");
   }
-  const unit = optionalText(data.unit, "definition.unit", 40);
-  const choiceValues = stringList(data.choiceValues, "definition.choiceValues", 30, 120);
+  const unit = readingFields == null ? optionalText(data.unit, "definition.unit", 40) : null;
+  const choiceValues = readingFields == null ?
+    stringList(data.choiceValues, "definition.choiceValues", 30, 120) : [];
   if ((valueType === "choice") !== (choiceValues.length > 0)) {
     throw new WorkflowError(
       "invalid-argument",
@@ -243,6 +251,8 @@ const parseDefinition = (value: unknown): ParsedInspectionDefinition => {
     throw new WorkflowError("invalid-argument", "definition.requiresChargeNo must be boolean.");
   }
   return {
+    schemaVersion: data.schemaVersion,
+    ...(readingFields == null ? {} : {readingFields}),
     code,
     title: boundedText(data.title, "definition.title", 1, 160),
     description: boundedText(data.description, "definition.description", 1, 1000),
@@ -259,8 +269,18 @@ const parseDefinition = (value: unknown): ParsedInspectionDefinition => {
   };
 };
 
+const definitionReadingContract = (data: JsonMap): JsonMap => data.schemaVersion === 2 ? {
+  readingFields: parseInspectionReadingFields(data.readingFields),
+} : {
+  valueType: data.valueType,
+  unit: data.unit ?? null,
+  choiceValues: data.choiceValues,
+  minimumValue: data.minimumValue ?? null,
+  maximumValue: data.maximumValue ?? null,
+};
+
 const definitionSnapshot = (data: JsonMap): JsonMap => ({
-  schemaVersion: 1,
+  schemaVersion: data.schemaVersion === 2 ? 2 : 1,
   definitionId: data.definitionId,
   definitionVersion: data.version,
   code: data.code,
@@ -269,11 +289,7 @@ const definitionSnapshot = (data: JsonMap): JsonMap => ({
   assetTypeKeys: data.assetTypeKeys,
   assetClassIds: data.assetClassIds,
   componentNodeIds: data.componentNodeIds,
-  valueType: data.valueType,
-  unit: data.unit ?? null,
-  choiceValues: data.choiceValues,
-  minimumValue: data.minimumValue ?? null,
-  maximumValue: data.maximumValue ?? null,
+  ...definitionReadingContract(data),
   preconditions: data.preconditions,
   requiresChargeNo: data.requiresChargeNo,
 });
@@ -372,7 +388,7 @@ export const upsertInspectionDefinition: CommandHandler = async ({tx, command, c
   const now = iso(context.serverNow);
   const nextVersion = currentVersion + 1;
   const after: JsonMap = {
-    schemaVersion: 1,
+    schemaVersion: parsed.schemaVersion,
     definitionId: id,
     version: nextVersion,
     status: current.data?.status === "retired" ? "retired" : "active",
@@ -383,11 +399,7 @@ export const upsertInspectionDefinition: CommandHandler = async ({tx, command, c
     assetTypeKeys: parsed.assetTypeKeys,
     assetClassIds: parsed.assetClassIds,
     componentNodeIds: parsed.componentNodeIds,
-    valueType: parsed.valueType,
-    unit: parsed.unit,
-    choiceValues: parsed.choiceValues,
-    minimumValue: parsed.minimumValue,
-    maximumValue: parsed.maximumValue,
+    ...definitionReadingContract(parsed as unknown as JsonMap),
     preconditions: parsed.preconditions,
     requiresChargeNo: parsed.requiresChargeNo,
     createdAt: current.data?.createdAt ?? now,
@@ -397,7 +409,13 @@ export const upsertInspectionDefinition: CommandHandler = async ({tx, command, c
     updatedByUid: context.actor.uid,
     updatedByName: context.actor.name,
   };
-  if (current.exists) tx.update(definitionPath(id), after);
+  if (current.exists && (current.data?.schemaVersion === 2 || parsed.schemaVersion === 2)) {
+    // Replacing a contract must remove obsolete scalar/multi keys, while
+    // preserving unrelated metadata and leaving frozen campaign copies alone.
+    const retained = {...current.data};
+    for (const key of ["valueType", "unit", "choiceValues", "minimumValue", "maximumValue", "readingFields"]) delete retained[key];
+    tx.set(definitionPath(id), {...retained, ...after});
+  } else if (current.exists) tx.update(definitionPath(id), after);
   else tx.create(definitionPath(id), after);
   writeAudit({
     tx,
@@ -967,7 +985,7 @@ export const verifyUnusedInspectionCampaignDeletionReplay = async (args: {
   }
 };
 
-interface ParsedObservationValue {
+interface ParsedObservationValue extends JsonMap {
   readonly valueType: string;
   readonly numericValue: number | null;
   readonly booleanValue: boolean | null;
@@ -990,10 +1008,12 @@ const numericDeviation = (value: number, definition: JsonMap): number => {
 };
 
 const compareInspectionObservation = (
-  current: ParsedObservationValue,
+  current: ParsedObservationValue | MultiReadingValue,
   baseline: JsonMap,
   definition: JsonMap,
 ): InspectionComparisonOutcome => {
+  if (isMultiReadingValue(current)) return compareMultiReadingValue(current, baseline, definition);
+  if (baseline.schemaVersion === 2) return "notComparable";
   if (current.valueType === "number" && current.numericValue != null &&
       typeof baseline.numericValue === "number") {
     const previous = numericDeviation(baseline.numericValue, definition);
@@ -1016,7 +1036,8 @@ const compareInspectionObservation = (
 const parseObservationValue = (
   value: unknown,
   definition: JsonMap,
-): ParsedObservationValue => {
+): ParsedObservationValue | MultiReadingValue => {
+  if (definition.schemaVersion === 2) return parseMultiReadingValue(value, definition);
   const data = record(value, "observation.value");
   exactKeys(data, [
     "valueType", "numericValue", "booleanValue", "textValue", "choiceValue",
@@ -1221,7 +1242,8 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   governedTarget = await requireInspectionContextReview(tx, campaignId, governedTarget);
   const value = parseObservationValue(command.payload.value, definition);
   const unit = optionalText(command.payload.unit, "unit", 40);
-  if (unit !== (definition.unit ?? null)) {
+  if ((definition.schemaVersion === 2 && command.payload.unit !== null) ||
+      unit !== (definition.unit ?? null)) {
     throw new WorkflowError("invalid-argument", "Observation unit changed from its definition.");
   }
   const chargeNo = command.payload.chargeNo;
@@ -1335,11 +1357,11 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
   if (new Date(observedAt).getTime() > context.serverNow.getTime() + 5 * 60 * 1000) {
     throw new WorkflowError("invalid-argument", "observedAt cannot be in the future.");
   }
-  const numeric = value.numericValue;
+  const numeric = isMultiReadingValue(value) ? null : value.numericValue;
   const minimum = typeof definition.minimumValue === "number" ? definition.minimumValue : null;
   const maximum = typeof definition.maximumValue === "number" ? definition.maximumValue : null;
-  const outOfRange = numeric != null &&
-    ((minimum != null && numeric < minimum) || (maximum != null && numeric > maximum));
+  const outOfRange = isMultiReadingValue(value) ? multiReadingOutOfRange(value, definition) :
+    numeric != null && ((minimum != null && numeric < minimum) || (maximum != null && numeric > maximum));
   if (superseded?.data != null &&
       (superseded.data.targetKey !== targetKey ||
        superseded.data.definitionVersion !== campaign.data.definitionVersion)) {
@@ -1500,7 +1522,7 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     );
   }
   const observation: JsonMap = {
-    schemaVersion: 1,
+    schemaVersion: isMultiReadingValue(value) ? 2 : 1,
     observationId,
     campaignId,
     campaignVersionAtObservation: command.expectedVersion,
@@ -1536,14 +1558,16 @@ export const recordInspectionObservation: CommandHandler = async ({tx, command, 
     observerUid: context.actor.uid,
     observerName: context.actor.name,
     value: value as unknown as JsonMap,
-    valueType: value.valueType,
-    numericValue: value.numericValue,
-    booleanValue: value.booleanValue,
-    textValue: value.textValue,
-    choiceValue: value.choiceValue,
-    unit,
-    minimumValue: minimum,
-    maximumValue: maximum,
+    ...(isMultiReadingValue(value) ? {} : {
+      valueType: value.valueType,
+      numericValue: value.numericValue,
+      booleanValue: value.booleanValue,
+      textValue: value.textValue,
+      choiceValue: value.choiceValue,
+      unit,
+      minimumValue: minimum,
+      maximumValue: maximum,
+    }),
     outOfRange,
     operatingConditions: operatingConditions(command.payload.operatingConditions),
     chargeNo: chargeNo as number | null,

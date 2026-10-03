@@ -1,7 +1,7 @@
 # Android business journey CI gate
 
 The `android-emulator` job in `release-gate.yml` retains the C04 app-shell test
-and then runs the eleven suites declared in
+and then runs the twelve suites declared in
 `governance/ci-business-journeys.json` against real local Auth, Firestore Rules,
 and Functions emulators. The gate is configuration for future CI runs, not a
 claim that an unexecuted Android run has passed.
@@ -83,6 +83,16 @@ The runner enforces adjacent order and exact actor/marker identities. Each IC
 journey uses a fresh DEV app session, while their backend state is retained.
 The updated Functions handler must be compiled before these journeys run.
 
+The twelfth journey uses the existing approved Admin B and Furnace 01 fixture.
+It creates a new governed definition and programme through the actual screens,
+with labelled Yes/No and Date readings at the same inspection point. An unanswered
+boolean and an invalid calendar date must be rejected without creating any
+observation. Explicit No and 03-10-2026 are then accepted together. Reopening and
+correcting the reading must prefill both values, preserve the original observation
+and its occurrence time, and retain the whole reading set in authenticated server
+readback. This journey has no pre-seeded definition, programme or observation.
+Its completion marker is `DEV_INSPECTION_READINGS_PASS`.
+
 The result JSON labels each declared journey passed, failed, or untested, and
 labels the run a CI demo candidate attempt. Build output and test success do
 not establish signing, production release, physical acceptance or distribution.
@@ -145,11 +155,11 @@ business failure. An existing non-empty journey output directory is rejected
 before seeding or starting the backend, preserving the original attempt logs.
 Use a new disposable checkout/output attempt rather than deleting old evidence.
 The job is bounded to 60 minutes to allow cold Android/backend
-setup, eight permission-bootstrap debug builds, and twelve separate Flutter
+setup, nine permission-bootstrap debug builds, and thirteen separate Flutter
 integration invocations; each business process
 also has its own shorter deadline.
 
-All eighteen DEV suites are classified in the manifest: eleven selected and
+All nineteen DEV suites are classified in the manifest: twelve selected and
 seven explicitly excluded. The additional upgrade prepare/resume probes require
 an independently bound baseline427 APK and a different candidate APK, the same
 DEV package/signing, real main-store saves and an actual controlled network cut.

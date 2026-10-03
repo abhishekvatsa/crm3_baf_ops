@@ -23,6 +23,135 @@ import 'inspection_campaign_model_test.dart'
     show innerCoverCampaignMap, observationMap, findingMap;
 
 void main() {
+  for (final correcting in [false, true]) {
+    testWidgets(
+      'multi-reading ${correcting ? 'correction prefills' : 'submission requires'} the entire frozen contract',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1100, 1500));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final observedAt = DateTime.utc(2026, 9, 5, 5);
+        final campaign = _assetCampaign(
+          assetTypeKey: 'furnace',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'furnace-22',
+          assetNumber: 22,
+          label: 'Furnace 22',
+          readingFields: const [
+            InspectionReadingField(
+              id: 'verified',
+              label: 'Seal verified',
+              valueType: InspectionValueType.boolean,
+            ),
+            InspectionReadingField(
+              id: 'due_date',
+              label: 'Next examination',
+              valueType: InspectionValueType.date,
+            ),
+          ],
+          lastObservationId: correcting ? 'prior' : null,
+          lastObservedAt: correcting ? observedAt : null,
+          disposition: correcting
+              ? InspectionTargetDisposition.observed
+              : InspectionTargetDisposition.pending,
+        );
+        final prior = _observation(
+          campaign: campaign,
+          target: campaign.targets.single,
+          id: 'prior',
+          observedAt: observedAt,
+          recordedAt: observedAt,
+          value: false,
+          readings: const [
+            InspectionReadingValue(
+              fieldId: 'verified',
+              valueType: InspectionValueType.boolean,
+              value: false,
+            ),
+            InspectionReadingValue(
+              fieldId: 'due_date',
+              valueType: InspectionValueType.date,
+              value: '2032-02-29',
+            ),
+          ],
+        );
+        final sent = <WorkflowCommand>[];
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: correcting ? [prior] : [],
+            executeCommand: (command) async {
+              sent.add(command);
+              return WorkflowCommandReceipt(
+                commandId: command.commandId,
+                resultKey: 'inspection-observation-recorded',
+                aggregateVersion: 2,
+                result: const {},
+                appliedAt: observedAt,
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (correcting) {
+          await tester.ensureVisible(find.byTooltip('Reading actions'));
+          await tester.tap(find.byTooltip('Reading actions'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Record correction'));
+        } else {
+          await tester.ensureVisible(find.text('Add reading'));
+          await tester.tap(find.text('Add reading'));
+        }
+        await tester.pumpAndSettle();
+        final submit = find.widgetWithText(
+          FilledButton,
+          correcting ? 'Record correction' : 'Save reading',
+        );
+        if (correcting) {
+          expect(
+            tester
+                .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'No'))
+                .selected,
+            isTrue,
+          );
+          expect(find.text('29-02-2032'), findsOneWidget);
+        } else {
+          await tester.tap(submit);
+          await tester.pumpAndSettle();
+          expect(sent, isEmpty);
+          expect(find.text('Choose Yes or No.'), findsOneWidget);
+          await tester.tap(find.widgetWithText(ChoiceChip, 'No'));
+          await tester.enterText(
+            find.byKey(const ValueKey('inspection-reading-due_date')),
+            '29-02-2032',
+          );
+        }
+        await tester.ensureVisible(submit);
+        await tester.tap(submit);
+        await tester.pumpAndSettle();
+        expect(sent, hasLength(1));
+        expect(sent.single.payload['value'], {
+          'schemaVersion': 2,
+          'readings': [
+            {'fieldId': 'verified', 'valueType': 'boolean', 'value': false},
+            {'fieldId': 'due_date', 'valueType': 'date', 'value': '2032-02-29'},
+          ],
+        });
+        expect(sent.single.payload['unit'], isNull);
+        expect(sent.single.payload.containsKey('readings'), isFalse);
+        expect(
+          sent.single.payload['supersedesObservationId'],
+          correcting ? 'prior' : null,
+        );
+        if (correcting) {
+          expect(
+            sent.single.payload['observedAt'],
+            observedAt.toIso8601String(),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'closed survey exposes scoped follow-up without a reopen command',
     (tester) async {
@@ -1555,6 +1684,7 @@ InspectionCampaign _innerCoverCampaign() {
 }
 
 InspectionCampaign _assetCampaign({
+  List<InspectionReadingField> readingFields = const [],
   InspectionCampaignStatus status = InspectionCampaignStatus.open,
   required String assetTypeKey,
   required String assetClassId,
@@ -1599,6 +1729,8 @@ InspectionCampaign _assetCampaign({
     version: 1,
     status: status,
     definition: FrozenInspectionDefinition(
+      schemaVersion: readingFields.isEmpty ? 1 : 2,
+      readingFields: readingFields,
       id: 'definition-$assetTypeKey',
       version: 1,
       code: '${assetTypeKey.toUpperCase()}_AUDIT',
@@ -1607,7 +1739,7 @@ InspectionCampaign _assetCampaign({
       assetTypeKeys: [assetTypeKey],
       assetClassIds: [assetClassId],
       componentNodeIds: const [],
-      valueType: InspectionValueType.boolean,
+      valueType: readingFields.isEmpty ? InspectionValueType.boolean : null,
       unit: null,
       choiceValues: const [],
       minimumValue: null,
@@ -1636,6 +1768,7 @@ InspectionCampaign _assetCampaign({
 }
 
 InspectionObservation _observation({
+  List<InspectionReadingValue> readings = const [],
   required InspectionCampaign campaign,
   required InspectionCampaignTarget target,
   required String id,
@@ -1643,6 +1776,7 @@ InspectionObservation _observation({
   required DateTime recordedAt,
   required bool value,
 }) => InspectionObservation(
+  readings: readings,
   id: id,
   campaignId: campaign.id,
   definition: campaign.definition,
@@ -1669,11 +1803,11 @@ InspectionObservation _observation({
   observerUid: 'admin-1',
   observerName: 'Admin One',
   numericValue: null,
-  booleanValue: value,
+  booleanValue: campaign.definition.isMultiReading ? null : value,
   textValue: null,
   choiceValue: null,
   unit: null,
-  outOfRange: !value,
+  outOfRange: campaign.definition.isMultiReading ? false : !value,
   operatingConditions: const <String, String>{},
   chargeNo: null,
   note: null,
