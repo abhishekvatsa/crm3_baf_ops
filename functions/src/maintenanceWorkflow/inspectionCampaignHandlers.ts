@@ -1,6 +1,7 @@
 import {InspectionReadingField, MultiReadingValue, compareMultiReadingValue,
   isMultiReadingValue, multiReadingOutOfRange, parseInspectionReadingFields,
   parseMultiReadingValue} from "./inspectionReadingContract";
+import {requireInspectionV2Authoring} from "./inspectionAuthoringPolicy";
 import {isFiveDigitChargeNumber} from "../chargeNumber";
 import {WorkflowError} from "./errors";
 import {CommandHandler} from "./handlerTypes";
@@ -322,6 +323,8 @@ export const upsertInspectionDefinition: CommandHandler = async ({tx, command, c
   exactKeys(command.payload, ["definition", "reason"], "payload");
   const id = documentId(command.aggregateId, "aggregateId");
   const parsed = parseDefinition(command.payload.definition);
+  // Accepted receipt replay has already completed in the dispatcher.
+  if (parsed.schemaVersion === 2) requireInspectionV2Authoring();
   const reason = boundedText(command.payload.reason, "reason", 1, 500);
   const [current, codeRows, audit, ...references] = await Promise.all([
     tx.get(definitionPath(id)),
@@ -590,6 +593,8 @@ export const createInspectionCampaign: CommandHandler = async ({tx, command, con
       definition.data.version !== definitionVersion) {
     throw new WorkflowError("failed-precondition", "Inspection definition is missing, inactive or changed.");
   }
+  // The frozen reading contract, not the campaign population schema, controls this gate.
+  if (definition.data.schemaVersion === 2) requireInspectionV2Authoring();
   if (!campaignClass.exists || campaignClass.data == null ||
       campaignClass.data.status !== "active" ||
       campaignClass.data.assetClassId !== assetClassId ||

@@ -22,6 +22,7 @@ import '../data/inspection_campaign.dart';
 import '../domain/inspection_campaign_report.dart';
 import '../domain/inspection_observation_comparison_label.dart';
 import '../providers/inspection_provider.dart';
+import '../providers/inspection_authoring_provider.dart';
 import '../providers/inspection_target_context_provider.dart';
 import '../providers/inspection_campaign_submission_provider.dart';
 import '../domain/inspection_campaign_submission.dart';
@@ -30,6 +31,7 @@ import 'inspection_reading_fields_editor.dart';
 import 'inspection_reading_contract_editor.dart';
 
 part 'inspection_programmes_editors.dart';
+part 'inspection_authoring_controls.dart';
 part 'inspection_observation_editor.dart';
 part 'inspection_observation_submission.dart';
 part 'inspection_programmes_audit_board.dart';

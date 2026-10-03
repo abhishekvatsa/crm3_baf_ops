@@ -10,6 +10,7 @@ jest.setTimeout(60000);
 
 describeLocal('inspection effective history and shared finding activation on real Firestore transactions', () => {
   let app, db, service, actor, secondActor;
+  const priorAuthoringFlag = process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED;
   const now = new Date('2026-08-21T07:00:00.000Z');
   const run = (command, who = actor) => service.execute(command, {actor: who, serverNow: now});
   const read = async (path) => (await db.doc(path).get()).data();
@@ -34,6 +35,7 @@ describeLocal('inspection effective history and shared finding activation on rea
     if (!projectId.startsWith('demo-') || !/^127\.0\.0\.1:\d+$/.test(emulatorHost)) {
       throw new Error('This regression requires a local Firestore emulator and isolated demo project.');
     }
+    process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED = 'true';
     app = admin.initializeApp({projectId}, `inspection-integrity-${process.pid}`); db = app.firestore();
     service = new MaintenanceWorkflowCommandService(new FirebaseWorkflowStore(db));
   });
@@ -45,7 +47,11 @@ describeLocal('inspection effective history and shared finding activation on rea
     await Promise.all(seed.entries().map(([path, value]) => db.doc(path).set(workflowFirestoreDataForTest(value))));
     await run(upsertDefinition()); await run(createCampaign({targetAssetNumbers: [1]}));
   });
-  afterAll(async () => { if (app) await app.delete(); });
+  afterAll(async () => {
+    if (priorAuthoringFlag === undefined) delete process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED;
+    else process.env.CRM_INSPECTION_V2_AUTHORING_ENABLED = priorAuthoringFlag;
+    if (app) await app.delete();
+  });
 
   test('v2 dates remain date strings through real storage, frozen edits, correction and exact replay', async () => {
     const fields = [
