@@ -216,12 +216,33 @@ describe('versioned multi-reading workflow boundaries', () => {
 
 describe('conservative full-contract baseline comparison', () => {
   const baseline = (patch = {}) => ({schemaVersion: 2, definition: contract(), value: values(patch)});
-  test('requires every field to be unchanged and refuses changed nonnumeric evidence', () => {
+  test('retains equal evidence and refuses changed qualitative evidence or equal opposite breaches', () => {
     expect(compareMultiReadingValue(values(), baseline(), contract())).toBe('unchanged');
     expect(compareMultiReadingValue(values({checked_on: '2026-10-04'}), baseline(), contract())).toBe('notComparable');
     expect(compareMultiReadingValue(values({checked: false}), baseline(), contract())).toBe('notComparable');
-    expect(compareMultiReadingValue(values({inlet: 3.2}), baseline(), contract())).toBe('notComparable');
     expect(compareMultiReadingValue(values({inlet: 5}), baseline({inlet: 1}), contract())).toBe('notComparable');
+  });
+  test.each([[3, 3.2], [3.2, 3], [2, 4], [4, 2]])('keeps in-range %s to %s unchanged', (before, after) => {
+    expect(compareMultiReadingValue(values({inlet: after}), baseline({inlet: before}), contract())).toBe('unchanged');
+  });
+  test('in-range movement does not mask another field resolving or recurring', () => {
+    expect(compareMultiReadingValue(values({inlet: 3.2}), baseline({outlet: 8}), contract())).toBe('resolved');
+    expect(compareMultiReadingValue(values({inlet: 3.2, outlet: 8}), baseline(), contract())).toBe('recurred');
+  });
+  test('numeric recovery does not overrule a changed qualitative answer', () => {
+    expect(compareMultiReadingValue(values({checked: false}), baseline({outlet: 8}), contract())).toBe('notComparable');
+    expect(compareMultiReadingValue(values({checked_on: '2026-10-04'}), baseline({outlet: 8}), contract())).toBe('notComparable');
+  });
+  test('does not infer a trend for changed numeric readings without bounds', () => {
+    const definition = contract([field('unbounded', 'number')]);
+    const value = n => ({schemaVersion: 2, readings: [{fieldId: 'unbounded', valueType: 'number', value: n}]});
+    expect(compareMultiReadingValue(value(3.2), {schemaVersion: 2, definition, value: value(3)}, definition)).toBe('notComparable');
+    expect(compareMultiReadingValue(value(3), {schemaVersion: 2, definition, value: value(3)}, definition)).toBe('unchanged');
+  });
+  test.each([{minimumValue: 2}, {maximumValue: 4}])('compares in-range movement with a single bound %p', (limits) => {
+    const definition = contract([field('pressure', 'number', limits)]);
+    const value = n => ({schemaVersion: 2, readings: [{fieldId: 'pressure', valueType: 'number', value: n}]});
+    expect(compareMultiReadingValue(value(3.2), {schemaVersion: 2, definition, value: value(3)}, definition)).toBe('unchanged');
   });
   test('does not add different unit magnitudes or hide mixed directions', () => {
     expect(compareMultiReadingValue(values({inlet: 1, outlet: 7}), baseline({inlet: 0, outlet: 6}), contract())).toBe('notComparable');

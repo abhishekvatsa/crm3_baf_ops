@@ -168,7 +168,11 @@ export const compareMultiReadingValue = (
     nextBreach ||= nextDeviation > 0;
     improved ||= nextDeviation < beforeDeviation;
     deteriorated ||= nextDeviation > beforeDeviation;
-    if (before !== next && beforeDeviation === nextDeviation) return "notComparable";
+    // Only governed in-range movement has an unchanged limit status.
+    // Keep unassessed changes and equal opposite breaches incomparable.
+    const hasLimits = field.minimumValue !== null || field.maximumValue !== null;
+    if (before !== next && beforeDeviation === nextDeviation &&
+        (beforeDeviation > 0 || !hasLimits)) return "notComparable";
   }
   if (improved && deteriorated) return "notComparable";
   if (previousBreach && !nextBreach) return "resolved";
