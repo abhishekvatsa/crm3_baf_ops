@@ -6,9 +6,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const https = require('node:https');
 const crypto = require('node:crypto');
-const {gunzipSync} = require('node:zlib');
 const {execFileSync} = require('node:child_process');
 const {isDeepStrictEqual} = require('node:util');
 const PROFILE = 'build31-exact-grpc-runtime-backend-v1';
@@ -27,7 +25,7 @@ const CORE_PRODUCERS = Object.freeze([
   'backendRuntimeExecutionAdmission31.cjs','executeBackendRuntime31.cjs',
   'captureBackendRuntimePreparedInputs31.cjs','runtimeDeploymentTransportGuard31.cjs',
   'backendRuntimeClosedReplay31.cjs','backendRuntimeEvidenceAccess31.cjs',
-  'runtimeBackendPrivateReplay31.cjs','clientBackendCompatibility31.js','runtimePilotAuthority31.cjs',
+  'runtimeBackendPrivateReplay31.cjs','privateEvidenceBundle31.cjs','clientBackendCompatibility31.js','runtimePilotAuthority31.cjs',
   'stagedPromotionSourceAuthority.js','collectFunctionFleetRuntimeIdentityReadback.js',
   'collectFunctionsIamDependenciesReadback.js','collectFirestoreRulesIndexesReadback.js',
   'reviewedBackendControls.js','collectProductionGlobalPullBackend.js',
@@ -96,110 +94,19 @@ function validateDescriptor(value) {
   same(value.historicalBaseline,HISTORICAL,'Historical backend baseline cannot be rewritten');
   return value;
 }
+// Load the shared helper only after profile validation. The repository entrypoint
+// checks its complete source-bound producer inventory before calling download.
 function verifyBundleBytes(bytes,descriptor) {
   validateDescriptor(descriptor);
-  need(Buffer.isBuffer(bytes) && bytes.length===descriptor.custody.bytes && sha(bytes)===descriptor.custody.sha256,
-    'Private bundle bytes differ from immutable custody');
-  const bundle=JSON.parse(bytes.toString('utf8'));
-  keys(bundle,['schemaVersion','documentType','encoding','source','members','relocation'],'Private bundle');
-  need(bundle.schemaVersion===2 && bundle.encoding===BUNDLE_ENCODING && bundle.documentType==='build31-private-runtime-evidence-bundle',
-    'Unsupported private bundle; no encoding fallback is permitted');
-  same(bundle.source,descriptor.source,'Private bundle source differs');
-  need(Array.isArray(bundle.members) && bundle.members.length>0 && bundle.members.length<=MAX_MEMBERS,'Invalid private member population');
-  const seen=new Set(), inventory={}, records=[], compressed=[];
-  let declaredTotal=0;
-  // Validate the entire declared population before any decompression.
-  for (const member of bundle.members) {
-    keys(member,['path','bytes','sha256','encoding','compressedBytes','compressedSha256','base64'],'Private member');
-    const file=relative(member.path), folded=file.toLowerCase();
-    need(!seen.has(folded),'Repeated or case-colliding private member'); seen.add(folded);
-    need(member.encoding==='gzip' && Number.isSafeInteger(member.bytes) && member.bytes>=0 && member.bytes<=MAX_MEMBER &&
-      Number.isSafeInteger(member.compressedBytes) && member.compressedBytes>0 && member.compressedBytes<=MAX_BUNDLE &&
-      member.bytes<=Math.max(4096,128*member.compressedBytes) && /^[A-F0-9]{64}$/.test(member.sha256) &&
-      /^[A-F0-9]{64}$/.test(member.compressedSha256) && typeof member.base64==='string',
-      'Invalid bounded private member encoding');
-    const encoded=Buffer.from(member.base64,'base64');
-    need(encoded.toString('base64')===member.base64 && encoded.length===member.compressedBytes &&
-      sha(encoded)===member.compressedSha256, 'Compressed private member size/digest/encoding differs');
-    declaredTotal+=member.bytes;
-    need(declaredTotal<=MAX_EXPANDED,'Expanded private population exceeds its fixed bound');
-    inventory[file]={bytes:member.bytes,sha256:member.sha256};compressed.push({file,member,encoded});
-  }
-  need(declaredTotal===descriptor.expandedBytes,'Expanded private population differs from immutable descriptor');
-  for(const file of seen) for(let at=file.indexOf('/');at!==-1;at=file.indexOf('/',at+1))
-    need(!seen.has(file.slice(0,at)),'Private member file/directory collision');
-  same(sha(Buffer.from(canonical(inventory))),descriptor.membersSha256,'Private member inventory differs');
-  same(sha(Buffer.from(canonical(bundle.relocation))),descriptor.relocationSha256,'Original path relocation commitments differ');
-  let actualTotal=0;
-  for(const {file,member,encoded} of compressed){
-    const raw=gunzipSync(encoded,{maxOutputLength:Math.max(1,member.bytes)});
-    actualTotal+=raw.length;
-    need(actualTotal<=MAX_EXPANDED && raw.length===member.bytes && sha(raw)===member.sha256,
-      'Expanded private member size/digest differs');
-    records.push({file,raw});
-  }
-  need(actualTotal===descriptor.expandedBytes,'Actual expanded population differs');
-  return {records,inventory,relocation:bundle.relocation};
+  return require('./privateEvidenceBundle31.cjs').verifyBundleBytes31(bytes,descriptor,'runtime');
 }
 function extractVerifiedBundle(bytes,descriptor,destination) {
-  const verified=verifyBundleBytes(bytes,descriptor);
-  need(path.isAbsolute(destination) && !fs.existsSync(destination),'Private extraction requires a fresh absolute directory');
-  const parent=fs.realpathSync(path.dirname(destination));
-  need(path.dirname(path.resolve(destination))===parent,'Private extraction parent must not be a symlink');
-  fs.mkdirSync(destination,{mode:0o700});
-  const root=fs.realpathSync(destination);
-  for (const {file,raw} of verified.records) {
-    const target=path.join(root,...file.split('/'));
-    const relativeTarget=path.relative(root,target);
-    need(relativeTarget && !relativeTarget.startsWith('..') && !path.isAbsolute(relativeTarget),'Private member escapes extraction');
-    let directory=root;
-    for (const component of file.split('/').slice(0,-1)) {
-      directory=path.join(directory,component);
-      if (!fs.existsSync(directory)) fs.mkdirSync(directory,{mode:0o700});
-      need(fs.lstatSync(directory).isDirectory() && !fs.lstatSync(directory).isSymbolicLink(),'Private member traverses symlink');
-    }
-    fs.writeFileSync(target,raw,{flag:'wx',mode:0o600});
-    need(fs.lstatSync(target).isFile() && !fs.lstatSync(target).isSymbolicLink() && sha(fs.readFileSync(target))===sha(raw),
-      'Private extraction did not preserve exact regular-file bytes');
-  }
-  // Git requires refs/ even when every reference is in packed-refs. Empty
-  // directories have no object identity and are absent from the file manifest.
-  // Derive only this fixed structural directory from complete bound Git files.
-  const members=Object.keys(verified.inventory);
-  for(const head of members.filter(file=>file==='.git/HEAD'||file.endsWith('/.git/HEAD'))){
-    const prefix=head.slice(0,-4);
-    if(!Object.hasOwn(verified.inventory,prefix+'config')||!members.some(file=>file.startsWith(prefix+'objects/')))continue;
-    const refs=path.join(root,...(prefix+'refs').split('/'));
-    if(!fs.existsSync(refs))fs.mkdirSync(refs,{mode:0o700});
-    need(fs.lstatSync(refs).isDirectory()&&!fs.lstatSync(refs).isSymbolicLink(),'Git refs must remain a directory');
-  }
-  return {...verified,root};
-}
-function getGoogleStorage(pathname,token,maxBytes) {
-  need(typeof token==='string' && token.length>20 && token.length<16384 && !/[\r\n]/.test(token),'Authorized private-evidence read credential is unavailable');
-  need(pathname.startsWith('/storage/v1/b/'+BUCKET+'/o/'),'Unsupported evidence host/path');
-  return new Promise((resolve,reject)=>{
-    const request=https.get({hostname:'storage.googleapis.com',port:443,path:pathname,method:'GET',
-      headers:{Authorization:'Bearer '+token,Accept:'application/json'},timeout:60000},response=>{
-      if(response.statusCode!==200){response.resume();reject(new Error('Authenticated exact-generation evidence read failed'));return;}
-      let length=0;const chunks=[];
-      response.on('data',chunk=>{length+=chunk.length;if(length>maxBytes){request.destroy();reject(new Error('Evidence response exceeds committed bound'));}else chunks.push(chunk);});
-      response.on('end',()=>resolve(Buffer.concat(chunks)));
-      response.on('error',()=>reject(new Error('Private evidence response failed')));
-    });
-    request.on('timeout',()=>request.destroy(new Error('Private evidence read timed out')));
-    request.on('error',()=>reject(new Error('Private evidence read failed')));
-  });
+  validateDescriptor(descriptor);
+  return require('./privateEvidenceBundle31.cjs').extractVerifiedBundle31(bytes,descriptor,destination,'runtime');
 }
 async function downloadExactGeneration(descriptor,token) {
-  validateDescriptor(descriptor);const c=descriptor.custody;
-  const base='/storage/v1/b/'+BUCKET+'/o/'+encodeURIComponent(c.objectName)+'?generation='+c.generation;
-  const metadata=JSON.parse((await getGoogleStorage(base,token,1024*1024)).toString('utf8'));
-  need(metadata.bucket===BUCKET && metadata.name===c.objectName && metadata.generation===c.generation &&
-    metadata.size===String(c.bytes),'Google object metadata differs from immutable generation');
-  const raw=await getGoogleStorage(base+'&alt=media',token,c.bytes);
-  need(raw.length===c.bytes && sha(raw)===c.sha256,'Google generation bytes differ from immutable custody');
-  return raw;
+  validateDescriptor(descriptor);
+  return require('./privateEvidenceBundle31.cjs').downloadExactGeneration31(descriptor,token,'runtime');
 }
 function safeGitEnvironment31(root) {
   const dot=path.join(root,'.git');
