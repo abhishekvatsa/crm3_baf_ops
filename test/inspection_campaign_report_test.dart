@@ -71,10 +71,17 @@ void main() {
         generatedByName: 'Admin One',
         provenance: const ReportProvenance.applicationSnapshot(),
       );
-      final row = report.sections[2].tables.single.rows.single;
-      expect(row[5], contains('Limit status unchanged from baseline'));
-      expect(row[5].split('\n'), isNot(contains('Unchanged')));
-      expect(row[2], contains('Pressure: 4 bar'));
+      final history = report.sections[2].tables;
+      final trace = history.first.rows
+          .singleWhere((row) => row.first == 'Trace and evidence')
+          .last;
+      expect(trace, contains('Limit status unchanged from baseline'));
+      expect(trace.split('\n'), isNot(contains('Unchanged')));
+      expect(history[1].headers.single, contains('Pressure'));
+      expect(history[1].rows.single.single, '4 bar');
+      final coverage = report.sections[1].tables.single.rows.single[3];
+      expect(coverage, contains('Limit status unchanged from baseline'));
+      expect(coverage, contains('Observation reading-1'));
     },
   );
 
@@ -146,7 +153,7 @@ void main() {
         campaign,
         id: 'original',
         value: false,
-        observedAt: _time(1),
+        observedAt: _time(0),
         readings: readings,
       );
       final corrected = _observation(
@@ -167,7 +174,7 @@ void main() {
       );
       final report = buildInspectionCampaignReport(
         campaign: campaign,
-        observations: [original, corrected],
+        observations: [corrected, original],
         findings: [
           InspectionFinding(
             id: 'pressure-finding',
@@ -205,16 +212,36 @@ void main() {
       expect(contracts, contains('Next examination: Date (DD-MM-YYYY)'));
       expect(contracts, contains('Pressure: Number in bar; maximum 5.0'));
       final target = report.sections[1].tables.single.rows.single.join('\n');
-      expect(
-        target,
-        contains(
-          'Seal verified: No\nNext examination: 31-12-2040\nPressure: 7.5 bar',
-        ),
-      );
-      final history = report.sections[2].tables.single.rows
-          .map((row) => row.join('\n'))
+      expect(target, contains('3 labelled readings'));
+      expect(target, contains('Observation corrected'));
+      expect(target, contains('Exception recorded'));
+      final historyTables = report.sections[2].tables;
+      expect(historyTables, hasLength(8));
+      final history = historyTables
+          .map(
+            (table) => [
+              ...table.headers,
+              ...table.rows.expand((row) => row),
+            ].join('\n'),
+          )
           .join('\n');
-      expect(history, contains('Next examination: 29-02-2032'));
+      expect(historyTables[2].headers.single, contains('Next examination'));
+      expect(historyTables[2].rows.single.single, '29-02-2032');
+      expect(historyTables[6].rows.single.single, '31-12-2040');
+      expect(
+        historyTables.first.headers.first,
+        contains('Observation original · Superseded'),
+      );
+      expect(
+        historyTables[4].headers.first,
+        contains('Observation corrected · Current'),
+      );
+      expect(history, contains('Operations One'));
+      expect(history, contains('operations-1'));
+      expect(history, contains('Charge 51139'));
+      expect(history, contains('Red hot condition observed.'));
+      expect(history, contains('https://evidence.invalid/photo-1'));
+      expect(history, contains('Combustion system / Burner Block'));
       expect(history, contains('Superseded'));
       expect(history, contains('Corrects original'));
       expect(history, contains('Exception recorded'));
@@ -284,14 +311,29 @@ void main() {
         generatedByName: 'Admin One',
         provenance: const ReportProvenance.applicationSnapshot(),
       );
+      final history = report.sections[2].tables;
+      expect(history, hasLength(21));
+      for (var i = 0; i < fields.length; i++) {
+        final reading = history[i + 1];
+        expect(reading.headers.single, contains('Furnace 22'));
+        expect(reading.headers.single, contains('Observation all-fields'));
+        expect(reading.headers.single, contains('Current'));
+        expect(reading.headers.single, contains(fields[i].label));
+        expect(reading.rows.single.single, observation.readings[i].value);
+        expect(reading.cellCharacterLimit, isNull);
+      }
       for (final field in fields) {
         expect(
           report.sections
               .expand((section) => section.tables)
-              .expand((table) => table.rows)
-              .expand((row) => row)
+              .expand(
+                (table) => [
+                  ...table.headers,
+                  ...table.rows.expand((row) => row),
+                ],
+              )
               .join('\n'),
-          contains('${field.label}:'),
+          contains(field.label),
         );
       }
       final bytes = await StructuredReportPdfService.build(report);
