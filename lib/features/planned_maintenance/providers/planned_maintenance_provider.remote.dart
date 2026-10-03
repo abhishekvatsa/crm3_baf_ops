@@ -79,8 +79,10 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
   }
 
   @override
-  Stream<List<JobTemplate>> watchTemplatesIncludingDeleted() =>
-      _templates.orderBy('jobName').snapshots().map(
+  Stream<List<JobTemplate>> watchTemplatesIncludingDeleted() => _templates
+      .orderBy('jobName')
+      .snapshots()
+      .map(
         (snap) => decodeSnapshotDocuments(
           snap,
           JobTemplate.fromMap,
@@ -106,6 +108,18 @@ class FirestorePlannedRepository extends PlannedMaintenanceRepository {
       ).toList(),
     );
   }
+
+  @override
+  Stream<List<JobExecution>> watchExecutionsIncludingDeleted() => _executions
+      .orderBy('updatedAt', descending: true)
+      .snapshots()
+      .map(
+        (snapshot) => decodeSnapshotDocuments(
+          snapshot,
+          JobExecution.fromMap,
+          source: 'Admin JobExecution including deleted',
+        ).toList(),
+      );
 
   @override
   Stream<List<JobExecution>> watchExecutionsOverlappingPeriod(

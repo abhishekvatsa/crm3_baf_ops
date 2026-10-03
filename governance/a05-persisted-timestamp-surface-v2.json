@@ -2039,6 +2039,28 @@
           ]
         }
       ]
+    },
+    {
+      "id": "inner-cover-concern-disposition",
+      "readerFile": "lib/features/assets/data/furnace_stuckup_record.dart",
+      "readerMarker": "factory InnerCoverConcernDisposition.fromMap",
+      "requiredFields": [],
+      "optionalFields": [],
+      "owner": "asset-operations",
+      "purpose": "Restore inspectedAt and settledAt using the exact dynamic field label concernDisposition.$key. The local date helper has exactly the two literal callers inspectedAt and settledAt; the entire decoder body and call source are pinned, so no arbitrary field or changed caller can enter through this classification.",
+      "authorityBoundary": "Read-only persisted disposition; strict chronology and immutable evidence identity remain required, with no inferred time or settlement authority.",
+      "regression": "test/released_inner_cover_fitness_test.dart; tools/v4/test_a05_dynamic_timestamp_inventory.py",
+      "reArmCondition": "Any complete decoder body, helper, two-field caller set, immutable identity, strict date or malformed-disposition behavior changes.",
+      "readerBodySha256": "95cd1d9d9f69a63d12a97e4bf2c95f0374b1130eea6d35531d81268d044a3854",
+      "dynamicCalls": [
+        {
+          "reader": "readRequiredPersistedDateTime",
+          "callSource": "readRequiredPersistedDateTime(\n      map[key],\n      field: 'concernDisposition.$key',\n      source: source,\n    )",
+          "reviewedFields": [
+            "concernDisposition.$key"
+          ]
+        }
+      ]
     }
   ]
 }

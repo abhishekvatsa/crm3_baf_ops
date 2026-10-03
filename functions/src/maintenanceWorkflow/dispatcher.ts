@@ -1,3 +1,4 @@
+import {settleInnerCoverAssessment, verifyInnerCoverAssessmentReplay} from "./innerCoverConcernDisposition";
 import {
   assertWorkflowAuthorityScope,
   resolveFreshWorkflowAuthorityScope,
@@ -161,6 +162,7 @@ const handlers: Readonly<Record<WorkflowCommandType, CommandHandler>> = {
   identifyMaintenanceTicketComponent,
   releaseFurnaceStuckup,
   adjudicateFurnaceStuckup,
+  settleInnerCoverAssessment,
   correctBurnerBlockInstallation,
   correctUvDetectorInstallation,
   raiseCriticalAlarm,
@@ -230,6 +232,7 @@ export class MaintenanceWorkflowCommandService {
         await verifyEquipmentRebindingReplay({tx, command, actor, receipt: replay});
         await verifyMaintenanceTicketAudit({tx, command, actor, receipt: replay});
         await verifyFurnaceStuckupAudit({tx, command, actor, receipt: replay});
+        await verifyInnerCoverAssessmentReplay({tx, command, actor, receipt: replay});
         await verifyBurnerBlockCorrectionReplay({
           tx,
           command,

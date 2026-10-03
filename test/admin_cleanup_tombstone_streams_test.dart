@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:crm3_baf_ops/core/persistence/app_database.dart' as app;
 import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_directives_browser.dart';
+import 'package:crm3_baf_ops/features/admin/presentation/admin_data_browser/admin_executions_browser.dart';
 import 'package:crm3_baf_ops/features/admin/presentation/pilot_data_cleanup_screen.dart';
 import 'package:crm3_baf_ops/features/admin/providers/admin_stream_providers.dart';
 import 'package:crm3_baf_ops/features/auth/data/user_model.dart';
@@ -32,7 +33,12 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('admin_tombstones_');
     db = await Isar.open(
-      [OperationalDirectiveSchema, MaintenanceRecordSchema, JobTemplateSchema],
+      [
+        OperationalDirectiveSchema,
+        MaintenanceRecordSchema,
+        JobTemplateSchema,
+        JobExecutionSchema,
+      ],
       directory: directory.path,
       name: 'admin_tombstones',
       inspector: false,
@@ -56,6 +62,10 @@ void main() {
       await db.maintenanceRecords.putAll([
         _ticket('active'),
         _ticket('deleted', deleted: true),
+      ]);
+      await db.jobExecutions.putAll([
+        _execution('active'),
+        _execution('deleted', deleted: true),
       ]);
       await db.jobTemplates.putAll([
         _template('active'),
@@ -112,6 +122,60 @@ void main() {
         ),
         ['template-active'],
       );
+    },
+  );
+
+  test(
+    'admin executions include deleted history without changing active feeds',
+    () async {
+      final rows = await container.read(adminExecutionsStreamProvider.future);
+      expect(rows.map((row) => row.firestoreId), contains('execution-deleted'));
+      expect(
+        (await templates.watchAllExecutions().first).map(
+          (row) => row.firestoreId,
+        ),
+        ['execution-active'],
+      );
+      expect(
+        (await templates.watchOpenExecutions().first).map(
+          (row) => row.firestoreId,
+        ),
+        ['execution-active'],
+      );
+    },
+  );
+
+  testWidgets(
+    'execution history offers deleted records with a clear filter and label',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(900, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.runAsync(
+        () => container.read(adminExecutionsStreamProvider.future),
+      );
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: Scaffold(body: ExecutionsBrowser())),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Trial execution deleted'), findsNothing);
+      await tester.tap(
+        find.byKey(const ValueKey('admin-executions-status-deleted')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Trial execution deleted'), findsOneWidget);
+      expect(find.text('Trial execution active'), findsNothing);
+      expect(find.text('DELETED'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('admin-executions-status-all')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Trial execution active'), findsOneWidget);
+      expect(find.text('Trial execution deleted'), findsOneWidget);
+      expect(find.byTooltip('Mark deleted'), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -240,6 +304,19 @@ JobTemplate _template(String key, {bool deleted = false}) => JobTemplate()
   ..firestoreId = 'template-$key'
   ..jobName = 'Trial template $key'
   ..applicableAssetType = AssetType.base
+  ..createdAt = _created
+  ..updatedAt = deleted ? _deleted : _created
+  ..isDeleted = deleted
+  ..isSynced = true
+  ..deletedAt = deleted ? _deleted : null
+  ..deletedByUid = deleted ? _admin.uid : null;
+
+JobExecution _execution(String key, {bool deleted = false}) => JobExecution()
+  ..firestoreId = 'execution-$key'
+  ..templateFirestoreId = 'template-active'
+  ..templateName = 'Trial execution $key'
+  ..assetType = AssetType.base
+  ..assetNumber = 101
   ..createdAt = _created
   ..updatedAt = deleted ? _deleted : _created
   ..isDeleted = deleted

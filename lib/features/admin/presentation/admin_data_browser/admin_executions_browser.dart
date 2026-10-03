@@ -23,6 +23,7 @@ class ExecutionsBrowser extends ConsumerStatefulWidget {
 
 class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
   String _searchQuery = '';
+  String _status = 'retained';
 
   @override
   Widget build(BuildContext context) {
@@ -55,28 +56,51 @@ class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
               },
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: BafSpacing.md),
+            child: Wrap(
+              spacing: BafSpacing.sm,
+              runSpacing: BafSpacing.xs,
+              children: [
+                for (final entry in const {
+                  'retained': 'Current records',
+                  'deleted': 'Deleted',
+                  'all': 'All history',
+                }.entries)
+                  ChoiceChip(
+                    key: ValueKey('admin-executions-status-${entry.key}'),
+                    label: Text(entry.value),
+                    selected: _status == entry.key,
+                    onSelected: (_) => setState(() => _status = entry.key),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: executionsAsync.when(
-              loading:
-                  () => const BafLoadingPanel(
-                    label: 'Loading execution records',
-                    color: BafColors.admin,
-                  ),
-              error:
-                  (err, _) => Center(
-                    child: Text(
-                      'Error: $err',
-                      style: const TextStyle(color: BafColors.danger),
-                    ),
-                  ),
+              loading: () => const BafLoadingPanel(
+                label: 'Loading execution records',
+                color: BafColors.admin,
+              ),
+              error: (err, _) => Center(
+                child: Text(
+                  'Error: $err',
+                  style: const TextStyle(color: BafColors.danger),
+                ),
+              ),
               data: (executions) {
                 final filtered =
                     executions
                         .where(
-                          (execution) => executionMatchesAdminSearch(
-                            execution,
-                            _searchQuery,
-                          ),
+                          (execution) =>
+                              (_status == 'all' ||
+                                  (_status == 'deleted'
+                                      ? execution.isDeleted
+                                      : !execution.isDeleted)) &&
+                              executionMatchesAdminSearch(
+                                execution,
+                                _searchQuery,
+                              ),
                         )
                         .toList()
                       ..sort(compareExecutionsForAdmin);
@@ -93,8 +117,8 @@ class _ExecutionsBrowserState extends ConsumerState<ExecutionsBrowser> {
                 return ListView.builder(
                   padding: const EdgeInsets.only(bottom: BafSpacing.md),
                   itemCount: filtered.length,
-                  itemBuilder:
-                      (ctx, idx) => _ExecutionCard(execution: filtered[idx]),
+                  itemBuilder: (ctx, idx) =>
+                      _ExecutionCard(execution: filtered[idx]),
                 );
               },
             ),
@@ -118,22 +142,20 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
   @override
   Widget build(BuildContext context) {
     final execution = widget.execution;
-    final statusColor =
-        execution.isDeleted
-            ? BafColors.textSecondary
-            : execution.isCancelled
-            ? BafColors.warning
-            : execution.isCompleted
-            ? BafColors.success
-            : BafColors.planned;
-    final statusLabel =
-        execution.isDeleted
-            ? 'DELETED'
-            : execution.isCancelled
-            ? 'CANCELLED'
-            : execution.isCompleted
-            ? 'COMPLETED'
-            : 'OPEN';
+    final statusColor = execution.isDeleted
+        ? BafColors.textSecondary
+        : execution.isCancelled
+        ? BafColors.warning
+        : execution.isCompleted
+        ? BafColors.success
+        : BafColors.planned;
+    final statusLabel = execution.isDeleted
+        ? 'DELETED'
+        : execution.isCancelled
+        ? 'CANCELLED'
+        : execution.isCompleted
+        ? 'COMPLETED'
+        : 'OPEN';
 
     return Card(
       color: BafColors.card,
@@ -147,12 +169,11 @@ class _ExecutionCardState extends ConsumerState<_ExecutionCard> {
         side: const BorderSide(color: BafColors.border),
       ),
       child: ListTile(
-        onTap:
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => PlannedJobDetailScreen(execution: execution),
-              ),
-            ),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PlannedJobDetailScreen(execution: execution),
+          ),
+        ),
         leading: Container(
           width: 10,
           height: 46,

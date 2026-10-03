@@ -295,8 +295,16 @@ void main() {
         expect(covers.inventoryComplete, isTrue);
         expect(covers.total, 1);
         expect(covers.available, concern == 'none' ? 1 : 0);
-        expect(covers.unavailable, confirmedBulging ? 1 : 0);
-        expect(covers.unverifiedAvailability, unverified ? 1 : 0);
+        // A known assessment hold prevents use even though fitness remains
+        // unverified; uncertainty without a recorded hold stays separate.
+        expect(covers.unavailable, confirmedBulging || assessment ? 1 : 0);
+        expect(covers.unverifiedAvailability, uncertainLinkage ? 1 : 0);
+        expect(
+          covers.available + covers.unavailable + covers.unverifiedAvailability,
+          covers.total,
+        );
+        expect(covers.down, 0);
+        expect(cover.hasAssessmentRestriction, assessment);
         expect(cover.isAvailable, concern == 'none');
         expect(cover.isUnfit, confirmedBulging);
         expect(cover.hasUnverifiedEvidence, unverified);

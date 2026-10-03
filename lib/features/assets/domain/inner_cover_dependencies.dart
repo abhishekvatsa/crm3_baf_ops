@@ -332,6 +332,19 @@ InnerCoverDependencies deriveInnerCoverDependencies({
         // and event host remain known, so keep the assessment on that cover
         // without making unrelated covers' evidence incomplete. There is no
         // implied recovery or clearance from withdrawing the original issue.
+        final disposition = caseRecord.concernDisposition;
+        if (disposition != null) {
+          if (!ticket.isDeleted ||
+              !ticket.isSynced ||
+              !tickets.isServerConfirmed ||
+              !stuckupCases!.isServerConfirmed ||
+              !disposition.matches(caseRecord, ticket.version)) {
+            throw StateError('Technical assessment settlement is unverified');
+          }
+          // This explicit server-confirmed disposition settles only this case.
+          // Other issue, maintenance and assurance restrictions remain reduced.
+          continue;
+        }
         if (!ticket.isDeleted && !ticket.canStillAffectPlantCondition) {
           if (!ticket.isSynced ||
               !ticket.isResolved ||

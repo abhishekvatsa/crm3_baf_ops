@@ -144,14 +144,12 @@ class _AssetConditionBoardState extends ConsumerState<AssetConditionBoard> {
 class PlantOverviewPanel extends StatelessWidget {
   final AsyncValue<PlantAssetOverview> overview;
   final VoidCallback onOpen;
-  final ValueChanged<AssetConditionFilter>? onOpenFiltered;
   final ValueChanged<String>? onOpenClass;
 
   const PlantOverviewPanel({
     super.key,
     required this.overview,
     required this.onOpen,
-    this.onOpenFiltered,
     this.onOpenClass,
   });
 
@@ -217,8 +215,8 @@ class _ConditionBoardBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (overview.total == 0 &&
-        overview.physicalInventoryComplete &&
-        overview.evidenceWarnings.isEmpty) {
+        overview.hasCompleteEvidence &&
+        overview.classes.every((summary) => summary.inventoryComplete)) {
       return const Center(
         child: Padding(
           padding: EdgeInsets.all(BafSpacing.xl),
@@ -233,7 +231,7 @@ class _ConditionBoardBody extends StatelessWidget {
     final visibleClasses = overview.classes
         .where(
           (summary) =>
-              summary.total > 0 &&
+              (summary.total > 0 || !summary.inventoryComplete) &&
               (selectedAssetClassId == null ||
                   summary.assetClass.id == selectedAssetClassId),
         )
@@ -249,7 +247,7 @@ class _ConditionBoardBody extends StatelessWidget {
                 .toList(growable: false),
           ),
         )
-        .where((summary) => summary.total > 0)
+        .where((summary) => summary.total > 0 || !summary.inventoryComplete)
         .toList(growable: false);
 
     return ListView(
@@ -367,7 +365,7 @@ class _ConditionBoardBody extends StatelessWidget {
               onSelected: (_) => onAssetClassChanged(null),
             ),
             for (final summary in overview.classes.where(
-              (item) => item.total > 0,
+              (item) => item.total > 0 || !item.inventoryComplete,
             ))
               ChoiceChip(
                 key: ValueKey<String>(
@@ -498,7 +496,7 @@ class _AssetClassSection extends StatelessWidget {
                 ),
               ),
               Text(
-                '${summary.total} assets',
+                '${summary.total} ${summary.inventoryComplete ? 'assets' : 'recorded'}',
                 style: const TextStyle(
                   color: BafColors.textSecondary,
                   fontSize: 12,
@@ -507,6 +505,17 @@ class _AssetClassSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: BafSpacing.sm),
+          if (!summary.inventoryComplete)
+            Padding(
+              padding: const EdgeInsets.only(bottom: BafSpacing.sm),
+              child: Text(
+                'Inventory incomplete. The records shown cannot establish the full class position. Refresh before making decisions.',
+                key: ValueKey(
+                  'plant-class-incomplete-${summary.assetClass.id}',
+                ),
+                style: const TextStyle(color: BafColors.warning, fontSize: 13),
+              ),
+            ),
           if (stock case final value?) InnerCoverStockPanel(summary: value),
           Container(
             decoration: BoxDecoration(

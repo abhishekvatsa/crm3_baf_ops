@@ -59,6 +59,12 @@ class _HomePlantClassOverviewState extends State<_HomePlantClassOverview> {
     final covers = value.classes
         .where((c) => c.assetClass.legacyAssetTypeKey == 'innerCover')
         .toList();
+    final unclassifiedCovers = value.innerCovers
+        .where(
+          (cover) =>
+              !covers.any((c) => c.assetClass.id == cover.profile.assetClassId),
+        )
+        .toList();
     final selected = equipment
         .where((c) => c.assetClass.id == _selectedClass)
         .firstOrNull;
@@ -67,57 +73,73 @@ class _HomePlantClassOverviewState extends State<_HomePlantClassOverview> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final stacked =
-                  constraints.maxWidth <
-                  235 * MediaQuery.textScalerOf(context).scale(16) / 16;
-              const title = Text(
-                'Plant condition',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              );
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: BafColors.assets.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(BafRadius.small),
-                        ),
-                        child: const Icon(
-                          Icons.precision_manufacturing_outlined,
-                          color: BafColors.assets,
-                          size: 21,
-                        ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('plant-condition-open-header'),
+              borderRadius: BorderRadius.circular(BafRadius.small),
+              onTap: widget.onOpen,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 48),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final stacked =
+                        constraints.maxWidth <
+                        235 * MediaQuery.textScalerOf(context).scale(16) / 16;
+                    const title = Text(
+                      'Plant condition',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                       ),
-                      const SizedBox(width: BafSpacing.sm),
-                      if (stacked)
-                        const Spacer()
-                      else
-                        const Expanded(child: title),
-                      IconButton(
-                        tooltip: 'Open plant condition',
-                        onPressed: widget.onOpen,
-                        icon: const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: BafColors.assets,
+                    );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: BafColors.assets.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(
+                                  BafRadius.small,
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.precision_manufacturing_outlined,
+                                color: BafColors.assets,
+                                size: 21,
+                              ),
+                            ),
+                            const SizedBox(width: BafSpacing.sm),
+                            if (stacked)
+                              const Spacer()
+                            else
+                              const Expanded(child: title),
+                            IconButton(
+                              tooltip: 'Open plant condition',
+                              onPressed: widget.onOpen,
+                              icon: const Icon(
+                                Icons.arrow_forward_rounded,
+                                color: BafColors.assets,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                  if (stacked)
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: BafSpacing.sm),
-                      child: title,
-                    ),
-                ],
-              );
-            },
+                        if (stacked)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: BafSpacing.sm),
+                            child: title,
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
           ),
           const Text(
             'Availability by equipment class',
@@ -172,16 +194,12 @@ class _HomePlantClassOverviewState extends State<_HomePlantClassOverview> {
                 textAlign: TextAlign.start,
               ),
             ),
-          if (value.innerCovers.any(
-            (cover) => !covers.any(
-              (c) => c.assetClass.id == cover.profile.assetClassId,
-            ),
-          ))
+          if (unclassifiedCovers.isNotEmpty)
             TextButton(
               key: const ValueKey('plant-home-unclassified-covers'),
               onPressed: widget.onOpen,
               child: Text(
-                'Inner Covers: ${value.innerCovers.where((cover) => !covers.any((c) => c.assetClass.id == cover.profile.assetClassId)).length} class unverified',
+                'Review class for ${unclassifiedCovers.length} Inner ${unclassifiedCovers.length == 1 ? 'Cover' : 'Covers'}',
                 textAlign: TextAlign.start,
               ),
             ),
@@ -778,6 +796,10 @@ class _HomePlantClassDetails extends StatelessWidget {
         summary.assets.where((a) => a.isIssueUnavailable),
       ),
       ('Maintenance', summary.assets.where((a) => a.isUnderMaintenance)),
+      (
+        'Cover assessment needed',
+        summary.assets.where((a) => a.hasAssessmentRestriction),
+      ),
       ('Stuck-up', summary.assets.where((a) => a.isTemporarilyBlocked)),
       ('Standby', summary.assets.where((a) => a.isStandby)),
       (
@@ -820,7 +842,7 @@ class _HomePlantClassDetails extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: BafSpacing.sm),
               child: Text(
-                '$label ${assets.length}: ${assets.map((a) => '${summary.assetClass.name} ${a.asset.assetNumber}').join(', ')}',
+                '$label ${assets.length}: ${assets.map((a) => '${summary.assetClass.name} ${a.asset.assetNumber}${label == 'Cover assessment needed' ? ' (Inner Cover ${a.linkedInnerCoverDependency!.serialNumber})' : ''}').join(', ')}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: BafColors.textPrimary,
@@ -830,15 +852,59 @@ class _HomePlantClassDetails extends StatelessWidget {
           for (final cover in summary.innerCovers)
             Padding(
               padding: const EdgeInsets.only(top: BafSpacing.sm),
-              child: Text(
-                [
-                  'Inner Cover ${cover.profile.serialNumber}: ${cover.conditionSummary}',
-                  ...cover.evidenceWarnings,
-                ].join('\n'),
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: BafColors.textPrimary,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Inner Cover ${cover.profile.serialNumber}: ${cover.conditionSummary}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: BafColors.textPrimary,
+                    ),
+                  ),
+                  if (cover.evidenceWarnings.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(top: BafSpacing.sm),
+                      child: Text(
+                        cover.evidenceWarnings.contains(
+                              'Inner Cover class is missing, retired or unverified.',
+                            )
+                            ? "Check this Inner Cover's asset class before use. Open the condition board to review its record."
+                            : 'Review the condition evidence for this Inner Cover before use. Open the condition board for its record.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: BafColors.warning,
+                        ),
+                      ),
+                    ),
+                    Material(
+                      color: Colors.transparent,
+                      child: ExpansionTile(
+                        key: ValueKey(
+                          'plant-cover-record-details-${cover.profile.id}',
+                        ),
+                        tilePadding: EdgeInsets.zero,
+                        title: const Text(
+                          'Record details',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        children: [
+                          for (final warning in cover.evidenceWarnings)
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                warning,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: BafColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
           if (reasons.isNotEmpty)

@@ -135,6 +135,8 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
               ),
             Expanded(
               child: sessionAsync.when(
+                skipLoadingOnRefresh: false,
+                skipError: false,
                 loading: () =>
                     const BafLoadingPanel(label: 'Loading today\'s review'),
                 error: (error, _) =>
@@ -196,9 +198,15 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
     );
     final participants =
         participantsAsync.value ?? const <MorningReviewParticipant>[];
-    final joined = participants.any(
-      (participant) => participant.userUid == actor.uid,
-    );
+    // A retained value is useful for history, not current attendance authority.
+    final attendanceVerified =
+        !participantsAsync.isLoading &&
+        !participantsAsync.hasError &&
+        participantsAsync.hasValue &&
+        morningReviewRejectedCount(participants) == 0;
+    final joined =
+        attendanceVerified &&
+        participants.any((participant) => participant.userUid == actor.uid);
     final currentActions =
         sessionActionsAsync.value ?? const <MorningReviewAction>[];
     final actionById = <String, MorningReviewAction>{
@@ -241,6 +249,7 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
           session: session,
           actor: actor,
           joined: joined,
+          attendanceVerified: attendanceVerified,
           participantCount:
               participantsAsync.isLoading ||
                   participantsAsync.hasError ||
@@ -260,11 +269,12 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
               ? null
               : visibleActions.where((action) => !action.isTerminal).length,
           busy: _busy,
-          onJoin: session.isOpen && isToday && !joined
+          onJoin: session.isOpen && isToday && attendanceVerified && !joined
               ? () => unawaited(_joinReview(session.sessionId))
               : null,
           onTakeOver:
               session.isOpen &&
+                  attendanceVerified &&
                   (joined || (!isToday && actor.isAdmin)) &&
                   actor.canFacilitateMorningReview &&
                   session.facilitatorUid != actor.uid
@@ -284,6 +294,7 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
           child: TabBarView(
             children: [
               _AgendaBoundary(
+                attendanceVerified: attendanceVerified,
                 session: session,
                 actor: actor,
                 joined: joined,
@@ -348,7 +359,7 @@ class _MorningReviewScreenState extends ConsumerState<MorningReviewScreen> {
                 joined: joined,
                 busy: _busy,
                 participantsAsync: participantsAsync,
-                canJoin: isToday,
+                canJoin: isToday && attendanceVerified,
                 onJoin: () => unawaited(_joinReview(session.sessionId)),
               ),
               _ArchiveTab(recentAsync: recentAsync, onOpen: _openArchive),
@@ -548,6 +559,7 @@ bool canStartMorningReviewNow(AppUser actor, [DateTime? clock]) {
 
 class _SessionStrip extends StatelessWidget {
   const _SessionStrip({
+    required this.attendanceVerified,
     required this.session,
     required this.actor,
     required this.joined,
@@ -563,6 +575,7 @@ class _SessionStrip extends StatelessWidget {
   final MorningReviewSession session;
   final AppUser actor;
   final bool joined;
+  final bool attendanceVerified;
   final int? participantCount;
   final int? openActionCount;
   final bool busy;
@@ -614,10 +627,16 @@ class _SessionStrip extends StatelessWidget {
           ),
           if (session.isOpen)
             _StatusPill(
-              icon: joined
+              icon: !attendanceVerified
+                  ? Icons.hourglass_empty_rounded
+                  : joined
                   ? Icons.how_to_reg_rounded
                   : Icons.visibility_outlined,
-              label: joined ? 'Attendance recorded' : 'Viewing only',
+              label: !attendanceVerified
+                  ? 'Attendance unverified'
+                  : joined
+                  ? 'Attendance recorded'
+                  : 'Viewing only',
               color: joined ? BafColors.success : BafColors.textSecondary,
             ),
           if (onJoin != null)
@@ -656,6 +675,7 @@ class _SessionStrip extends StatelessWidget {
 
 class _AgendaBoundary extends StatelessWidget {
   const _AgendaBoundary({
+    required this.attendanceVerified,
     required this.session,
     required this.actor,
     required this.joined,
@@ -673,6 +693,7 @@ class _AgendaBoundary extends StatelessWidget {
   final MorningReviewSession session;
   final AppUser actor;
   final bool joined;
+  final bool attendanceVerified;
   final bool busy;
   final AsyncValue<List<MorningReviewEntry>> entriesAsync;
   final AsyncValue<List<MorningReviewStandingConcern>> concernsAsync;
@@ -701,6 +722,7 @@ class _AgendaBoundary extends StatelessWidget {
     return MorningReviewAgendaView(
       session: session,
       joined: joined,
+      attendanceVerified: attendanceVerified,
       busy: busy,
       entries: entriesAsync.value ?? const [],
       concerns: concernsAsync.value ?? const [],
@@ -859,6 +881,8 @@ class _PeopleBoundary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => participantsAsync.when(
+    skipLoadingOnRefresh: false,
+    skipError: false,
     loading: () => const BafLoadingPanel(label: 'Loading attendance'),
     error: (error, _) => BafStatePanel.error(message: '$error'),
     data: (participants) => ListView(

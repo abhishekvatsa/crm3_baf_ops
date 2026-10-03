@@ -35,7 +35,7 @@ void main() {
     expect(report['dynamicValueFieldCount'], 6);
     expect(report['extensionBagCount'], 3);
     expect(report['registeredExtensionFieldCount'], 0);
-    expect(report['inheritedDecoderSurfaceCount'], 129);
+    expect(report['inheritedDecoderSurfaceCount'], 130);
     expect(report['failures'], isEmpty);
   });
 

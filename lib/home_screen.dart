@@ -502,8 +502,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           onPlantCondition: () => _push(context, const AssetConditionBoard()),
           onPlantConditionClass: (id) =>
               _push(context, AssetConditionBoard(initialAssetClassId: id)),
-          onPlantConditionFiltered: (filter) =>
-              _push(context, AssetConditionBoard(initialFilter: filter)),
           onMorningReview: () => _push(context, const MorningReviewScreen()),
           onReports: () => _push(context, const FleetStatusScreen()),
           onControl: () => _selectTab(3),
@@ -926,7 +924,6 @@ class _DashboardHome extends StatelessWidget {
   final VoidCallback onOperationalEvents;
   final VoidCallback onPlantCondition;
   final ValueChanged<String> onPlantConditionClass;
-  final ValueChanged<AssetConditionFilter> onPlantConditionFiltered;
   final VoidCallback onMorningReview;
   final VoidCallback onReports;
   final VoidCallback onControl;
@@ -964,7 +961,6 @@ class _DashboardHome extends StatelessWidget {
     required this.onOperationalEvents,
     required this.onPlantCondition,
     required this.onPlantConditionClass,
-    required this.onPlantConditionFiltered,
     required this.onMorningReview,
     required this.onReports,
     required this.onControl,
@@ -1145,7 +1141,6 @@ class _DashboardHome extends StatelessWidget {
               PlantOverviewPanel(
                 overview: plantOverview,
                 onOpen: onPlantCondition,
-                onOpenFiltered: onPlantConditionFiltered,
                 onOpenClass: onPlantConditionClass,
               ),
               const SizedBox(height: BafSpacing.lg),

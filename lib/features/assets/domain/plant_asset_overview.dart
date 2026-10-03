@@ -162,10 +162,14 @@ class PlantAssetState {
 
   bool get isTemporarilyBlocked => availability?.isTemporarilyBlocked == true;
 
+  /// A recorded assessment hold prevents use without asserting physical damage.
+  bool get hasAssessmentRestriction =>
+      linkedInnerCoverDependency?.needsCurrentAssessment == true;
+
   bool get hasUnverifiedWorkflowEvidence =>
       workflowStatus == null ||
       evidenceWarnings.isNotEmpty ||
-      linkedInnerCoverDependency?.needsCurrentAssessment == true ||
+      hasAssessmentRestriction ||
       linkedInnerCoverDependency?.complete == false;
 
   bool get isStandby => asset.serviceState == AssetServiceState.standby;
@@ -182,7 +186,8 @@ class PlantAssetState {
       isIssueUnavailable ||
       isTemporarilyBlocked ||
       isStandby ||
-      isAdministrativelyOutOfService;
+      isAdministrativelyOutOfService ||
+      hasAssessmentRestriction;
 
   bool get isAvailable =>
       asset.isActive &&
@@ -294,12 +299,14 @@ class PlantInnerCoverState {
       profile.isUnfitForPlantCondition ||
       stockCondition?.activeConfirmedBulging == true ||
       (!isIssueUnavailable && dependency?.isUnfit == true);
+  bool get hasAssessmentRestriction =>
+      dependency?.needsCurrentAssessment == true ||
+      stockCondition?.needsCurrentAssessment == true;
   bool get hasUnverifiedEvidence =>
       evidenceWarnings.isNotEmpty ||
-      dependency?.needsCurrentAssessment == true ||
+      hasAssessmentRestriction ||
       dependency?.complete == false ||
-      stockCondition?.evidenceUnverified == true ||
-      stockCondition?.needsCurrentAssessment == true;
+      stockCondition?.evidenceUnverified == true;
   bool get isAvailable =>
       !hasUnverifiedEvidence &&
       profile.isAvailableForPlantCondition &&
@@ -310,12 +317,11 @@ class PlantInnerCoverState {
       !profile.isAvailableForPlantCondition ||
       isUnderMaintenance ||
       isIssueUnavailable ||
-      isUnfit;
+      isUnfit ||
+      hasAssessmentRestriction;
   List<String> get conditionReasons => [
     if (stockCondition?.activeConfirmedBulging == true) 'Confirmed bulging',
-    if (stockCondition?.needsCurrentAssessment == true ||
-        dependency?.needsCurrentAssessment == true)
-      'Assessment needed',
+    if (hasAssessmentRestriction) 'Assessment needed',
     if (dependency?.isUnavailable == true) 'Unavailable by Inner Cover issue',
     if (dependency?.isUnfit == true) 'Unfit by Inner Cover issue',
     if (dependency?.hasRedWork == true) 'RED work remains open',

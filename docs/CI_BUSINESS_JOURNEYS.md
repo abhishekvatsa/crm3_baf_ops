@@ -1,7 +1,7 @@
 # Android business journey CI gate
 
 The `android-emulator` job in `release-gate.yml` retains the C04 app-shell test
-and then runs the seven suites declared in
+and then runs the eleven suites declared in
 `governance/ci-business-journeys.json` against real local Auth, Firestore Rules,
 and Functions emulators. The gate is configuration for future CI runs, not a
 claim that an unexecuted Android run has passed.
@@ -52,9 +52,44 @@ response deliberately left unacknowledged locally. Exact replay must preserve
 the accepted version and receipt time before `DEV_QUEUE_OWNERSHIP_PASS` is emitted.
 Both process markers are required in order; neither can substitute for the other.
 
+The eighth and ninth journeys are the required-RED prepare/resume pair. Their
+fresh synthetic parent/successor drafts must be published and assigned through
+the actual UI; RED=yes and role handoffs are not seeded. A single owned Python
+relay on 15002 forwards to Functions 15001 and withholds only one independently
+validated successful compliance response. It preserves the original request
+and response hashes; no accepted response is manufactured. Prepare requires
+the native journal to remain unsettled, the actual server acknowledgement and
+no second UI command. Resume retains app data, verifies the separate process
+and saved session, releases only that exact command and requires identical
+receipt replay before the remaining UI handoffs. Both distinct completion
+markers are required in adjacent order. Relay evidence is create-only, and
+only the runner's child process is stopped. These are configured checks until
+an actual run completes; source presence is not a passing business proof.
+
+The tenth and eleventh journeys are the Inner Cover fitness/withdrawal pair.
+Setup supplies fourteen explicitly synthetic inventory/projection/link records:
+Base 101 and Base 102 with distinct serial covers. These represent pre-existing
+installed inventory; they do not prove real lifecycle registration or earlier
+acceptance. The actual fitness journey creates the issue through the Operations
+form, obtains separate SI confirmation and physical release, then verifies the
+exact cover and linked Base retain the assessment hold. Its completion marker
+must precede the withdrawal journey, which signs in as the separate Admin and
+uses the real issue-deletion form. It delinks the cover and obtains a fresh
+acceptance through the lifecycle UI, verifies that acceptance alone does not
+settle the old concern, and then explicitly records the audited disposition.
+The original withdrawn issue and bulge history, and the unrelated cover, must
+remain unchanged. No stuck-up case, issue, release or disposition is seeded.
+The runner enforces adjacent order and exact actor/marker identities. Each IC
+journey uses a fresh DEV app session, while their backend state is retained.
+The updated Functions handler must be compiled before these journeys run.
+
+The result JSON labels each declared journey passed, failed, or untested, and
+labels the run a CI demo candidate attempt. Build output and test success do
+not establish signing, production release, physical acceptance or distribution.
+
 The fixed project is `demo-crm3-ci-journeys`. Its loopback ports are 19099 (Auth),
 18080 (Firestore), 15001 (Functions), 14400 (hub), 14500 (logging), and separate
-19150/19299/19499 websocket/event/task ports. The runner
+19150/19299/19499 websocket/event/task ports. Port 15002 is the fixed loopback receipt-loss relay used only by the required-RED pair. The runner
 refuses occupied ports, real device IDs, ambient or cached cloud credentials, and another
 project. It starts its own emulator processes with the pinned Firebase CLI and
 stops them through `emulators:exec`. It neither attaches to nor resets the
@@ -65,7 +100,7 @@ this demo project and the DEV package, and refuses to overwrite a different
 existing developer configuration.
 
 The seed creates synthetic approved Operations, SI, Contract Supervisor, senior
-Instrumentation and two Admin accounts, complete master data and one draft
+Instrumentation, Refractory, senior Electrical and two Admin accounts, complete master data and three drafts
 through SI-authenticated Rules.
 Owner authority is used only for synthetic identity/catalogue setup. Publication,
 assignment, worker acceptance, and closure are never seeded. A seed marker and
@@ -106,16 +141,21 @@ python3 tools/testing/run_ci_business_journeys.py --device-id emulator-5554
 
 CI uploads `output/ci-business-journeys` (per-suite logs and result JSON) plus
 Firebase/Firestore diagnostics even on failure. No automatic rerun masks a
-business failure. The job is bounded to 60 minutes to allow cold Android/backend
-setup, five permission-bootstrap debug builds, and eight separate Flutter
+business failure. An existing non-empty journey output directory is rejected
+before seeding or starting the backend, preserving the original attempt logs.
+Use a new disposable checkout/output attempt rather than deleting old evidence.
+The job is bounded to 60 minutes to allow cold Android/backend
+setup, eight permission-bootstrap debug builds, and twelve separate Flutter
 integration invocations; each business process
 also has its own shorter deadline.
 
-All fourteen DEV suites are classified in the manifest: seven selected and
-seven explicitly excluded. The excluded files cover account diagnostic
+All eighteen DEV suites are classified in the manifest: eleven selected and
+seven explicitly excluded. The additional upgrade prepare/resume probes require
+an independently bound baseline427 APK and a different candidate APK, the same
+DEV package/signing, real main-store saves and an actual controlled network cut.
+They are excluded because a same-source CI restart cannot establish an upgrade. The excluded files cover account diagnostic
 tracing, frequent-issue/PDF fixtures, population-sensitive paging, historical
-adjudication, human visual review, and the two Inner Cover journeys with
-separate lifecycle or copied released-obstruction fixtures. Those local DEV
-proofs are not represented as execution by this CI gate.
+adjudication, human visual review, and the separate two-build upgrade pair.
+Source configuration does not replace actual completion of any selected journey.
 The gate does not certify physical-device behavior, production IAM/App Check,
 offline network loss, PDF appearance, or production distribution.

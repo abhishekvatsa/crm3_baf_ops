@@ -177,11 +177,13 @@ See `docs/FIREBASE_CONFIGURATION_CUSTODY.md`.
 
 ## Isar persistence authority
 
-The current local-store contract is Isar schema v10. Authentic checked-in
+The current local-store contract is Isar schema v12. Authentic checked-in
 generated bindings contain zero `PROVISIONAL_V4_ISAR_CODEGEN` markers. Schema
 v8 added originating-user evidence to synchronization rejections, v9 added the
 maintenance-derived Plant Condition effect, and v10 added its durable
-contribution index. Earlier governed fingerprints and ordered migration steps
+contribution index. Schema v11 added durable submissions; v12 records their
+review outcomes without letting older readers misinterpret that evidence.
+Earlier governed fingerprints and ordered migration steps
 remain explicit.
 
 Before any release claim, run:
@@ -192,11 +194,27 @@ dart run build_runner build --delete-conflicting-outputs
 python tools/isar/verify_v4_isar_schema.py --release
 ```
 
-The release verifier must report schema v10, zero provisional bindings and
+The release verifier must report schema v12, zero provisional bindings and
 `release_authority=YES`. Existing-store adoption, migration, quarantine and
 recovery evidence remain governed separately from successful code generation.
 
 ## Local validation
+
+`python tools/testing/run_source_preflight.py` checks the committed schema,
+dependency pins, architecture ownership and evidence taxonomy before expensive
+work. Each of the five CI jobs runs it independently and still must pass its
+complete job. The separate A03 persistence audit needs Dart analyzer packages:
+the three Flutter jobs and local runner run it after dependency resolution,
+before analysis, code generation, emulator startup or packaging. Source-only
+preflight does not claim that dependency-aware check ran. The focused
+no-loss run repeats a subset of the full Flutter suite; its passes are not
+additional unique tests.
+
+`release_gate.ps1` writes `gate-results.json` with passed, failed, skipped and
+untested groups (and non-blocking formatting warnings). Skip switches produce a
+partial result. A CI attempt, an isolated DEV candidate build and a distributed
+release are separate evidence: neither CI success nor an APK filename establishes
+production signing, distribution or release authorization.
 
 From the repository root:
 

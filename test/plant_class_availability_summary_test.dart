@@ -245,46 +245,41 @@ void main() {
     expect(summary.unverifiedWorkflowEvidence, 2);
   });
 
-  test(
-    'linked-cover assessment is unverified, not a fabricated physical Down',
-    () {
-      final row = f.asset(id: 'base-1', assetClass: _base, number: 1);
-      final state = PlantAssetState(
-        asset: row,
-        operationalCondition: null,
-        availability: null,
-        workflowStatus: f.workflow(key: 'base', number: 1),
-        linkedInnerCoverDependency: InnerCoverDependencyState(
-          coverId: 'cover-1',
-          serialNumber: 'IC-1',
-          complete: true,
-          warnings: [],
-          reasons: const [
-            InnerCoverDependencyReason(
-              key: 'assessment',
-              sourceId: 'case-1',
-              kind: InnerCoverDependencyKind.assessment,
-              coverId: 'cover-1',
-              serialNumber: 'IC-1',
-              eventHostAssetId: 'base-1',
-              eventHostClassId: 'bases',
-              eventHostNumber: 1,
-              eventLinkageId: 'link-1',
-              awaitingServerConfirmation: false,
-            ),
-          ],
-        ),
-      );
-      final summary = PlantAssetClassSummary(
-        assetClass: _base,
-        assets: [state],
-      );
-      _expectPartition(summary, 0, 0, 1);
-      expect(summary.down, 0);
-      expect(summary.unfit, 0);
-      expect(state.linkedInnerCoverDependency!.needsCurrentAssessment, isTrue);
-    },
-  );
+  test('known linked-cover assessment prevents use without physical Down', () {
+    final row = f.asset(id: 'base-1', assetClass: _base, number: 1);
+    final state = PlantAssetState(
+      asset: row,
+      operationalCondition: null,
+      availability: null,
+      workflowStatus: f.workflow(key: 'base', number: 1),
+      linkedInnerCoverDependency: InnerCoverDependencyState(
+        coverId: 'cover-1',
+        serialNumber: 'IC-1',
+        complete: true,
+        warnings: [],
+        reasons: const [
+          InnerCoverDependencyReason(
+            key: 'assessment',
+            sourceId: 'case-1',
+            kind: InnerCoverDependencyKind.assessment,
+            coverId: 'cover-1',
+            serialNumber: 'IC-1',
+            eventHostAssetId: 'base-1',
+            eventHostClassId: 'bases',
+            eventHostNumber: 1,
+            eventLinkageId: 'link-1',
+            awaitingServerConfirmation: false,
+          ),
+        ],
+      ),
+    );
+    final summary = PlantAssetClassSummary(assetClass: _base, assets: [state]);
+    _expectPartition(summary, 0, 1, 0);
+    expect(summary.availabilityRate, isNull);
+    expect(summary.down, 0);
+    expect(summary.unfit, 0);
+    expect(state.linkedInnerCoverDependency!.needsCurrentAssessment, isTrue);
+  });
 
   test('empty complete and incomplete registers both avoid a percentage', () {
     final empty = PlantAssetClassSummary(assetClass: _furnace, assets: []);

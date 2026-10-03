@@ -354,7 +354,7 @@ void main() {
         );
         var opened = 0;
         await _pump(tester, overview, onOpen: () => opened++);
-        expect(find.text('Inner Covers: 1 class unverified'), findsOneWidget);
+        expect(find.text('Review class for 1 Inner Cover'), findsOneWidget);
         expect(find.textContaining('MISCLASSIFIED-1:'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('plant-class-row-bases')));
         await tester.pumpAndSettle();
@@ -372,7 +372,23 @@ void main() {
         expect(texts, contains(lifecycle.label));
         expect(
           texts,
-          contains('Inner Cover class is missing, retired or unverified.'),
+          contains("Check this Inner Cover's asset class before use."),
+        );
+        final recordDetails = find.byKey(
+          ValueKey('plant-cover-record-details-${cover.profile.id}'),
+        );
+        await tester.ensureVisible(recordDetails);
+        await tester.tap(recordDetails);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Inner Cover class is missing, retired or unverified.'),
+          findsOneWidget,
+        );
+        expect(
+          texts,
+          isNot(
+            contains('Inner Cover class is missing, retired or unverified.'),
+          ),
         );
         expect(
           texts,
@@ -384,7 +400,7 @@ void main() {
         );
         // A retained serial belongs in its counted class detail, while the
         // separate class-unverified review link must remain available.
-        expect(find.text('Inner Covers: 1 class unverified'), findsOneWidget);
+        expect(find.text('Review class for 1 Inner Cover'), findsOneWidget);
         final open = find.byKey(const ValueKey('plant-class-open-bases'));
         await tester.ensureVisible(open);
         await tester.pumpAndSettle();
@@ -432,8 +448,8 @@ void main() {
         const ValueKey('plant-home-unclassified-covers'),
       );
       expect(warning, findsOneWidget);
-      expect(find.text('Inner Covers: 1 class unverified'), findsOneWidget);
-      expect(find.text('Inner Covers: 2 class unverified'), findsNothing);
+      expect(find.text('Review class for 1 Inner Cover'), findsOneWidget);
+      expect(find.text('Review class for 2 Inner Covers'), findsNothing);
       expect(
         find.byKey(const ValueKey('plant-inner-cover-toggle-covers')),
         findsOneWidget,

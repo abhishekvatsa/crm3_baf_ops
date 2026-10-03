@@ -22,6 +22,7 @@ import '../services/published_template_assignment_server_service.dart';
 import 'governed_planned_work_asset_selector.dart';
 import 'template_publisher_screen.dart';
 import 'saved_published_assignment_screen.dart';
+import 'missing_published_template_refresh.dart';
 import '../../../core/theme/baf_design_system.dart';
 import '../../../core/validation/charge_number.dart';
 import '../../../core/release/app_build_identity.dart';
@@ -401,13 +402,28 @@ class _PublishedTemplateAssignmentScreenState
                           ),
                           if (activeVersions.isEmpty) ...[
                             const SizedBox(height: BafSpacing.sm),
-                            _PublisherPromptCallout(
-                              message:
-                                  'This package has no active published TemplateVersion. Publish a valid version before assigning governed jobs.',
-                              onOpenPublisher: actor.canManageTemplateGovernance
-                                  ? _openTemplatePublisher
-                                  : null,
-                            ),
+                            if (_clean(
+                                  selectedPackage.activeVersionFirestoreId,
+                                ) !=
+                                null)
+                              MissingPublishedTemplateRefresh(
+                                key: ValueKey(
+                                  'missing-publication-${actor.uid}-${selectedPackage.firestoreId}-${selectedPackage.activeVersionFirestoreId}',
+                                ),
+                                actorUid: actor.uid,
+                                packageId: selectedPackage.firestoreId!,
+                                versionId:
+                                    selectedPackage.activeVersionFirestoreId!,
+                              )
+                            else
+                              _PublisherPromptCallout(
+                                message:
+                                    'This package has no active published TemplateVersion. Publish a valid version before assigning governed jobs.',
+                                onOpenPublisher:
+                                    actor.canManageTemplateGovernance
+                                    ? _openTemplatePublisher
+                                    : null,
+                              ),
                           ],
                           if (selectedVersion != null) ...[
                             const SizedBox(height: BafSpacing.sm),

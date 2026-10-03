@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "findingId": "A-03",
   "title": "Operation-level persistence boundary inventory",
-  "inventoryDigest": "FB027D26DD2C6E5CF9E4CC997D8567F9AFB3C3D11B3A38E23519BD24197A9E19",
+  "inventoryDigest": "55E9C89BB5C7BB5407E5EC15F04EBE9B085C9462550A9856D676CE6C06B893B0",
   "decision": "Presentation owns no direct persistence. Every discovered operation is classified by an exact surface, authority profile, store, access mode, offline behavior, and transaction owner.",
   "profiles": {
     "composition-root": {
@@ -723,7 +723,8 @@
       ],
       "regressionTests": [
         "test/a03_persistence_boundary_contract_test.dart",
-        "test/maintenance_workflow/workflow_command_claim_test.dart"
+        "test/maintenance_workflow/workflow_command_claim_test.dart",
+        "test/maintenance_workflow/isar_workflow_repository_test.dart"
       ]
     },
     {
@@ -992,7 +993,8 @@
         "read"
       ],
       "regressionTests": [
-        "test/a03_persistence_boundary_contract_test.dart"
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/template_active_version_refresh_test.dart"
       ]
     },
     {
@@ -1333,6 +1335,36 @@
         "integration_test/dev_queue_ownership_journey_test.dart"
       ],
       "reviewContract": "The existing durable repository transaction atomically retains original-account/project immutable command bytes with the dirty row. Native local-ID and document-ID checks prevent replacing unrelated rows. Dispatch uses the governed V2 callable and fresh backend authority; acceptance compares the complete saved payload before atomic local adoption. Unknown legacy origin stays review-only. No direct Firestore business write is owned by this service."
+    },
+    {
+      "path": "lib/features/assets/providers/inner_cover_assessment_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/inner_cover_assessment_panel_test.dart"
+      ]
+    },
+    {
+      "path": "lib/features/planned_maintenance/providers/template_active_version_refresh_provider.dart",
+      "profile": "read-provider",
+      "allowedStores": [
+        "firestore"
+      ],
+      "allowedModes": [
+        "read"
+      ],
+      "regressionTests": [
+        "test/a03_persistence_boundary_contract_test.dart",
+        "test/template_active_version_refresh_test.dart",
+        "test/missing_published_template_refresh_test.dart"
+      ],
+      "reviewContract": "The approved current assignment actor and Firebase UID must agree before exact Source.server package/version/audit reads. Cached, pending, malformed or mismatched evidence never grants repair authority. The service reuses existing publication readiness and content/audit hashes; the existing native repository owns only the missing-version insertion with actor, package, audit and full-row admission inside its transaction before and after awaited writes. Package/audit rows and dirty, different or duplicate versions remain retained. No cursor reset, broad backfill or server mutation is owned here."
     }
   ]
 }

@@ -84,6 +84,7 @@ const STATIC_CAPABILITY_BY_COMMAND: Readonly<
   adjudicateInspectionFinding: "inspectionFinding.adjudicate",
   releaseFurnaceStuckup: "integrity.supervise",
   adjudicateFurnaceStuckup: "integrity.adjudicate",
+  settleInnerCoverAssessment: "integrity.adjudicate",
   correctBurnerBlockInstallation: "integrity.adjudicate",
   correctUvDetectorInstallation: "integrity.adjudicate",
   raiseCriticalAlarm: "criticalAlarm.raise",

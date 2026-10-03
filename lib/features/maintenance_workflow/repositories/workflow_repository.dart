@@ -62,6 +62,16 @@ class WorkflowRetryTransition {
   bool get wasRecorded => outcome == WorkflowRetryTransitionOutcome.recorded;
 }
 
+/// Read-only command journal access for preventing a fresh decision from
+/// replacing retained evidence. Unlike the retry inventory, this includes
+/// rejected records as well as manual-review and uncertain requests.
+abstract interface class WorkflowCommandJournalReader {
+  Future<List<WorkflowCommandRecord>> readUnsettledCommands({
+    required String aggregateId,
+    required String commandTypeKey,
+  });
+}
+
 abstract interface class WorkflowRepository {
   Stream<WorkflowAggregateRecord?> watchWorkflow(String workflowId);
   Stream<List<JobLaneRecord>> watchLanes(String workflowId);

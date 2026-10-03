@@ -226,6 +226,10 @@ abstract class PlannedMaintenanceRepository {
   /// Returns a stream of all non-deleted job executions sorted by updatedAt.
   Stream<List<JobExecution>> watchAllExecutions({int? limit});
 
+  /// Administrative history, including retained tombstones. Ordinary job
+  /// consumers continue using [watchAllExecutions] or [watchOpenExecutions].
+  Stream<List<JobExecution>> watchExecutionsIncludingDeleted();
+
   Stream<List<JobExecution>> watchExecutionsOverlappingPeriod(
     DateTime startInclusive,
     DateTime endExclusive,

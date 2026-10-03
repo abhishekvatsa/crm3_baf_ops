@@ -2,9 +2,9 @@
   "schemaVersion": 1,
   "findingId": "A-04",
   "title": "Persisted dynamic-map and JSON schema inventory",
-  "inventoryDigest": "57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426",
+  "inventoryDigest": "3A49E0A4E69983DC3E7D4F9D7EEA4DDD8C1B3548FBCBF8A68B0EF592DA3971F0",
   "a05DecoderManifest": "governance/a05-persisted-decoder-surface-v1.json",
-  "a05ManifestSha256": "A2CFA1CE99AA1D887E586E71469D7B45638DDE8D76BD0AC006E34368D05C3476",
+  "a05ManifestSha256": "CADF854DD3166C9470CF9628F57B035CE309040382463D3D8AC290C5638A11A2",
   "decision": "Every source-declared persisted JSON field and nested dynamic value is schema-bearing. Root persisted maps inherit the complete strict A-05 decoder inventory. No unregistered extension key is accepted.",
   "fields": [
     {
@@ -1164,7 +1164,7 @@
       "authorityBoundary": "stuck-up case lifecycle and accumulated asset-condition evidence",
       "malformedDisposition": "fail closed before mismatched Furnace, Base, Inner Cover, charge, lifecycle, cause, or condition evidence enters operations",
       "compatibility": "schema version 1 only; lifecycle fields and condition evidence obey complete state-specific contracts",
-      "regression": "test/furnace_stuckup_case_test.dart"
+      "regression": "test/furnace_stuckup_case_test.dart; test/released_inner_cover_fitness_test.dart"
     },
     {
       "id": "global-pull-cursor",
@@ -1183,6 +1183,15 @@
       "malformedDisposition": "invalid preference type, malformed JSON, contradictory slot identity or duplicate request IDs raise explicit errors and preserve all saved evidence; no default or replacement record is manufactured",
       "compatibility": "exact legacy actor slot remains readable without rewriting; new version-one journal envelopes wrap unchanged domain schemas; complete legacy scope is hashed to prevent prefix collisions",
       "regression": "test/pending_command_stores_persistence_test.dart"
+    },
+    {
+      "id": "inner-cover-assessment-recovery",
+      "file": "lib/features/assets/services/inner_cover_assessment_recovery.dart",
+      "classification": "LOCAL_CONTROL_STATE",
+      "authorityBoundary": "Original-actor bound immutable workflow journal bytes and strict recovery response. Client proposal only; the terminal recovery server extension is unapplied.",
+      "malformedDisposition": "Throw InnerCoverRecoveryException and preserve the original journal row; malformed envelope, actor, identity, hash, time, receipt or decision never permits replacement or acceptance.",
+      "compatibility": "Only exact settleInnerCoverAssessment origin-bound envelopes are reviewed. Unknown, malformed or older-server responses remain held; the client does not manufacture a cancellation fence or mutate original saved payloads.",
+      "regression": "test/inner_cover_assessment_recovery_test.dart"
     },
     {
       "id": "inner-cover-frozen-acceptance-envelope",

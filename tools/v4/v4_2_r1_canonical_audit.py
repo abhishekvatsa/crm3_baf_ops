@@ -13256,16 +13256,16 @@ check(
     and a03_inventory_report.get("result") == "PASS"
     and a03_inventory_report.get("findingId") == "A-03"
     and a03_inventory_report.get("failures") == []
-    and a03_inventory_report.get("operationCount") == 633
-    and a03_inventory_report.get("siteCount") == 2217
+    and a03_inventory_report.get("operationCount") == 642
+    and a03_inventory_report.get("siteCount") == 2240
     and a03_inventory_report.get("inventoryDigest")
-        == "FB027D26DD2C6E5CF9E4CC997D8567F9AFB3C3D11B3A38E23519BD24197A9E19"
+        == "55E9C89BB5C7BB5407E5EC15F04EBE9B085C9462550A9856D676CE6C06B893B0"
     and a03_manifest.get("schemaVersion") == 1
     and a03_manifest.get("findingId") == "A-03"
     and a03_manifest.get("inventoryDigest")
         == a03_inventory_report.get("inventoryDigest")
-    and len(a03_surfaces) == 87
-    and len({surface.get("path") for surface in a03_surfaces}) == 87
+    and len(a03_surfaces) == 89
+    and len({surface.get("path") for surface in a03_surfaces}) == 89
     and a03_presentation_persistence == []
     and all(
         surface.get("profile") in a03_profiles
@@ -13315,9 +13315,9 @@ check(
     and a04_inventory_report.get("dynamicValueFieldCount") == 6
     and a04_inventory_report.get("extensionBagCount") == 3
     and a04_inventory_report.get("registeredExtensionFieldCount") == 0
-    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 129
+    and a04_inventory_report.get("inheritedDecoderSurfaceCount") == 130
     and a04_inventory_report.get("inventoryDigest")
-        == "57B62873B11CD35CF2842317158B219F064D64978BD7FC5F2A9129A61055F426"
+        == "3A49E0A4E69983DC3E7D4F9D7EEA4DDD8C1B3548FBCBF8A68B0EF592DA3971F0"
     and a04_inventory_report.get("failures") == []
     and a04_manifest.get("schemaVersion") == 1
     and a04_manifest.get("findingId") == "A-04"
@@ -13325,8 +13325,8 @@ check(
     and len({field.get("id") for field in a04_fields}) == 55
     and a04_manifest.get("inventoryDigest")
         == a04_inventory_report.get("inventoryDigest")
-    and len(a04_inherited_decoders) == 129
-    and len({surface.get("id") for surface in a04_inherited_decoders}) == 129
+    and len(a04_inherited_decoders) == 130
+    and len({surface.get("id") for surface in a04_inherited_decoders}) == 130
     and all(
         field.get("classification")
             in {"SCHEMA_BEARING_PAYLOAD", "BOUNDED_REGISTERED_EXTENSION_BAG"}
@@ -13594,16 +13594,16 @@ check(
     "A-05 strict persisted timestamp-reader inventory is exact and source-enforced",
     a05_timestamp_inventory_process.returncode == 0
     and a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("readerCount") == 114
-    and a05_timestamp_inventory_report.get("directCallCount") == 268
+    and a05_timestamp_inventory_report.get("readerCount") == 115
+    and a05_timestamp_inventory_report.get("directCallCount") == 269
     and a05_timestamp_inventory_report.get("requiredFieldCount") == 155
     and a05_timestamp_inventory_report.get("optionalFieldCount") == 100
     and a05_timestamp_inventory_report.get("unclassifiedReaderSites") == []
     and a05_timestamp_inventory_report.get("duplicateReaderSites") == []
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 42
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 43
     and a05_timestamp_inventory_report.get(
         "directParserClassificationGroupCount"
-    ) == 19
+    ) == 20
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -13611,11 +13611,11 @@ check(
         "staleDirectParserClassifications"
     ) == []
     and a05_timestamp_inventory_manifest.get("schemaVersion") == 2
-    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 114
+    and len(a05_timestamp_inventory_manifest.get("readers", [])) == 115
     and a05_direct_timestamp_candidate_manifest.get("schemaVersion") == 1
     and len(
         a05_direct_timestamp_candidate_manifest.get("classifications", [])
-    ) == 19
+    ) == 20
     and "sourceCommit" in a05_timestamp_inventory_tool
     and "readerSha256" in a05_timestamp_inventory_tool
     and "unclassifiedReaderSites" in a05_timestamp_inventory_tool
@@ -13636,17 +13636,17 @@ check(
     "A-05 complete persisted decoder and catch inventory is exact and source-enforced",
     a05_decoder_inventory_process.returncode == 0
     and a05_decoder_inventory_report.get("result") == "PASS"
-    and a05_decoder_inventory_report.get("surfaceCount") == 129
-    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 112
+    and a05_decoder_inventory_report.get("surfaceCount") == 130
+    and a05_decoder_inventory_report.get("decoderCatchSiteCount") == 113
     and a05_decoder_inventory_report.get("strictReaderConsumerFileCount") == 67
-    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 61
-    and a05_decoder_inventory_report.get("riskCandidateCount") == 561
+    and a05_decoder_inventory_report.get("rawJsonConsumerFileCount") == 62
+    and a05_decoder_inventory_report.get("riskCandidateCount") == 564
     and a05_decoder_inventory_report.get("timestampInventoryResult") == "PASS"
     and a05_decoder_inventory_report.get("unclassifiedFiles") == []
     and a05_decoder_inventory_report.get("unclassifiedDecoderCatchSites") == []
     and a05_decoder_inventory_report.get("staleDecoderCatchPolicies") == []
-    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 129
-    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 112
+    and len(a05_decoder_inventory_manifest.get("surfaces", [])) == 130
+    and len(a05_decoder_inventory_manifest.get("catchSites", [])) == 113
     and "def _decoder_catch_sites" in a05_decoder_inventory_tool
     and "unclassified persisted decoder files" in a05_decoder_inventory_tool
     and "stale decoder catch policies" in a05_decoder_inventory_tool
@@ -13987,7 +13987,7 @@ check(
 check(
     "A-05 direct timestamp candidates are classified and weak decoders fail closed",
     a05_timestamp_inventory_report.get("result") == "PASS"
-    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 42
+    and a05_timestamp_inventory_report.get("directParserCandidateCount") == 43
     and a05_timestamp_inventory_report.get(
         "unclassifiedDirectParserCandidates"
     ) == []
@@ -14014,7 +14014,7 @@ check(
         for entry in a05_direct_timestamp_candidate_manifest.get(
             "classifications", []
         )
-    ) == 42
+    ) == 43
     and "Timestamp(seconds, nanoseconds).toDate().toUtc()" in a05_reader
     and "on ArgumentError" in a05_reader
     and "'seconds': -62135596801" in a05_test

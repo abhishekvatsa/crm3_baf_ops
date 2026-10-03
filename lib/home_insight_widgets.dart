@@ -468,9 +468,9 @@ class HomeManagementPulsePanel extends StatelessWidget {
       );
     }
     if (highRiskClass != null) {
-      final count = highRiskClass.assets
-          .where((a) => a.isDown || a.isUnfit)
-          .length;
+      // Down and Unfit are mutually exclusive per numbered asset; the class
+      // aggregate also retains serial covers with unresolved class evidence.
+      final count = highRiskClass.down + highRiskClass.unfit;
       return _HomeLeadingSignal(
         text:
             '${highRiskClass.assetClass.name}: $count down or unfit. Review this class.',
