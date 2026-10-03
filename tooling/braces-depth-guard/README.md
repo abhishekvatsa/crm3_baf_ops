@@ -10,7 +10,7 @@ This private repository package is `@crm3/braces-depth-guard` version `1.0.0`. I
 
 The default and hard maximum nesting depth is 100. `parse` limits braces and parentheses; `compile`, `expand` and `stringify` independently limit direct AST traversal. The main function and `create` use those guarded entrypoints. A finite nonnegative `maxDepth` can make the limit smaller, never larger than 100; fractional limits act as their floor. Finite negative values throw `RangeError` in the four explicit `parse`, `compile`, `expand` and `stringify` APIs. The inherited main-function and `create` fast path for strings shorter than three characters still returns before option validation; it cannot carry excessive nesting. Non-numeric and nonfinite values use the safe default. Over-limit nesting is rejected with a depth-specific error before stack exhaustion.
 
-Normal APIs, expansion options and released invalid-brace escaping remain compatible. Refusing formerly unsafe extreme nesting is intentional. This patch does not claim a universal bound for expansion cardinality, AST width, malformed cyclic parent links, or every consumer's error handling.
+Normal APIs, expansion options and released invalid-brace escaping remain compatible. The inherited compiler diagnostic for `isClose` AST nodes is removed so library calls do not write to stdout; returned values and escaping are unchanged. Refusing formerly unsafe extreme nesting is intentional. This patch does not claim a universal bound for expansion cardinality, AST width, malformed cyclic parent links, or every consumer's error handling.
 
 ## Required verification
 

@@ -5,7 +5,7 @@ import path from 'node:path';
 import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
-import {execFileSync} from 'node:child_process';
+import {execFileSync, spawnSync} from 'node:child_process';
 import {verifySource, verifyGraph, verifyInstalled, EXPECTED_FILES} from './verify_braces_depth_guard.mjs';
 
 const source = process.env.CRM3_BRACES_GUARD_TEST_SOURCE ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../tooling/braces-depth-guard');
@@ -76,4 +76,21 @@ test('public and internal walkers have bounded depth and preserve normal API beh
   const expression = `import {verifyDepthAndApi} from ${JSON.stringify(moduleUrl)};verifyDepthAndApi(process.argv[1]);console.log('PASS_DEPTH_API');`;
   const output = execFileSync(process.execPath, ['--input-type=module','-e',expression,installedEntry], {encoding:'utf8',timeout:10000,windowsHide:true,maxBuffer:1024*1024});
   assert.equal(output.trim(),'PASS_DEPTH_API');
+});
+
+
+test('public compile AST overload returns exact escaped values without stdout or stderr', () => {
+  const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+  const functionsRequire = createRequire(path.join(repository, 'functions/package.json'));
+  const consumer = functionsRequire.resolve('micromatch/package.json');
+  const installedEntry = createRequire(consumer).resolve('braces');
+  verifySource(path.dirname(installedEntry));
+  const expression = "const b=require(process.argv[1]);process.stdout.write(JSON.stringify([b.compile({type:'close',isClose:true,value:'}'}),b.compile({type:'close',isClose:true,value:'}'},{escapeInvalid:true})]));";
+  const result = spawnSync(process.execPath, ['-e', expression, installedEntry], {
+    encoding: 'utf8', timeout: 10000, windowsHide: true, maxBuffer: 1024 * 1024,
+  });
+  assert.ifError(result.error);
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, '');
+  assert.equal(result.stdout, JSON.stringify(['}', '\\}']));
 });

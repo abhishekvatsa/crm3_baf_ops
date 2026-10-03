@@ -11,13 +11,13 @@ export const EXPECTED_FILES = Object.freeze({
   'index.js': '332ea07c7b006361aad12aa994ca75dc1db8e8382b884909e2f38f10b85c88a4',
   'LICENSE': '35bdd8a44339719441900fb50fbefc5e2dca1ca662cbaed7a687de842c8b70f2',
   'package.json': '7d74965c76cd3cb00f042e48d310409f30966d468d6d3a1e03e5f1494bbdc847',
-  'lib/compile.js': '160de0ca6e58d82a7600055acd664a8732bcc0e65eaf00a00e9490d43d95a342',
+  'lib/compile.js': 'fcdac4f2d7885a0c28c76e77966a60aa21ec9ad55d2e87e1e43490ff75cb266b',
   'lib/constants.js': 'f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c',
   'lib/expand.js': '18f1c70e36918f66457695187a43178a583650302150767654a0145d5fddd5fa',
   'lib/parse.js': '10fd6be4c5a092f8416bc7c5240aacc621ce71d76ead09c0e1d168022ff61bc8',
   'lib/stringify.js': '72cfac75fe36523a4e93555a413efd3fd5eca39e0bda90e521485b75bad1e68a',
   'lib/utils.js': 'b5a7596aa67730412b3c029ef09e84e6b67b8e445cffd35d1d295549c89066c7',
-  'UPSTREAM_PROVENANCE.json': '4889f007adb0d781871a47321eed5931585d551b4a18a5c9195130d660a4e6cc',
+  'UPSTREAM_PROVENANCE.json': 'e7b537d7480ec4c42ab3ba9bfb7c59590f80d4099f30ce64eb40240bff96fcdd',
 });
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const readJson = file => JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -95,6 +95,9 @@ export function verifyDepthAndApi(entrypoint) {
   assert.deepEqual(braces.expand('{a,a,,b}', {noempty: true, nodupes: true}), ['a', 'b']);
   assert.equal(braces.stringify('{{a}}', {escapeInvalid: true}), '{{a}}');
   assert.equal(braces.compile('a{b,c}d'), 'a(b|c)d');
+  // Caller-supplied close nodes must preserve values without debug stdout.
+  assert.equal(braces.compile({type: 'close', isClose: true, value: '}'}), '}');
+  assert.equal(braces.compile({type: 'close', isClose: true, value: '}'}, {escapeInvalid: true}), '\\}');
   assert.equal(braces.stringify('a{b,c}d'), 'a{b,c}d');
   // These inherited short-input fast paths intentionally do not validate options.
   assert.deepEqual(braces('a', {maxDepth: -1}), ['a']);

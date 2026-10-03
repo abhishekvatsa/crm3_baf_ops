@@ -35,7 +35,7 @@
     "index.js": "332ea07c7b006361aad12aa994ca75dc1db8e8382b884909e2f38f10b85c88a4",
     "LICENSE": "35bdd8a44339719441900fb50fbefc5e2dca1ca662cbaed7a687de842c8b70f2",
     "package.json": "7d74965c76cd3cb00f042e48d310409f30966d468d6d3a1e03e5f1494bbdc847",
-    "lib/compile.js": "160de0ca6e58d82a7600055acd664a8732bcc0e65eaf00a00e9490d43d95a342",
+    "lib/compile.js": "fcdac4f2d7885a0c28c76e77966a60aa21ec9ad55d2e87e1e43490ff75cb266b",
     "lib/constants.js": "f9fb688959232eee3e6ad7906a5b0e3234815db49ee857ef86983d65b917dc7c",
     "lib/expand.js": "18f1c70e36918f66457695187a43178a583650302150767654a0145d5fddd5fa",
     "lib/parse.js": "10fd6be4c5a092f8416bc7c5240aacc621ce71d76ead09c0e1d168022ff61bc8",
@@ -47,7 +47,8 @@
     "Reject fractional parser limit overflow at nesting+1 before push",
     "Explicit owned private package identity and exact existing fill-range7.1.1 dependency; not represented as an upstream fixed version",
     "Reject finite negative maxDepth consistently at all four entrypoints; finite nonnegative fractions act as stricter integer limits, nonfinite/non-numeric use default100.",
-    "Owned fork version1.0.0 has no claimed correspondence to a patched upstream release."
+    "Owned fork version1.0.0 has no claimed correspondence to a patched upstream release.",
+    "Remove inherited compiler isClose diagnostic output; public AST compilation returns its existing value without writing to stdout."
   ],
   "license": "MIT; original LICENSE retained byte for byte",
   "scope": "Brace and parenthesis parsing depth plus direct AST compile/expand/stringify traversal. Default and hard ceiling 100. This is not a universal expansion-cardinality or malformed-cycle bound.",
