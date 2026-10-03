@@ -15,6 +15,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_comma
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -23,68 +24,102 @@ import 'inspection_campaign_model_test.dart'
     show innerCoverCampaignMap, observationMap, findingMap;
 
 void main() {
-  testWidgets(
-    'bounded comparison card distinguishes limit status from evidence',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(1100, 1500));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
-      final observedAt = DateTime.utc(2026, 9, 5, 5);
-      final campaign = _assetCampaign(
-        assetTypeKey: 'furnace',
-        assetClassId: 'class-furnace',
-        assetInstanceId: 'furnace-22',
-        assetNumber: 22,
-        label: 'Furnace 22',
-        readingFields: const [
-          InspectionReadingField(
-            id: 'pressure',
-            label: 'Pressure',
-            valueType: InspectionValueType.number,
-            unit: 'bar',
-            maximumValue: 5,
+  for (final layout in [
+    (size: const Size(1100, 1500), scale: 1.0),
+    (size: const Size(320, 800), scale: 2.0),
+  ]) {
+    testWidgets(
+      'bounded comparison card distinguishes limit status from evidence at $layout',
+      (tester) async {
+        await tester.binding.setSurfaceSize(layout.size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final observedAt = DateTime.utc(2026, 9, 5, 5);
+        final campaign = _assetCampaign(
+          assetTypeKey: 'furnace',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'furnace-22',
+          assetNumber: 22,
+          label: 'Furnace 22',
+          readingFields: const [
+            InspectionReadingField(
+              id: 'pressure',
+              label: 'Pressure',
+              valueType: InspectionValueType.number,
+              unit: 'bar',
+              maximumValue: 5,
+            ),
+            InspectionReadingField(
+              id: 'verified',
+              label: 'Seal verified',
+              valueType: InspectionValueType.boolean,
+            ),
+          ],
+          lastObservationId: 'reading-1',
+          lastObservedAt: observedAt,
+          disposition: InspectionTargetDisposition.observed,
+        );
+        final observation = _observation(
+          campaign: campaign,
+          target: campaign.targets.single,
+          id: 'reading-1',
+          observedAt: observedAt,
+          recordedAt: observedAt,
+          value: true,
+          comparisonOutcome: InspectionComparisonOutcome.unchanged,
+          readings: const [
+            InspectionReadingValue(
+              fieldId: 'pressure',
+              valueType: InspectionValueType.number,
+              value: 4,
+            ),
+            InspectionReadingValue(
+              fieldId: 'verified',
+              valueType: InspectionValueType.boolean,
+              value: true,
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: [observation],
+            textScale: layout.scale,
           ),
-          InspectionReadingField(
-            id: 'verified',
-            label: 'Seal verified',
-            valueType: InspectionValueType.boolean,
-          ),
-        ],
-        lastObservationId: 'reading-1',
-        lastObservedAt: observedAt,
-        disposition: InspectionTargetDisposition.observed,
-      );
-      final observation = _observation(
-        campaign: campaign,
-        target: campaign.targets.single,
-        id: 'reading-1',
-        observedAt: observedAt,
-        recordedAt: observedAt,
-        value: true,
-        comparisonOutcome: InspectionComparisonOutcome.unchanged,
-        readings: const [
-          InspectionReadingValue(
-            fieldId: 'pressure',
-            valueType: InspectionValueType.number,
-            value: 4,
-          ),
-          InspectionReadingValue(
-            fieldId: 'verified',
-            valueType: InspectionValueType.boolean,
-            value: true,
-          ),
-        ],
-      );
-      await tester.pumpWidget(_testApp(campaign, observations: [observation]));
-      await tester.pumpAndSettle();
-      expect(find.text('Limit status unchanged from baseline'), findsOneWidget);
-      expect(find.text('Unchanged from baseline'), findsNothing);
-      expect(
-        find.textContaining('Pressure: 4 bar\nSeal verified: Yes ·'),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
+        );
+        await tester.pumpAndSettle();
+        final comparison = find.text('Limit status unchanged from baseline');
+        await tester.scrollUntilVisible(
+          comparison,
+          250,
+          scrollable: find.byType(Scrollable).first,
+          maxScrolls: 25,
+        );
+        expect(comparison, findsOneWidget);
+        await tester.ensureVisible(comparison);
+        await tester.pumpAndSettle();
+        final paragraph = tester.renderObject<RenderParagraph>(comparison);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        final bounds = tester.getRect(comparison);
+        expect(bounds.left, greaterThanOrEqualTo(0));
+        expect(bounds.right, lessThanOrEqualTo(layout.size.width));
+        if (layout.scale == 2) {
+          final lines = paragraph.getBoxesForSelection(
+            const TextSelection(
+              baseOffset: 0,
+              extentOffset: 'Limit status unchanged from baseline'.length,
+            ),
+          );
+          expect(lines.map((box) => box.top).toSet().length, greaterThan(1));
+        }
+        expect(find.text('Unchanged from baseline'), findsNothing);
+        expect(
+          find.textContaining('Pressure: 4 bar\nSeal verified: Yes ·'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final correcting in [false, true]) {
     testWidgets(
       'multi-reading ${correcting ? 'correction prefills' : 'submission requires'} the entire frozen contract',

@@ -1699,9 +1699,11 @@ class _InfoChip extends StatelessWidget {
       children: [
         Icon(icon, size: 15, color: BafColors.textSecondary),
         const SizedBox(width: 5),
-        Text(
-          text,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+        Flexible(
+          child: Text(
+            text,
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
         ),
       ],
     ),
