@@ -15,6 +15,7 @@ import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_comma
 import 'package:crm3_baf_ops/features/maintenance_workflow/domain/workflow_types.dart';
 import 'package:crm3_baf_ops/features/maintenance_workflow/providers/workflow_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
@@ -23,6 +24,231 @@ import 'inspection_campaign_model_test.dart'
     show innerCoverCampaignMap, observationMap, findingMap;
 
 void main() {
+  for (final layout in [
+    (size: const Size(1100, 1500), scale: 1.0),
+    (size: const Size(320, 800), scale: 2.0),
+  ]) {
+    testWidgets(
+      'bounded comparison card distinguishes limit status from evidence at $layout',
+      (tester) async {
+        await tester.binding.setSurfaceSize(layout.size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final observedAt = DateTime.utc(2026, 9, 5, 5);
+        final campaign = _assetCampaign(
+          assetTypeKey: 'furnace',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'furnace-22',
+          assetNumber: 22,
+          label: 'Furnace 22',
+          readingFields: const [
+            InspectionReadingField(
+              id: 'pressure',
+              label: 'Pressure',
+              valueType: InspectionValueType.number,
+              unit: 'bar',
+              maximumValue: 5,
+            ),
+            InspectionReadingField(
+              id: 'verified',
+              label: 'Seal verified',
+              valueType: InspectionValueType.boolean,
+            ),
+          ],
+          lastObservationId: 'reading-1',
+          lastObservedAt: observedAt,
+          disposition: InspectionTargetDisposition.observed,
+        );
+        final observation = _observation(
+          campaign: campaign,
+          target: campaign.targets.single,
+          id: 'reading-1',
+          observedAt: observedAt,
+          recordedAt: observedAt,
+          value: true,
+          comparisonOutcome: InspectionComparisonOutcome.unchanged,
+          readings: const [
+            InspectionReadingValue(
+              fieldId: 'pressure',
+              valueType: InspectionValueType.number,
+              value: 4,
+            ),
+            InspectionReadingValue(
+              fieldId: 'verified',
+              valueType: InspectionValueType.boolean,
+              value: true,
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: [observation],
+            textScale: layout.scale,
+          ),
+        );
+        await tester.pumpAndSettle();
+        final comparison = find.text('Limit status unchanged from baseline');
+        await tester.scrollUntilVisible(
+          comparison,
+          250,
+          scrollable: find.byType(Scrollable).first,
+          maxScrolls: 25,
+        );
+        expect(comparison, findsOneWidget);
+        await tester.ensureVisible(comparison);
+        await tester.pumpAndSettle();
+        final paragraph = tester.renderObject<RenderParagraph>(comparison);
+        expect(paragraph.didExceedMaxLines, isFalse);
+        final bounds = tester.getRect(comparison);
+        expect(bounds.left, greaterThanOrEqualTo(0));
+        expect(bounds.right, lessThanOrEqualTo(layout.size.width));
+        if (layout.scale == 2) {
+          final lines = paragraph.getBoxesForSelection(
+            const TextSelection(
+              baseOffset: 0,
+              extentOffset: 'Limit status unchanged from baseline'.length,
+            ),
+          );
+          expect(lines.map((box) => box.top).toSet().length, greaterThan(1));
+        }
+        expect(find.text('Unchanged from baseline'), findsNothing);
+        expect(
+          find.textContaining('Pressure: 4 bar\nSeal verified: Yes ·'),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  for (final correcting in [false, true]) {
+    testWidgets(
+      'multi-reading ${correcting ? 'correction prefills' : 'submission requires'} the entire frozen contract',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(1100, 1500));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final observedAt = DateTime.utc(2026, 9, 5, 5);
+        final campaign = _assetCampaign(
+          assetTypeKey: 'furnace',
+          assetClassId: 'class-furnace',
+          assetInstanceId: 'furnace-22',
+          assetNumber: 22,
+          label: 'Furnace 22',
+          readingFields: const [
+            InspectionReadingField(
+              id: 'verified',
+              label: 'Seal verified',
+              valueType: InspectionValueType.boolean,
+            ),
+            InspectionReadingField(
+              id: 'due_date',
+              label: 'Next examination',
+              valueType: InspectionValueType.date,
+            ),
+          ],
+          lastObservationId: correcting ? 'prior' : null,
+          lastObservedAt: correcting ? observedAt : null,
+          disposition: correcting
+              ? InspectionTargetDisposition.observed
+              : InspectionTargetDisposition.pending,
+        );
+        final prior = _observation(
+          campaign: campaign,
+          target: campaign.targets.single,
+          id: 'prior',
+          observedAt: observedAt,
+          recordedAt: observedAt,
+          value: false,
+          readings: const [
+            InspectionReadingValue(
+              fieldId: 'verified',
+              valueType: InspectionValueType.boolean,
+              value: false,
+            ),
+            InspectionReadingValue(
+              fieldId: 'due_date',
+              valueType: InspectionValueType.date,
+              value: '2032-02-29',
+            ),
+          ],
+        );
+        final sent = <WorkflowCommand>[];
+        await tester.pumpWidget(
+          _testApp(
+            campaign,
+            observations: correcting ? [prior] : [],
+            executeCommand: (command) async {
+              sent.add(command);
+              return WorkflowCommandReceipt(
+                commandId: command.commandId,
+                resultKey: 'inspection-observation-recorded',
+                aggregateVersion: 2,
+                result: const {},
+                appliedAt: observedAt,
+              );
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (correcting) {
+          await tester.ensureVisible(find.byTooltip('Reading actions'));
+          await tester.tap(find.byTooltip('Reading actions'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Record correction'));
+        } else {
+          await tester.ensureVisible(find.text('Add reading'));
+          await tester.tap(find.text('Add reading'));
+        }
+        await tester.pumpAndSettle();
+        final submit = find.widgetWithText(
+          FilledButton,
+          correcting ? 'Record correction' : 'Save reading',
+        );
+        if (correcting) {
+          expect(
+            tester
+                .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, 'No'))
+                .selected,
+            isTrue,
+          );
+          expect(find.text('29-02-2032'), findsOneWidget);
+        } else {
+          await tester.tap(submit);
+          await tester.pumpAndSettle();
+          expect(sent, isEmpty);
+          expect(find.text('Choose Yes or No.'), findsOneWidget);
+          await tester.tap(find.widgetWithText(ChoiceChip, 'No'));
+          await tester.enterText(
+            find.byKey(const ValueKey('inspection-reading-due_date')),
+            '29-02-2032',
+          );
+        }
+        await tester.ensureVisible(submit);
+        await tester.tap(submit);
+        await tester.pumpAndSettle();
+        expect(sent, hasLength(1));
+        expect(sent.single.payload['value'], {
+          'schemaVersion': 2,
+          'readings': [
+            {'fieldId': 'verified', 'valueType': 'boolean', 'value': false},
+            {'fieldId': 'due_date', 'valueType': 'date', 'value': '2032-02-29'},
+          ],
+        });
+        expect(sent.single.payload['unit'], isNull);
+        expect(sent.single.payload.containsKey('readings'), isFalse);
+        expect(
+          sent.single.payload['supersedesObservationId'],
+          correcting ? 'prior' : null,
+        );
+        if (correcting) {
+          expect(
+            sent.single.payload['observedAt'],
+            observedAt.toIso8601String(),
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'closed survey exposes scoped follow-up without a reopen command',
     (tester) async {
@@ -1555,6 +1781,7 @@ InspectionCampaign _innerCoverCampaign() {
 }
 
 InspectionCampaign _assetCampaign({
+  List<InspectionReadingField> readingFields = const [],
   InspectionCampaignStatus status = InspectionCampaignStatus.open,
   required String assetTypeKey,
   required String assetClassId,
@@ -1599,6 +1826,8 @@ InspectionCampaign _assetCampaign({
     version: 1,
     status: status,
     definition: FrozenInspectionDefinition(
+      schemaVersion: readingFields.isEmpty ? 1 : 2,
+      readingFields: readingFields,
       id: 'definition-$assetTypeKey',
       version: 1,
       code: '${assetTypeKey.toUpperCase()}_AUDIT',
@@ -1607,7 +1836,7 @@ InspectionCampaign _assetCampaign({
       assetTypeKeys: [assetTypeKey],
       assetClassIds: [assetClassId],
       componentNodeIds: const [],
-      valueType: InspectionValueType.boolean,
+      valueType: readingFields.isEmpty ? InspectionValueType.boolean : null,
       unit: null,
       choiceValues: const [],
       minimumValue: null,
@@ -1636,6 +1865,8 @@ InspectionCampaign _assetCampaign({
 }
 
 InspectionObservation _observation({
+  List<InspectionReadingValue> readings = const [],
+  InspectionComparisonOutcome? comparisonOutcome,
   required InspectionCampaign campaign,
   required InspectionCampaignTarget target,
   required String id,
@@ -1643,6 +1874,7 @@ InspectionObservation _observation({
   required DateTime recordedAt,
   required bool value,
 }) => InspectionObservation(
+  readings: readings,
   id: id,
   campaignId: campaign.id,
   definition: campaign.definition,
@@ -1669,18 +1901,18 @@ InspectionObservation _observation({
   observerUid: 'admin-1',
   observerName: 'Admin One',
   numericValue: null,
-  booleanValue: value,
+  booleanValue: campaign.definition.isMultiReading ? null : value,
   textValue: null,
   choiceValue: null,
   unit: null,
-  outOfRange: !value,
+  outOfRange: campaign.definition.isMultiReading ? false : !value,
   operatingConditions: const <String, String>{},
   chargeNo: null,
   note: null,
   evidenceUrls: const <String>[],
   supersedesObservationId: null,
-  baselineCampaignId: null,
-  baselineObservationId: null,
-  comparisonOutcome: null,
+  baselineCampaignId: comparisonOutcome == null ? null : 'baseline-campaign',
+  baselineObservationId: comparisonOutcome == null ? null : 'baseline-reading',
+  comparisonOutcome: comparisonOutcome,
   recordedAt: recordedAt,
 );

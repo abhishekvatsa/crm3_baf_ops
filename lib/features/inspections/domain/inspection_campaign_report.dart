@@ -1,4 +1,5 @@
 import '../data/inspection_campaign.dart';
+import 'inspection_observation_comparison_label.dart';
 import '../data/inspection_evidence_snapshot.dart';
 import '../../reports/domain/report_provenance.dart';
 import '../../reports/domain/structured_report_document.dart';
@@ -316,7 +317,7 @@ List<String> _observationRow(
       '${observation.targetContextRevision == 0 ? "" : "\nContext review ${observation.targetContextRevision}: ${observation.targetContextAuditId}"}'
       '${observation.supersedesObservationId == null ? '' : '\nCorrects ${observation.supersedesObservationId}'}'
       '${observation.baselineObservationId == null ? '' : '\nBaseline ${observation.baselineObservationId}'}'
-      '${observation.comparisonOutcome == null ? '' : '\n${_enumLabel(observation.comparisonOutcome!.name)}'}'
+      '${observation.comparisonOutcome == null ? '' : '\n${inspectionObservationComparisonLabel(observation.comparisonOutcome!, observation.definition)}'}'
       '${observation.note == null ? '' : '\nNote: ${observation.note}'}'
       '${observation.evidenceUrls.isEmpty ? '' : '\nEvidence: ${observation.evidenceUrls.join(', ')}'}',
 ];
@@ -345,17 +346,38 @@ String _populationLabel(InspectionCampaign campaign) =>
     ? 'Installed Inner Covers presented by governed Base linkage'
     : '${_assetTypeLabel(campaign.assetTypeKey)} governed asset instances';
 
-String _valueContract(
-  FrozenInspectionDefinition definition,
-) => switch (definition.valueType) {
+String _valueContract(FrozenInspectionDefinition definition) {
+  if (definition.isMultiReading) {
+    return definition.readingFields
+        .map((field) => '${field.label}: ${_readingContract(field)}')
+        .join('\n');
+  }
+  return switch (definition.valueType) {
+    InspectionValueType.number =>
+      'Number in ${definition.unit}'
+          '${definition.minimumValue == null ? '' : '; minimum ${definition.minimumValue}'}'
+          '${definition.maximumValue == null ? '' : '; maximum ${definition.maximumValue}'}',
+    InspectionValueType.boolean => 'Yes / No',
+    InspectionValueType.text => 'Recorded text',
+    InspectionValueType.choice =>
+      'Governed choice: ${definition.choiceValues.join(', ')}',
+    InspectionValueType.date ||
+    null => throw StateError('Unsupported legacy inspection value contract.'),
+  };
+}
+
+String _readingContract(
+  InspectionReadingField field,
+) => switch (field.valueType) {
   InspectionValueType.number =>
-    'Number in ${definition.unit}'
-        '${definition.minimumValue == null ? '' : '; minimum ${definition.minimumValue}'}'
-        '${definition.maximumValue == null ? '' : '; maximum ${definition.maximumValue}'}',
+    'Number in ${field.unit}'
+        '${field.minimumValue == null ? '' : '; minimum ${field.minimumValue}'}'
+        '${field.maximumValue == null ? '' : '; maximum ${field.maximumValue}'}',
   InspectionValueType.boolean => 'Yes / No',
+  InspectionValueType.date => 'Date (DD-MM-YYYY)',
   InspectionValueType.text => 'Recorded text',
   InspectionValueType.choice =>
-    'Governed choice: ${definition.choiceValues.join(', ')}',
+    'Governed choice: ${field.choiceValues.join(', ')}',
 };
 
 String _operatingContext(InspectionObservation observation) {

@@ -12,6 +12,7 @@ class _InspectionObservationDraft {
     required this.booleanValue,
     required this.textValue,
     required this.choiceValue,
+    required this.readings,
     required this.conditions,
     required this.chargeNo,
     required this.note,
@@ -30,6 +31,7 @@ class _InspectionObservationDraft {
   final bool? booleanValue;
   final String? textValue;
   final String? choiceValue;
+  final List<InspectionReadingValue> readings;
   final Map<String, String> conditions;
   final int? chargeNo;
   final String? note;
@@ -63,14 +65,24 @@ class _InspectionObservationDraft {
         ? physicalPosition
         : correction!.physicalPosition,
     'observedAt': observedAt.toUtc().toIso8601String(),
-    'value': {
-      'valueType': campaign.definition.valueType.name,
-      'numericValue': numericValue,
-      'booleanValue': booleanValue,
-      'textValue': textValue,
-      'choiceValue': choiceValue,
-    },
-    'unit': campaign.definition.unit,
+    'value': campaign.definition.isMultiReading
+        ? {
+            'schemaVersion': 2,
+            'readings': validateInspectionReadingValues(
+              campaign.definition.readingFields,
+              readings,
+            ).map((reading) => reading.toMap()).toList(growable: false),
+          }
+        : {
+            'valueType': campaign.definition.valueType!.name,
+            'numericValue': numericValue,
+            'booleanValue': booleanValue,
+            'textValue': textValue,
+            'choiceValue': choiceValue,
+          },
+    'unit': campaign.definition.isMultiReading
+        ? null
+        : campaign.definition.unit,
     'operatingConditions': conditions,
     'chargeNo': chargeNo,
     'note': note,

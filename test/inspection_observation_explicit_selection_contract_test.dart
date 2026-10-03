@@ -6,7 +6,7 @@ void main() {
   test('new boolean and choice observations require an explicit selection', () {
     final source = File(
       'lib/features/inspections/presentation/'
-      'inspection_programmes_editors.dart',
+      'inspection_observation_editor.dart',
     ).readAsStringSync();
 
     expect(source, contains('_booleanValue = correction?.booleanValue;'));

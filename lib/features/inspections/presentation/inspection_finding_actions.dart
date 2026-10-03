@@ -383,12 +383,3 @@ String _findingStatusLabel(InspectionFindingStatus value) => switch (value) {
   InspectionFindingStatus.acceptedCondition => 'Continuing condition accepted',
   InspectionFindingStatus.invalidated => 'Invalidated with audit evidence',
 };
-
-String _comparisonLabel(InspectionComparisonOutcome value) => switch (value) {
-  InspectionComparisonOutcome.improved => 'Improved from baseline',
-  InspectionComparisonOutcome.unchanged => 'Unchanged from baseline',
-  InspectionComparisonOutcome.deteriorated => 'Deteriorated from baseline',
-  InspectionComparisonOutcome.resolved => 'Resolved from baseline',
-  InspectionComparisonOutcome.recurred => 'Recurred from baseline',
-  InspectionComparisonOutcome.notComparable => 'Not comparable to baseline',
-};

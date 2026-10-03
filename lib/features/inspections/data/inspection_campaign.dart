@@ -2,6 +2,7 @@ import '../../../core/serialization/persisted_data_reader.dart';
 
 part 'inspection_target_context.dart';
 part 'inspection_campaign_target.dart';
+part 'inspection_reading_contract.dart';
 
 enum InspectionDefinitionStatus { active, retired }
 
@@ -12,7 +13,7 @@ enum InspectionCampaignPopulationMode {
   installedInnerCoversByBase,
 }
 
-enum InspectionValueType { number, boolean, text, choice }
+enum InspectionValueType { number, boolean, text, choice, date }
 
 enum InspectionTargetDisposition {
   pending,
@@ -119,6 +120,8 @@ Map<String, int> _requiredIntegerMap(
 
 class FrozenInspectionDefinition {
   const FrozenInspectionDefinition({
+    this.schemaVersion = 1,
+    this.readingFields = const [],
     required this.id,
     required this.version,
     required this.code,
@@ -136,6 +139,10 @@ class FrozenInspectionDefinition {
     required this.requiresChargeNo,
   });
 
+  final int schemaVersion;
+  final List<InspectionReadingField> readingFields;
+  bool get isMultiReading => schemaVersion == 2;
+
   final String id;
   final int version;
   final String code;
@@ -144,7 +151,7 @@ class FrozenInspectionDefinition {
   final List<String> assetTypeKeys;
   final List<String> assetClassIds;
   final List<String> componentNodeIds;
-  final InspectionValueType valueType;
+  final InspectionValueType? valueType;
   final String? unit;
   final List<String> choiceValues;
   final double? minimumValue;
@@ -161,53 +168,87 @@ class FrozenInspectionDefinition {
       field: 'schemaVersion',
       source: source,
     );
-    if (schema != 1) {
+    if (schema != 1 && schema != 2) {
       throw PersistedDataFormatException(
         field: 'schemaVersion',
         source: source,
         detail: 'unsupported inspection schema',
       );
     }
-    final valueType = readRequiredPersistedEnum(
-      InspectionValueType.values,
-      map['valueType'],
-      field: 'valueType',
-      source: source,
-    );
-    final unit = readOptionalPersistedString(
-      map['unit'],
-      field: 'unit',
-      source: source,
-    );
-    final choices = List<String>.unmodifiable(
-      readOptionalPersistedStringList(
-        map['choiceValues'],
-        field: 'choiceValues',
-        source: source,
-      ),
-    );
-    final minimum = readOptionalPersistedDouble(
-      map['minimumValue'],
-      field: 'minimumValue',
-      source: source,
-    );
-    final maximum = readOptionalPersistedDouble(
-      map['maximumValue'],
-      field: 'maximumValue',
-      source: source,
-    );
-    if ((valueType == InspectionValueType.number) != (unit != null) ||
-        (valueType == InspectionValueType.choice) != choices.isNotEmpty ||
-        (valueType != InspectionValueType.number &&
-            (minimum != null || maximum != null)) ||
-        (minimum != null && maximum != null && minimum > maximum)) {
-      throw PersistedDataFormatException(
-        field: 'valueType',
-        source: source,
-        detail: 'definition value contract is inconsistent',
+    final multi = schema == 2;
+    if (multi &&
+        const [
+          'valueType',
+          'unit',
+          'choiceValues',
+          'minimumValue',
+          'maximumValue',
+        ].any(map.containsKey)) {
+      _readingInvalid(
+        source,
+        'multi-reading contract must not carry scalar projections',
       );
     }
+    if (!multi && map.containsKey('readingFields')) {
+      _readingInvalid(source, 'legacy contract must not carry readingFields');
+    }
+    final fields = multi
+        ? readInspectionReadingFields(map['readingFields'], source: source)
+        : const <InspectionReadingField>[];
+    final valueType = multi
+        ? null
+        : readRequiredPersistedEnum(
+            const [
+              InspectionValueType.number,
+              InspectionValueType.boolean,
+              InspectionValueType.text,
+              InspectionValueType.choice,
+            ],
+            map['valueType'],
+            field: 'valueType',
+            source: source,
+          );
+    final unit = multi
+        ? null
+        : readOptionalPersistedString(
+            map['unit'],
+            field: 'unit',
+            source: source,
+          );
+    final choices = multi
+        ? const <String>[]
+        : List<String>.unmodifiable(
+            readOptionalPersistedStringList(
+              map['choiceValues'],
+              field: 'choiceValues',
+              source: source,
+            ),
+          );
+    final minimum = multi
+        ? null
+        : readOptionalPersistedDouble(
+            map['minimumValue'],
+            field: 'minimumValue',
+            source: source,
+          );
+    final maximum = multi
+        ? null
+        : readOptionalPersistedDouble(
+            map['maximumValue'],
+            field: 'maximumValue',
+            source: source,
+          );
+    if (!multi &&
+        ((valueType == InspectionValueType.number) != (unit != null) ||
+            (valueType == InspectionValueType.choice) != choices.isNotEmpty ||
+            (valueType != InspectionValueType.number &&
+                (minimum != null || maximum != null)) ||
+            (minimum != null && maximum != null && minimum > maximum))) {
+      _readingInvalid(source, 'definition value contract is inconsistent');
+    }
     return FrozenInspectionDefinition(
+      schemaVersion: schema,
+      readingFields: fields,
       id: readRequiredPersistedString(
         map['definitionId'],
         field: 'definitionId',
@@ -298,6 +339,22 @@ class InspectionDefinition {
     String documentId,
   ) {
     final source = 'inspection_definitions/$documentId';
+    if (map['schemaVersion'] != 2 && map.containsKey('readingFields')) {
+      _readingInvalid(source, 'legacy definition must not carry readingFields');
+    }
+    if (map['schemaVersion'] == 2 &&
+        const [
+          'valueType',
+          'unit',
+          'choiceValues',
+          'minimumValue',
+          'maximumValue',
+        ].any(map.containsKey)) {
+      _readingInvalid(
+        source,
+        'multi-reading definition must not carry scalar projections',
+      );
+    }
     final version = readRequiredPersistedInt(
       map['version'],
       field: 'version',
@@ -314,11 +371,15 @@ class InspectionDefinition {
       'assetTypeKeys': map['assetTypeKeys'],
       'assetClassIds': map['assetClassIds'],
       'componentNodeIds': map['componentNodeIds'],
-      'valueType': map['valueType'],
-      'unit': map['unit'],
-      'choiceValues': map['choiceValues'],
-      'minimumValue': map['minimumValue'],
-      'maximumValue': map['maximumValue'],
+      if (map['schemaVersion'] == 2)
+        'readingFields': map['readingFields']
+      else ...{
+        'valueType': map['valueType'],
+        'unit': map['unit'],
+        'choiceValues': map['choiceValues'],
+        'minimumValue': map['minimumValue'],
+        'maximumValue': map['maximumValue'],
+      },
       'preconditions': map['preconditions'],
       'requiresChargeNo': map['requiresChargeNo'],
     }, source: source);
@@ -642,6 +703,7 @@ class InspectionObservation {
     this.targetContextRevision = 0,
     this.targetContextAuditId,
     this.targetContextOriginalLinkageId,
+    this.readings = const [],
     required this.id,
     required this.campaignId,
     required this.definition,
@@ -683,6 +745,9 @@ class InspectionObservation {
     required this.comparisonOutcome,
     required this.recordedAt,
   });
+
+  final List<InspectionReadingValue> readings;
+  List<InspectionReadingValue> get readingValues => readings;
 
   final String id;
   final int targetContextRevision;
@@ -752,9 +817,15 @@ class InspectionObservation {
   /// "this conforms". Which boolean or choice value would count as adverse is
   /// a plant decision that has not been made; until it is, the truthful
   /// report of such an observation is that it was recorded.
-  bool get wasAssessedAgainstLimits =>
-      numericValue != null &&
-      (definition.minimumValue != null || definition.maximumValue != null);
+  bool get wasAssessedAgainstLimits => definition.isMultiReading
+      ? definition.readingFields.every(
+          (field) =>
+              field.valueType == InspectionValueType.number &&
+              (field.minimumValue != null || field.maximumValue != null),
+        )
+      : numericValue != null &&
+            (definition.minimumValue != null ||
+                definition.maximumValue != null);
 
   /// How this observation should be described where a reader will take it as
   /// a statement about the plant.
@@ -762,14 +833,29 @@ class InspectionObservation {
       ? 'Exception recorded'
       : wasAssessedAgainstLimits
       ? 'Within defined condition'
+      : definition.isMultiReading &&
+            definition.readingFields.any(
+              (field) =>
+                  field.valueType == InspectionValueType.number &&
+                  (field.minimumValue != null || field.maximumValue != null),
+            )
+      ? 'Numeric readings within limits; other readings recorded'
       : 'Recorded; no defined condition to assess it against';
 
-  String get displayValue => switch (definition.valueType) {
-    InspectionValueType.number => '${numericValue ?? '-'} ${unit ?? ''}'.trim(),
-    InspectionValueType.boolean => booleanValue == true ? 'Yes' : 'No',
-    InspectionValueType.text => textValue ?? '-',
-    InspectionValueType.choice => choiceValue ?? '-',
-  };
+  String get displayValue => definition.isMultiReading
+      ? [
+          for (var i = 0; i < definition.readingFields.length; i++)
+            '${definition.readingFields[i].label}: ${displayInspectionReading(definition.readingFields[i], readings[i])}',
+        ].join('\n')
+      : switch (definition.valueType) {
+          InspectionValueType.number =>
+            '${numericValue ?? '-'} ${unit ?? ''}'.trim(),
+          InspectionValueType.boolean => booleanValue == true ? 'Yes' : 'No',
+          InspectionValueType.text => textValue ?? '-',
+          InspectionValueType.choice => choiceValue ?? '-',
+          InspectionValueType.date ||
+          null => throw StateError('Invalid legacy inspection reading type.'),
+        };
 
   factory InspectionObservation.fromMap(
     Map<String, dynamic> map,
@@ -805,19 +891,59 @@ class InspectionObservation {
               source: source,
               minimum: 1,
             ) ||
-        definition.valueType.name !=
-            readRequiredPersistedString(
-              map['valueType'],
-              field: 'valueType',
-              source: source,
-            )) {
+        (!definition.isMultiReading &&
+            definition.valueType!.name !=
+                readRequiredPersistedString(
+                  map['valueType'],
+                  field: 'valueType',
+                  source: source,
+                ))) {
       throw PersistedDataFormatException(
         field: 'definition',
         source: source,
         detail: 'frozen identity must match observation projection fields',
       );
     }
+    final valueEnvelope = map['value'];
+    if ((map.containsKey('schemaVersion') &&
+            map['schemaVersion'] != (definition.isMultiReading ? 2 : 1)) ||
+        (!definition.isMultiReading &&
+            (map.containsKey('readings') ||
+                (valueEnvelope is Map &&
+                    (valueEnvelope.containsKey('schemaVersion') ||
+                        valueEnvelope.containsKey('readings')))))) {
+      _readingInvalid(
+        source,
+        'observation schema must match its frozen definition',
+      );
+    }
+    final readings = definition.isMultiReading
+        ? readInspectionReadingEnvelope(
+            definition.readingFields,
+            map['value'],
+            source: source,
+          )
+        : const <InspectionReadingValue>[];
+    if (definition.isMultiReading &&
+        (map['schemaVersion'] != 2 ||
+            const [
+              'readings',
+              'valueType',
+              'numericValue',
+              'booleanValue',
+              'textValue',
+              'choiceValue',
+              'unit',
+              'minimumValue',
+              'maximumValue',
+            ].any(map.containsKey))) {
+      _readingInvalid(
+        source,
+        'multi-reading observations require one canonical envelope',
+      );
+    }
     final observation = InspectionObservation(
+      readings: readings,
       targetContextRevision:
           readOptionalPersistedInt(
             map['targetContextRevision'],
@@ -1040,6 +1166,14 @@ class InspectionObservation {
         source: source,
       ),
     );
+    if (definition.isMultiReading &&
+        observation.outOfRange !=
+            inspectionReadingsOutOfRange(definition.readingFields, readings)) {
+      _readingInvalid(
+        source,
+        'reading assessment disagrees with frozen numeric limits',
+      );
+    }
     final hasAssetClass = observation.assetClassId != null;
     final hasAssetInstance = observation.assetInstanceId != null;
     final expectedTargetKey = hasAssetClass && hasAssetInstance
@@ -1081,15 +1215,19 @@ class InspectionObservation {
       observation.textValue,
       observation.choiceValue,
     ].where((item) => item != null).length;
-    final valueMatches = switch (definition.valueType) {
-      InspectionValueType.number =>
-        observation.numericValue != null && observation.unit == definition.unit,
-      InspectionValueType.boolean => observation.booleanValue != null,
-      InspectionValueType.text => observation.textValue != null,
-      InspectionValueType.choice =>
-        observation.choiceValue != null &&
-            definition.choiceValues.contains(observation.choiceValue),
-    };
+    final valueMatches =
+        definition.isMultiReading ||
+        switch (definition.valueType) {
+          InspectionValueType.number =>
+            observation.numericValue != null &&
+                observation.unit == definition.unit,
+          InspectionValueType.boolean => observation.booleanValue != null,
+          InspectionValueType.text => observation.textValue != null,
+          InspectionValueType.choice =>
+            observation.choiceValue != null &&
+                definition.choiceValues.contains(observation.choiceValue),
+          InspectionValueType.date || null => false,
+        };
     if (hasAssetClass != hasAssetInstance ||
         ((observation.targetContextRevision > 0) !=
             (observation.targetContextAuditId != null)) ||
@@ -1111,7 +1249,7 @@ class InspectionObservation {
             !definition.componentNodeIds.contains(
               observation.componentNodeId,
             )) ||
-        valuePartCount != 1 ||
+        valuePartCount != (definition.isMultiReading ? 0 : 1) ||
         !valueMatches ||
         ((observation.baselineCampaignId == null) !=
             (observation.baselineObservationId == null)) ||

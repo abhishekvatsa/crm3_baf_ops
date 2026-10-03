@@ -437,6 +437,22 @@
           "occurrence": 1
         }
       ]
+    },
+    {
+      "id": "inspection-date-only-calendar-position",
+      "classification": "DISPLAY_ONLY_BEST_EFFORT",
+      "owner": "asset-inspection",
+      "purpose": "position the calendar from a strictly validated date-only editor value; an empty or invalid field opens at today without changing or submitting that field",
+      "authorityBoundary": "calendar initial display only; the selected year/month/day is formatted as date-only text and the shared strict contract validator controls submission; no persisted chronology is decoded or repaired here",
+      "regression": "test/inspection_reading_fields_editor_test.dart; test/inspection_reading_contract_test.dart",
+      "reArmCondition": "calendar positioning becomes a persisted fallback, unvalidated input reaches the parser, the displayed default becomes an answer, or timezone conversion changes the selected day",
+      "sites": [
+        {
+          "file": "lib/features/inspections/presentation/inspection_reading_fields_editor.dart",
+          "expression": "DateTime.parse(",
+          "occurrence": 1
+        }
+      ]
     }
   ]
 }

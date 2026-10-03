@@ -47,6 +47,77 @@ describeLocal('inspection effective history and shared finding activation on rea
   });
   afterAll(async () => { if (app) await app.delete(); });
 
+  test('v2 dates remain date strings through real storage, frozen edits, correction and exact replay', async () => {
+    const fields = [
+      {id: 'completed', label: 'Completed?', valueType: 'boolean', unit: null,
+        choiceValues: [], minimumValue: null, maximumValue: null},
+      {id: 'completed_on', label: 'Completion date', valueType: 'date', unit: null,
+        choiceValues: [], minimumValue: null, maximumValue: null},
+      {id: 'pressure', label: 'Pressure', valueType: 'number', unit: 'bar',
+        choiceValues: [], minimumValue: 2, maximumValue: 4},
+    ];
+    const update = upsertDefinition({commandId: 'definition-v2', expectedVersion: 1});
+    for (const key of ['valueType', 'unit', 'choiceValues', 'minimumValue', 'maximumValue']) {
+      delete update.payload.definition[key];
+    }
+    Object.assign(update.payload.definition, {schemaVersion: 2, readingFields: fields});
+    await run(update);
+    const create = createCampaign({commandId: 'campaign-v2', campaignId: 'multi', targetAssetNumbers: [1]});
+    create.payload.definitionVersion = 2;
+    await run(create);
+    const frozen = (await read('inspection_campaigns/multi')).definition;
+    const later = structuredClone(update);
+    later.commandId = 'definition-v3'; later.expectedVersion = 2;
+    later.payload.definition.readingFields[1].label = 'A later definition label';
+    await run(later);
+    expect((await read('inspection_campaigns/multi')).definition).toEqual(frozen);
+    const record = observation({campaignId: 'multi', commandId: 'multi-reading', observationId: 'multi-reading'});
+    record.payload.definitionVersion = 2;
+    record.payload.unit = null;
+    record.payload.value = {schemaVersion: 2, readings: [
+      {fieldId: 'completed', valueType: 'boolean', value: false},
+      {fieldId: 'completed_on', valueType: 'date', value: '2000-02-29'},
+      {fieldId: 'pressure', valueType: 'number', value: 5},
+    ]};
+    const assetBefore = await read('asset_instances/furnace-1');
+    const accepted = await run(record);
+    const saved = await read('inspection_observations/multi-reading');
+    expect(saved.schemaVersion).toBe(2);
+    expect(saved.value).toEqual(record.payload.value);
+    expect(saved.recordedAt).toBeInstanceOf(admin.firestore.Timestamp);
+    expect(saved.value.readings[1].value).toBe('2000-02-29');
+    expect(saved.definition).toEqual(frozen);
+    expect(saved).not.toHaveProperty('numericValue');
+    expect(saved).not.toHaveProperty('readings');
+    expect(await run(record)).toEqual(accepted);
+    await expect(run(record, secondActor)).rejects.toMatchObject({code: 'permission-denied'});
+    const altered = structuredClone(record);
+    altered.payload.value.readings[1].value = '2000-03-01';
+    await expect(run(altered)).rejects.toMatchObject({code: 'command-idempotency-conflict'});
+    const correction = structuredClone(record);
+    correction.commandId = 'multi-correction'; correction.expectedVersion = 2;
+    correction.payload.observationId = 'multi-correction';
+    correction.payload.supersedesObservationId = 'multi-reading';
+    correction.payload.value.readings[2].value = 3;
+    correction.payload.value.readings[1].value = '2026-10-03';
+    await run(correction);
+    expect(await read('inspection_observations/multi-reading')).toEqual(saved);
+    expect((await read('inspection_observations/multi-correction')).value).toEqual(correction.payload.value);
+    expect((await read('inspection_findings/inspection-finding-multi-reading')).status).toBe('awaitingVerification');
+    const invalid = structuredClone(correction);
+    invalid.commandId = 'invalid-date'; invalid.expectedVersion = 3;
+    invalid.payload.observationId = 'invalid-date'; invalid.payload.supersedesObservationId = 'multi-correction';
+    invalid.payload.value.readings[1].value = '1900-02-29';
+    await expect(run(invalid)).rejects.toMatchObject({code: 'invalid-argument'});
+    expect((await db.doc('inspection_observations/invalid-date').get()).exists).toBe(false);
+    expect((await read('inspection_campaigns/multi')).observationCount).toBe(2);
+    expect(await read('asset_instances/furnace-1')).toEqual(assetBefore);
+    // The earlier scalar campaign is still frozen at v1 after the upgrade.
+    expect((await campaign()).definition.schemaVersion).toBe(1);
+    await run(observation({commandId: 'legacy-after-upgrade', observationId: 'legacy-after-upgrade'}));
+    expect((await read('inspection_observations/legacy-after-upgrade')).numericValue).toBe(1.8);
+  });
+
   test('closed-survey scope review and follow-up survive real Timestamp persistence and receipt replay', async () => {
     await record('first', '04:50', 1.8);
     await db.doc('maintenance_records/repair').set(workflowFirestoreDataForTest({firestoreId: 'repair', version: 2,

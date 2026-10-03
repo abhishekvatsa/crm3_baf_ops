@@ -103,6 +103,15 @@
       "preserveAppData": false,
       "timeoutSeconds": 1200,
       "coverage": "Continues the preceding actual case through Admin issue-withdrawal form; current acceptance alone retains the concern, then explicit audited disposition settles it while preserving original withdrawn issue, bulge history and unrelated cover. Backend state is retained between the pair."
+    },
+    {
+      "path": "integration_test/dev_inspection_readings_journey_test.dart",
+      "actorEmail": "dev.cf01-b@example.invalid",
+      "actorName": "DEV CF01 Admin B",
+      "successMarker": "DEV_INSPECTION_READINGS_PASS",
+      "preserveAppData": false,
+      "timeoutSeconds": 900,
+      "coverage": "Real Admin UI creates a labelled Yes/No plus Date definition and single-Furnace programme, rejects unanswered and invalid date inputs, records explicit No and a calendar date, then reopens and corrects the record with authenticated server readback preserving every original value and observed time. No inspection outcome is seeded."
     }
   ],
   "excluded": [

@@ -1,0 +1,17 @@
+Inspection reading contract v2: scoped A04/A05 re-arm, 3 October 2026
+
+The additive contract permits ordered labelled readings, including Yes/No and date together. Legacy v1 wire shapes remain supported; explicit v2 stores one canonical value envelope. Unknown keys, mismatched schema or projections, missing values, invalid dates and numeric breach mismatches fail closed. This is a local source audit, not production migration, deployment or device acceptance.
+
+Reviewed changes:
+- Re-arm only inspection-programme-records for strict v1/v2 decoding and its new regressions.
+- Classify inspection_reading_contract.dart as a remote operational strict reader. Its integer parsing follows exact fixed-width date validation; finite number conversion and boolean display operate only after strict type checks. Dates are date-only YYYY-MM-DD, displayed DD-MM-YYYY; no timezone conversion or implied fitness.
+- Classify the values editor's one DateTime.parse call as DISPLAY_ONLY_BEST_EFFORT: it positions the calendar from validated date text. Invalid or empty text opens the calendar at today without changing or submitting the field. Explicit selection is revalidated by the strict contract. The existing future-date calendar widget regression covers the selection path.
+- A04 inherits those exact classifications and the canonical A05 hash. No Isar model or generated schema changes; all 55 persisted fields, 49 JSON strings, 6 dynamic values, 3 extension bags and zero registered extension keys remain unchanged.
+- Current canonical expectations remain exact literals: 131 decoder surfaces, 68 strict-reader files, 62 raw-JSON files, 569 risk candidates and 113 catch sites. Current A04 digest is 4CD06C61E6387871FDB5D34DE250F953F205EB950C78AC3C4513287432B977B0. Historical proof counts, closure receipts, audit rules and release verifiers are untouched.
+
+Evidence:
+- Original A05 failure retained: changed inspection fingerprint, one new strict-reader file and one unclassified calendar parser. A04 passed before re-arm because it inherited the old A05 manifest; that old result did not cover the new decoder.
+- Updated unchanged A04/A05 tools pass; timestamp inventory passes with 44 direct candidates across 21 classified groups and unchanged chronology reader classifications.
+- Existing audit-discovery/rejection tests: 24 Python tests pass. Existing A04 schema, malformed-state and A05 reference/catch-policy tests: 13 Flutter tests pass.
+- Application/domain/corpus hashes remain identical to the 107-test domain/editor freeze. No full canonical audit, Android, production sweep or release acceptance is claimed by this scoped run.
+- Private initial outputs, snapshots and final hashes: .dart_tool/inspection-reading-audit-rearm/.

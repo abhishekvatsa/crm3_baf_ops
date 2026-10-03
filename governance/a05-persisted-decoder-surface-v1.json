@@ -1096,12 +1096,27 @@
       ],
       "classification": "REMOTE_OPERATIONAL_RECORD",
       "owner": "asset-inspection",
-      "authorityBoundary": "version-frozen inspection definition, campaign scope, coverage, typed observation, component identity, and correction evidence",
-      "malformedDisposition": "fail closed before malformed scope, typed values, component identity, chronology, coverage, or correction evidence enters inspection decisions",
-      "compatibility": "Existing supported definition/observation/finding schemas and campaign schema 2 remain readable; an explicit optional target context review preserves the original key and baseline. Relocated follow-up observations require the new review-aware reader.",
-      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js",
+      "authorityBoundary": "version-frozen v1 scalar or v2 ordered labelled reading contract, campaign scope, coverage, typed observation, component identity, and immutable correction evidence",
+      "malformedDisposition": "fail closed before malformed scope, schema/type mismatch, noncanonical or duplicate reading projection, numeric breach mismatch, component identity, chronology, coverage, or correction evidence enters inspection decisions",
+      "compatibility": "Existing v1 definition and scalar observation wire shapes remain readable, including historically omitted v1 observation schema; v2 explicitly freezes ordered labelled fields and one canonical value envelope. Mixed schema/scalar projections are rejected. Existing campaign schema 2 and exact target-context review remain supported.",
+      "regression": "test/inspection_campaign_model_test.dart; functions/test/inspectionCampaign.test.js; test/inspection_target_context_test.dart; functions/test/inspectionPhysicalContext.test.js; test/inspection_reading_contract_test.dart; functions/test/inspectionReadingContract.test.js; functions/test/inspectionFindingIntegrity.firestoreEmulator.test.js",
       "reArmCondition": "inspection definition, scope, value, coverage, target, chronology, correction, or component evidence validation changes",
-      "riskFingerprint": "47dbe5abcfb044790cdbfe5e823a0a61560e172985c0949c25de3c59118c46e6"
+      "riskFingerprint": "6b50eff16a64cdff281992c588c222a2551e34f87e6f17fd734e76327a417607"
+    },
+    {
+      "id": "inspection-labelled-reading-contract",
+      "file": "lib/features/inspections/data/inspection_reading_contract.dart",
+      "markers": [
+        "factory InspectionReadingField.fromMap"
+      ],
+      "classification": "REMOTE_OPERATIONAL_RECORD",
+      "owner": "asset-inspection",
+      "authorityBoundary": "strict frozen ordered v2 reading descriptors and canonical typed observation envelope; all labelled values required, with no scalar projection or inferred Yes/No/date fitness",
+      "malformedDisposition": "reject unknown keys, wrong schemas/types/order/IDs/population, duplicate labels, noncanonical text, invalid numeric limits or non-Gregorian date-only values; no default answer or persisted-value fallback",
+      "compatibility": "Additive schema 2 only; v1 scalar encoding and decoding remain owned by the campaign model. Dates persist as strict YYYY-MM-DD and display as DD-MM-YYYY without timezone conversion; absent date/boolean is never a submitted value.",
+      "regression": "test/inspection_reading_contract_test.dart; test/inspection_reading_fields_editor_test.dart; functions/test/inspectionReadingContract.test.js",
+      "reArmCondition": "field identity/order/cardinality/type, canonical value/date/text validation, requiredness, numeric breach or legacy projection semantics change",
+      "riskFingerprint": "7fae03d6fe68dfbbef5993f2c005a7e6b133ccb4426bd041972f3f96b8f4e1e4"
     },
     {
       "id": "frequent-issue-definition-record",

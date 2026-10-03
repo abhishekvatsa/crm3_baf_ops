@@ -1,0 +1,2619 @@
+{
+  "description": "Shared Dart/server acceptance vectors for additive inspection reading contract v2. These pure contract checks supplement workflow authority/replay/frozen-history tests. Date readings are calendar dates, separate from observedAt.",
+  "fieldCases": [
+    {
+      "name": "yes_no_and_date",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": true
+    },
+    {
+      "name": "single_date",
+      "fields": [
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": true
+    },
+    {
+      "name": "all_supported_types",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 0,
+          "maximumValue": 100
+        },
+        {
+          "id": "remarks",
+          "label": "Remarks",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "status",
+          "label": "Status",
+          "valueType": "choice",
+          "unit": null,
+          "choiceValues": [
+            "Normal",
+            "Check"
+          ],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": true
+    },
+    {
+      "name": "empty_contract",
+      "fields": [],
+      "valid": false
+    },
+    {
+      "name": "twenty_fields",
+      "fields": [
+        {
+          "id": "field_0",
+          "label": "Reading 0",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_1",
+          "label": "Reading 1",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_2",
+          "label": "Reading 2",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_3",
+          "label": "Reading 3",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_4",
+          "label": "Reading 4",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_5",
+          "label": "Reading 5",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_6",
+          "label": "Reading 6",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_7",
+          "label": "Reading 7",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_8",
+          "label": "Reading 8",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_9",
+          "label": "Reading 9",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_10",
+          "label": "Reading 10",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_11",
+          "label": "Reading 11",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_12",
+          "label": "Reading 12",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_13",
+          "label": "Reading 13",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_14",
+          "label": "Reading 14",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_15",
+          "label": "Reading 15",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_16",
+          "label": "Reading 16",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_17",
+          "label": "Reading 17",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_18",
+          "label": "Reading 18",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_19",
+          "label": "Reading 19",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": true
+    },
+    {
+      "name": "twenty_one_fields",
+      "fields": [
+        {
+          "id": "field_0",
+          "label": "Reading 0",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_1",
+          "label": "Reading 1",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_2",
+          "label": "Reading 2",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_3",
+          "label": "Reading 3",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_4",
+          "label": "Reading 4",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_5",
+          "label": "Reading 5",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_6",
+          "label": "Reading 6",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_7",
+          "label": "Reading 7",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_8",
+          "label": "Reading 8",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_9",
+          "label": "Reading 9",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_10",
+          "label": "Reading 10",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_11",
+          "label": "Reading 11",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_12",
+          "label": "Reading 12",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_13",
+          "label": "Reading 13",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_14",
+          "label": "Reading 14",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_15",
+          "label": "Reading 15",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_16",
+          "label": "Reading 16",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_17",
+          "label": "Reading 17",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_18",
+          "label": "Reading 18",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_19",
+          "label": "Reading 19",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "field_20",
+          "label": "Reading 20",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "duplicate_id",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completed",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "duplicate_label_case",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "COMPLETED?",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "duplicate_label_trimmed",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": " Completed? ",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "empty_label",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": " ",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "invalid_id",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "bad/id",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "date_unit",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": "days",
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "date_limits",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": 0,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "date_choices",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [
+            "today"
+          ],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "unknown_type",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "timestamp",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "unknown_contract_key",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null,
+          "unsupported": true
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "numeric_missing_unit",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "numeric_reversed_limits",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 100,
+          "maximumValue": 0
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "empty_choice",
+      "fields": [
+        {
+          "id": "status",
+          "label": "Status",
+          "valueType": "choice",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "noncanonical_boolean_label0",
+      "fields": [
+        {
+          "id": "completed",
+          "label": " Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "noncanonical_boolean_label1",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed? ",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "noncanonical_number_unit2",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": " bar",
+          "choiceValues": [],
+          "minimumValue": 0,
+          "maximumValue": 100
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "noncanonical_choice_choiceValues3",
+      "fields": [
+        {
+          "id": "status",
+          "label": "Status",
+          "valueType": "choice",
+          "unit": null,
+          "choiceValues": [
+            "Yes ",
+            "No"
+          ],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "array_instead_of_type_number",
+      "fields": [
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": [
+            "number"
+          ],
+          "unit": "bar",
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "array_instead_of_type_date",
+      "fields": [
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": [
+            "date"
+          ],
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    },
+    {
+      "name": "array_instead_of_type_boolean",
+      "fields": [
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": [
+            "boolean"
+          ],
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "valid": false
+    }
+  ],
+  "observationCases": [
+    {
+      "name": "explicit_false_is_answered",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "yes_with_date",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": true
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_0001-01-01",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "0001-01-01"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_9999-12-31",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "9999-12-31"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_2000-02-29",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2000-02-29"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_2024-02-29",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2024-02-29"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_2035-12-31",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2035-12-31"
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "date_1900-02-29",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "1900-02-29"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2100-02-29",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2100-02-29"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-02-29",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-02-29"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-04-31",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-04-31"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_0000-01-01",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "0000-01-01"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_10000-01-01",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "10000-01-01"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-13-01",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-13-01"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-00-10",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-00-10"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-10-00",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-00"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-1-03",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-1-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_03-10-2026",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "03-10-2026"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-10-03T00:00:00Z",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03T00:00:00Z"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_ 2026-10-03",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": " 2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "date_2026-10-03 ",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03 "
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unanswered_boolean",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": null
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "numeric_boolean",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": 0
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "text_boolean",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": "false"
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unanswered_date",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": null
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "empty_date",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": ""
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "numeric_date",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": 20261003
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "wrong_field_type",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "text",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unknown_field_id",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "other",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "duplicate_field_id",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completed",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unknown_reading_key",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03",
+            "extra": true
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "missing_reading",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "extra_reading",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          },
+          {
+            "fieldId": "extra",
+            "valueType": "text",
+            "value": "extra"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "wrong_frozen_order",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          },
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "wrong_envelope_version",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 1,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "unknown_envelope_key",
+      "fields": [
+        {
+          "id": "completed",
+          "label": "Completed?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        },
+        {
+          "id": "completion_date",
+          "label": "Completion date",
+          "valueType": "date",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "completed",
+            "valueType": "boolean",
+            "value": false
+          },
+          {
+            "fieldId": "completion_date",
+            "valueType": "date",
+            "value": "2026-10-03"
+          }
+        ],
+        "extra": true
+      },
+      "valid": false
+    },
+    {
+      "name": "numeric_range_10",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 10,
+          "maximumValue": 20
+        },
+        {
+          "id": "checked",
+          "label": "Checked?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "temperature",
+            "valueType": "number",
+            "value": 10
+          },
+          {
+            "fieldId": "checked",
+            "valueType": "boolean",
+            "value": true
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "numeric_range_15.5",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 10,
+          "maximumValue": 20
+        },
+        {
+          "id": "checked",
+          "label": "Checked?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "temperature",
+            "valueType": "number",
+            "value": 15.5
+          },
+          {
+            "fieldId": "checked",
+            "valueType": "boolean",
+            "value": true
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "numeric_range_20",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 10,
+          "maximumValue": 20
+        },
+        {
+          "id": "checked",
+          "label": "Checked?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "temperature",
+            "valueType": "number",
+            "value": 20
+          },
+          {
+            "fieldId": "checked",
+            "valueType": "boolean",
+            "value": true
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": false
+    },
+    {
+      "name": "numeric_range_9",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 10,
+          "maximumValue": 20
+        },
+        {
+          "id": "checked",
+          "label": "Checked?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "temperature",
+            "valueType": "number",
+            "value": 9
+          },
+          {
+            "fieldId": "checked",
+            "valueType": "boolean",
+            "value": true
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": true
+    },
+    {
+      "name": "numeric_range_21",
+      "fields": [
+        {
+          "id": "temperature",
+          "label": "Temperature",
+          "valueType": "number",
+          "unit": "\u00b0C",
+          "choiceValues": [],
+          "minimumValue": 10,
+          "maximumValue": 20
+        },
+        {
+          "id": "checked",
+          "label": "Checked?",
+          "valueType": "boolean",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "temperature",
+            "valueType": "number",
+            "value": 21
+          },
+          {
+            "fieldId": "checked",
+            "valueType": "boolean",
+            "value": true
+          }
+        ]
+      },
+      "valid": true,
+      "outOfRange": true
+    },
+    {
+      "name": "noncanonical_text_0",
+      "fields": [
+        {
+          "id": "remarks",
+          "label": "Remarks",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "remarks",
+            "valueType": "text",
+            "value": " leading"
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "noncanonical_text_1",
+      "fields": [
+        {
+          "id": "remarks",
+          "label": "Remarks",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "remarks",
+            "valueType": "text",
+            "value": "trailing "
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "noncanonical_text_2",
+      "fields": [
+        {
+          "id": "remarks",
+          "label": "Remarks",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "remarks",
+            "valueType": "text",
+            "value": "both "
+          }
+        ]
+      },
+      "valid": false
+    },
+    {
+      "name": "noncanonical_text_3",
+      "fields": [
+        {
+          "id": "remarks",
+          "label": "Remarks",
+          "valueType": "text",
+          "unit": null,
+          "choiceValues": [],
+          "minimumValue": null,
+          "maximumValue": null
+        }
+      ],
+      "value": {
+        "schemaVersion": 2,
+        "readings": [
+          {
+            "fieldId": "remarks",
+            "valueType": "text",
+            "value": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+          }
+        ]
+      },
+      "valid": false
+    }
+  ],
+  "displayDates": [
+    {
+      "stored": "2026-10-03",
+      "display": "03-10-2026"
+    },
+    {
+      "stored": "2000-02-29",
+      "display": "29-02-2000"
+    },
+    {
+      "stored": "0001-01-01",
+      "display": "01-01-0001"
+    },
+    {
+      "stored": "9999-12-31",
+      "display": "31-12-9999"
+    }
+  ]
+}
