@@ -1,4 +1,9 @@
 "use strict";
+const bootstrapEntry31 = require("./business31CaptureBootstrap.cjs");
+if (!bootstrapEntry31.isComponentChild31("capture-session")) {
+  bootstrapEntry31.runComponentSuiteTest31("capture-session");
+} else {
+"use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),cp=require("node:child_process");
 const {Writable,PassThrough}=require("node:stream");
 const root=path.resolve(__dirname,"../..");
@@ -168,3 +173,5 @@ test("settled request evidence failure restores owned hooks: "+failedSuffix,asyn
 test.after(()=>{const files={};for(const name of Object.keys(require.cache))if(name.startsWith(path.dirname(path.dirname(cli))+path.sep))files[path.relative(path.dirname(path.dirname(cli)),name).split(path.sep).join("/")]=hash(fs.readFileSync(name));assert.ok(files["firebase-tools/lib/deploy/functions/cache/applyHash.js"]);assert.ok(files["firebase-tools/lib/apiv2.js"]);assert.ok(files["firebase-tools/lib/gcp/storage.js"]);assert.ok(Object.keys(files).some(p=>p.endsWith("node-fetch/lib/index.js")));assert.equal(Object.keys(files).some(p=>p.endsWith("/prepare.js")||p.endsWith("/bin/firebase.js")),false);fs.writeFileSync(path.join(out,"INSTALLED_MODULE_BINDINGS.json"),JSON.stringify({files,actualFullPrepare:false,realNetwork:false,authInvoked:false,operationalAuthority:false},null,2)+"\n");});
 
 test.after(()=>{try{boundCli.assertOriginalUnchanged();}finally{boundCli.lease.release();}});
+
+}

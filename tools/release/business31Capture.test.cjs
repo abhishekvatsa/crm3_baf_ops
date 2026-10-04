@@ -1,4 +1,9 @@
 "use strict";
+const bootstrapEntry31 = require("./business31CaptureBootstrap.cjs");
+if (!bootstrapEntry31.isComponentChild31("capture-recorder")) {
+  bootstrapEntry31.runComponentSuiteTest31("capture-recorder");
+} else {
+"use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),crypto=require("node:crypto"),zlib=require("node:zlib"),{EventEmitter}=require("node:events");
 const root=path.resolve(__dirname,"../..");
 const modulePath=path.join(__dirname,"captureBusiness31PreparedInputs.cjs");
@@ -151,3 +156,5 @@ for(const field of ["requestAdmittedAtUtc","firstOutboundAtUtc"])test("live boun
  const env=injected(f,field==="requestAdmittedAtUtc"?{beforeTransport:async()=>prepopulate()}:{beforeBody:prepopulate});
  try{await assert.rejects(generate(env),/second mutation transport|already recorded/);assert.equal(env.requests.length,field==="requestAdmittedAtUtc"?0:1);assert.equal(env.requests.reduce((n,r)=>n+r.bytes.length,0),0);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);assert.ok(read(f,result.mutations[0]).error);}finally{env.restore();}
 });
+
+}

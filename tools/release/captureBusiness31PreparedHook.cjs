@@ -1,6 +1,8 @@
 "use strict";
 // Private output-hook proposal only. No prepare/deploy/process/credential entry.
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),{isDeepStrictEqual:same,TextDecoder}=require("node:util");
+const bootstrap=require("./business31CaptureBootstrap.cjs");
+bootstrap.assertBootstrap31();
 const writerModule=require("./captureBusiness31PreparedInputs.cjs"),old=require("./backendRuntimeAdmission31.cjs"),business=require("./business31BackendAuthority.cjs");
 const sha=bytes=>crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const need=(ok,message)=>{if(!ok)throw Error("Business prepared hook: "+message);};

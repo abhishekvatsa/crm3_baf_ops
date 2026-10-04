@@ -19,7 +19,7 @@ const CORE = Object.freeze([
   'business31PrivateDescriptor.cjs','business31TrustedInput.cjs',
   'business31SourceAdmission.cjs','business31BackendAuthority.cjs','business31NpmBinMaterialization.cjs','business31ToolchainIdentity.cjs',
   'business31ExecutionContract.cjs','business31BackendClosure.cjs',
-  'captureBusiness31PreparedInputs.cjs','privateEvidenceBundle31.cjs',
+  'captureBusiness31PreparedInputs.cjs','business31CaptureBootstrap.cjs','privateEvidenceBundle31.cjs',
   'backendRuntimeEvidenceAccess31.cjs','backendRuntimeControls31.cjs',
   'backendRuntimeReadbacks31.cjs','backendRuntimeExecutionAdmission31.cjs',
   'runtimeDeploymentTransportGuard31.cjs'

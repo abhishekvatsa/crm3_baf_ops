@@ -3,19 +3,24 @@
 // credentials, package manager, Git fixture, or operational authority is used.
 const assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),cp=require("node:child_process");
 const CASES=["early-api", "early-apply", "valid-session", "import-throws", "persistence-fails", "late-new", "late-cached", "unknown-cache", "replaced-exports", "nested", "foreign-owner", "escaped-require", "bad-map", "optional-missing", "cycle-positive", "evaluated-cjs-swap", "evaluated-json-swap", "json-positive", "native-refused", "esm-refused", "cached-esm-refused", "dynamic-esm-refused", "dynamic-cjs-refused", "optional-integrity-caught", "later-hook-registration", "returned-source-accessor", "returned-source-mutable-buffer", "accessor-export-positive", "accessor-export-replaced"];
-if(process.argv[2]==="--child") {
-  assert.equal(process.argv.length,5);
-  runChild(process.argv[3],process.argv[4],__dirname).catch(error=>{console.error(error);process.exitCode=1;});
-} else {
+const bootstrap=require("./business31CaptureBootstrap.cjs");
+module.exports.runCase=async function(kind){
+  assert(CASES.includes(kind),"fixed boundary case required");
+  const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),"business31-cli-case-"));
+  return runChild(kind,root,__dirname);
+};
+if(!bootstrap.isComponentChild31("load-boundary")) {
   const test=require("node:test");
   const scratch=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),"business31-cli-load-boundary-"));
   for(const kind of CASES)test("CLI load boundary: "+kind,()=>{
     const root=path.join(scratch,kind);fs.mkdirSync(root);
-    const env=Object.fromEntries(Object.entries(process.env).filter(([name])=>["SYSTEMROOT","WINDIR"].includes(name.toUpperCase())));
-    for(const name of ["HOME","USERPROFILE","APPDATA","LOCALAPPDATA","XDG_CONFIG_HOME","TEMP","TMP"]){const dir=path.join(root,name);fs.mkdirSync(dir);env[name]=dir;}
-    env.CI="true";env.FIREBASE_CLI_DISABLE_UPDATE_CHECK="true";
-    const output=cp.execFileSync(process.execPath,[__filename,"--child",kind,root],{cwd:root,env,encoding:"utf8",timeout:30000,maxBuffer:2*1024*1024});
-    const result=JSON.parse(output);assert.equal(result.passed,true);assert.equal(result.inertUnboundMarkerExecuted,false);assert.equal(result.hookSlotsRestored,true);
+    const result=bootstrap.launchComponentSuite31({suite:"load-boundary",caseId:kind,outputDirectory:root,
+      nodeExecutable:process.execPath,nodeSha256:require("node:crypto").createHash("sha256").update(fs.readFileSync(process.execPath)).digest("hex").toUpperCase(),
+      sourceFiles:bootstrap.sourceMap(__dirname)});
+    assert.equal(result.error,null);assert.equal(result.signal,null);
+    assert.equal(result.status,0,fs.readFileSync(path.join(root,"stderr.log"),"utf8"));
+    const output=fs.readFileSync(path.join(root,"stdout.log"),"utf8");
+    const observed=JSON.parse(output);assert.equal(observed.passed,true);assert.equal(observed.inertUnboundMarkerExecuted,false);assert.equal(observed.hookSlotsRestored,true);
   });
 }
 async function runChild(kind,root,tools) {
@@ -61,8 +66,8 @@ function mapUpdate(){for(const n of Object.keys(files))delete files[n];walk(cliR
 let lease=null,session=null,foreignPreserved=false;const outcomes=[];
 if(kind==="early-api"||kind==="early-apply"){
  marker(kind==="early-api"?apiDependency:applyDependency);
- if(kind==="early-api")assert.throws(()=>new(require(path.join(tools,"business31CaptureSession.cjs")).BusinessCaptureSession31)(options),/unbound or changed CLI|CLI.*population|CLI.*binding/i);
- else{const w=new writer.BusinessCapture31(options);assert.throws(()=>require(path.join(tools,"captureBusiness31PreparedHook.cjs")).installBusinessPreparedHook31({writer:w,phase:"callables",admission,envelopeBytes,archiveExpectedFiles:{},guardInputs:{}}),/unbound or changed CLI|CLI.*population|CLI.*binding/i);}
+ if(kind==="early-api")assert.throws(()=>new(require(path.join(tools,"business31CaptureSession.cjs")).BusinessCaptureSession31)(options),/population bytes differ/);
+ else{const w=new writer.BusinessCapture31(options);assert.throws(()=>require(path.join(tools,"captureBusiness31PreparedHook.cjs")).installBusinessPreparedHook31({writer:w,phase:"callables",admission,envelopeBytes,archiveExpectedFiles:{},guardInputs:{}}),/population bytes differ/);}
  assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.equal(require.cache[entry],undefined);assert.equal(unchanged(),true);outcomes.push("refused before first marker or CLI entry evaluation");
 }else if(kind==="valid-session"){
  session=new(require(path.join(tools,"business31CaptureSession.cjs")).BusinessCaptureSession31)(options);assert.equal(typeof session.api.Client,"function");assert.equal(require(late).good,true);session.dispose();assert.equal(unchanged(),true);outcomes.push("actual Session constructor, guarded late load and incomplete-session cleanup succeed without authority claim");
@@ -75,33 +80,33 @@ if(kind==="early-api"||kind==="early-apply"){
  assert.equal(unchanged(),true);outcomes.push("constructor persistence refusal releases loader before any shared capture hooks remain");
 }else if(kind==="late-new"||kind==="late-cached"){
  lease=install(runtime);require(entry);if(kind==="late-cached")assert.equal(require(late).good,true);
- marker(late);assert.throws(()=>require(late),/unbound or changed CLI/);assert.throws(()=>lease.assertHealthy(),/CLI/);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);lease.release();assert.equal(unchanged(),true);outcomes.push("changed "+kind+" dependency refused before evaluation/cache return");
+ marker(late);assert.throws(()=>require(late),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/unbound or changed module/});assert.throws(()=>lease.assertHealthy(),/CLI/);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);lease.release();assert.equal(unchanged(),true);outcomes.push("changed "+kind+" dependency refused before evaluation/cache return");
 }else if(kind==="unknown-cache"){
- require(entry);const cached=require.cache[entry];assert.throws(()=>install(runtime),/unverified or replaced cached CLI/);assert.equal(require.cache[entry],cached);assert.equal(unchanged(),true);outcomes.push("matching but previously unguarded cache rejected without deletion");
+ assert.throws(()=>require(entry),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/escaped population/});
+ assert.equal(require.cache[entry],undefined);assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});assert.equal(unchanged(),true);outcomes.push("CLI preload is refused before evaluation or creation of unguarded cache");
 }else if(kind==="replaced-exports"){
  lease=install(runtime);require(entry);lease.release();const cached=require.cache[entry],replacement={foreign:true};cached.exports=replacement;
- assert.throws(()=>install(runtime),/unverified or replaced cached CLI/);assert.equal(require.cache[entry],cached);assert.equal(cached.exports,replacement);assert.equal(unchanged(),true);outcomes.push("foreign exports identity preserved and rejected");
+ assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});assert.equal(require.cache[entry],cached);assert.equal(cached.exports,replacement);assert.equal(unchanged(),true);outcomes.push("completed lifetime cannot reopen with replaced exports; foreign object is preserved");
 }else if(kind==="nested"){
  const first=install(runtime),owned=Object.getOwnPropertyDescriptor(Module,"_load"),second=install(runtime);assert.equal(require(entry).Client instanceof Function,true);
- assert.throws(()=>first.release(),/reverse order/);assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"_load"),owned);second.release();assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"_load"),owned);assert.throws(()=>second.release(),/once/);first.release();assert.equal(unchanged(),true);
- const reused=install(runtime);assert.equal(require(entry).Client instanceof Function,true);reused.release();assert.equal(unchanged(),true);outcomes.push("LIFO leases, rejected double release, prior guard-admitted cache and final exact restoration");
+ assert.throws(()=>first.release(),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/lease order/});assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"_load"),owned);second.release();assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"_load"),owned);assert.throws(()=>second.release(),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/lease order/});first.release();assert.equal(unchanged(),true);
+ assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});outcomes.push("LIFO leases and double release are enforced; final lifetime cannot reopen");
 }else if(kind==="foreign-owner"){
  lease=install(runtime);const owned=Object.getOwnPropertyDescriptor(Module,"_load"),foreign=function(){throw Error("FOREIGN_LOADER_NOT_TO_BE_CALLED");};Object.defineProperty(Module,"_load",{...owned,value:foreign});
  assert.throws(()=>lease.release(),/ownership/);assert.equal(Module._load,foreign);foreignPreserved=true;
- // Other independently owned cleanup must finish even while this test's foreign
- // loader remains. Using the retained original loader here only verifies removal
- // of our source hook with an inert file; it is not an admission bypass API.
+ // The process guard stays installed until bootstrap exit. Release consumes its
+ // lease even when another owner replaced the loader, without overwriting it.
  const registrationIndex=slots.findIndex(([object,key])=>object===Module&&key==="registerHooks"),loadIndex=slots.findIndex(([object,key])=>object===Module&&key==="_load");
  assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"registerHooks"),before[registrationIndex]);assert.throws(()=>lease.assertHealthy(),/CLI/);
- assert.equal(before[loadIndex].value.call(Module,late,module,false).good,true);assert.equal(Module._load,foreign);
- // Only this child-created foreign layer is removed by its owning test after refusal.
- Object.defineProperty(Module,"_load",owned);lease.release();assert.equal(unchanged(),true);outcomes.push("foreign loader preserved; own source hook and registrar removed independently; cleanup-only retry restores original loader");
+ assert.throws(()=>before[loadIndex].value.call(Module,late,module,false),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});assert.equal(Module._load,foreign);assert.equal(lease.isReleased(),true);
+ // Only this child-created foreign layer is removed by its owning test.
+ Object.defineProperty(Module,"_load",owned);assert.throws(()=>lease.release(),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/lease order/});assert.equal(unchanged(),true);outcomes.push("foreign loader preserved and lease consumed; failed process cannot evaluate another module");
 }else if(kind==="escaped-require"){
  const outside=put(path.join(root,"outside.js"),'globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__=true; throw Error("INERT_OUTSIDE_DEPENDENCY");\n');
  fs.writeFileSync(entry,'require('+JSON.stringify(outside)+'); exports.Client=class Client{};\n');mapUpdate();lease=install(runtime);
- assert.throws(()=>require(entry),/escaped admitted population/);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);lease.release();assert.equal(unchanged(),true);outcomes.push("CLI parent cannot escape bound population");
+ assert.throws(()=>require(entry),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/escaped population/});assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);lease.release();assert.equal(unchanged(),true);outcomes.push("CLI parent cannot escape bound population");
 }else if(kind==="bad-map"){
- fs.writeFileSync(mapPath,"{}");assert.throws(()=>new(require(path.join(tools,"business31CaptureSession.cjs")).BusinessCaptureSession31)(options),/CLI inventory bytes changed/);assert.equal(require.cache[entry],undefined);assert.equal(unchanged(),true);outcomes.push("altered map refused before CLI evaluation");
+ fs.writeFileSync(mapPath,"{}");assert.throws(()=>new(require(path.join(tools,"business31CaptureSession.cjs")).BusinessCaptureSession31)(options),/request bytes differ/);assert.equal(require.cache[entry],undefined);assert.equal(unchanged(),true);outcomes.push("altered map refused before CLI evaluation");
 }else if(kind==="optional-missing"){
  put(path.join(lib,"optional.js"),'try{require("./intentionally-absent-optional.js");}catch(error){if(error.code!=="MODULE_NOT_FOUND")throw error;} exports.good=true;\n');mapUpdate();lease=install(runtime);assert.equal(require(path.join(lib,"optional.js")).good,true);assert.doesNotThrow(()=>lease.assertHealthy());lease.release();assert.equal(unchanged(),true);outcomes.push("ordinary missing optional dependency does not poison the healthy guard");
 }else if(kind==="cycle-positive"){
@@ -113,9 +118,9 @@ if(kind==="early-api"||kind==="early-apply"){
  const url=pathToFileURL(file).href;let returnedSource=null;
  // The lower hook retains the altered bytes Node actually read, then restores disk
  // before the boundary receives them. A second disk hash cannot detect this case.
- const lower=Module.registerHooks({load(found,context,nextLoad){if(found!==url)return nextLoad(found,context);fs.writeFileSync(file,altered);try{const result=nextLoad(found,context);returnedSource=typeof result.source==="string"?Buffer.from(result.source):Buffer.from(result.source);return result;}finally{fs.writeFileSync(file,original);}}});
- try{lease=install(runtime);assert.throws(()=>require(file),/CLI.*(source|evaluat|bytes|binding|integrity)/i);assert.deepEqual(returnedSource,altered);assert.deepEqual(fs.readFileSync(file),original);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.throws(()=>lease.assertHealthy(),/CLI/);lease.release();lease=null;}finally{if(lease)lease.release();lower.deregister();}
- assert.equal(unchanged(),true);outcomes.push("actual returned "+(json?"JSON":"CommonJS")+" bytes refused with admitted disk bytes restored before validation");
+ assert.throws(()=>Module.registerHooks({load(found,context,nextLoad){if(found!==url)return nextLoad(found,context);fs.writeFileSync(file,altered);try{const result=nextLoad(found,context);returnedSource=typeof result.source==="string"?Buffer.from(result.source):Buffer.from(result.source);return result;}finally{fs.writeFileSync(file,original);}}}),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/later source-hook registration refused/});
+ assert.equal(returnedSource,null);assert.deepEqual(fs.readFileSync(file),original);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});
+ assert.equal(unchanged(),true);outcomes.push("untrusted "+(json?"JSON":"CommonJS")+" source replacement hook refused before registration or disk mutation");
 }else if(kind==="json-positive"){
  const file=put(path.join(lib,"valid.json"),'{"value":42}\n');mapUpdate();lease=install(runtime);assert.deepEqual(require(file),{value:42});assert.deepEqual(require(file),{value:42});lease.assertHealthy();lease.release();assert.equal(unchanged(),true);outcomes.push("bound JSON evaluation and guarded cache reuse succeed");
 }else if(kind==="native-refused"){
@@ -126,9 +131,13 @@ if(kind==="early-api"||kind==="early-apply"){
 }else if(kind==="esm-refused"||kind==="cached-esm-refused"||kind==="dynamic-esm-refused"){
  const cached=kind==="cached-esm-refused",file=put(path.join(lib,"inert-module.mjs"),cached?'export const value=42;\n':'globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__=true; export const value=99;\n'),url=pathToFileURL(file).href;
  let parentFile=null;if(kind==="dynamic-esm-refused")parentFile=put(path.join(lib,"dynamic-parent.cjs"),'module.exports=()=>import('+JSON.stringify(url)+');\n');mapUpdate();
- if(cached)assert.equal((await import(url)).value,42);
- lease=install(runtime);const action=parentFile?require(parentFile):()=>import(url);
- await assert.rejects(action(),/CLI.*(format|ESM|module|dynamic|admitted|unsupported)/i);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.throws(()=>lease.assertHealthy(),/CLI/);lease.release();assert.equal(unchanged(),true);outcomes.push(cached?"pre-existing ESM namespace refused before cached return":parentFile?"admitted CommonJS cannot dynamically import ESM outside finite evaluator":"new ESM refused before marker evaluation");
+ if(cached){
+  await assert.rejects(import(url),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/noncanonical module URL refused/});assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});
+ }else{
+  lease=install(runtime);const action=parentFile?require(parentFile):()=>import(url);
+  await assert.rejects(action(),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/unsupported module format/});assert.throws(()=>lease.assertHealthy(),/CLI/);lease.release();
+ }
+ assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.equal(unchanged(),true);outcomes.push(cached?"ESM preload refused before an unguarded namespace can be cached":parentFile?"admitted CommonJS cannot dynamically import ESM outside finite evaluator":"new ESM refused before marker evaluation");
 }else if(kind==="dynamic-cjs-refused"){
  const file=put(path.join(lib,"dynamic-child.cjs"),'globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__=true; exports.good=false;\n');
  const parentFile=put(path.join(lib,"dynamic-cjs-parent.cjs"),'module.exports=()=>import('+JSON.stringify(pathToFileURL(file).href)+');\n');mapUpdate();lease=install(runtime);const action=require(parentFile);
@@ -142,27 +151,24 @@ if(kind==="early-api"||kind==="early-apply"){
 }else if(kind==="returned-source-accessor"||kind==="returned-source-mutable-buffer"){
  const file=put(path.join(lib,"owned-source.cjs"),'exports.value=42;\n');mapUpdate();const original=fs.readFileSync(file),altered=Buffer.from('globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__=true; exports.value=99;\n'),url=pathToFileURL(file).href;
  let sourceReads=0,formatReads=0;const shared=Buffer.from(original),mutable=kind==="returned-source-mutable-buffer";
- const lower=Module.registerHooks({load(found,context,nextLoad){const loaded=nextLoad(found,context);if(found!==url)return loaded;
+ assert.throws(()=>Module.registerHooks({load(found,context,nextLoad){const loaded=nextLoad(found,context);if(found!==url)return loaded;
    return {...loaded,get source(){sourceReads++;return mutable?shared:sourceReads===1?original:altered;},get format(){formatReads++;if(mutable)shared.fill(0x21);return loaded.format;}};
- }});
- try{lease=install(runtime);if(!mutable){assert.deepEqual(require(file),{value:42});assert(sourceReads>0,"the native hook must exercise the source accessor");lease.assertHealthy();}else{
-   // A hostile metadata accessor mutates the supplied Buffer. Either fail closed
-   // before evaluation, or evaluate an already-owned admitted-byte snapshot.
-   let result=null,refusal=null;try{result=require(file);}catch(error){refusal=error;}
-   assert(formatReads>0);assert.equal(shared.includes(0x21),true);if(refusal){assert.equal(refusal.code,"BUSINESS_CLI_LOAD_INTEGRITY");assert.match(refusal.message,/CLI.*(source|bytes|binding|integrity)/i);assert.throws(()=>lease.assertHealthy(),/CLI/);}else{assert.deepEqual(result,{value:42});lease.assertHealthy();}
- }
- assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.deepEqual(fs.readFileSync(file),original);lease.release();lease=null;}finally{if(lease)lease.release();lower.deregister();}
- assert.equal(unchanged(),true);outcomes.push(mutable?"mutable loader result cannot change admitted evaluated bytes after checking":"foreign source accessor cannot replace the admitted evaluated bytes");
+ }}),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/later source-hook registration refused/});
+ // Both Node versions now reject the hostile hook before any accessor can run.
+ // The earlier version-sensitive source-read failure remains retained evidence.
+ assert.equal(sourceReads,0);assert.equal(formatReads,0);assert.deepEqual(shared,original);
+ assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);assert.deepEqual(fs.readFileSync(file),original);assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});
+ assert.equal(unchanged(),true);outcomes.push(mutable?"mutable source hook refused before registration or buffer mutation":"source accessor hook refused before registration or accessor invocation");
 }else if(kind==="accessor-export-positive"||kind==="accessor-export-replaced"){
  // ansi-styles 4.x legitimately exports a new object through an own getter on
  // every access. Verify the descriptor identity without invoking it again.
  const file=put(path.join(lib,"accessor-export.cjs"),'Object.defineProperty(module,"exports",{enumerable:true,configurable:true,get(){return {value:42};}});\n');mapUpdate();lease=install(runtime);
  const first=require(file),second=require(file),cached=require.cache[file],descriptor=Object.getOwnPropertyDescriptor(cached,"exports");assert.deepEqual(first,{value:42});assert.deepEqual(second,{value:42});assert.notEqual(first,second);assert.equal(typeof descriptor.get,"function");lease.assertHealthy();lease.release();
  if(kind==="accessor-export-positive"){
-  lease=install(runtime);const third=require(file);assert.deepEqual(third,{value:42});assert.notEqual(third,second);assert.equal(require.cache[file],cached);assert.deepEqual(Object.getOwnPropertyDescriptor(cached,"exports"),descriptor);lease.assertHealthy();lease.release();outcomes.push("admitted stable accessor exports may return new objects through repeated require and later guarded cache reuse");
+  assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});assert.equal(require.cache[file],cached);assert.deepEqual(Object.getOwnPropertyDescriptor(cached,"exports"),descriptor);outcomes.push("admitted stable accessor exports work within one lifetime; final release cannot reopen it");
  }else{
   const foreign=()=>{globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__=true;return {value:99};};Object.defineProperty(cached,"exports",{...descriptor,get:foreign});
-  assert.throws(()=>install(runtime),/unverified or replaced cached CLI|CLI.*export.*(changed|differ|identity)/i);assert.equal(require.cache[file],cached);assert.equal(Object.getOwnPropertyDescriptor(cached,"exports").get,foreign);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);outcomes.push("replaced accessor identity refused without executing or overwriting the foreign getter");
+  assert.throws(()=>install(runtime),{code:"BUSINESS_CLI_LOAD_INTEGRITY",message:/terminal/});assert.equal(require.cache[file],cached);assert.equal(Object.getOwnPropertyDescriptor(cached,"exports").get,foreign);assert.equal(globalThis.__INERT_UNBOUND_DEPENDENCY_EXECUTED__,undefined);outcomes.push("completed lifetime refuses reuse without executing or overwriting the foreign getter");
  }
  assert.equal(unchanged(),true);
 }else throw Error("Unknown independent case");

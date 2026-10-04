@@ -100,6 +100,27 @@ failure or foreign hook change is retained as a failure, not reported as a
 successful deployment. Exact dependency hashes use the repository's canonical
 LF bytes; verification never normalizes or accepts alternate hashes.
 
+`business31CaptureBootstrap.cjs` replaces unsupported shared-process startup of
+these capture APIs with a fixed, fresh component-test entry. The component
+launcher checks the selected Node and source bytes, supplies explicit arguments
+and a scrubbed environment, and accepts only fixed suite/case identifiers and
+bounded data. Requests cannot supply a module, driver or observer callback.
+Before helper or CLI imports, the child rejects an inherited helper cache and
+installs the source, resolution-metadata and loader checks. A failed admission
+or the final CLI lease ends that process's capture eligibility; cleanup does
+not reopen it. This clean-entry requirement excludes a registrar reference
+saved by earlier caller code; it does not revoke an already escaped reference
+or make an arbitrary shared process trustworthy.
+
+This is a component-test launcher, not the operational deployment launcher.
+`launchBusinessCapture31` explicitly refuses execution. The externally admitted
+Node/bootstrap/source launch, fixed authenticated observer, real CLI controller
+and existing three-child receipt integration remain unimplemented. The approved
+real toolchain profile population remains empty. A child consistency hash,
+caller flag or successful component measurement supplies none of that authority.
+The existing three-child closure contract and immutable historical verifiers
+are unchanged; component children cannot stand in for deployment receipts.
+
 The capture-session tests use the installed Firebase hash, API and upload
 modules with a fresh synthetic Git repository and source ZIP, while HTTPS
 responses are supplied locally. They exercise the once-only 13/5/1 cohorts,

@@ -1,7 +1,12 @@
 "use strict";
+const bootstrapEntry31 = require("./business31CaptureBootstrap.cjs");
+if (!bootstrapEntry31.isComponentChild31("capture-installed")) {
+  bootstrapEntry31.runComponentSuiteTest31("capture-installed");
+} else {
+"use strict";
 // Actual pinned modules; only HTTPS is replaced. No Firebase CLI entry or auth call.
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),zlib=require("node:zlib"),{Writable,PassThrough}=require("node:stream");
-const root=path.resolve(__dirname,"../.."),cliRoot=path.join(root,"tooling/firebase-cli/node_modules/firebase-tools"),dependencyRoot=path.dirname(cliRoot);
+const root=path.resolve(__dirname,"../..");
 const out=fs.mkdtempSync(path.join(fs.realpathSync(require("node:os").tmpdir()),"business31-capture-installed-"));
 // This Node test worker owns the isolated profile; no user profile is changed.
 const environmentKeys=new Set(["PATH","SYSTEMROOT","WINDIR","COMSPEC","PATHEXT","NODE_TEST_CONTEXT"]);
@@ -16,6 +21,9 @@ const net=require("node:net"),tls=require("node:tls"),cp=require("node:child_pro
 net.Socket.prototype.connect=function(){throw Error("REAL SOCKET FORBIDDEN");};tls.connect=function(){throw Error("REAL TLS FORBIDDEN");};
 for(const n of ["spawn","spawnSync","exec","execSync","execFile","execFileSync","fork"])cp[n]=()=>{throw Error("CHILD PROCESS FORBIDDEN");};
 globalThis.fetch=()=>{throw Error("REAL FETCH FORBIDDEN");};
+const bound=require("./business31CaptureFixture.cjs").createBoundCliFixture31(root,out);
+const cliRoot=path.dirname(bound.cli),dependencyRoot=path.dirname(cliRoot);
+test.after(()=>{bound.lease.release();bound.assertOriginalUnchanged();});
 const api=require(path.join(cliRoot,"lib/apiv2.js")),storage=require(path.join(cliRoot,"lib/gcp/storage.js"));
 assert.equal(require(path.join(cliRoot,"package.json")).version,"15.22.4");
 const auth=require(path.join(cliRoot,"lib/auth.js"));auth.getAccessToken=()=>{throw Error("CREDENTIAL ACCESS FORBIDDEN");};auth.haveValidTokens=()=>{throw Error("CREDENTIAL ACCESS FORBIDDEN");};
@@ -61,3 +69,5 @@ test("actual installed node-fetch decompresses while writer retains raw gzip ori
 test("actual installed CLI retries remain zero after lost response",async()=>{const f=make("lost");start(f,"callables");const network=fakeHttps(f,{lost:true});try{const client=new api.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2",auth:false});await assert.rejects(client.post("projects/crm3-baf-ops-b8638/locations/asia-south1/functions:generateUploadUrl"));assert.equal(network.calls.length,1);assert.equal(f.writer.finishCohort().complete,false);}finally{network.restore();}});
 test("actual installed CLI non2xx response remains a retained failure",async()=>{const f=make("status503");start(f,"callables");const network=fakeHttps(f,{status:503});try{const client=new api.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2",auth:false});await assert.rejects(client.post("projects/crm3-baf-ops-b8638/locations/asia-south1/functions:generateUploadUrl"));assert.equal(network.calls.length,1);const result=f.writer.finishCohort(),record=JSON.parse(fs.readFileSync(path.join(f.dir,result.mutations[0].file)));assert.equal(JSON.parse(fs.readFileSync(path.join(f.dir,record.response.file))).httpStatus,503);assert.equal(result.complete,false);}finally{network.restore();}});
 test.after(()=>{const loaded={};for(const name of Object.keys(require.cache))if(name.startsWith(dependencyRoot+path.sep))loaded[path.relative(dependencyRoot,name).split(path.sep).join("/")]=hash(fs.readFileSync(name));assert.ok(loaded["firebase-tools/lib/apiv2.js"]);assert.ok(loaded["firebase-tools/lib/gcp/storage.js"]);assert.ok(Object.keys(loaded).some(p=>p.endsWith("node-fetch/lib/index.js")));assert.equal(Object.keys(loaded).some(p=>p.endsWith("firebase-tools/lib/bin/firebase.js")),false);fs.writeFileSync(path.join(out,"INSTALLED_MODULE_BINDINGS.json"),JSON.stringify({firebaseToolsVersion:"15.22.4",loaded,network:"All HTTPS supplied by local fake Writable/PassThrough; real net/TLS/child processes throw",auth:"Every Client auth:false; signed storage.upload auth:false; fresh empty private config/home",cliEntryLoaded:false,completePrepareHookTested:false},null,2));});
+
+}

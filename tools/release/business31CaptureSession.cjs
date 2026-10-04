@@ -3,6 +3,7 @@
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
 const {isDeepStrictEqual: same} = require("node:util");
 const PINS = Object.freeze({
+  "business31CaptureBootstrap.cjs": "152DE71DF114D9994ACC8D3EE43E0705DDAACE91B36292F053DC5B23834927E9",
   "backendRuntimeAdmission31.cjs": "5B30540018751B6BF8E3285A163CED4437ABFDC26B5D53CA5BFE70445421F97D",
   "backendRuntimeClosedReplay31.cjs": "062BD7E59A797DE6925644C2E794190F921A07AB85FFBD2C627947F82A65E43E",
   "backendRuntimeClosure31.cjs": "850469920024DC8BC19EDAF1B718F9FD2B70A4AAFD2837632A02E203DBBAA69D",
@@ -12,15 +13,15 @@ const PINS = Object.freeze({
   "backendRuntimeExecutionAdmission31.cjs": "70D55E9B18A925947E3EE88BE5A5F3729990078F7D6B670A8FEE473620214ED4",
   "backendRuntimeProof31.cjs": "30784A451FDF07CE2BC9CD1BBEEAAE530AEE0C69B71C2A0F3D75D6176C61FBA5",
   "backendRuntimeReadbacks31.cjs": "8A47A14F2F0934E1594F7314DB3FCF2DC1D75D6758884C17BE073780BBF0CB40",
-  "business31BackendAuthority.cjs": "12B9582D78A286E1C910357895CB4BDC1F48BF73B4D30B8AE81DBAFDDA87A475",
+  "business31BackendAuthority.cjs": "DE713F9AFEA29E1B9669A91C94EC732390E6BAB8235238E581833711CB8E935D",
   "business31NpmBinMaterialization.cjs": "3ABE7C8AC559B4D6DBBEC365871C3F69C3487C19DD4A76D242B9535255A14CDA",
   "business31ToolchainIdentity.cjs": "362DE4848F0EFB2807B5AC79498AA4EFAF7CDBF410EF6BAAA50FD9F891AB4A94",
   "business31ExecutionContract.cjs": "08290B0898AC0154E78AD28C3FF285AC7F1B8EA1110BB913D54DEAA9294D70C2",
   "business31SourceAdmission.cjs": "98034CA4E046E663CEB3184F62F94D06230DEFC007240B4E85BA446E3A6D4D30",
   "business31TrustedInput.cjs": "2C26968443646D6962FEFBEEE200F219F8B5D3CAA72F22D6D41D3A3C041997A8",
   "captureBackendRuntimePreparedInputs31.cjs": "23C332B53A97DE7F5C328C9DE8EF63F160231B8ABBE1B99D7E76EB3F5C211387",
-  "captureBusiness31PreparedHook.cjs": "B4537EB2C5E4933F714F9A9D07F15D684164A33D590071CE7B06EC0C61DC3C3E",
-  "captureBusiness31PreparedInputs.cjs": "CED9BD61C11471CC13AD48A8AC54A863B7B8CEECCA36BF99EAAAB8BDD6C25B59",
+  "captureBusiness31PreparedHook.cjs": "FF164DCA79A824D026DEA4739CE4D2C6D0CEDF07B5A3175EEAD052D454A3881D",
+  "captureBusiness31PreparedInputs.cjs": "5B9728E14D71664D050CD47C5BFF788EF9C59BD7895EDF8602CB34E1E0A389DA",
   "clientBuildTooling31.historical-fixture.cjs": "4675CE35F06DB75334ABCD0841D1C7E07F65B4029CC0363D7FD279B539F829DB",
   "clientBuildToolingCompatibility31.cjs": "41A88310EF277B32056B58C779070B764FD6ACE27CA6C63A074C8B23BF08C7F2",
   "clientBuildToolingGitSnapshots31.cjs": "3549713D8E0F36B0C38324C4DD6BEA8D1FFE52ECF281C62C7AEE49AD552E9A68",
@@ -49,6 +50,7 @@ class BusinessCaptureSession31 {
   constructor({evidenceDirectory, source, approvalPointer, cohorts, admission, envelopeBytes,
     archiveExpectedFiles, guardInputs, observeLive, now = () => new Date().toISOString()}) {
     verifyCopies();
+    require("./business31CaptureBootstrap.cjs").assertBootstrap31();
     need(typeof observeLive === "function", "measurement observer required; it confers no authority");
     this.writerModule=require("./captureBusiness31PreparedInputs.cjs");
     this.cliLoadLease=this.writerModule.installCliLoadBoundary31(admission.runtime);

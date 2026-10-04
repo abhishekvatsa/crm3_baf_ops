@@ -1,4 +1,9 @@
 "use strict";
+const bootstrapEntry31 = require("./business31CaptureBootstrap.cjs");
+if (!bootstrapEntry31.isComponentChild31("prepared-hook")) {
+  bootstrapEntry31.runComponentSuiteTest31("prepared-hook");
+} else {
+"use strict";
 const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),cp=require("node:child_process");
 const root=path.resolve(__dirname,"../..");
 const out=fs.mkdtempSync(path.join(fs.realpathSync(require("node:os").tmpdir()),"business31-prepared-hook-"));
@@ -51,3 +56,5 @@ test("hook restoration refuses to overwrite another hook owner",()=>{const f=fix
 test.after(()=>{const files={};for(const p of Object.keys(require.cache))if(p.startsWith(path.dirname(cli)+path.sep)||p.startsWith(path.dirname(path.dirname(cli))+path.sep))files[path.relative(path.dirname(path.dirname(cli)),p).split(path.sep).join('/')]=hash(fs.readFileSync(p));assert.equal(Object.keys(files).some(p=>p.endsWith('/prepare.js')),false);assert.equal(Object.keys(files).some(p=>p.endsWith('/bin/firebase.js')),false);fs.writeFileSync(path.join(out,"INSTALLED_MODULE_BINDINGS.json"),JSON.stringify({files,prepareLoaded:false,deployEntryLoaded:false,authFunctionsInvoked:false},null,2));});
 
 test.after(()=>{try{boundCli.assertOriginalUnchanged();}finally{boundCli.lease.release();}});
+
+}

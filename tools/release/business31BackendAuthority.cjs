@@ -17,7 +17,7 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
   "backendRuntimeReadbacks31.cjs", "backendRuntimeClosure31.cjs", "backendRuntimeControls31.cjs",
   "backendRuntimeExecution31.cjs", "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"].map(v => "tools/release/" + v));
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
-  "business31BackendAuthority.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
+  "business31BackendAuthority.cjs", "business31CaptureBootstrap.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
   ...execution.CONTROL_PRODUCERS, execution.CAPTURE].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,

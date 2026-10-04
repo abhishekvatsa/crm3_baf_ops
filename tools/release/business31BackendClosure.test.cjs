@@ -1,4 +1,9 @@
 "use strict";
+const bootstrapEntry31 = require("./business31CaptureBootstrap.cjs");
+if (!bootstrapEntry31.isComponentChild31("backend-closure")) {
+  bootstrapEntry31.runComponentSuiteTest31("backend-closure");
+} else {
+"use strict";
 // Every cloud/owner/CI record below is SYNTHETIC. Only local Git and pure helpers run.
 const test=require("node:test"), assert=require("node:assert/strict"), fs=require("node:fs"), os=require("node:os"), path=require("node:path"), cp=require("node:child_process");
 const base=__dirname, x=require(path.join(base,"business31ExecutionContract.cjs")), a=require(path.join(base,"business31BackendAuthority.cjs"));
@@ -7,10 +12,14 @@ const gate=require(path.join(base,"backendRuntimeExecutionAdmission31.cjs")),zli
 for(const name of ["node:http","node:https"]) { const api=require(name); api.request=api.get=()=>{throw Error("No network permitted in synthetic closure fixture");}; }
 globalThis.fetch=()=>{throw Error("No network permitted in synthetic closure fixture");};
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),"business31-closure-")), evidence=path.join(temp,"evidence"), repo=path.join(temp,"repository");
-fs.mkdirSync(evidence);fs.mkdirSync(repo);const h=x.sha;let serial=0;
+fs.mkdirSync(evidence);fs.mkdirSync(repo);const h=x.sha;let serial=0;let boundCli=null;
 const retain=value=>{const bytes=Buffer.isBuffer(value)?value:Buffer.from(typeof value==="string"?value:JSON.stringify(value));const file="original-"+(++serial)+".json";fs.writeFileSync(path.join(evidence,file),bytes);return {file,bytes:bytes.length,sha256:h(bytes)};};
 const read=p=>x.privateBytes(evidence,p), j=p=>x.json(read(p));
-test.after(()=>{assert.equal(path.dirname(fs.realpathSync(temp)),fs.realpathSync(os.tmpdir()));fs.rmSync(temp,{recursive:true});});
+test.after(()=>{
+ try{boundCli?.lease.release();}
+ finally{try{boundCli?.assertOriginalUnchanged();}
+  finally{assert.equal(path.dirname(fs.realpathSync(temp)),fs.realpathSync(os.tmpdir()));fs.rmSync(temp,{recursive:true});}}
+});
 const gitExecutable=process.env.BUSINESS31_TEST_GIT||(process.platform==="win32"?"C:/Program Files/Git/mingw64/bin/git.exe":"/usr/bin/git");
 const env={...process.env};for(const key of Object.keys(env))if(/^GIT_/i.test(key))delete env[key];
 Object.assign(env,{GIT_CONFIG_NOSYSTEM:"1",GIT_CONFIG_GLOBAL:process.platform==="win32"?"NUL":"/dev/null",GIT_AUTHOR_NAME:"Synthetic only",GIT_AUTHOR_EMAIL:"fixture@example.invalid",GIT_COMMITTER_NAME:"Synthetic only",GIT_COMMITTER_EMAIL:"fixture@example.invalid"});
@@ -129,9 +138,11 @@ for(const [name,edit]of [["future after-controls",f=>f.afterControls.completedAt
 // is substituted, using real pure raw-control comparison for the returned summary.
 // It is explicitly NOT the full default closure entry or authenticated readbacks.
 function outerFixture(){
- const cli=path.join(projectRoot,"tooling/firebase-cli/node_modules/firebase-tools/lib"), i=intended();
+ // Admit the complete copied CLI population before its real hash module is imported.
+ boundCli??=require("./business31CaptureFixture.cjs").createBoundCliFixture31(projectRoot,temp);
+ const cli=boundCli.cli, i=intended();
  i.environmentVariables.FIREBASE_CONFIG=JSON.stringify({projectId:"crm3-baf-ops-b8638"});
- const rtime={...runtime,nodeExecutable:process.execPath,nodeSha256:runtime.githubExecutableSha256,cliEntrypoint:path.join(cli,"bin/firebase.js"),
+ const rtime={...runtime,...boundCli.runtime,nodeExecutable:process.execPath,nodeSha256:runtime.githubExecutableSha256,cliEntrypoint:path.join(cli,"bin/firebase.js"),
  endpointHashProducerSha256:Object.fromEntries(Object.entries({apply:"deploy/functions/cache/applyHash.js",hash:"deploy/functions/cache/hash.js",secrets:"functions/secrets.js"}).map(([k,p])=>[k,h(fs.readFileSync(path.join(cli,p)))])),instrumentationProducerSha256:{synthetic:"separately-bound-in-full-entry"}};
  const hashInput={schemaVersion:1,documentType:"firebase-cli-approved-intended-hash-inputs",codebase:"default",source,sourceBefore:source,sourceAfter:source,...i};
  const endpointLabels=neutral.endpointRuntimeHashes31({sourceArchiveHash:checked.sourceArchiveHash,inputs:hashInput,runtime:rtime,names:cohorts.fleet,source});
@@ -289,3 +300,5 @@ test("actual writer schema3 all25 records replay; final response settles late wi
   assert.throws(()=>outerRun(f),/initiation\/window/);
  }finally{https.request=originalRequest;globalThis.Date=RealDate;}
 });
+
+}
