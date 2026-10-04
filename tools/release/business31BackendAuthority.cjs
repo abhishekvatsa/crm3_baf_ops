@@ -4,6 +4,8 @@
 // human/platform records. This module deliberately cannot grant release authority.
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
 const execution = require("./business31ExecutionContract.cjs");
+const bins = require("./business31NpmBinMaterialization.cjs");
+const originalPath = require("./backendRuntimeEvidenceAccess31.cjs").path;
 const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const PROFILE = "build31-exact-business-backend-v1";
 const DECISION_FILE = "release/approvals/build31-business-backend-deployment-approval.json";
@@ -14,7 +16,7 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
   "backendRuntimeReadbacks31.cjs", "backendRuntimeClosure31.cjs", "backendRuntimeControls31.cjs",
   "backendRuntimeExecution31.cjs", "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"].map(v => "tools/release/" + v));
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
-  "business31BackendAuthority.cjs", "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
+  "business31BackendAuthority.cjs", bins.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
   ...execution.CONTROL_PRODUCERS, execution.CAPTURE].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
@@ -120,7 +122,8 @@ function validateOwner31({owner, original, source, decisionAtUtc, lastCiAtUtc, e
     instant(owner.authorizedAtUtc) <= instant(owner.recordedAtUtc) && instant(owner.recordedAtUtc) <= instant(decisionAtUtc), "owner chronology differs");
 }
 
-function commandArguments31(kind, npmCliFile) {
+function commandArguments31(kind, npmCliFile, buildRoot) {
+  if (kind === "dependency-bin-materialization") { need(typeof buildRoot === "string" && originalPath.isAbsolute(buildRoot), "materializer build root required"); return [originalPath.join(buildRoot,bins.SELF), "--build-root", buildRoot]; }
   if (["root-install", "functions-install", "cli-install"].includes(kind)) return [npmCliFile, "ci", "--ignore-scripts", "--no-audit", "--fund=false",
     ...(kind === "root-install" ? [] : ["--prefix", kind === "functions-install" ? "functions" : "tooling/firebase-cli"])];
   if (kind === "installed-runtime") return [npmCliFile, "ls", "--omit=dev", "--all", "--long", "--json", "--prefix", "functions"];
@@ -153,10 +156,10 @@ function fileMap31(root) {
       if (row.isDirectory()) walk(full);
       else { need(row.isFile(), "unsupported filesystem member"); const stat = fs.statSync(full);
         need(++count <= 100000 && (total += stat.size) <= 2 * 1024 * 1024 * 1024 && stat.size <= 128 * 1024 * 1024, "file population exceeds bound");
-        const relative = path.relative(root, full).split(path.sep).join("/"); safeRelative(relative); rows[relative] = sha(fs.readFileSync(full)); }
+        const relative = path.relative(root, full).split(path.sep).join("/"); safeRelative(relative); need(!Object.hasOwn(rows,relative), "duplicate file population member"); Object.defineProperty(rows,relative,{value:sha(fs.readFileSync(full)),enumerable:true,writable:true,configurable:true}); }
     }
   }
-  walk(root); return rows;
+  walk(root); need(Object.keys(rows).length === count,"file population cardinality differs"); return rows;
 }
 function verifyMaterializedSource31(root, snapshot) {
   root = regular(root, true); const seen = [];
@@ -196,9 +199,11 @@ function verifyCandidateOutputs31({buildRoot, snapshot, compilerConfig, emittedF
   return expected.length;
 }
 function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDirectory, afterCi, beforeDecision}) {
+  const materialized = Object.hasOwn(snapshot.files,bins.SELF);
+  const commands = materialized ? [...COMMANDS,"dependency-bin-materialization"] : COMMANDS;
   keys(proof, ["schemaVersion", "documentType", "profile", "source", "startedAtUtc", "completedAtUtc", "buildRoot", "runtime",
-    "commands", "audits", "emittedFiles", "installedDependencies", "installedFiles"], "runtime proof");
-  need(proof.schemaVersion === 1 && proof.documentType === "build31-business-runtime-proof" && proof.profile === PROFILE &&
+    "commands", "audits", "emittedFiles", "installedDependencies", "installedFiles", ...(materialized ? ["binMaterialization"] : [])], "runtime proof");
+  need(proof.schemaVersion === (materialized ? 2 : 1) && proof.documentType === "build31-business-runtime-proof" && proof.profile === PROFILE &&
     same(proof.source, source), "runtime source/profile differs");
   need(instant(afterCi) <= instant(proof.startedAtUtc) && instant(proof.startedAtUtc) <= instant(proof.completedAtUtc) &&
     instant(proof.completedAtUtc) <= instant(beforeDecision), "runtime proof chronology differs");
@@ -212,22 +217,42 @@ function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDire
       "actual runtime executable bytes differ");
   }
   need(regular(runtime.cliEntrypoint.path) === path.join(buildRoot, "tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js"), "CLI entrypoint differs");
-  keys(proof.installedFiles, ["functions", "cli"], "installed file populations");
-  for (const [kind, prefix] of [["functions", "functions/node_modules"], ["cli", "tooling/firebase-cli/node_modules"]])
-    need(same(json(readPrivate(evidenceDirectory, proof.installedFiles[kind])), fileMap31(path.join(buildRoot, prefix))), "installed complete file population differs");
+  const populations = materialized ? bins.ROOTS : {functions:"functions/node_modules",cli:"tooling/firebase-cli/node_modules"};
+  keys(proof.installedFiles, Object.keys(populations), "installed file populations");
+  const installedMaps = {};
+  for (const [kind, prefix] of Object.entries(populations)) {
+    const recorded = json(readPrivate(evidenceDirectory, proof.installedFiles[kind]));
+    need(same(recorded, fileMap31(path.join(buildRoot, prefix))), "installed complete file population differs"); installedMaps[kind] = recorded;
+  }
+  let materializationBytes;
+  if (materialized) {
+    materializationBytes = readPrivate(evidenceDirectory,proof.binMaterialization);
+    bins.verifyNpmBinMaterialization31({receipt:json(materializationBytes),buildRoot,nodeExecutable:runtime.nodeExecutable,
+      producerSha256:sha(repository.readBlob(source.commit,bins.SELF)),fileMaps:installedMaps});
+  }
   need(json(fs.readFileSync(path.join(buildRoot, "tooling/firebase-cli/node_modules/firebase-tools/package.json"))).version === "15.22.4", "installed CLI version differs");
-  keys(proof.commands, COMMANDS, "command population"); keys(proof.audits, AUDITS, "audit population");
+  keys(proof.commands, commands, "command population"); keys(proof.audits, AUDITS, "audit population");
   const common = {source, root: buildRoot, runtime, start: proof.startedAtUtc, end: proof.completedAtUtc, evidenceDirectory};
-  let installedStdout;
-  for (const kind of COMMANDS) {
-    const record = json(readPrivate(evidenceDirectory, proof.commands[kind]));
-    const output = verifyRecordedCommand31({...common, kind, record, argv: commandArguments31(kind, runtime.npmCliFile.path)});
+  let installedStdout; const processRecords = {};
+  for (const kind of commands) {
+    const record = json(readPrivate(evidenceDirectory, proof.commands[kind])); processRecords[kind] = record;
+    const output = verifyRecordedCommand31({...common, kind, record, argv: commandArguments31(kind, runtime.npmCliFile.path,proof.buildRoot)});
     if (kind === "installed-runtime") installedStdout = output.stdout;
+    if (kind === "dependency-bin-materialization") need(output.stdout.equals(materializationBytes), "materialization receipt is not original command stdout");
+  }
+  if (materialized) {
+    const normalization=processRecords["dependency-bin-materialization"];
+    for (const kind of ["root-install","functions-install","cli-install"])
+      need(instant(processRecords[kind].completedAtUtc) <= instant(normalization.startedAtUtc),"materialization precedes completed clean installs");
+    for (const kind of COMMANDS.filter(name=>!name.endsWith("-install")))
+      need(instant(normalization.completedAtUtc) <= instant(processRecords[kind].startedAtUtc),"runtime command precedes materialization");
   }
   for (const name of AUDITS) {
     const item = proof.audits[name]; keys(item, ["report", "command"], "audit originals");
     const bytes = readPrivate(evidenceDirectory, item.report); verifyStrictAudit31(bytes);
-    const output = verifyRecordedCommand31({...common, kind: "audit-" + name, record: json(readPrivate(evidenceDirectory, item.command)),
+    const auditRecord=json(readPrivate(evidenceDirectory,item.command));
+    if(materialized) need(instant(processRecords["dependency-bin-materialization"].completedAtUtc) <= instant(auditRecord.startedAtUtc),"audit precedes materialization");
+    const output = verifyRecordedCommand31({...common, kind: "audit-" + name, record: auditRecord,
       argv: auditArguments31(name, runtime.npmCliFile.path)});
     need(bytes.equals(output.stdout), "audit report is not original command stdout");
   }
@@ -364,4 +389,4 @@ module.exports = {PROFILE, DECISION_FILE, IMMUTABLE, PRODUCERS, SCOPE, AUDITS, C
   verifyBusiness31BackendAuthority, validateDecision31, validateOwner31, ownerQuestion31, verifyStrictAudit31,
   commandArguments31, auditArguments31, verifyRecordedCommand31, verifyCandidateOutputs31,
   expectedEmittedFiles31, verifyMaterializedSource31, subtreeOid31, verifyCustodyDelta31, bindControlOriginals31,
-  readPrivate, instant};
+  readPrivate, instant, fileMap31, verifyRuntimeProof31};

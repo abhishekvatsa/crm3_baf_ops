@@ -92,8 +92,9 @@ function verifyBundleBytes31(bytes,descriptor,kind) {
       sha(encoded)===member.compressedSha256, 'Compressed private member size/digest/encoding differs');
     declaredTotal+=member.bytes;
     need(declaredTotal<=MAX_EXPANDED,'Expanded private population exceeds its fixed bound');
-    inventory[file]={bytes:member.bytes,sha256:member.sha256};compressed.push({file,member,encoded});
+    Object.defineProperty(inventory,file,{value:{bytes:member.bytes,sha256:member.sha256},enumerable:true,writable:true,configurable:true});compressed.push({file,member,encoded});
   }
+  need(Object.keys(inventory).length===bundle.members.length && compressed.length===bundle.members.length,'Private member inventory cardinality differs');
   need(declaredTotal===descriptor.expandedBytes,'Expanded private population differs from immutable descriptor');
   for(const file of seen) for(let at=file.indexOf('/');at!==-1;at=file.indexOf('/',at+1))
     need(!seen.has(file.slice(0,at)),'Private member file/directory collision');

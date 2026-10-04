@@ -152,3 +152,49 @@ precede client/metadata authority and protected signing. Inspection labelled
 reading authoring remains default closed until the reader rollout requirements
 in [the inspection rollout document](../../docs/INSPECTION_V2_ROLLOUT.md) are
 satisfied. None of these source files enables the production writer switch.
+
+## Measured npm executable materialization
+
+New source containing `business31NpmBinMaterialization.cjs` requires runtime-proof
+schema 2. Its fixed producer belongs to the complete verifier/source population.
+The older schema-1 link-free records remain historical evidence under their
+original verifier/source snapshots; they cannot downgrade new source to omit this
+step. Never rewrite an old record as a schema-2 success.
+
+Use the materializer only in a newly owned build tree, after all three exact npm
+clean installs and before any build, test, installed-graph check or audit. It
+covers root, Functions and governed CLI dependency populations, including nested
+`node_modules/.bin` directories. On POSIX, only relative, package-declared file
+aliases targeting an unchanged regular Node script inside the same dependency
+population are supported. Directory links, chained/escaping/dangling targets,
+backslash target spellings, undeclared commands and unsupported interpreters or
+flags fail closed. Windows keeps npm's regular launchers and refuses a symbolic
+alias population. No existing development install or retained evidence is
+normalized in place.
+
+The producer replaces each verified POSIX alias with a deterministic regular
+0755 shell launcher. That launcher invokes the exact bound Node executable and
+the original package script with unchanged arguments; it does not copy JavaScript
+into `.bin`. The original target must have owner-execute permission and its bytes
+and recorded mode remain unchanged. The receipt retains the original lexical
+link, owning package declaration/hash, target/hash/mode, generated launcher/hash/
+mode, complete before/after file commitments and counts. All non-alias bytes stay
+unchanged. Unsupported materialization leaves a failed, retained preparation;
+there is no success receipt or automatic retry.
+
+Runtime-proof schema 2 adds the pointed materialization receipt and the root
+installed-file map alongside Functions and CLI. The exact producer command's
+retained stdout must equal that receipt. Every install must complete before the
+producer starts, and all subsequent runtime commands and audits must start after
+it completes. Original build-root strings are preserved in command records even
+when read through the immutable relocation adapter. These remain recorded
+semantics, not authenticated process or deployment authority.
+
+The bundle and source walkers continue to reject all symbolic links. The same
+normalized regular bytes enter custody and extraction; extraction deliberately
+uses mode 0600. Replay checks original recorded executable modes and current
+content commitments without executing or chmod-ing extracted launchers. A local
+Windows copy or clean-install check is not a Linux result: selected Ubuntu CI must
+exercise actual npm-created POSIX links, launcher argument behavior and the
+0755-preparation to 0600-extraction boundary. Fixed file/byte custody limits are
+unchanged and must be checked before any full replay fixture is constructed.

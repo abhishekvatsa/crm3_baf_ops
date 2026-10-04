@@ -239,18 +239,21 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   function processRecord(kind, argv, stdout = Buffer.from("synthetic original stdout; no process executed")) {
     return retain({schemaVersion: 1, documentType: "build31-business-original-process", kind, sourceBefore: source, sourceAfter: source,
       executable: runtime.nodeExecutable.path, executableSha256: runtime.nodeExecutable.sha256, argv, cwd: repositoryRoot,
-      startedAtUtc: "2026-01-02T02:10:00Z", completedAtUtc: "2026-01-02T02:11:00Z", exitCode: 0, signal: null, error: null, stdout: retain(stdout), stderr: retain("")});
+      startedAtUtc: kind.endsWith("-install") ? "2026-01-02T02:06:00Z" : kind === "dependency-bin-materialization" ? "2026-01-02T02:08:00Z" : "2026-01-02T02:10:00Z", completedAtUtc: kind.endsWith("-install") ? "2026-01-02T02:07:00Z" : kind === "dependency-bin-materialization" ? "2026-01-02T02:09:00Z" : "2026-01-02T02:11:00Z", exitCode: 0, signal: null, error: null, stdout: retain(stdout), stderr: retain("")});
   }
   const emittedFiles = {};
   for (const file of subject.expectedEmittedFiles31(snapshot, read("functions/tsconfig.json"))) {
     const full = path.join(functionsRoot, file), bytes = Buffer.from("synthetic compiler output, not executed: " + file);
     fs.mkdirSync(path.dirname(full), {recursive: true}); fs.writeFileSync(full, bytes); emittedFiles[file] = retain(bytes);
   }
-  const proof = {schemaVersion: 1, documentType: "build31-business-runtime-proof", profile: subject.PROFILE, source,
+  fs.mkdirSync(path.join(repositoryRoot,"node_modules/fixture-root"),{recursive:true});
+  fs.writeFileSync(path.join(repositoryRoot,"node_modules/fixture-root/package.json"),'{"name":"fixture-root","version":"1.0.0"}');
+  const binReceipt=Buffer.from(JSON.stringify(require("./business31NpmBinMaterialization.cjs").materializeNpmBins31({buildRoot:repositoryRoot}))+"\n");
+  const proof = {schemaVersion: 2, documentType: "build31-business-runtime-proof", profile: subject.PROFILE, source,
     startedAtUtc: "2026-01-02T02:05:00Z", completedAtUtc: "2026-01-02T02:30:00Z", buildRoot: repositoryRoot, runtime,
-    commands: Object.fromEntries(subject.COMMANDS.map(kind => [kind, processRecord(kind, subject.commandArguments31(kind, npmFile), kind === "installed-runtime" ? installedBytes : undefined)])),
+    binMaterialization: retain(binReceipt), commands: Object.fromEntries([...subject.COMMANDS,"dependency-bin-materialization"].map(kind => [kind, processRecord(kind, subject.commandArguments31(kind, npmFile,repositoryRoot), kind === "installed-runtime" ? installedBytes : kind === "dependency-bin-materialization" ? binReceipt : undefined)])),
     audits: Object.fromEntries(subject.AUDITS.map(kind => { const raw = Buffer.from(JSON.stringify(cleanAudit())); return [kind, {report: retain(raw), command: processRecord("audit-" + kind, subject.auditArguments31(kind, npmFile), raw)}]; })),
-    emittedFiles, installedDependencies: retain(installedBytes), installedFiles: {functions: retain(map(path.join(functionsRoot, "node_modules"))), cli: retain(map(path.join(repositoryRoot, "tooling/firebase-cli/node_modules")))}};
+    emittedFiles, installedDependencies: retain(installedBytes), installedFiles: {root:retain(map(path.join(repositoryRoot,"node_modules"))), functions: retain(map(path.join(functionsRoot, "node_modules"))), cli: retain(map(path.join(repositoryRoot, "tooling/firebase-cli/node_modules")))}};
   const ciModule = require("./backendRuntimeAdmission31.cjs"), repositoryName = "abhishekvatsa/crm3_baf_ops";
   function ci(kind, id) {
     const jobNames = kind === "release" ? ciModule.RELEASE_JOBS : ciModule.SECURITY_JOBS;

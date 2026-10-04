@@ -17,7 +17,7 @@ const HISTORICAL = Object.freeze({commit:'2aa30de56cfdb960da3eeefd8956d8cbbae57b
   sha256:'3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45'});
 const CORE = Object.freeze([
   'business31PrivateDescriptor.cjs','business31TrustedInput.cjs',
-  'business31SourceAdmission.cjs','business31BackendAuthority.cjs',
+  'business31SourceAdmission.cjs','business31BackendAuthority.cjs','business31NpmBinMaterialization.cjs',
   'business31ExecutionContract.cjs','business31BackendClosure.cjs',
   'captureBusiness31PreparedInputs.cjs','privateEvidenceBundle31.cjs',
   'backendRuntimeEvidenceAccess31.cjs','backendRuntimeControls31.cjs',

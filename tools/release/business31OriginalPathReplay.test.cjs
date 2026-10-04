@@ -20,16 +20,27 @@ function fixture(relocation=structuredClone(map),members=[{path:'retained/origin
   const bytes=Buffer.from(JSON.stringify(bundle));return {bytes,descriptor:{source,bundleEncoding:'gzip-members-v1',expandedBytes:members.reduce((n,m)=>n+m.bytes,0),membersSha256:sha(Buffer.from(canonical(inventory))),relocationSha256:sha(Buffer.from(canonical(relocation))),custody:{provider:'gcs',bucket:'crm3-baf-ops-b8638-firestore-restore',objectName:'release-custody/build-31/business-backend/'+source.commit+'/test/private-replay-bundle.json',generation:'1',bytes:bytes.length,sha256:sha(bytes)}}};
 }
 const bindings=Object.fromEntries(subject.REQUIRED_EXECUTING.map(file=>[file,'A'.repeat(64)]));
-test('closure population is precisely the frozen28 subset, with unchanged digests',()=>{
-  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,28);
+test('required npm-bin materializer has exact executing bytes before any closure subset',()=>{
+ const materializer='tools/release/business31NpmBinMaterialization.cjs',modulePath=require.resolve('./business31NpmBinMaterialization.cjs');
+ assert.equal(require.cache[modulePath],undefined);
+ assert.ok(subject.CLOSURE_PRODUCERS.includes(materializer));assert.ok(subject.REQUIRED_EXECUTING.includes(materializer));assert.ok(require('./business31PrivateDescriptor.cjs').CORE.includes(materializer));
+ const complete=Object.fromEntries(subject.REQUIRED_EXECUTING.map(file=>[file,sha(fs.readFileSync(path.join(__dirname,path.basename(file))))]));
+ assert.equal(Object.keys(subject.executingBindings31(complete)).length,subject.REQUIRED_EXECUTING.length);
+ const missing={...complete};delete missing[materializer];assert.throws(()=>subject.deriveClosureProducerBindings31(missing),/full wrapper\/descriptor\/bundle population/);
+ const changed={...complete,[materializer]:'0'.repeat(64)};assert.throws(()=>subject.executingBindings31(changed),/executing complete producer population differs/);
+ assert.equal(require.cache[modulePath],undefined);
+});
+
+test('closure population is precisely the required29 subset, with unchanged digests',()=>{
+  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,29);
   const full={...bindings,'tools/release/another-controller.cjs':'F'.repeat(64)},subset=subject.deriveClosureProducerBindings31(full);
   assert.deepEqual(Object.keys(subset),actual);for(const file of actual)assert.equal(subset[file],full[file]);assert.equal(full['tools/release/another-controller.cjs'],'F'.repeat(64));
 });
-test('the exact closure28 alone cannot masquerade as complete descriptor authority',()=>{
+test('the exact closure29 alone cannot masquerade as complete descriptor authority',()=>{
   const narrowed=Object.fromEntries(subject.CLOSURE_PRODUCERS.map(f=>[f,bindings[f]]));assert.throws(()=>subject.deriveClosureProducerBindings31(narrowed),/full wrapper\/descriptor\/bundle population/);
 });
 test('missing wrapper or closure binding is rejected',()=>{
-  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0]]){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
+  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0],'tools/release/business31NpmBinMaterialization.cjs']){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
 });
 test('changed executing producer bytes fail before they could become source authority',()=>{
   assert.throws(()=>subject.executingBindings31(bindings),/executing complete producer population differs/);
@@ -91,4 +102,35 @@ test('declared execution role must equal the actual retained decision runtime bu
     assert.throws(()=>subject.joinOriginalExecutionRoot31({decisionEnvelopeBytes:original,descriptor,relocation:bad}),/runtime buildRoot/);
     assert.throws(()=>subject.joinOriginalExecutionRoot31({decisionEnvelopeBytes:Buffer.from('{}'),descriptor,relocation:map}),/decision envelope differs/);
   });
+});
+test('filesystem inventory owns special names and detects every changed removed or added file',()=>{
+ const folder=path.join(root,'special-inventory');fs.mkdirSync(path.join(folder,'nested'),{recursive:true});
+ const names=['__proto__','constructor','toString','hasOwnProperty','nested/__proto__','nested/constructor','nested/toString','nested/hasOwnProperty'];
+ const originals=new Map(names.map((name,index)=>[name,Buffer.from('original '+index)]));
+ for(const [name,bytes]of originals)fs.writeFileSync(path.join(folder,name),bytes);
+ const expected=Object.fromEntries([...originals].map(([name,bytes])=>[name,{bytes:bytes.length,sha256:sha(bytes)}]));
+ const before=subject.inventory31(folder);assert.equal(Object.getPrototypeOf(before),Object.prototype);assert.deepEqual(before,expected);assert.equal(Object.keys(before).length,names.length);
+ for(const name of names)assert.equal(Object.hasOwn(before,name),true);
+ assert.deepEqual(subject.inventory31(folder),before);
+ for(const [name,bytes]of originals){
+  fs.writeFileSync(path.join(folder,name),'mutated');assert.notDeepEqual(subject.inventory31(folder),before);
+  fs.unlinkSync(path.join(folder,name));assert.notDeepEqual(subject.inventory31(folder),before);
+  fs.writeFileSync(path.join(folder,name),bytes);assert.deepEqual(subject.inventory31(folder),before);
+ }
+ const extra=path.join(root,'added-proto-inventory');fs.mkdirSync(extra);fs.writeFileSync(path.join(extra,'ordinary'),'original');const initial=subject.inventory31(extra);
+ fs.writeFileSync(path.join(extra,'__proto__'),'extra');const after=subject.inventory31(extra);assert.notDeepEqual(after,initial);assert.equal(Object.keys(after).length,Object.keys(initial).length+1);assert.equal(Object.hasOwn(after,'__proto__'),true);
+});
+test('complete special-name bundle inventory joins original-path extraction and guarded reads',()=>{
+ const names=['retained/original.json','__proto__','constructor','toString','hasOwnProperty','retained/__proto__','retained/constructor','retained/toString','retained/hasOwnProperty'];
+ const members=names.map((name,index)=>{const bytes=Buffer.from('exact original '+index),z=gzipSync(bytes);return {path:name,bytes:bytes.length,sha256:sha(bytes),encoding:'gzip',compressedBytes:z.length,compressedSha256:sha(z),base64:z.toString('base64')};});
+ const relocation=structuredClone(map);relocation.files=members.filter(m=>!m.path.includes('/')).map((m,index)=>({original:path.join(root,'absent-special-'+index),member:m.path,bytes:m.bytes,sha256:m.sha256}));
+ const f=fixture(relocation,members),verified=transport.verifyBundleBytes31(f.bytes,f.descriptor,'business');subject.validateRelocation31(verified.relocation,verified.inventory);subject.originalPathsUnavailable31(verified.relocation);
+ const extracted=transport.extractVerifiedBundle31(f.bytes,f.descriptor,path.join(root,'special-extracted'),'business');assert.deepEqual(subject.inventory31(extracted.root),verified.inventory);assert.equal(Object.keys(verified.inventory).length,members.length);
+ const bound=Object.entries(verified.inventory).map(([name,binding])=>({path:name,...binding}));assert.equal(bound.length,members.length);
+ access.runRelocated31({privateBundleRoot:extracted.root,relocation,members:bound,evidenceDirectory:absent},()=>{
+  for(const entry of relocation.files)assert.equal(sha(access.fs.readFileSync(entry.original)),entry.sha256);
+  const proto=relocation.files.find(entry=>entry.member==='__proto__');fs.writeFileSync(path.join(extracted.root,'__proto__'),'changed');
+  assert.throws(()=>access.fs.readFileSync(proto.original),/Relocated evidence changed/);
+ });
+ assert.notDeepEqual(subject.inventory31(extracted.root),verified.inventory);
 });

@@ -16,7 +16,7 @@ const CLOSURE_PRODUCERS = Object.freeze([
   'backendRuntimeAdmission31.cjs','backendRuntimeClosedReplay31.cjs','backendRuntimeClosure31.cjs',
   'backendRuntimeControls31.cjs','backendRuntimeEvidenceAccess31.cjs','backendRuntimeExecution31.cjs',
   'backendRuntimeExecutionAdmission31.cjs','backendRuntimeProof31.cjs','backendRuntimeReadbacks31.cjs',
-  'business31BackendAuthority.cjs','business31BackendClosure.cjs','business31ExecutionContract.cjs',
+  'business31BackendAuthority.cjs','business31BackendClosure.cjs','business31ExecutionContract.cjs','business31NpmBinMaterialization.cjs',
   'business31SourceAdmission.cjs','business31TrustedInput.cjs','captureBackendRuntimePreparedInputs31.cjs',
   'captureBusiness31PreparedInputs.cjs','clientBuildToolingCompatibility31.cjs','clientRuntimeCompatibility31.cjs',
   'closure-preflight31.cjs','collectFirestoreRulesIndexesReadback.js','collectFunctionFleetRuntimeIdentityReadback.js',
@@ -98,9 +98,9 @@ function inventory31(root) {
     if(entry.isDirectory())walk(file);else {
       need(entry.isFile() && ++count<=transport.MAX_MEMBERS,'finite regular bundle population required');
       const stat=fs.statSync(file);need(stat.size<=transport.MAX_MEMBER && (total+=stat.size)<=transport.MAX_EXPANDED,'private member/expanded bound exceeded');
-      const name=portableMember(path.relative(root,file).split(path.sep).join('/')),bytes=fs.readFileSync(file);rows[name]={bytes:bytes.length,sha256:sha(bytes)};
+      const name=portableMember(path.relative(root,file).split(path.sep).join('/')),bytes=fs.readFileSync(file);Object.defineProperty(rows,name,{value:{bytes:bytes.length,sha256:sha(bytes)},enumerable:true,writable:true,configurable:true});
     }
-  }}walk(root);return rows;
+  }}walk(root);need(Object.keys(rows).length===count,'complete filesystem inventory cardinality differs');return rows;
 }
 function joinOriginalExecutionRoot31({decisionEnvelopeBytes,descriptor,relocation}) {
   need(sha(decisionEnvelopeBytes)===descriptor.approvalPointer.sha256,'decision envelope differs before role join');
