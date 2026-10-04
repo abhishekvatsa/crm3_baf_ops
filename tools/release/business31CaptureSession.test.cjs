@@ -14,13 +14,14 @@ const exec=cp.execFileSync;cp.execFileSync=(file,args,options)=>{assert.match(St
 for(const n of ["spawn","spawnSync","exec","execSync","execFile","fork"])cp[n]=()=>{throw Error("NON-GIT CHILD FORBIDDEN");};
 require("node:net").Socket.prototype.connect=()=>{throw Error("REAL SOCKET FORBIDDEN");};require("node:tls").connect=()=>{throw Error("REAL TLS FORBIDDEN");};globalThis.fetch=()=>{throw Error("REAL FETCH FORBIDDEN");};
 const BASE=require("./business31CaptureFixture.cjs").createCaptureFixture31(out);
-const cli=path.join(root,"tooling/firebase-cli/node_modules/firebase-tools/lib"),api=require(path.join(cli,"apiv2.js")),storage=require(path.join(cli,"gcp/storage.js"));
+const boundCli=require("./business31CaptureFixture.cjs").createBoundCliFixture31(root,out),cli=boundCli.cli;
+const api=require(path.join(cli,"apiv2.js")),storage=require(path.join(cli,"gcp/storage.js"));
 const auth=require(path.join(cli,"auth.js"));auth.getAccessToken=auth.haveValidTokens=()=>{throw Error("CREDENTIAL ACCESS FORBIDDEN");};
 const {BusinessCaptureSession31}=require("./business31CaptureSession.cjs"),neutral=require("./backendRuntimeClosure31.cjs"),transport=require("./runtimeDeploymentTransportGuard31.cjs");
 const hash=b=>crypto.createHash("sha256").update(b).digest("hex").toUpperCase();
 const x=require("./business31ExecutionContract.cjs");
 const cohorts=x.cohortsFromPolicy(JSON.parse(fs.readFileSync(path.join(root,"release/function-fleet-runtime-identity-policy.json"))));
-const runtime={cliEntrypoint:path.join(cli,"bin/firebase.js"),instrumentationProducerSha256:Object.fromEntries(Object.entries({api:"apiv2.js",apply:"deploy/functions/cache/applyHash.js",prepare:"deploy/functions/prepare.js",backend:"deploy/functions/backend.js"}).map(([k,p])=>[k,hash(fs.readFileSync(path.join(cli,p)))])),endpointHashProducerSha256:Object.fromEntries(Object.entries({apply:"deploy/functions/cache/applyHash.js",hash:"deploy/functions/cache/hash.js",secrets:"functions/secrets.js"}).map(([k,p])=>[k,hash(fs.readFileSync(path.join(cli,p)))]))};
+const runtime={...boundCli.runtime,instrumentationProducerSha256:Object.fromEntries(Object.entries({api:"apiv2.js",apply:"deploy/functions/cache/applyHash.js",prepare:"deploy/functions/prepare.js",backend:"deploy/functions/backend.js"}).map(([k,p])=>[k,hash(fs.readFileSync(path.join(cli,p)))])),endpointHashProducerSha256:Object.fromEntries(Object.entries({apply:"deploy/functions/cache/applyHash.js",hash:"deploy/functions/cache/hash.js",secrets:"functions/secrets.js"}).map(([k,p])=>[k,hash(fs.readFileSync(path.join(cli,p)))]))};
 const prefix="projects/crm3-baf-ops-b8638/locations/asia-south1/functions/";
 function fixture() {
  const dir=fs.mkdtempSync(path.join(out,"fixture-")),evidence=path.join(dir,"evidence");fs.mkdirSync(evidence);
@@ -112,10 +113,11 @@ test("one pending then lost installed response preserves failure and refuses ret
 });
 
 test("existing attempt is never reused and does not install another boundary",()=>{const f=fixture(),n=network(f);f.session=new BusinessCaptureSession31(f.options);try{const owned=api.Client.prototype.request;assert.throws(()=>new BusinessCaptureSession31(f.options),/EEXIST/);assert.equal(api.Client.prototype.request,owned);}finally{f.session.dispose();n.restore();}});
-test("initial receipt failure installs no global hooks",()=>{
+test("initial receipt failure restores the existing hook descriptors",()=>{
  const f=fixture(),n=network(f),request=api.Client.prototype.request,https=require("node:https"),originalHttps=https.request,write=fs.writeFileSync;
+ const Module=require("node:module"),loader=Object.getOwnPropertyDescriptor(Module,"_load"),registration=Object.getOwnPropertyDescriptor(Module,"registerHooks");
  fs.writeFileSync=function(file,...args){if(String(file).endsWith("session-start.json"))throw Error("INJECTED_INITIAL_WRITE_FAILURE");return write.call(this,file,...args);};
- try{assert.throws(()=>new BusinessCaptureSession31(f.options),/INJECTED_INITIAL/);assert.equal(api.Client.prototype.request,request);assert.equal(https.request,originalHttps);}finally{fs.writeFileSync=write;n.restore();}
+ try{assert.throws(()=>new BusinessCaptureSession31(f.options),/INJECTED_INITIAL/);assert.equal(api.Client.prototype.request,request);assert.equal(https.request,originalHttps);assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"_load"),loader);assert.deepEqual(Object.getOwnPropertyDescriptor(Module,"registerHooks"),registration);assert.doesNotThrow(()=>boundCli.lease.assertHealthy());}finally{fs.writeFileSync=write;n.restore();}
 });
 test("exact synchronous install transaction rolls back partial writes after failure",()=>{
  const f=fixture(),n=network(f);f.session=new BusinessCaptureSession31(f.options);const before=f.session._snapshot();
@@ -164,3 +166,5 @@ test("settled request evidence failure restores owned hooks: "+failedSuffix,asyn
 });
 
 test.after(()=>{const files={};for(const name of Object.keys(require.cache))if(name.startsWith(path.dirname(path.dirname(cli))+path.sep))files[path.relative(path.dirname(path.dirname(cli)),name).split(path.sep).join("/")]=hash(fs.readFileSync(name));assert.ok(files["firebase-tools/lib/deploy/functions/cache/applyHash.js"]);assert.ok(files["firebase-tools/lib/apiv2.js"]);assert.ok(files["firebase-tools/lib/gcp/storage.js"]);assert.ok(Object.keys(files).some(p=>p.endsWith("node-fetch/lib/index.js")));assert.equal(Object.keys(files).some(p=>p.endsWith("/prepare.js")||p.endsWith("/bin/firebase.js")),false);fs.writeFileSync(path.join(out,"INSTALLED_MODULE_BINDINGS.json"),JSON.stringify({files,actualFullPrepare:false,realNetwork:false,authInvoked:false,operationalAuthority:false},null,2)+"\n");});
+
+test.after(()=>{try{boundCli.assertOriginalUnchanged();}finally{boundCli.lease.release();}});

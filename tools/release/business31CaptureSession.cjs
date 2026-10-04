@@ -19,8 +19,8 @@ const PINS = Object.freeze({
   "business31SourceAdmission.cjs": "98034CA4E046E663CEB3184F62F94D06230DEFC007240B4E85BA446E3A6D4D30",
   "business31TrustedInput.cjs": "2C26968443646D6962FEFBEEE200F219F8B5D3CAA72F22D6D41D3A3C041997A8",
   "captureBackendRuntimePreparedInputs31.cjs": "23C332B53A97DE7F5C328C9DE8EF63F160231B8ABBE1B99D7E76EB3F5C211387",
-  "captureBusiness31PreparedHook.cjs": "0BD2A5D549B424E5EE2C3738A50FBF0958E739164AE306ECE3AAC406FD7D3BAB",
-  "captureBusiness31PreparedInputs.cjs": "40312C352572FD8411ACACFD5C7092B1EF77124CAA45D9C3FA73CD5D84B69144",
+  "captureBusiness31PreparedHook.cjs": "B4537EB2C5E4933F714F9A9D07F15D684164A33D590071CE7B06EC0C61DC3C3E",
+  "captureBusiness31PreparedInputs.cjs": "CED9BD61C11471CC13AD48A8AC54A863B7B8CEECCA36BF99EAAAB8BDD6C25B59",
   "clientBuildTooling31.historical-fixture.cjs": "4675CE35F06DB75334ABCD0841D1C7E07F65B4029CC0363D7FD279B539F829DB",
   "clientBuildToolingCompatibility31.cjs": "41A88310EF277B32056B58C779070B764FD6ACE27CA6C63A074C8B23BF08C7F2",
   "clientBuildToolingGitSnapshots31.cjs": "3549713D8E0F36B0C38324C4DD6BEA8D1FFE52ECF281C62C7AEE49AD552E9A68",
@@ -50,10 +50,13 @@ class BusinessCaptureSession31 {
     archiveExpectedFiles, guardInputs, observeLive, now = () => new Date().toISOString()}) {
     verifyCopies();
     need(typeof observeLive === "function", "measurement observer required; it confers no authority");
+    this.writerModule=require("./captureBusiness31PreparedInputs.cjs");
+    this.cliLoadLease=this.writerModule.installCliLoadBoundary31(admission.runtime);
+    try {
     const library=path.dirname(path.dirname(admission.runtime.cliEntrypoint)),apiFile=path.join(library,"apiv2.js");
     need(sha(fs.readFileSync(apiFile))===admission.runtime.instrumentationProducerSha256.api,"actual API producer differs");
     this.api=require(apiFile);need(typeof this.api.Client==="function","actual installed Client required");
-    this.writerModule=require("./captureBusiness31PreparedInputs.cjs");this.hookModule=require("./captureBusiness31PreparedHook.cjs");
+    this.hookModule=require("./captureBusiness31PreparedHook.cjs");
     this.writer=new this.writerModule.BusinessCapture31({evidenceDirectory,source,approvalPointer,cohorts,now});
     this.input={admission,envelopeBytes,archiveExpectedFiles,guardInputs};this.observeLive=observeLive;this.now=now;
     const https=require("node:https"),http=require("node:http"),net=require("node:net"),tls=require("node:tls"),Module=require("node:module");
@@ -62,10 +65,14 @@ class BusinessCaptureSession31 {
     this.state="between";this.failed=false;this.next=0;this.inflight=0;this.phase=null;this.hook=null;
     this.captureRestore=null;this.owner=null;this.boundary=null;this.results=[];this.firstFailure=null;
     this.persistenceFailed=false;this.cleanupIncomplete=false;
-    // No shared hooks exist until initial evidence persistence has succeeded.
+    // No network hooks exist until initial evidence persistence has succeeded.
     this._save("session-start.json",{schemaVersion:1,source,approvalPointer,phaseOrder:PHASES,
       sourceOnlyMeasurement:true,operationalEntryPresent:false,observerAuthenticated:false,clockAuthenticated:false,deploymentAuthorized:false});
     this._installDormant();
+    } catch(error) {
+      try{this.cliLoadLease.release();this.cliLoadLease=null;}catch(cleanup){throw new AggregateError([error,cleanup],"Business capture session: initialization and loader cleanup failed");}
+      throw error;
+    }
   }
   _save(name,value) {
     const file=path.join(this.writer.base,name),bytes=Buffer.from(JSON.stringify(value,null,2)+"\n");
@@ -98,7 +105,7 @@ class BusinessCaptureSession31 {
     });
     if(!okay)this.cleanupIncomplete=true;return okay;
   }
-  _owned(){this._require(this._matches(this.owner),"HOOK_OWNERSHIP_CHANGED");}
+  _owned(){this._require(this._matches(this.owner),"HOOK_OWNERSHIP_CHANGED");try{this.cliLoadLease.assertHealthy();}catch(error){this._fail("CLI_LOAD_BOUNDARY_FAILED");throw error;}}
   _transaction(action){
     // Record synchronous writes by the frozen installer. No observer or async work runs here.
     const frames=this.slots.map(([object,key])=>{const descriptor=Object.getOwnPropertyDescriptor(object,key);
@@ -193,6 +200,7 @@ class BusinessCaptureSession31 {
     }catch(e){error=e;this._fail("CLEANUP_PERSIST_FAILED");}
     finally{
       try{if(this.boundary==="active")this._releaseCapture(false);else if(this.boundary==="dormant")this._removeDormant();}catch(e){error??=e;}
+      try{if(this.cliLoadLease){this.cliLoadLease.release();this.cliLoadLease=null;}}catch(e){this.cleanupIncomplete=true;error??=e;}
       this.state="disposed";
     }
     if(error)throw error;

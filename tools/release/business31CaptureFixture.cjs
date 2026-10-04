@@ -36,4 +36,25 @@ function createCaptureFixture31(parent,gitExecutable='git'){
  fs.writeFileSync(path.join(directory,'fixture.json'),JSON.stringify(result,null,2)+'\n',{flag:'wx'});
  return result;
 }
-module.exports={createCaptureFixture31};
+// Copy once per test worker; never rewrite the caller's installed dependency tree.
+function createBoundCliFixture31(repositoryRoot,parent){
+ const materializer=require("./business31NpmBinMaterialization.cjs"),writer=require("./captureBusiness31PreparedInputs.cjs");
+ const assert=require("node:assert/strict");
+ const buildRoot=fs.mkdtempSync(path.join(fs.realpathSync(parent),"bound-cli-"));
+ for(const relative of ["node_modules","functions/node_modules","tooling/firebase-cli"])fs.mkdirSync(path.join(buildRoot,relative),{recursive:true});
+ const source=path.join(repositoryRoot,"tooling/firebase-cli/node_modules"),destination=path.join(buildRoot,"tooling/firebase-cli/node_modules");
+ const sourceBefore=materializer.scan31(source,true);
+ fs.cpSync(source,destination,{recursive:true,dereference:false,verbatimSymlinks:true,errorOnExist:true,force:false});
+ assert.deepEqual(materializer.scan31(destination,true),sourceBefore,"copied CLI population and aliases match the installed originals");
+ // Real npm aliases remain aliases until the unchanged materializer validates them.
+ const materialization=materializer.materializeNpmBins31({buildRoot}),files=materializer.scan31(destination).files;
+ const materializationFile=path.join(buildRoot,"materialization.json"),mapFile=path.join(buildRoot,"cli-file-bindings.json");
+ fs.writeFileSync(materializationFile,JSON.stringify(materialization,null,2)+"\n",{flag:"wx"});
+ const raw=Buffer.from(JSON.stringify(files,null,2)+"\n");fs.writeFileSync(mapFile,raw,{flag:"wx"});
+ const cli=path.join(destination,"firebase-tools/lib"),runtime={cliEntrypoint:path.join(cli,"bin/firebase.js"),cliFileBindings:{path:mapFile,sha256:sha(raw)}};
+ const assertOriginalUnchanged=()=>assert.deepEqual(materializer.scan31(source,true),sourceBefore,"installed CLI dependencies remain unchanged");
+ assertOriginalUnchanged();
+ const lease=writer.installCliLoadBoundary31(runtime);
+ return {buildRoot,cli,runtime,lease,materializationFile,assertOriginalUnchanged};
+}
+module.exports={createCaptureFixture31,createBoundCliFixture31};

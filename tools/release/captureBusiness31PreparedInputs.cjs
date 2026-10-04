@@ -23,6 +23,149 @@ function noLinks(directory) {
   }
   return resolved;
 }
+// CommonJS source boundary only: it does not authenticate its caller or sandbox a process.
+const cliEvaluations = new Map();
+let activeCliBoundary = null;
+function installCliLoadBoundary31(runtime) {
+  let boundary=null;
+  const check=(ok,message)=>{if(!ok){const owner=boundary??activeCliBoundary;if(owner)owner.failed=true;const error=Error("Business capture CLI load: "+message);error.code="BUSINESS_CLI_LOAD_INTEGRITY";throw error;}};
+  const checkedRead=action=>{try{return action();}catch(error){const owner=boundary??activeCliBoundary;if(owner)owner.failed=true;throw error;}};
+  const Module=require("node:module"),pointer=runtime?.cliFileBindings;
+  check(typeof runtime?.cliEntrypoint==="string"&&path.isAbsolute(runtime.cliEntrypoint)&&pointer&&
+    same(Object.keys(pointer).sort(),["path","sha256"])&&typeof pointer.path==="string"&&path.isAbsolute(pointer.path)&&
+    typeof pointer.sha256==="string"&&/^[A-Fa-f0-9]{64}$/.test(pointer.sha256),"complete CLI file binding required before import");
+  const root=noLinks(path.dirname(path.dirname(path.dirname(path.dirname(runtime.cliEntrypoint)))));
+  noLinks(path.dirname(pointer.path));const mapStat=fs.lstatSync(pointer.path);
+  check(mapStat.isFile()&&!mapStat.isSymbolicLink()&&mapStat.size<=LIMITS.json,"regular bounded CLI inventory required");
+  const raw=fs.readFileSync(pointer.path);check(digest(raw)===pointer.sha256.toUpperCase(),"CLI inventory bytes changed");
+  const bindings=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(raw));
+  check(bindings&&typeof bindings==="object"&&!Array.isArray(bindings),"CLI inventory object required");
+  const names=Object.keys(bindings),identity=digest(raw);
+  check(names.length>0&&names.length<=50000,"bounded complete CLI population required");
+  for(const name of names)check(name.length<=400&&!/[\\\0\r\n]/.test(name)&&name.split("/").every(v=>v&&v!=="."&&v!=="..")&&
+    typeof bindings[name]==="string"&&/^[A-Fa-f0-9]{64}$/.test(bindings[name]),"invalid CLI inventory member");
+  const inside=file=>{const rel=path.relative(root,path.resolve(file));return rel!==""&&!rel.startsWith(".."+path.sep)&&rel!==".."&&!path.isAbsolute(rel);};
+  const key=file=>path.relative(root,file).split(path.sep).join("/");
+  function verifyFile(file){
+    check(inside(file),"CLI dependency escaped admitted population");noLinks(path.dirname(file));
+    const stat=fs.lstatSync(file);check(stat.isFile()&&!stat.isSymbolicLink(),"CLI module is not a regular admitted file");
+    const real=fs.realpathSync(file),name=key(real);
+    check(inside(real)&&Object.hasOwn(bindings,name)&&digest(fs.readFileSync(real))===bindings[name].toUpperCase(),"unbound or changed CLI module before evaluation");
+    return real;
+  }
+  const found=[];let directories=0;
+  function census(dir){check(++directories<=100000,"CLI directory census bound exceeded");for(const row of fs.readdirSync(dir,{withFileTypes:true})){
+    const file=path.join(dir,row.name),stat=fs.lstatSync(file);check(!stat.isSymbolicLink(),"CLI inventory redirects are refused");
+    if(stat.isDirectory())census(file);else{check(stat.isFile()&&found.length<50000,"CLI inventory member or count differs");found.push(key(verifyFile(file)));}
+  }}
+  checkedRead(()=>census(root));check(same(found.sort(),[...names].sort()),"complete CLI file population differs");
+  verifyFile(runtime.cliEntrypoint);
+  function sameExportsDescriptor(a,b){
+    return !!a&&!!b&&a.enumerable===b.enumerable&&a.configurable===b.configurable&&
+      Object.hasOwn(a,"value")===Object.hasOwn(b,"value")&&
+      (Object.hasOwn(a,"value")?a.value===b.value&&a.writable===b.writable:a.get===b.get&&a.set===b.set);
+  }
+  function verifyCached(file,cached){const known=cliEvaluations.get(file);
+    check(known&&known.module===cached&&sameExportsDescriptor(known.exportsDescriptor,Object.getOwnPropertyDescriptor(cached,"exports"))&&known.identity===identity&&known.root===root&&cached.loaded===true,
+      "unverified or replaced cached CLI module refused");
+  }
+  for(const [file,cached]of Object.entries(Module._cache))if(inside(file)){verifyFile(file);verifyCached(file,cached);}
+  if(activeCliBoundary){
+    check(activeCliBoundary.root===root&&activeCliBoundary.identity===identity,"different CLI population already guarded");
+    activeCliBoundary.assertOwned();activeCliBoundary.assertHealthy();return activeCliBoundary.lease();
+  }
+  const original=Object.getOwnPropertyDescriptor(Module,"_load"),resolver=Object.getOwnPropertyDescriptor(Module,"_resolveFilename"),cache=Module._cache;
+  check(original&&Object.hasOwn(original,"value")&&typeof original.value==="function"&&original.writable&&original.configurable&&
+    resolver&&Object.hasOwn(resolver,"value")&&typeof resolver.value==="function","ordinary Node module loader required");
+  const loading=new Map(),leases=[];
+  const loader=function(request,parent,isMain){
+    check(Module._cache===cache&&same(Object.getOwnPropertyDescriptor(Module,"_resolveFilename"),resolver),"CLI resolver or cache container changed");
+    const resolved=resolver.value.call(Module,request,parent,isMain),fromCli=typeof parent?.filename==="string"&&inside(parent.filename);
+    if(Module.isBuiltin(resolved))return original.value.apply(this,arguments);
+    const controlled=typeof resolved==="string"&&path.isAbsolute(resolved)&&(inside(resolved)||fromCli);
+    check(!fromCli||controlled,"CLI dependency resolution is not admitted");
+    if(!controlled)return original.value.apply(this,arguments);
+    boundary.assertHealthy();const real=checkedRead(()=>verifyFile(resolved)),cached=cache[resolved];
+    if(cached){
+      const pending=loading.get(resolved);
+      if(pending){check(pending.module===null||pending.module===cached,"in-progress CLI cache identity changed");pending.module=cached;}
+      else verifyCached(real,cached);
+    }
+    const outer=!loading.has(resolved),frame=outer?{module:cached??null}:loading.get(resolved);
+    if(outer)loading.set(resolved,frame);
+    try{
+      const exports=original.value.apply(this,arguments),actual=cache[resolved];
+      const exportsDescriptor=actual&&Object.getOwnPropertyDescriptor(actual,"exports");
+      // A source-defined accessor may return a fresh object; validate its identity without invoking it again.
+      check(actual&&(!frame.module||actual===frame.module)&&exportsDescriptor&&
+        (Object.hasOwn(exportsDescriptor,"value")?exportsDescriptor.value===exports:typeof exportsDescriptor.get==="function"),"CLI module cache identity differs after load");
+      if(outer){check(actual.loaded===true,"CLI module did not finish evaluation");verifyFile(real);if(cached)verifyCached(real,actual);cliEvaluations.set(real,{root,identity,module:actual,exportsDescriptor});}
+      return exports;
+    }finally{if(outer)loading.delete(resolved);}
+  };
+  const {fileURLToPath,pathToFileURL}=require("node:url");
+  const registration=Object.getOwnPropertyDescriptor(Module,"registerHooks");
+  check(registration&&Object.hasOwn(registration,"value")&&typeof registration.value==="function"&&registration.writable&&registration.configurable,"synchronous Node source hooks required");
+  const ownedRegistration={...registration,value:function(){check(false,"later CLI source-hook registration refused");}};
+  function urlPath(url){
+    if(typeof url!=="string"||!url.startsWith("file:"))return null;
+    try{return fileURLToPath(url);}catch{return null;}
+  }
+  function controlledUrl(url,parentURL){
+    const file=urlPath(url),parent=urlPath(parentURL),fromCli=parent!==null&&inside(parent);
+    if(typeof url==="string"&&Module.isBuiltin(url))return null;
+    if(!(file!==null&&inside(file))&&!fromCli)return null;
+    check(file!==null&&inside(file)&&pathToFileURL(file).href===url,"CLI module URL escaped admitted regular population");
+    boundary.assertHealthy();return checkedRead(()=>verifyFile(file));
+  }
+  const sourceHook=registration.value.call(Module,{
+    resolve(specifier,context,nextResolve){
+      const result=nextResolve(specifier,context),file=controlledUrl(result.url,context.parentURL);
+      if(file){
+        check(!new Set(context.conditions??[]).has("import")&&result.format!=="module"&&!/\.(?:mjs|node|ts|mts|cts)$/i.test(file),"unsupported CLI module format or import mode");
+        const cached=Module._cache[file],pending=loading.get(file);
+        if(cached){if(pending){check(pending.module===null||pending.module===cached,"in-progress CLI cache identity changed");pending.module=cached;}else verifyCached(file,cached);}
+      }
+      return result;
+    },
+    load(url,context,nextLoad){
+      const file=controlledUrl(url);
+      if(!file)return nextLoad(url,context);
+      check(context.format!=="module"&&!/\.(?:mjs|node|ts|mts|cts)$/i.test(file),"unsupported CLI module format");
+      const result=nextLoad(url,context);
+      const suppliedFormat=result.format,rawSource=result.source;
+      const format=suppliedFormat==null&&file.endsWith(".js")&&loading.has(file)?"commonjs":suppliedFormat;
+      check(["commonjs","json"].includes(format),"unsupported CLI evaluated format");
+      const source=typeof rawSource==="string"?Buffer.from(rawSource,"utf8"):
+        ArrayBuffer.isView(rawSource)?Buffer.from(new Uint8Array(rawSource.buffer,rawSource.byteOffset,rawSource.byteLength)):
+        rawSource instanceof ArrayBuffer?Buffer.from(new Uint8Array(rawSource)):null;
+      check(source!==null&&digest(source)===bindings[key(file)].toUpperCase(),"actual CLI evaluation source differs");
+      // Return the exact owned snapshot we checked, never a foreign getter/buffer.
+      return {format,source};
+    }
+  });
+  const owned={...original,value:loader},cleanup={hookRemoved:false,registrarRestored:false,loaderRestored:false};
+  boundary={root,identity,failed:false,assertHealthy(){check(!boundary.failed,"CLI load boundary is terminal-failed");check(same(Object.getOwnPropertyDescriptor(Module,"registerHooks"),ownedRegistration),"CLI source-hook registration ownership changed");},assertOwned(){check(same(Object.getOwnPropertyDescriptor(Module,"_load"),owned)&&same(Object.getOwnPropertyDescriptor(Module,"registerHooks"),ownedRegistration),"CLI loader ownership changed");},lease(){
+    const token=Symbol("CLI load lease");leases.push(token);let released=false;
+    return Object.freeze({release(){
+      check(!released&&leases.at(-1)===token,"CLI loader leases must release once in reverse order");
+      if(leases.length>1){try{boundary.assertOwned();}finally{leases.pop();released=true;}return;}
+      const errors=[];
+      // Each resource is independently ours to remove; a foreign loader is preserved.
+      if(!cleanup.hookRemoved){try{sourceHook.deregister();cleanup.hookRemoved=true;}catch(error){errors.push(error);}}
+      for(const [name,ownedDescriptor,savedDescriptor,flag]of [["registerHooks",ownedRegistration,registration,"registrarRestored"],["_load",owned,original,"loaderRestored"]]){
+        const current=Object.getOwnPropertyDescriptor(Module,name);
+        if(cleanup[flag]&&same(current,savedDescriptor))continue;
+        if(!same(current,ownedDescriptor)){errors.push(Error("CLI loader ownership changed during cleanup"));continue;}
+        try{Object.defineProperty(Module,name,savedDescriptor);cleanup[flag]=true;}catch(error){errors.push(error);}
+      }
+      if(errors.length){boundary.failed=true;throw new AggregateError(errors,"CLI loader ownership cleanup incomplete");}
+      activeCliBoundary=null;leases.pop();released=true;
+    },isReleased(){return released;},assertOwned(){check(!released&&leases.includes(token),"CLI loader lease is released");boundary.assertOwned();},assertHealthy(){check(!released&&leases.includes(token),"CLI loader lease is released");boundary.assertHealthy();}});
+  }};
+  try{Object.defineProperty(Module,"registerHooks",ownedRegistration);Object.defineProperty(Module,"_load",owned);activeCliBoundary=boundary;}catch(error){if(same(Object.getOwnPropertyDescriptor(Module,"registerHooks"),ownedRegistration))Object.defineProperty(Module,"registerHooks",registration);sourceHook.deregister();throw error;}
+  return boundary.lease();
+}
 function projectRequest(client, request) {
   const q=request.queryParams;
   if(q instanceof URLSearchParams) need(new Set(q.keys()).size===[...q.keys()].length,"duplicate query keys are not representable");
@@ -70,6 +213,7 @@ class BusinessCapture31 {
   }
   assertExecutionWindow() {
     try {
+      if(activeCliBoundary)activeCliBoundary.assertHealthy();
       const bound=executionWindows.get(this);need(bound,"bound decision execution window required");
       // The record clock is caller-supplied test/measurement data, never the live guard.
       // Sample after all work at each forwarding boundary; no callback or evidence IO follows here.
@@ -247,5 +391,5 @@ function installBusinessCapture31({Client,writer,observeLive}) {
   };
 }
 if(require.main===module) { process.stderr.write("Private proposal has no operational entry; authenticated controller integration is required.\n");process.exitCode=1; }
-module.exports={BusinessCapture31,installBusinessCapture31,projectRequest,decodeResponse,LIMITS,
+module.exports={BusinessCapture31,installBusinessCapture31,installCliLoadBoundary31,projectRequest,decodeResponse,LIMITS,
   captureActualPreparedInputs31:prepared.captureActualPreparedInputs31,readCurrentControlResponse31:prepared.readCurrentControlResponse31};

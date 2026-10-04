@@ -31,15 +31,17 @@ function installBusinessPreparedHook31({writer,phase,admission,envelopeBytes,arc
   need(same(Object.keys(admission.runtime.instrumentationProducerSha256).sort(),Object.keys(producers).sort()),"exact instrumentation population required");
   function verifyProducers(){for(const [name,relative]of Object.entries(producers))need(sha(fs.readFileSync(path.join(library,relative)))===admission.runtime.instrumentationProducerSha256[name],"installed instrumentation differs: "+name);}
   verifyProducers();
+  const cliLoadLease=writerModule.installCliLoadBoundary31(admission.runtime);
+  try {
   const applyFile=fs.realpathSync(path.join(library,producers.apply)),module=require(applyFile),original=module.applyBackendHashToBackends;
   need(typeof original==="function","real hash function export required");
   const startedAtUtc=new Date().toISOString(),sourceBefore=old.helpers.source(admission.repoRoot,old.helpers.gtext(admission.repoRoot,["rev-parse","HEAD"]));sameSource(sourceBefore,writer.source);
   const privateDir=path.join(writer.base,"prepared-hook-"+phase);fs.mkdirSync(privateDir,{mode:0o700});
   const save=(name,value)=>{const file=path.join(privateDir,name);fs.writeFileSync(file,JSON.stringify(value,null,2)+"\n",{flag:"wx",mode:0o600});return {file:path.relative(writer.root,file).split(path.sep).join("/"),sha256:sha(fs.readFileSync(file)),bytes:fs.statSync(file).size};};
   save("start.json",{schemaVersion:1,source:writer.source,approvalPointer:writer.approval,phase,startedAtUtc,originalHashes:bound.originalHashes,applyFile,applySha256:admission.runtime.instrumentationProducerSha256.apply,prepareCalled:false});
-  let state="installed",result=null;
+  let state="installed",result=null,loaderReleased=false;
   const wrapper=function(wantBackends,context){
-    need(state==="installed","prepared hash hook cannot run or retry twice");state="running";
+    cliLoadLease.assertOwned();cliLoadLease.assertHealthy();need(state==="installed","prepared hash hook cannot run or retry twice");state="running";
     const originalPath=context?.sources?.default?.functionsSourceV2;
     try {
       verifyProducers();verifyIntentUnchanged(writer,bound);
@@ -47,6 +49,7 @@ function installBusinessPreparedHook31({writer,phase,admission,envelopeBytes,arc
       const before=fs.statSync(originalPath,{bigint:true});need(before.isFile()&&before.size>0n&&before.size<=64n*1024n*1024n,"bounded original ZIP required");
       // This is the real installed hash function. Its result is returned unchanged.
       const originalResult=original.apply(this,arguments);
+      cliLoadLease.assertHealthy();
       need(!(originalResult&&typeof originalResult.then==="function"),"pinned hash function unexpectedly became async");
       const capture=writerModule.captureActualPreparedInputs31({wantBackends,context,admission,intent:bound.intent,archiveExpectedFiles,startedAtUtc,sourceBefore,phase});
       need(capture.archivePath===originalPath,"actual capture switched original ZIP identity");
@@ -67,7 +70,13 @@ function installBusinessPreparedHook31({writer,phase,admission,envelopeBytes,arc
     }catch(error){state="failed";writer.failed=true;if(writer.active)writer.active.failed=true;save("failed.json",{schemaVersion:1,phase,source:writer.source,approvalPointer:writer.approval,startedAtUtc,completedAtUtc:new Date().toISOString(),originalArchivePath:typeof originalPath==="string"?originalPath:null,error:"PREPARED_OUTPUT_REFUSED",automaticRetryAllowed:false,rawErrorMessageRetained:false});throw error;}
   };
   module.applyBackendHashToBackends=wrapper;
-  return {module,applyFile,getResult(){need(state==="captured","actual prepared output is not captured");return structuredClone(result);},restore(){need(module.applyBackendHashToBackends===wrapper&&state!=="running","hook ownership changed or still running");module.applyBackendHashToBackends=original;},state:()=>state};
+  return {module,applyFile,getResult(){need(state==="captured","actual prepared output is not captured");return structuredClone(result);},restore(){
+    need(state!=="running","hook is still running");let error;
+    try{need(module.applyBackendHashToBackends===wrapper,"hook ownership changed");module.applyBackendHashToBackends=original;}catch(e){error=e;}
+    finally{if(!loaderReleased){try{cliLoadLease.release();loaderReleased=true;}catch(e){error=error?new AggregateError([error,e],"Business prepared hook: method and loader cleanup failed"):e;}finally{loaderReleased=cliLoadLease.isReleased();}}}
+    if(error)throw error;
+  },state:()=>state};
+  } catch(error) { try{cliLoadLease.release();}catch(cleanup){throw new AggregateError([error,cleanup],"Business prepared hook: initialization and loader cleanup failed");}throw error; }
 }
 if(require.main===module){process.stderr.write("Private prepared-output adapter has no operational entry.\n");process.exitCode=1;}
 module.exports={bindIntent31,installBusinessPreparedHook31};
