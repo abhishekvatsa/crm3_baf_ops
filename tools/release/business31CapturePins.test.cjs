@@ -25,13 +25,16 @@ test("capture verifies the new preparation dependency before importing or instal
     [require("node:net").Socket.prototype, "connect"], [require("node:tls"), "connect"],
     [require("node:module"), "_load"], [globalThis, "fetch"]];
   const before = slots.map(([object, key]) => Object.getOwnPropertyDescriptor(object, key));
-  for (const label of ["modified", "missing"]) {
-    const f = copy(label);
-    if (label === "modified") fs.writeFileSync(f.helperPath, "throw Error('UNVERIFIED_HELPER_EXECUTED');\n");
-    else fs.unlinkSync(f.helperPath);
-    assert.throws(() => new f.subject.BusinessCaptureSession31({}),
-      label === "modified" ? /frozen dependency differs/ : /ENOENT/);
-    assert.equal(require.cache[f.helperPath], undefined);
-    assert.deepEqual(slots.map(([object, key]) => Object.getOwnPropertyDescriptor(object, key)), before);
+  for (const dependency of [helper, "business31ToolchainIdentity.cjs"]) {
+    assert.ok(dependencies.includes(dependency), "new dependency is pinned before import");
+    for (const label of ["modified", "missing"]) {
+      const f = copy(dependency + "-" + label), target = path.join(f.root, dependency);
+      if (label === "modified") fs.writeFileSync(target, "throw Error('UNVERIFIED_HELPER_EXECUTED');\n");
+      else fs.unlinkSync(target);
+      assert.throws(() => new f.subject.BusinessCaptureSession31({}),
+        label === "modified" ? /frozen dependency differs/ : /ENOENT/);
+      assert.equal(require.cache[target], undefined);
+      assert.deepEqual(slots.map(([object, key]) => Object.getOwnPropertyDescriptor(object, key)), before);
+    }
   }
 });

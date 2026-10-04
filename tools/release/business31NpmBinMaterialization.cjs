@@ -6,7 +6,7 @@ const physical = require("./business31ExecutionContract.cjs").physical;
 const SELF = "tools/release/business31NpmBinMaterialization.cjs";
 const ROOTS = Object.freeze({root:"node_modules",functions:"functions/node_modules",cli:"tooling/firebase-cli/node_modules"});
 const MARKER = "#!/bin/sh\n# build31 measured npm Node launcher v1\n";
-const npmBinMember = name => name.startsWith(".bin/") || name.includes("/node_modules/.bin/");
+const npmBinMember = (name,platform=process.platform) => { const member=platform==="win32"?name.toLowerCase():name;return member.startsWith(".bin/") || member.includes("/node_modules/.bin/"); };
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const need = (value,message) => { if(!value) throw Error("Business31 npm materialization: " + message); };
 function own(map,name,value) { need(!Object.hasOwn(map,name),"duplicate inventory member"); Object.defineProperty(map,name,{value,enumerable:true,writable:true,configurable:true}); }
@@ -80,6 +80,46 @@ function launcherBytes31(nodeExecutable,file,target) {
   const relative=path.posix.relative(path.posix.dirname(file),target);need(relative.startsWith("../"),"launcher target must remain in its owning package");
   return Buffer.from(MARKER+'case "$0" in */*) basedir=${0%/*} ;; *) basedir=. ;; esac\n'+'basedir=$(CDPATH= cd -- "$basedir" && pwd) || exit 1\n'+"exec "+quote(nodeExecutable)+' "$basedir/'+relative+'" "$@"\n');
 }
+// Exact npm cmd-shim7 Node/no-flags templates, not a script-content allowlist.
+// Existing bytes stay unchanged. Unsupported variants refuse preparation/replay.
+const WINDOWS_NODE_SHIMS=Object.freeze({"":"#!/bin/sh\nbasedir=$(dirname \"$(echo \"$0\" | sed -e 's,\\\\,/,g')\")\n\ncase `uname` in\n    *CYGWIN*|*MINGW*|*MSYS*)\n        if command -v cygpath > /dev/null 2>&1; then\n            basedir=`cygpath -w \"$basedir\"`\n        fi\n    ;;\nesac\n\nif [ -x \"$basedir/node\" ]; then\n  exec \"$basedir/node\"  \"$basedir/__BUILD31_POSIX_TARGET__\" \"$@\"\nelse \n  exec node  \"$basedir/__BUILD31_POSIX_TARGET__\" \"$@\"\nfi\n",".cmd":"@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n\r\nIF EXIST \"%dp0%\\node.exe\" (\r\n  SET \"_prog=%dp0%\\node.exe\"\r\n) ELSE (\r\n  SET \"_prog=node\"\r\n  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n)\r\n\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\__BUILD31_WIN_TARGET__\" %*\r\n",".ps1":"#!/usr/bin/env pwsh\n$basedir=Split-Path $MyInvocation.MyCommand.Definition -Parent\n\n$exe=\"\"\nif ($PSVersionTable.PSVersion -lt \"6.0\" -or $IsWindows) {\n  # Fix case when both the Windows and Linux builds of Node\n  # are installed in the same directory\n  $exe=\".exe\"\n}\n$ret=0\nif (Test-Path \"$basedir/node$exe\") {\n  # Support pipeline input\n  if ($MyInvocation.ExpectingInput) {\n    $input | & \"$basedir/node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  } else {\n    & \"$basedir/node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  }\n  $ret=$LASTEXITCODE\n} else {\n  # Support pipeline input\n  if ($MyInvocation.ExpectingInput) {\n    $input | & \"node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  } else {\n    & \"node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  }\n  $ret=$LASTEXITCODE\n}\nexit $ret\n"});
+function windowsShimBytes31(linkTarget) {
+  need(typeof linkTarget==="string" && linkTarget.startsWith("../") && !/[\\\0\r\n]/.test(linkTarget),"Windows npm shim target differs");
+  portable(linkTarget.slice(3));
+  return Object.fromEntries(Object.entries(WINDOWS_NODE_SHIMS).map(([extension,template])=>[extension,Buffer.from(template.replaceAll("__BUILD31_POSIX_TARGET__",linkTarget).replaceAll("__BUILD31_WIN_TARGET__",linkTarget.replaceAll("/","\\")))]));
+}
+function windowsShimDescription31(root,file) {
+  portable(file);const directory=path.posix.dirname(file),name=path.posix.basename(file);
+  need(directory===".bin" || directory.endsWith("/node_modules/.bin"),"Windows npm shim must be a direct bin member");
+  // The standard templates prefer a sibling Node before PATH. No package bin
+  // may shadow that interpreter. External PATH/COMSPEC trust is a caller concern.
+  need(!/^node(?:\.(?:exe|cmd|ps1))?$/i.test(name),"Windows npm shim interpreter shadow refused");
+  const candidates=[file,...(/\.(?:cmd|ps1)$/.test(file)?[file.replace(/\.(?:cmd|ps1)$/,"")]:[])],matches=[];
+  for(const base of candidates) {
+    try {
+      const bare=bytes(path.join(root,...base.split("/")));
+      need(bare.length<=16384,"Windows npm shim exceeds bound");
+      const text=new TextDecoder("utf-8",{fatal:true}).decode(bare),match=/\n  exec node  "\$basedir\/([^"\r\n]+)" "\$@"\nfi\n$/.exec(text);
+      need(match,"Windows npm shim canonical target missing");
+      const info=aliasDescription(root,base,match[1]),target=bytes(path.join(root,...info.target.split("/"))),newline=target.indexOf(10);
+      need(/^#![ \t]*\/usr\/bin\/env[ \t]+node[ \t]*$/.test(target.subarray(0,newline).toString("utf8").replace(/\r$/,"")),"Windows npm shim requires the supported Node interpreter");
+      const expected=windowsShimBytes31(info.linkTarget);
+      for(const [extension,value]of Object.entries(expected)) {
+        const member=physical(path.join(root,...(base+extension).split("/")));
+        need(fs.lstatSync(member).isFile() && !fs.lstatSync(member).isSymbolicLink(),"Windows npm shim triplet must be regular");
+        need(bytes(member).equals(value),"Windows npm shim triplet bytes differ");
+      }
+      need(Object.keys(expected).some(extension=>base+extension===file),"Windows npm shim triplet member differs");
+      matches.push(info);
+    } catch(error) {
+      // A .cmd/.ps1 spelling can itself be a package's bare bin name. Only one
+      // complete, exact package-owned triplet is admissible; nothing is executed.
+      if(candidates.length===1)throw Error("Business31 npm materialization: Windows npm shim validation failed: "+error.message);
+    }
+  }
+  need(matches.length===1,"Windows npm shim has no unique canonical package-owned triplet");
+  return matches[0];
+}
 function scan31(root,allowAliases=false) {
   root=physical(root,true);const files={},aliases=[];let count=0,total=0;
   function walk(directory) { for(const entry of fs.readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
@@ -87,7 +127,7 @@ function scan31(root,allowAliases=false) {
     if(entry.isDirectory()) { physical(full,true);walk(full);continue; }
     need(++count<=100000,"file population exceeds bound");
     if(entry.isSymbolicLink()) { need(allowAliases,"regular installed population required");const raw=fs.readlinkSync(full),info=aliasDescription(root,file,raw);need(fs.realpathSync(full)===physical(path.join(root,...info.target.split("/"))),"actual alias does not resolve to its declared target");aliases.push(info);own(files,file,sha(Buffer.from(raw)));total+=Buffer.byteLength(raw); }
-    else { need(entry.isFile(),"unsupported filesystem member");need(!allowAliases || process.platform==="win32" || !npmBinMember(file),"POSIX npm .bin preparation requires original package aliases");const raw=bytes(full);total+=raw.length;own(files,file,sha(raw)); }
+    else { need(entry.isFile(),"unsupported filesystem member");need(!allowAliases || process.platform==="win32" || !npmBinMember(file),"POSIX npm .bin preparation requires original package aliases");if(allowAliases && process.platform==="win32" && npmBinMember(file))windowsShimDescription31(root,file);const raw=bytes(full);total+=raw.length;own(files,file,sha(raw)); }
     need(total<=2*1024*1024*1024,"installed population exceeds bound");
   }}walk(root);need(Object.keys(files).length===count,"inventory cardinality differs");return {files,aliases:aliases.sort((a,b)=>a.file.localeCompare(b.file)),count};
 }
@@ -143,8 +183,8 @@ function verifyNpmBinMaterialization31({receipt,buildRoot,nodeExecutable,produce
       const raw=launcherBytes31(nodeExecutable.path,alias.file,alias.target);need(alias.shimSha256===sha(raw)&&map[alias.file]===alias.shimSha256&&bytes(path.join(root,...alias.file.split("/"))).equals(raw),"materialized launcher bytes differ");
       Object.defineProperty(original,alias.file,{value:sha(Buffer.from(alias.linkTarget)),enumerable:true,writable:true,configurable:true});
     }
-    for(const name of Object.keys(map).filter(npmBinMember)) {
-      if(receipt.platform!=="win32")need(seen.has(name),"unrecorded POSIX .bin launcher");
+    for(const name of Object.keys(map).filter(name=>npmBinMember(name,receipt.platform))) {
+      if(receipt.platform!=="win32")need(seen.has(name),"unrecorded POSIX .bin launcher");else windowsShimDescription31(root,name);
       const raw=bytes(path.join(root,...name.split("/")));if(raw.subarray(0,Buffer.byteLength(MARKER)).toString()===MARKER)need(seen.has(name),"unrecorded materialized alias");
     }
     need(sha(canonical(original))===row.beforeFilesSha256,"original alias population commitment differs");
@@ -155,4 +195,4 @@ if(require.main===module) {
   try { need(process.argv.length===4&&process.argv[2]==="--build-root","exact --build-root command required");process.stdout.write(JSON.stringify(materializeNpmBins31({buildRoot:process.argv[3]}))+"\n"); }
   catch(error) { process.stderr.write(String(error.stack||error)+"\n");process.exitCode=1; }
 }
-module.exports={SELF,ROOTS,MARKER,sha,canonical,executablePlatform31,verifyNodeShebang31,launcherBytes31,scan31,materializeNpmBins31,verifyNpmBinMaterialization31};
+module.exports={SELF,ROOTS,MARKER,sha,canonical,executablePlatform31,verifyNodeShebang31,launcherBytes31,windowsShimBytes31,windowsShimDescription31,scan31,materializeNpmBins31,verifyNpmBinMaterialization31};

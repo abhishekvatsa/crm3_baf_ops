@@ -16,7 +16,7 @@ const CLOSURE_PRODUCERS = Object.freeze([
   'backendRuntimeAdmission31.cjs','backendRuntimeClosedReplay31.cjs','backendRuntimeClosure31.cjs',
   'backendRuntimeControls31.cjs','backendRuntimeEvidenceAccess31.cjs','backendRuntimeExecution31.cjs',
   'backendRuntimeExecutionAdmission31.cjs','backendRuntimeProof31.cjs','backendRuntimeReadbacks31.cjs',
-  'business31BackendAuthority.cjs','business31BackendClosure.cjs','business31ExecutionContract.cjs','business31NpmBinMaterialization.cjs',
+  'business31BackendAuthority.cjs','business31BackendClosure.cjs','business31ExecutionContract.cjs','business31NpmBinMaterialization.cjs','business31ToolchainIdentity.cjs',
   'business31SourceAdmission.cjs','business31TrustedInput.cjs','captureBackendRuntimePreparedInputs31.cjs',
   'captureBusiness31PreparedInputs.cjs','clientBuildToolingCompatibility31.cjs','clientRuntimeCompatibility31.cjs',
   'closure-preflight31.cjs','collectFirestoreRulesIndexesReadback.js','collectFunctionFleetRuntimeIdentityReadback.js',

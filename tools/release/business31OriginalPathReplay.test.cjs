@@ -31,16 +31,16 @@ test('required npm-bin materializer has exact executing bytes before any closure
  assert.equal(require.cache[modulePath],undefined);
 });
 
-test('closure population is precisely the required29 subset, with unchanged digests',()=>{
-  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,29);
+test('closure population is precisely the required30 subset, with unchanged digests',()=>{
+  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,30);
   const full={...bindings,'tools/release/another-controller.cjs':'F'.repeat(64)},subset=subject.deriveClosureProducerBindings31(full);
   assert.deepEqual(Object.keys(subset),actual);for(const file of actual)assert.equal(subset[file],full[file]);assert.equal(full['tools/release/another-controller.cjs'],'F'.repeat(64));
 });
-test('the exact closure29 alone cannot masquerade as complete descriptor authority',()=>{
+test('the exact closure30 alone cannot masquerade as complete descriptor authority',()=>{
   const narrowed=Object.fromEntries(subject.CLOSURE_PRODUCERS.map(f=>[f,bindings[f]]));assert.throws(()=>subject.deriveClosureProducerBindings31(narrowed),/full wrapper\/descriptor\/bundle population/);
 });
 test('missing wrapper or closure binding is rejected',()=>{
-  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0],'tools/release/business31NpmBinMaterialization.cjs']){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
+  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0],'tools/release/business31NpmBinMaterialization.cjs','tools/release/business31ToolchainIdentity.cjs']){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
 });
 test('changed executing producer bytes fail before they could become source authority',()=>{
   assert.throws(()=>subject.executingBindings31(bindings),/executing complete producer population differs/);

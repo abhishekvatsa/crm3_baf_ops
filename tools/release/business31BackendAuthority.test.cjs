@@ -181,6 +181,17 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   git(["read-tree", fixtureSource]);
   const producerBindings = {};
   for (const name of subject.PRODUCERS) { const bytes = fs.readFileSync(path.join(__dirname, path.basename(name))); put(name, bytes); producerBindings[name] = sha(bytes); }
+  const toolchain = require("./business31ToolchainIdentity.cjs"), npmVersion = "10.9.8";
+  const npmPackageRoot = path.join(temporary, "synthetic-npm-package"), npmFile = path.join(npmPackageRoot, "bin/npm-cli.js");
+  fs.mkdirSync(path.dirname(npmFile), {recursive:true}); fs.writeFileSync(npmFile, "// synthetic inert file; never executed\n");
+  fs.writeFileSync(path.join(npmPackageRoot,"package.json"), JSON.stringify({name:"npm",version:npmVersion}));
+  const npmFiles = subject.fileMap31(npmPackageRoot), syntheticPolicy = JSON.parse(git(["show", fixtureSource+":release/production-release-policy.json"]));
+  syntheticPolicy.toolchain.nodeVersion = process.versions.node;
+  put("release/production-release-policy.json", JSON.stringify(syntheticPolicy));
+  const syntheticProfile = {...toolchain.format31(fs.readFileSync(process.execPath)),nodeVersion:process.versions.node,npmVersion,nodeSha256:sha(fs.readFileSync(process.execPath)),npmEntry:"bin/npm-cli.js",npmFiles,npmFileCount:Object.keys(npmFiles).length,npmFilesSha256:sha(require("./business31NpmBinMaterialization.cjs").canonical(npmFiles)),provenance:{nodeDistribution:{url:"https://example.invalid/synthetic-node",sha256:"A".repeat(64)},npmDistribution:{url:"https://example.invalid/synthetic-npm",sha256:"B".repeat(64),integrity:"sha512-"+Buffer.alloc(64).toString("base64")},reviewEvidenceSha256:"C".repeat(64)}};
+  // Only this synthetic source approves these inert fixtures. The production
+  // profile table stays empty, and no process success is claimed by this test.
+  put(toolchain.PROFILES, JSON.stringify({schemaVersion:1,documentType:"build31-approved-toolchain-profiles",profiles:{"synthetic-host-case":syntheticProfile}}));
   const V = commit([fixtureSource]);
   put("fixture-main.txt", "synthetic main parent\n"); const main = commit([V]);
   git(["read-tree", V]); put("fixture-branch.txt", "synthetic reviewed parent\n"); const branch = commit([V]);
@@ -229,17 +240,19 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const cliRoot = path.join(repositoryRoot, "tooling/firebase-cli/node_modules/firebase-tools"); fs.mkdirSync(path.join(cliRoot, "lib/bin"), {recursive: true});
   fs.writeFileSync(path.join(cliRoot, "package.json"), '{"name":"firebase-tools","version":"15.22.4"}');
   fs.writeFileSync(path.join(cliRoot, "lib/bin/firebase.js"), "// synthetic inert file; never executed\n");
-  const npmFile = path.join(temporary, "inert-npm-cli.js"); fs.writeFileSync(npmFile, "// synthetic inert file; never executed\n");
+
   const binding = file => ({path: file, sha256: sha(fs.readFileSync(file))});
-  const runtime = {nodeVersion: read("release/production-release-policy.json").toolchain.nodeVersion, firebaseCliVersion: "15.22.4",
+  const runtime = {nodeVersion: read("release/production-release-policy.json").toolchain.nodeVersion, npmVersion, toolchainProfileId:"synthetic-host-case", npmPackageRoot, firebaseCliVersion: "15.22.4",
     nodeExecutable: binding(process.execPath), npmCliFile: binding(npmFile), cliEntrypoint: binding(path.join(cliRoot, "lib/bin/firebase.js"))};
   function map(directory) { const rows = {}; function walk(dir) { for (const item of fs.readdirSync(dir, {withFileTypes: true})) {
     const full = path.join(dir, item.name); if (item.isDirectory()) walk(full); else rows[path.relative(directory, full).split(path.sep).join("/")] = sha(fs.readFileSync(full));
   } } walk(directory); return rows; }
   function processRecord(kind, argv, stdout = Buffer.from("synthetic original stdout; no process executed")) {
-    return retain({schemaVersion: 1, documentType: "build31-business-original-process", kind, sourceBefore: source, sourceAfter: source,
+    const output = subject.OUTPUT_COMMANDS.includes(kind), minute = kind.endsWith("-install") ? 8 : kind === "dependency-bin-materialization" ? 10 : kind.startsWith("audit-") ? 22 : {"node-version":5,"npm-version":6,"functions-build":12,"functions-host-tests":14,"governed-emulator-tests":16,"dependency-compatibility":18,"installed-runtime":20}[kind];
+    const time = n => "2026-01-02T02:" + String(n).padStart(2,"0") + ":00Z";
+    return retain({schemaVersion: output ? 2 : 1, documentType: "build31-business-original-process", kind, sourceBefore: source, sourceAfter: source,
       executable: runtime.nodeExecutable.path, executableSha256: runtime.nodeExecutable.sha256, argv, cwd: repositoryRoot,
-      startedAtUtc: kind.endsWith("-install") ? "2026-01-02T02:06:00Z" : kind === "dependency-bin-materialization" ? "2026-01-02T02:08:00Z" : "2026-01-02T02:10:00Z", completedAtUtc: kind.endsWith("-install") ? "2026-01-02T02:07:00Z" : kind === "dependency-bin-materialization" ? "2026-01-02T02:09:00Z" : "2026-01-02T02:11:00Z", exitCode: 0, signal: null, error: null, stdout: retain(stdout), stderr: retain("")});
+      startedAtUtc: time(minute), completedAtUtc: time(minute+1), exitCode: 0, signal: null, error: null, stdout: retain(stdout), stderr: retain(""), ...(output ? {emittedFilesAfterSha256:testedEmittedFiles[kind].sha256} : {})});
   }
   const emittedFiles = {};
   for (const file of subject.expectedEmittedFiles31(snapshot, read("functions/tsconfig.json"))) {
@@ -249,7 +262,10 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   fs.mkdirSync(path.join(repositoryRoot,"node_modules/fixture-root"),{recursive:true});
   fs.writeFileSync(path.join(repositoryRoot,"node_modules/fixture-root/package.json"),'{"name":"fixture-root","version":"1.0.0"}');
   const binReceipt=Buffer.from(JSON.stringify(require("./business31NpmBinMaterialization.cjs").materializeNpmBins31({buildRoot:repositoryRoot}))+"\n");
-  const proof = {schemaVersion: 2, documentType: "build31-business-runtime-proof", profile: subject.PROFILE, source,
+  const outputMap = Object.fromEntries(Object.keys(emittedFiles).map(file=>[file,sha(fs.readFileSync(path.join(functionsRoot,file)))]));
+  const testedEmittedFiles = Object.fromEntries(subject.OUTPUT_COMMANDS.map(kind=>[kind,retain(outputMap)]));
+  const toolchainProbes = Object.fromEntries(["node","npm"].map(kind=>[kind,processRecord(kind+"-version",toolchain.probeArguments31(kind,runtime),Buffer.from((kind === "node" ? process.version : npmVersion)+"\n"))]));
+  const proof = {schemaVersion: 3, documentType: "build31-business-runtime-proof", profile: subject.PROFILE, source, testedEmittedFiles, toolchainProbes,
     startedAtUtc: "2026-01-02T02:05:00Z", completedAtUtc: "2026-01-02T02:30:00Z", buildRoot: repositoryRoot, runtime,
     binMaterialization: retain(binReceipt), commands: Object.fromEntries([...subject.COMMANDS,"dependency-bin-materialization"].map(kind => [kind, processRecord(kind, subject.commandArguments31(kind, npmFile,repositoryRoot), kind === "installed-runtime" ? installedBytes : kind === "dependency-bin-materialization" ? binReceipt : undefined)])),
     audits: Object.fromEntries(subject.AUDITS.map(kind => { const raw = Buffer.from(JSON.stringify(cleanAudit())); return [kind, {report: retain(raw), command: processRecord("audit-" + kind, subject.auditArguments31(kind, npmFile), raw)}]; })),

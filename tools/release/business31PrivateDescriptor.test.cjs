@@ -72,6 +72,7 @@ const invalid=[
   ['historical source',d=>d.source.commit=subject.HISTORICAL.commit],
   ['missing writer',d=>delete d.producerBindings['tools/release/captureBusiness31PreparedInputs.cjs']],
   ['missing npm-bin materializer',d=>delete d.producerBindings['tools/release/business31NpmBinMaterialization.cjs']],
+  ['missing toolchain identity helper',d=>delete d.producerBindings['tools/release/business31ToolchainIdentity.cjs']],
   ['unsafe producer',d=>d.producerBindings['tools/release/../outside.cjs']='F'.repeat(64)],
   ['malformed verifier',d=>d.verifier.commit='HEAD']
 ];

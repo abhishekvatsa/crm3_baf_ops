@@ -40,27 +40,40 @@ for(const [label,arrange,error] of [
 ])test("refuses "+label+" before any materialization",()=>{const root=make(label.replaceAll(" ","-"));arrange(root);assert.throws(()=>api.scan31(root,true),error);});
 test("receipt refuses altered producer and omitted or tampered populations",()=>{
   const root=regularTree(),good=api.materializeNpmBins31({buildRoot:root});for(const mutate of [r=>r.producer.sha256="A".repeat(64),r=>r.roots.root.fileCount++,r=>r.roots.cli.afterFilesSha256="A".repeat(64),r=>r.roots.functions.beforeFilesSha256="A".repeat(64),r=>delete r.roots.root]){const bad=structuredClone(good);mutate(bad);assert.throws(()=>verify(root,bad));}
-  put(root,"node_modules/.bin/unrecorded",api.MARKER+"exit 0\n");const changed=structuredClone(good),map=maps(root).root;changed.roots.root.afterFilesSha256=api.sha(api.canonical(map));changed.roots.root.beforeFilesSha256=changed.roots.root.afterFilesSha256;changed.roots.root.fileCount=Object.keys(map).length;assert.throws(()=>verify(root,changed),/unrecorded materialized|unrecorded POSIX/);
+  put(root,"node_modules/.bin/unrecorded",api.MARKER+"exit 0\n");const changed=structuredClone(good),map=maps(root).root;changed.roots.root.afterFilesSha256=api.sha(api.canonical(map));changed.roots.root.beforeFilesSha256=changed.roots.root.afterFilesSha256;changed.roots.root.fileCount=Object.keys(map).length;assert.throws(()=>verify(root,changed),/unrecorded materialized|unrecorded POSIX|Windows npm shim/);
 });
 function runtimeFixture(){
-  const root=make("schema2"),evidence=path.join(root,".dart_tool/evidence"),runtimeRoot=make("runtime"),source={commit:"a".repeat(40),tree:"b".repeat(40),functionsTree:"c".repeat(40)},sourceBytes={};roots(root);fs.mkdirSync(evidence,{recursive:true});
+  const root=make("schema3"),evidence=path.join(root,".dart_tool/evidence"),runtimeRoot=make("runtime"),source={commit:"a".repeat(40),tree:"b".repeat(40),functionsTree:"c".repeat(40)},sourceBytes={};roots(root);fs.mkdirSync(evidence,{recursive:true});
   const sourceFile=(name,value)=>{const raw=Buffer.isBuffer(value)?value:Buffer.from(typeof value==="string"?value:JSON.stringify(value));sourceBytes[name]=raw;put(root,name,raw);};
+  const toolchain=require("./business31ToolchainIdentity.cjs"),npmVersion="10.9.8",npmPackageRoot=path.join(runtimeRoot,"npm");
+  const npm=put(npmPackageRoot,"bin/npm-cli.js","// inert synthetic process record target; never executed\n");
+  put(npmPackageRoot,"package.json",JSON.stringify({name:"npm",version:npmVersion}));
+  const npmFiles=api.scan31(npmPackageRoot).files,nodeExecutable=binding();
+  // This synthetic profile belongs only to this synthetic source, not the empty
+  // checked-in production profile table. Its process outputs are parser fixtures.
+  const approved={...toolchain.format31(fs.readFileSync(process.execPath)),nodeVersion:process.versions.node,npmVersion,nodeSha256:nodeExecutable.sha256,npmEntry:"bin/npm-cli.js",npmFiles,npmFileCount:Object.keys(npmFiles).length,npmFilesSha256:api.sha(api.canonical(npmFiles)),provenance:{nodeDistribution:{url:"https://example.invalid/synthetic-node",sha256:"A".repeat(64)},npmDistribution:{url:"https://example.invalid/synthetic-npm",sha256:"B".repeat(64),integrity:"sha512-"+Buffer.alloc(64).toString("base64")},reviewEvidenceSha256:"C".repeat(64)}};
   const config={compilerOptions:{module:"commonjs",noImplicitReturns:true,noUnusedLocals:false,outDir:"lib",sourceMap:true,strict:true,target:"es2022"},compileOnSave:true,include:["src"]};
   const manifest={name:"fixture-functions",version:"1.0.0",dependencies:{"@grpc/grpc-js":"1.14.5"}},pkg={name:"@grpc/grpc-js",version:"1.14.5"},lock={packages:{"":manifest,"node_modules/@grpc/grpc-js":pkg}};
-  sourceFile(api.SELF,fs.readFileSync(require.resolve("./business31NpmBinMaterialization.cjs")));sourceFile("release/production-release-policy.json",{toolchain:{nodeVersion:process.version}});sourceFile("functions/package.json",manifest);sourceFile("functions/package-lock.json",lock);sourceFile("functions/tsconfig.json",config);sourceFile("functions/src/index.ts","export const value = 1;\n");
+  for(const helper of [api.SELF,toolchain.SELF])sourceFile(helper,fs.readFileSync(require.resolve("./"+path.basename(helper))));
+  sourceFile(toolchain.PROFILES,{schemaVersion:1,documentType:"build31-approved-toolchain-profiles",profiles:{"synthetic-host-case":approved}});
+  sourceFile("release/production-release-policy.json",{toolchain:{nodeVersion:process.versions.node,npmVersion}});sourceFile("functions/package.json",manifest);sourceFile("functions/package-lock.json",lock);sourceFile("functions/tsconfig.json",config);sourceFile("functions/src/index.ts","export const value = 1;\n");
   put(root,"node_modules/probe/package.json",'{"name":"probe","version":"1.0.0"}');put(root,"functions/node_modules/@grpc/grpc-js/package.json",JSON.stringify(pkg));put(root,"tooling/firebase-cli/node_modules/firebase-tools/package.json",'{"name":"firebase-tools","version":"15.22.4"}');const cli=put(root,"tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js","// inert fixture CLI\n");
-  put(root,"functions/lib/index.js","exports.value=1;\n");put(root,"functions/lib/index.js.map","{}\n");const npm=put(runtimeRoot,"npm-cli.js","// inert synthetic process record target; never executed\n"),runtime={nodeVersion:process.version,firebaseCliVersion:"15.22.4",nodeExecutable:binding(),npmCliFile:{path:npm,sha256:api.sha(fs.readFileSync(npm))},cliEntrypoint:{path:cli,sha256:api.sha(fs.readFileSync(cli))}};
+  put(root,"functions/lib/index.js","exports.value=1;\n");put(root,"functions/lib/index.js.map","{}\n");
+  const runtime={nodeVersion:process.versions.node,npmVersion,toolchainProfileId:"synthetic-host-case",npmPackageRoot,firebaseCliVersion:"15.22.4",nodeExecutable,npmCliFile:{path:npm,sha256:api.sha(fs.readFileSync(npm))},cliEntrypoint:{path:cli,sha256:api.sha(fs.readFileSync(cli))}};
   let id=0;const retain=value=>{const raw=Buffer.isBuffer(value)?value:Buffer.from(typeof value==="string"?value:JSON.stringify(value)),file="original-"+(++id)+".json";put(evidence,file,raw);return {file,bytes:raw.length,sha256:api.sha(raw)};};
   if(process.platform!=="win32")packageFiles(path.join(root,api.ROOTS.root),"","runtime-bin","runtime-bin");
   const normalization=Buffer.from(JSON.stringify(api.materializeNpmBins31({buildRoot:root}))+"\n"),installed=Buffer.from(JSON.stringify({name:manifest.name,path:path.join(root,"functions"),dependencies:{"@grpc/grpc-js":{version:"1.14.5",path:path.join(root,"functions/node_modules/@grpc/grpc-js")}}}));
   const time=n=>"2026-01-02T02:"+String(n).padStart(2,"0")+":00Z";
-  const record=(kind,argv,stdout)=>{const minute=kind.endsWith("-install")?5:kind==="dependency-bin-materialization"?7:kind.startsWith("audit-")?15:9;return {schemaVersion:1,documentType:"build31-business-original-process",kind,sourceBefore:source,sourceAfter:source,executable:runtime.nodeExecutable.path,executableSha256:runtime.nodeExecutable.sha256,argv,cwd:root,startedAtUtc:time(minute),completedAtUtc:time(minute+1),exitCode:0,signal:null,error:null,stdout:retain(stdout??"synthetic original stdout"),stderr:retain("")};};
+  const outputMap=Object.fromEntries(["lib/index.js","lib/index.js.map"].map(name=>[name,api.sha(fs.readFileSync(path.join(root,"functions",name)))]));
+  const testedEmittedFiles=Object.fromEntries(authority.OUTPUT_COMMANDS.map(kind=>[kind,retain(outputMap)]));
+  const minutes={"node-version":1,"npm-version":3,"functions-build":9,"functions-host-tests":11,"governed-emulator-tests":13,"dependency-compatibility":15,"installed-runtime":17};
+  const record=(kind,argv,stdout)=>{const output=authority.OUTPUT_COMMANDS.includes(kind),minute=kind.endsWith("-install")?5:kind==="dependency-bin-materialization"?7:kind.startsWith("audit-")?19:minutes[kind];return {schemaVersion:output?2:1,documentType:"build31-business-original-process",kind,sourceBefore:source,sourceAfter:source,executable:runtime.nodeExecutable.path,executableSha256:runtime.nodeExecutable.sha256,argv,cwd:root,startedAtUtc:time(minute),completedAtUtc:time(minute+1),exitCode:0,signal:null,error:null,stdout:retain(stdout??"synthetic original stdout"),stderr:retain(""),...(output?{emittedFilesAfterSha256:testedEmittedFiles[kind].sha256}:{})};};
   const clean={auditReportVersion:2,vulnerabilities:{},metadata:{vulnerabilities:{info:0,low:0,moderate:0,high:0,critical:0,total:0}}},commands=[...authority.COMMANDS,"dependency-bin-materialization"];
-  const proof={schemaVersion:2,documentType:"build31-business-runtime-proof",profile:authority.PROFILE,source,startedAtUtc:time(0),completedAtUtc:time(30),buildRoot:root,runtime,binMaterialization:retain(normalization),commands:Object.fromEntries(commands.map(kind=>[kind,retain(record(kind,authority.commandArguments31(kind,npm,root),kind==="installed-runtime"?installed:kind==="dependency-bin-materialization"?normalization:undefined))])),audits:Object.fromEntries(authority.AUDITS.map(kind=>{const raw=Buffer.from(JSON.stringify(clean));return [kind,{report:retain(raw),command:retain(record("audit-"+kind,authority.auditArguments31(kind,npm),raw))}];})),emittedFiles:Object.fromEntries(["lib/index.js","lib/index.js.map"].map(name=>[name,retain(fs.readFileSync(path.join(root,"functions",name)))])),installedDependencies:retain(installed),installedFiles:Object.fromEntries(Object.entries(maps(root)).map(([kind,map])=>[kind,retain(map)]))};
+  const proof={schemaVersion:3,documentType:"build31-business-runtime-proof",profile:authority.PROFILE,source,startedAtUtc:time(0),completedAtUtc:time(30),buildRoot:root,runtime,testedEmittedFiles,toolchainProbes:Object.fromEntries(["node","npm"].map(kind=>[kind,retain(record(kind+"-version",toolchain.probeArguments31(kind,runtime),Buffer.from((kind==="node"?process.version:npmVersion)+"\n")))])),binMaterialization:retain(normalization),commands:Object.fromEntries(commands.map(kind=>[kind,retain(record(kind,authority.commandArguments31(kind,npm,root),kind==="installed-runtime"?installed:kind==="dependency-bin-materialization"?normalization:undefined))])),audits:Object.fromEntries(authority.AUDITS.map(kind=>{const raw=Buffer.from(JSON.stringify(clean));return [kind,{report:retain(raw),command:retain(record("audit-"+kind,authority.auditArguments31(kind,npm),raw))}];})),emittedFiles:Object.fromEntries(["lib/index.js","lib/index.js.map"].map(name=>[name,retain(fs.readFileSync(path.join(root,"functions",name)))])),installedDependencies:retain(installed),installedFiles:Object.fromEntries(Object.entries(maps(root)).map(([kind,map])=>[kind,retain(map)]))};
   const snapshot={files:Object.fromEntries(Object.entries(sourceBytes).map(([name,raw])=>[name,{mode:"100644",oid:crypto.createHash("sha1").update(Buffer.from("blob "+raw.length+"\0")).update(raw).digest("hex")}]))},repository={readBlob:(commit,file)=>{assert.equal(commit,source.commit);assert.ok(Object.hasOwn(sourceBytes,file));return sourceBytes[file];}};
   const input={proof,source,snapshot,repository,evidenceDirectory:evidence,afterCi:"2026-01-02T01:00:00Z",beforeDecision:"2026-01-02T04:00:00Z"};return {input,retain,read:p=>JSON.parse(fs.readFileSync(path.join(evidence,p.file))),normalization};
 }
-test("schema2 actual runtime verifier joins complete root maps, producer, receipt and process chronology",()=>{const f=runtimeFixture(),result=authority.verifyRuntimeProof31(f.input);assert.equal(result.installedRuntimePathCount,1);assert.equal(result.emittedFileCount,2);assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);});
+test("schema3 actual runtime verifier joins complete root maps, producer, receipt and process chronology",()=>{const f=runtimeFixture(),result=authority.verifyRuntimeProof31(f.input);assert.equal(result.installedRuntimePathCount,1);assert.equal(result.emittedFileCount,2);assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);});
 for(const [name,mutate,pattern] of [
   ["schema downgrade",f=>{f.input.proof.schemaVersion=1;delete f.input.proof.binMaterialization;},/runtime proof|runtime source/],
   ["root map omission",f=>delete f.input.proof.installedFiles.root,/installed file populations/],
@@ -68,9 +81,9 @@ for(const [name,mutate,pattern] of [
   ["build before normalization",f=>{const r=f.read(f.input.proof.commands["functions-build"]);r.startedAtUtc="2026-01-02T02:07:00Z";f.input.proof.commands["functions-build"]=f.retain(r);},/precedes materialization/],
   ["audit before normalization",f=>{const r=f.read(f.input.proof.audits["cli-full"].command);r.startedAtUtc="2026-01-02T02:07:00Z";f.input.proof.audits["cli-full"].command=f.retain(r);},/audit precedes/],
   ["receipt not stdout",f=>{const r=f.read(f.input.proof.commands["dependency-bin-materialization"]);r.stdout=f.retain("other receipt");f.input.proof.commands["dependency-bin-materialization"]=f.retain(r);},/not original command stdout/],
-])test("schema2 refuses "+name,()=>{const f=runtimeFixture();mutate(f);assert.throws(()=>authority.verifyRuntimeProof31(f.input),pattern);});
-test("schema2 original-path replay retains command JSON with originals absent and extracted bytes regular",()=>{
-  const f=runtimeFixture(),original=f.input.proof.buildRoot,runtimeRoot=path.dirname(f.input.proof.runtime.npmCliFile.path),proofBytes=Buffer.from(JSON.stringify(f.input.proof));
+])test("schema3 refuses "+name,()=>{const f=runtimeFixture();mutate(f);assert.throws(()=>authority.verifyRuntimeProof31(f.input),pattern);});
+test("schema3 original-path replay retains command JSON with originals absent and extracted bytes regular",()=>{
+  const f=runtimeFixture(),original=f.input.proof.buildRoot,runtimeRoot=path.dirname(f.input.proof.runtime.npmPackageRoot),proofBytes=Buffer.from(JSON.stringify(f.input.proof));
   put(original,".dart_tool/retained-runtime-proof.json",proofBytes);put(original,".dart_tool/test-owned.json",JSON.stringify({fixtureOnly:true,root:original}));put(runtimeRoot,"test-owned.json",JSON.stringify({fixtureOnly:true,root:runtimeRoot}));
   const rawMembers=[];function collect(root,prefix){for(const [name]of Object.entries(api.scan31(root).files)){const raw=fs.readFileSync(path.join(root,name));rawMembers.push({file:prefix+"/"+name,raw});}}
   collect(original,"build");collect(runtimeRoot,"runtime");
@@ -120,11 +133,7 @@ test("POSIX preparation refuses regular root and nested bin entries before chang
     assert.throws(()=>linux.materializeNpmBins31({buildRoot:root}),/POSIX npm .bin preparation requires original package aliases/);assert.deepEqual(maps(root),before);
   }
 });
-test("Windows preparation retains ordinary regular npm shims",()=>{
-  const root=regularTree();for(const extension of ["",".cmd",".ps1"])put(root,"node_modules/.bin/probe"+extension,"inert existing npm shim"+extension);
-  const before=maps(root),windows=platformBranch("win32"),receipt=windows.materializeNpmBins31({buildRoot:root});assert.deepEqual(maps(root),before);assert.equal(receipt.roots.root.aliases.length,0);
-  if(process.platform==="win32")assert.equal(verify(root,receipt).recordedMaterializationVerified,true);
-});
+// Canonical Windows triplet regressions below replace the old arbitrary-shim acceptance case.
 test("POSIX receipt refuses arbitrary regular bin entries even with complete recomputed maps",()=>{
   for(const name of ["node_modules/.bin/unowned","functions/node_modules/outer/node_modules/.bin/unowned"]){const root=regularTree();put(root,name,"#!/bin/sh\nexit 0\n");const options=syntheticPosixReceipt(root);assert.throws(()=>api.verifyNpmBinMaterialization31(options),/unrecorded POSIX .bin launcher/);}
 });
@@ -157,3 +166,93 @@ test("format classifier binds actual host Node and bounded supported synthetic e
     assert.throws(()=>api.executablePlatform31(raw),/executable/);
   }
 });
+
+const retainedWindowsNpmTemplates={"":"#!/bin/sh\nbasedir=$(dirname \"$(echo \"$0\" | sed -e 's,\\\\,/,g')\")\n\ncase `uname` in\n    *CYGWIN*|*MINGW*|*MSYS*)\n        if command -v cygpath > /dev/null 2>&1; then\n            basedir=`cygpath -w \"$basedir\"`\n        fi\n    ;;\nesac\n\nif [ -x \"$basedir/node\" ]; then\n  exec \"$basedir/node\"  \"$basedir/__BUILD31_POSIX_TARGET__\" \"$@\"\nelse \n  exec node  \"$basedir/__BUILD31_POSIX_TARGET__\" \"$@\"\nfi\n",".cmd":"@ECHO off\r\nGOTO start\r\n:find_dp0\r\nSET dp0=%~dp0\r\nEXIT /b\r\n:start\r\nSETLOCAL\r\nCALL :find_dp0\r\n\r\nIF EXIST \"%dp0%\\node.exe\" (\r\n  SET \"_prog=%dp0%\\node.exe\"\r\n) ELSE (\r\n  SET \"_prog=node\"\r\n  SET PATHEXT=%PATHEXT:;.JS;=;%\r\n)\r\n\r\nendLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & \"%_prog%\"  \"%dp0%\\__BUILD31_WIN_TARGET__\" %*\r\n",".ps1":"#!/usr/bin/env pwsh\n$basedir=Split-Path $MyInvocation.MyCommand.Definition -Parent\n\n$exe=\"\"\nif ($PSVersionTable.PSVersion -lt \"6.0\" -or $IsWindows) {\n  # Fix case when both the Windows and Linux builds of Node\n  # are installed in the same directory\n  $exe=\".exe\"\n}\n$ret=0\nif (Test-Path \"$basedir/node$exe\") {\n  # Support pipeline input\n  if ($MyInvocation.ExpectingInput) {\n    $input | & \"$basedir/node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  } else {\n    & \"$basedir/node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  }\n  $ret=$LASTEXITCODE\n} else {\n  # Support pipeline input\n  if ($MyInvocation.ExpectingInput) {\n    $input | & \"node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  } else {\n    & \"node$exe\"  \"$basedir/__BUILD31_POSIX_TARGET__\" $args\n  }\n  $ret=$LASTEXITCODE\n}\nexit $ret\n"};
+
+function windowsPackage(root,{prefix="node_modules/",packageName="probe",bin="probe",target="bin/run.js"}={}) {
+  const packageRoot=prefix+packageName,relative="../"+packageName+"/"+target;
+  put(root,packageRoot+"/package.json",JSON.stringify({name:packageName,version:"1.0.0",bin:{[bin]:target}}));
+  put(root,packageRoot+"/"+target,"#!/usr/bin/env node\n// inert package-owned target; never executed\n");
+  for(const [extension,template]of Object.entries(retainedWindowsNpmTemplates))
+    put(root,prefix+".bin/"+bin+extension,template.replaceAll("__BUILD31_POSIX_TARGET__",relative).replaceAll("__BUILD31_WIN_TARGET__",relative.replaceAll("/","\\")));
+  return {file:prefix+".bin/"+bin,packageRoot,target:packageRoot+"/"+target};
+}
+function verifyWindowsFixture(root,receipt) {
+  if(process.platform==="win32")return verify(root,receipt);
+  // Off Windows, exercise receipt semantics with an inert PE header; this is
+  // never executed and is not an authenticated Windows/Node runtime claim.
+  const pe=Buffer.alloc(256);pe.write("MZ");pe.writeUInt32LE(64,0x3c);pe.writeUInt32LE(0x4550,64);pe.writeUInt16LE(0x8664,68);pe.writeUInt16LE(1,70);pe.writeUInt16LE(112,84);pe.writeUInt16LE(2,86);pe.writeUInt16LE(0x20b,88);
+  const executable=put(make("windows-header-only"),"node.exe",pe),nodeExecutable={path:executable,sha256:api.sha(pe)},copy=structuredClone(receipt);copy.nodeExecutable=nodeExecutable;
+  return api.verifyNpmBinMaterialization31({receipt:copy,buildRoot:root,nodeExecutable,producerSha256:api.sha(fs.readFileSync(require.resolve("./business31NpmBinMaterialization.cjs"))),fileMaps:maps(root)});
+}
+test("Windows preparation refuses tampered package-owned cmd shim",()=>{
+  const root=regularTree(),row=windowsPackage(root);fs.appendFileSync(path.join(root,row.file+".cmd"),"\r\necho arbitrary-command\r\n");
+  const before=maps(root);assert.throws(()=>platformBranch("win32").materializeNpmBins31({buildRoot:root}),/Windows npm shim/);assert.deepEqual(maps(root),before);
+});
+test("Windows package shims retain exact canonical triplets for root nested and scoped bins",()=>{
+  const root=regularTree();windowsPackage(root);windowsPackage(root,{prefix:"functions/node_modules/outer/node_modules/",packageName:"@scope/pkg",bin:"scoped"});windowsPackage(root,{prefix:"tooling/firebase-cli/node_modules/",packageName:"cli",bin:"tool.cmd"});
+  const before=maps(root),receipt=platformBranch("win32").materializeNpmBins31({buildRoot:root});assert.deepEqual(maps(root),before);assert.equal(receipt.roots.root.aliases.length,0);
+  assert.equal(verifyWindowsFixture(root,receipt).recordedMaterializationVerified,true);
+});
+test("Windows preparation refuses every noncanonical shim branch and incomplete triplet",()=>{
+  for(const [extension,change]of [
+    ["",b=>b.replace('exec node  ','exec other  ')],["",b=>b.replace('exec "$basedir/node"','exec "$basedir/other"')],
+    [".cmd",b=>b.replace('SET "_prog=node"','SET "_prog=other"')],[".cmd",b=>b.replace('node.exe','other.exe')],
+    [".ps1",b=>b.replace('"node$exe"','"other$exe"')],[".ps1",b=>b.replace('$input | &','$input | Invoke-Expression')],
+    [".cmd",b=>b.replace('..\\probe\\bin\\run.js','..\\probe\\bin\\other.js')],
+    [".ps1",b=>b+'\nWrite-Output injected\n'],["",()=>null],[".cmd",()=>null],[".ps1",()=>null]
+  ]){
+    const root=regularTree(),row=windowsPackage(root),file=path.join(root,row.file+extension),before=fs.readFileSync(file,"utf8"),after=change(before);
+    if(after===null)fs.unlinkSync(file);else{assert.notEqual(after,before);fs.writeFileSync(file,after);}
+    const original=maps(root);assert.throws(()=>platformBranch("win32").materializeNpmBins31({buildRoot:root}),/Windows npm shim/);assert.deepEqual(maps(root),original);
+  }
+});
+test("Windows preparation refuses undeclared targets extra entries and interpreter shadows",()=>{
+  for(const arrange of [
+    (root,row)=>put(root,row.packageRoot+"/package.json",JSON.stringify({name:"probe",bin:{other:"bin/run.js"}})),
+    (root,row)=>put(root,row.packageRoot+"/package.json",JSON.stringify({name:"probe",bin:{probe:"bin/other.js"}})),
+    (root,row)=>put(root,row.target,"#!/usr/bin/env node --require injected\n"),
+    root=>put(root,"node_modules/.bin/unowned.cmd","@echo injected\n"),
+    root=>put(root,"node_modules/.bin/deep/probe.cmd","@echo injected\n"),
+    root=>put(root,"node_modules/.bin/node.exe","inert executable shadow, never executed"),
+    root=>put(root,"node_modules/.bin/Node.CMD","inert interpreter shadow, never executed"),
+    (root,row)=>{for(const extension of ["",".cmd",".ps1"]){const file=path.join(root,row.file+extension);fs.writeFileSync(file,fs.readFileSync(file,"utf8").replaceAll("../probe/bin/run.js","../../outside/run.js").replaceAll("..\\probe\\bin\\run.js","..\\..\\outside\\run.js"));}},
+    root=>windowsPackage(root,{packageName:"node-shadow",bin:"node"})
+  ]){const root=regularTree(),row=windowsPackage(root);arrange(root,row);const before=maps(root);assert.throws(()=>platformBranch("win32").materializeNpmBins31({buildRoot:root}),/Windows npm shim/);assert.deepEqual(maps(root),before);}
+});
+test("Windows receipt rejects rehashed arbitrary shims and lost package ownership",()=>{
+  for(const arrange of [
+    (root,row)=>fs.appendFileSync(path.join(root,row.file+".cmd"),"\r\necho injected\r\n"),
+    (root,row)=>put(root,row.packageRoot+"/package.json",JSON.stringify({name:"probe",bin:{different:"bin/run.js"}})),
+    root=>put(root,"node_modules/.bin/orphan.ps1","Write-Output injected\n")
+  ]){
+    const root=regularTree(),row=windowsPackage(root),receipt=platformBranch("win32").materializeNpmBins31({buildRoot:root});arrange(root,row);
+    const current=maps(root);for(const [kind,map]of Object.entries(current)){const digest=api.sha(api.canonical(map));receipt.roots[kind].beforeFilesSha256=digest;receipt.roots[kind].afterFilesSha256=digest;receipt.roots[kind].fileCount=Object.keys(map).length;}
+    assert.throws(()=>verifyWindowsFixture(root,receipt),/Windows npm shim/);
+  }
+});
+
+test("Windows casing cannot bypass preparation or retained receipt shim validation",()=>{
+  for(const file of ["node_modules/.BIN/unowned.cmd","functions/node_modules/outer/NODE_MODULES/.bin/unowned.cmd","functions/node_modules/outer/node_modules/.BIN/unowned.cmd","tooling/firebase-cli/node_modules/outer/Node_Modules/.bIn/unowned.ps1"]){
+    const root=regularTree(),receipt=platformBranch("win32").materializeNpmBins31({buildRoot:root});put(root,file,"inert arbitrary shim, never executed\n");const before=maps(root);
+    assert.throws(()=>platformBranch("win32").materializeNpmBins31({buildRoot:root}),/Windows npm shim/);assert.deepEqual(maps(root),before);
+    for(const [kind,map]of Object.entries(before)){const digest=api.sha(api.canonical(map));receipt.roots[kind].beforeFilesSha256=digest;receipt.roots[kind].afterFilesSha256=digest;receipt.roots[kind].fileCount=Object.keys(map).length;}
+    assert.throws(()=>verifyWindowsFixture(root,receipt),/Windows npm shim/);
+  }
+});
+
+for(const [label,mutate,pattern] of [
+  ["standalone build later than both tests",f=>{const k="functions-build",r=f.read(f.input.proof.commands[k]);r.startedAtUtc="2026-01-02T02:16:00Z";r.completedAtUtc="2026-01-02T02:17:00Z";f.input.proof.commands[k]=f.retain(r);},/tests must follow/],
+  ["standalone build overlaps host test",f=>{const k="functions-build",r=f.read(f.input.proof.commands[k]);r.completedAtUtc="2026-01-02T02:12:00Z";f.input.proof.commands[k]=f.retain(r);},/tests must follow/],
+  ["host tested different output even with self-consistent evidence hashes",f=>{const k="functions-host-tests",r=f.read(f.input.proof.commands[k]),map=f.read(f.input.proof.testedEmittedFiles[k]);map["lib/index.js"]="A".repeat(64);f.input.proof.testedEmittedFiles[k]=f.retain(map);r.emittedFilesAfterSha256=f.input.proof.testedEmittedFiles[k].sha256;f.input.proof.commands[k]=f.retain(r);},/final emitted bytes/],
+  ["schema2 runtime downgrade",f=>{f.input.proof.schemaVersion=2;},/runtime source/],
+])test("schema3 full runtime refuses "+label,()=>{const f=runtimeFixture();mutate(f);assert.throws(()=>authority.verifyRuntimeProof31(f.input),pattern);});
+
+for(const [label,mutate,pattern] of [
+  ["self-hashed replacement npm entry",f=>{const p=f.input.proof.runtime.npmCliFile;fs.appendFileSync(p.path,"// tampered\n");p.sha256=api.sha(fs.readFileSync(p.path));},/complete npm implementation/],
+  ["self-hashed replacement Node executable",f=>{const runtime=f.input.proof.runtime,file=path.join(make("fake-node"),"node");fs.writeFileSync(file,"fake executable");runtime.nodeExecutable={path:file,sha256:api.sha(fs.readFileSync(file))};},/Node differs from independently approved/],
+  ["proof-selected unknown profile",f=>f.input.proof.runtime.toolchainProfileId="not-approved",/no independently approved/],
+  ["wrong recorded Node version despite approved bytes",f=>{const p=f.input.proof.toolchainProbes,r=f.read(p.node);r.stdout=f.retain("v99.0.0\n");p.node=f.retain(r);},/probe stdout/],
+  ["wrong recorded npm version despite approved bytes",f=>{const p=f.input.proof.toolchainProbes,r=f.read(p.npm);r.stdout=f.retain("99.0.0\n");p.npm=f.retain(r);},/probe stdout/],
+  ["install before version probes finish",f=>{const k="root-install",r=f.read(f.input.proof.commands[k]);r.startedAtUtc="2026-01-02T02:02:00Z";f.input.proof.commands[k]=f.retain(r);},/probe|install/],
+])test("schema3 full runtime refuses "+label,()=>{const f=runtimeFixture();mutate(f);assert.throws(()=>authority.verifyRuntimeProof31(f.input),pattern);});

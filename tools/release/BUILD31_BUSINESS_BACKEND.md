@@ -52,7 +52,7 @@ before any deployment or private-credential access.
 `business31ExecutionContract.cjs` binds the prepared source, intended package
 and ordered endpoint inputs, settled review and observer identity before the
 owner decision. Schema 2 decision/owner records additionally bind this exact
-contract. Schema 1 preparation records remain readable for their original
+contract. Schema 1 decision/owner records remain readable for their original
 scope and cannot authorize the schema 2 execution path.
 
 `business31BackendClosure.cjs` replays the recorded 13 callable, five event and
@@ -90,7 +90,7 @@ forwarding samples. Missing evidence is never reconstructed or promoted.
 Historical source snapshots, failed attempts and synthetic replay receipts
 remain unchanged and qualified to their original verifier and scope; they do
 not prove the new schema 3 path or authenticate deployment. This mutation
-version does not change decision, runtime-proof or descriptor schema versions.
+version is independent of decision, runtime-proof and descriptor schema versions.
 
 `captureBusiness31PreparedInputs.cjs`, `captureBusiness31PreparedHook.cjs` and
 `business31CaptureSession.cjs` retain prepared package inputs and the request
@@ -169,11 +169,11 @@ satisfied. None of these source files enables the production writer switch.
 
 ## Measured npm executable materialization
 
-New source containing `business31NpmBinMaterialization.cjs` requires runtime-proof
-schema 2. Its fixed producer belongs to the complete verifier/source population.
-The older schema-1 link-free records remain historical evidence under their
-original verifier/source snapshots; they cannot downgrade new source to omit this
-step. Never rewrite an old record as a schema-2 success.
+Current source requires runtime-proof schema 3, including the source-approved
+toolchain and tested-output joins below. The materializer remains a fixed member
+of the complete verifier/source population. Older schema-1 link-free and
+schema-2 materialization records remain historical evidence under their original
+verifier/source snapshots; never rewrite them as current schema-3 success.
 
 Use the materializer only in a newly owned build tree, after all three exact npm
 clean installs and before any build, test, installed-graph check or audit. It
@@ -186,6 +186,16 @@ flags fail closed. Windows keeps npm's regular launchers and refuses a symbolic
 alias population. No existing development install or retained evidence is
 normalized in place.
 
+Windows preparation and receipt replay validate every bare, `.cmd` and `.ps1`
+launcher as one complete package-owned triplet. Each file must match the finite
+Node/no-flags cmd-shim 7 template, its package's declared bin target and supported
+Node shebang. Missing, altered, extra or ambiguously owned launchers, alternate
+Windows directory casing and local Node interpreter shadows are refused. The
+existing shim bytes are never rewritten or executed by this check. Template
+inspection of installed npm 10.9.2/cmd-shim 7 and read-only Windows fixtures does
+not establish approved npm 10.9.8 execution; unsupported templates fail closed.
+External PATH and command-interpreter trust remain live-collector prerequisites.
+
 The producer replaces each verified POSIX alias with a deterministic regular
 0755 shell launcher. That launcher invokes the exact bound Node executable and
 the original package script with unchanged arguments; it does not copy JavaScript
@@ -196,7 +206,8 @@ mode, complete before/after file commitments and counts. All non-alias bytes sta
 unchanged. Unsupported materialization leaves a failed, retained preparation;
 there is no success receipt or automatic retry.
 
-Runtime-proof schema 2 adds the pointed materialization receipt and the root
+The materialization fields, introduced in runtime-proof schema 2 and retained
+in schema 3, add the pointed materialization receipt and the root
 installed-file map alongside Functions and CLI. The exact producer command's
 retained stdout must equal that receipt. Every install must complete before the
 producer starts, and all subsequent runtime commands and audits must start after
@@ -212,3 +223,56 @@ Windows copy or clean-install check is not a Linux result: selected Ubuntu CI mu
 exercise actual npm-created POSIX links, launcher argument behavior and the
 0755-preparation to 0600-extraction boundary. Fixed file/byte custody limits are
 unchanged and must be checked before any full replay fixture is constructed.
+
+## Source-approved Node and npm identity
+
+Current runtime-proof schema 3 requires `business31ToolchainIdentity.cjs` and
+the fixed `business31ToolchainProfiles.json` data file. The independently selected
+verifier V, source M and decision-custody commit must contain identical regular
+profile-data bytes; a runtime record cannot select another approval file or
+provide its own trusted hashes. The JSON stays non-executable source data outside
+the descriptor code-producer map; existing complete-source M-to-S and exact
+custody-delta checks cannot change its path. The helper is an exact executing
+producer and must appear in descriptor, closure and capture-session bindings.
+
+The checked-in profile population is deliberately empty. Therefore real business
+runtime qualification is closed until a separately reviewed, provenance-backed
+profile is enrolled in source. This preparation change does not enable release,
+choose a deployment source or approve the current computer's tools. Synthetic
+profiles in synthetic test repositories qualify only those tests.
+
+A finite platform/architecture profile binds the exact Node binary hash, policy
+Node/npm versions, fixed `bin/npm-cli.js` entry, and every regular file in the npm
+package including bundled dependencies. It records distribution digest/integrity
+and an independent provenance-review digest. Complete package inventory and
+package name/version must agree; extra, missing, changed or redirected files
+refuse. Executable-format inspection joins platform/architecture to the approved
+Node bytes; it is not independent publisher authentication. No current-host hash
+or reported version can create a profile automatically.
+
+Before interpreting command success, replay verifies these approved bytes, then
+requires original `node-version` and `npm-version` schema-1 process records. Their
+argv, executable, source, working directory and times are exact; stdout must be
+the expected version with one LF or CRLF line ending, and stderr must be empty. Node's probe precedes
+npm's probe, and both finish before every clean install. A future live collector
+must run the same identity check before executing either tool and preserve all
+original process results. Such a trusted collector and independently approved
+real toolchain profile are still prerequisites, not supplied by this verifier.
+
+Offline replay resolves retained original paths through the existing evidence
+access adapter and reads bytes only. It never executes extracted Node/npm files
+or treats their stripped executable modes as original preparation. Retained
+process output remains unauthenticated until a trusted controller establishes
+its origin; all operational-authority flags remain false.
+
+## Tested emitted outputs
+
+Runtime-proof schema 3 additionally binds `testedEmittedFiles` for the standalone
+Functions build, host tests and governed emulator tests. Each of these three
+process records uses schema 2 and points by `emittedFilesAfterSha256` to its
+complete emitted-file map. The standalone build must finish before host tests,
+which must finish before emulator tests. Both test commands rebuild internally,
+so all three recorded output maps must equal the final complete emitted bytes.
+Later rebuilding different bytes cannot inherit earlier test success. Other
+process records and tool version probes remain schema 1. Historical runtime
+proofs are not relabelled to satisfy these new joins.

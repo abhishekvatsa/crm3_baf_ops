@@ -5,6 +5,7 @@
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
 const execution = require("./business31ExecutionContract.cjs");
 const bins = require("./business31NpmBinMaterialization.cjs");
+const toolchain = require("./business31ToolchainIdentity.cjs");
 const originalPath = require("./backendRuntimeEvidenceAccess31.cjs").path;
 const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const PROFILE = "build31-exact-business-backend-v1";
@@ -16,13 +17,14 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
   "backendRuntimeReadbacks31.cjs", "backendRuntimeClosure31.cjs", "backendRuntimeControls31.cjs",
   "backendRuntimeExecution31.cjs", "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"].map(v => "tools/release/" + v));
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
-  "business31BackendAuthority.cjs", bins.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
+  "business31BackendAuthority.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
   ...execution.CONTROL_PRODUCERS, execution.CAPTURE].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
   firestoreIndexesDeployment: false, iamMutation: false, enforcementMutation: false,
   manualSchedulerExecution: false, clientConstruction: false, distribution: false});
 const AUDITS = Object.freeze(["root-full", "root-runtime", "functions-full", "functions-runtime", "cli-full"]);
+const OUTPUT_COMMANDS = Object.freeze(["functions-build", "functions-host-tests", "governed-emulator-tests"]);
 const COMMANDS = Object.freeze(["root-install", "functions-install", "cli-install", "functions-build",
   "functions-host-tests", "governed-emulator-tests", "dependency-compatibility", "installed-runtime"]);
 function need(value, message) { if (!value) throw new Error("Business31 preparation: " + message); }
@@ -137,10 +139,12 @@ function auditArguments31(name, npmCliFile) {
   return [npmCliFile, "audit", "--json", ...(name.endsWith("runtime") ? ["--omit=dev"] : []),
     ...(name.startsWith("functions") ? ["--prefix", "functions"] : name === "cli-full" ? ["--prefix", "tooling/firebase-cli"] : [])];
 }
-function verifyRecordedCommand31({record, source, kind, argv, root, runtime, start, end, evidenceDirectory}) {
+function verifyRecordedCommand31({record, source, kind, argv, root, runtime, start, end, evidenceDirectory, emittedFilesAfterSha256}) {
+  const outputBound = emittedFilesAfterSha256 !== undefined;
   keys(record, ["schemaVersion", "documentType", "kind", "sourceBefore", "sourceAfter", "executable", "executableSha256",
-    "argv", "cwd", "startedAtUtc", "completedAtUtc", "exitCode", "signal", "error", "stdout", "stderr"], "runtime command");
-  need(record.schemaVersion === 1 && record.documentType === "build31-business-original-process" && record.kind === kind &&
+    "argv", "cwd", "startedAtUtc", "completedAtUtc", "exitCode", "signal", "error", "stdout", "stderr", ...(outputBound ? ["emittedFilesAfterSha256"] : [])], "runtime command");
+  need(!outputBound || (OUTPUT_COMMANDS.includes(kind) && hex(emittedFilesAfterSha256, 64) && record.emittedFilesAfterSha256 === emittedFilesAfterSha256), "tested emitted population command binding differs");
+  need(record.schemaVersion === (outputBound ? 2 : 1) && record.documentType === "build31-business-original-process" && record.kind === kind &&
     same(record.sourceBefore, source) && same(record.sourceAfter, source) && record.executable === runtime.nodeExecutable.path &&
     record.executableSha256 === runtime.nodeExecutable.sha256 && same(record.argv, argv) && regular(record.cwd, true) === root &&
     record.exitCode === 0 && record.signal === null && record.error === null, "original successful exact command differs");
@@ -198,20 +202,41 @@ function verifyCandidateOutputs31({buildRoot, snapshot, compilerConfig, emittedF
   for (const file of expected) need(sha(readPrivate(evidenceDirectory, emittedFiles[file])) === actual[file.slice(4)], "retained M output bytes differ");
   return expected.length;
 }
+function verifyTestedEmittedFiles31({processRecords, testedEmittedFiles, buildRoot, snapshot, compilerConfig, evidenceDirectory}) {
+  keys(testedEmittedFiles, OUTPUT_COMMANDS, "tested emitted populations");
+  const expected = expectedEmittedFiles31(snapshot, compilerConfig), actual = fileMap31(path.join(buildRoot, "functions/lib"));
+  need(same(Object.keys(actual).map(file => "lib/" + file).sort(), expected), "final tested output population differs");
+  let previous;
+  for (const kind of OUTPUT_COMMANDS) {
+    const record = processRecords[kind];
+    need(record && record.kind === kind, "required output-producing command missing");
+    if (previous) need(instant(previous.completedAtUtc) <= instant(record.startedAtUtc), "required tests must follow completed build and earlier tests");
+    previous = record;
+    const bytes = readPrivate(evidenceDirectory, testedEmittedFiles[kind]), recorded = json(bytes);
+    need(record.schemaVersion === 2 && record.emittedFilesAfterSha256 === sha(bytes), "tested emitted population command binding differs");
+    need(same(Object.keys(recorded).sort(), expected), "tested emitted population differs");
+    for (const file of expected) need(hex(recorded[file], 64) && recorded[file] === actual[file.slice(4)], "tests did not exercise final emitted bytes");
+  }
+  // Both test scripts build again internally. Each command's retained output map
+  // must therefore equal the final candidate, not merely follow an earlier build.
+  return expected.length;
+}
 function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDirectory, afterCi, beforeDecision}) {
   const materialized = Object.hasOwn(snapshot.files,bins.SELF);
+  need(materialized && snapshot.files[toolchain.SELF]?.mode === "100644", "current runtime requires source-bound toolchain identity");
   const commands = materialized ? [...COMMANDS,"dependency-bin-materialization"] : COMMANDS;
   keys(proof, ["schemaVersion", "documentType", "profile", "source", "startedAtUtc", "completedAtUtc", "buildRoot", "runtime",
-    "commands", "audits", "emittedFiles", "installedDependencies", "installedFiles", ...(materialized ? ["binMaterialization"] : [])], "runtime proof");
-  need(proof.schemaVersion === (materialized ? 2 : 1) && proof.documentType === "build31-business-runtime-proof" && proof.profile === PROFILE &&
+    "commands", "audits", "emittedFiles", "installedDependencies", "installedFiles", "toolchainProbes", ...(materialized ? ["binMaterialization", "testedEmittedFiles"] : [])], "runtime proof");
+  need(proof.schemaVersion === (materialized ? 3 : 1) && proof.documentType === "build31-business-runtime-proof" && proof.profile === PROFILE &&
     same(proof.source, source), "runtime source/profile differs");
   need(instant(afterCi) <= instant(proof.startedAtUtc) && instant(proof.startedAtUtc) <= instant(proof.completedAtUtc) &&
     instant(proof.completedAtUtc) <= instant(beforeDecision), "runtime proof chronology differs");
   const buildRoot = regular(proof.buildRoot, true); verifyMaterializedSource31(buildRoot, snapshot);
   const runtime = proof.runtime;
-  keys(runtime, ["nodeVersion", "firebaseCliVersion", "nodeExecutable", "npmCliFile", "cliEntrypoint"], "runtime identity");
+  keys(runtime, ["nodeVersion", "npmVersion", "toolchainProfileId", "npmPackageRoot", "firebaseCliVersion", "nodeExecutable", "npmCliFile", "cliEntrypoint"], "runtime identity");
   const policy = json(repository.readBlob(source.commit, "release/production-release-policy.json"));
-  need(runtime.nodeVersion === policy.toolchain.nodeVersion && runtime.firebaseCliVersion === "15.22.4", "runtime versions differ from source policy");
+  need(runtime.firebaseCliVersion === "15.22.4", "runtime versions differ from source policy");
+  const approvedToolchain = toolchain.verifyToolchainIdentity31({runtime, source, snapshot, repository, policy});
   for (const binding of [runtime.nodeExecutable, runtime.npmCliFile, runtime.cliEntrypoint]) {
     keys(binding, ["path", "sha256"], "executable binding"); need(hex(binding.sha256, 64) && sha(fs.readFileSync(regular(binding.path))) === binding.sha256,
       "actual runtime executable bytes differ");
@@ -233,13 +258,24 @@ function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDire
   need(json(fs.readFileSync(path.join(buildRoot, "tooling/firebase-cli/node_modules/firebase-tools/package.json"))).version === "15.22.4", "installed CLI version differs");
   keys(proof.commands, commands, "command population"); keys(proof.audits, AUDITS, "audit population");
   const common = {source, root: buildRoot, runtime, start: proof.startedAtUtc, end: proof.completedAtUtc, evidenceDirectory};
+  keys(proof.toolchainProbes, ["node", "npm"], "toolchain version probes");
+  const probeRecords = {};
+  for (const kind of ["node", "npm"]) {
+    const record = json(readPrivate(evidenceDirectory, proof.toolchainProbes[kind])); probeRecords[kind] = record;
+    const output = verifyRecordedCommand31({...common, kind: kind + "-version", record, argv: toolchain.probeArguments31(kind, runtime)});
+    toolchain.verifyProbeOutput31(kind, output, approvedToolchain);
+  }
+  need(instant(probeRecords.node.completedAtUtc) <= instant(probeRecords.npm.startedAtUtc), "npm probe must follow approved Node probe");
   let installedStdout; const processRecords = {};
   for (const kind of commands) {
     const record = json(readPrivate(evidenceDirectory, proof.commands[kind])); processRecords[kind] = record;
-    const output = verifyRecordedCommand31({...common, kind, record, argv: commandArguments31(kind, runtime.npmCliFile.path,proof.buildRoot)});
+    const output = verifyRecordedCommand31({...common, kind, record, argv: commandArguments31(kind, runtime.npmCliFile.path,proof.buildRoot),
+      ...(materialized && OUTPUT_COMMANDS.includes(kind) ? {emittedFilesAfterSha256: proof.testedEmittedFiles?.[kind]?.sha256} : {})});
     if (kind === "installed-runtime") installedStdout = output.stdout;
     if (kind === "dependency-bin-materialization") need(output.stdout.equals(materializationBytes), "materialization receipt is not original command stdout");
   }
+  for (const kind of ["root-install", "functions-install", "cli-install"])
+    need(instant(probeRecords.npm.completedAtUtc) <= instant(processRecords[kind].startedAtUtc), "clean installs precede approved toolchain version probes");
   if (materialized) {
     const normalization=processRecords["dependency-bin-materialization"];
     for (const kind of ["root-install","functions-install","cli-install"])
@@ -263,9 +299,11 @@ function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDire
   need(regular(installed.path, true) === path.join(buildRoot, "functions"), "installed graph root differs");
   const expected = require("./clientBuildToolingCompatibility31.cjs").runtimeReachability(manifest, lock);
   const rows = require("./backendRuntimeProof31.cjs").verifyInstalledGraph31(installed, manifest, lock, expected);
+  if (materialized) verifyTestedEmittedFiles31({processRecords, testedEmittedFiles: proof.testedEmittedFiles, buildRoot, snapshot,
+    compilerConfig: json(repository.readBlob(source.commit, "functions/tsconfig.json")), evidenceDirectory});
   const emittedFileCount = verifyCandidateOutputs31({buildRoot, snapshot,
     compilerConfig: json(repository.readBlob(source.commit, "functions/tsconfig.json")), emittedFiles: proof.emittedFiles, evidenceDirectory});
-  return {buildRoot: proof.buildRoot, runtime, emittedFileCount, installedRuntimePathCount: rows.size};
+  return {buildRoot: proof.buildRoot, runtime, approvedToolchain, emittedFileCount, installedRuntimePathCount: rows.size};
 }
 
 function subtreeOid31(files, prefix) {
@@ -333,6 +371,7 @@ function verifyBusiness31BackendAuthority(options) {
   need(verifier.tree === trustedVerifier.tree && snapshot.parents.length === 2, "verifier tree/normal source merge differs");
   repository.requireAncestor(verifier.commit, sourceCommit); repository.requireAncestor(sourceCommit, custody.commit);
   verifyCustodyDelta31(snapshot, custody);
+  toolchain.verifyProfileSource31({repository, verifier, snapshot, custody});
   keys(trustedVerifier.files, PRODUCERS, "trusted producer population");
   for (const file of PRODUCERS) {
     const identity = verifier.files[file];
@@ -385,8 +424,8 @@ function verifyBusiness31BackendAuthority(options) {
     trustedClockAuthenticated: false, decisionCustodyTimestampAuthenticated: false,
     deploymentAuthorized: false, credentialAccessAuthorized: false, constructionAuthorized: false, distributionAuthorized: false});
 }
-module.exports = {PROFILE, DECISION_FILE, IMMUTABLE, PRODUCERS, SCOPE, AUDITS, COMMANDS,
+module.exports = {PROFILE, DECISION_FILE, IMMUTABLE, PRODUCERS, SCOPE, AUDITS, COMMANDS, OUTPUT_COMMANDS,
   verifyBusiness31BackendAuthority, validateDecision31, validateOwner31, ownerQuestion31, verifyStrictAudit31,
-  commandArguments31, auditArguments31, verifyRecordedCommand31, verifyCandidateOutputs31,
+  commandArguments31, auditArguments31, verifyRecordedCommand31, verifyCandidateOutputs31, verifyTestedEmittedFiles31,
   expectedEmittedFiles31, verifyMaterializedSource31, subtreeOid31, verifyCustodyDelta31, bindControlOriginals31,
   readPrivate, instant, fileMap31, verifyRuntimeProof31};
