@@ -47,6 +47,56 @@ closed-chain verification and every operational authority. The future trusted
 controller must establish those separate prerequisites from original evidence
 before any deployment or private-credential access.
 
+## Recorded execution and closure
+
+`business31ExecutionContract.cjs` binds the prepared source, intended package
+and ordered endpoint inputs, settled review and observer identity before the
+owner decision. Schema 2 decision/owner records additionally bind this exact
+contract. Schema 1 preparation records remain readable for their original
+scope and cannot authorize the schema 2 execution path.
+
+`business31BackendClosure.cjs` replays the recorded 13 callable, five event and
+one scheduler cohorts. It checks original command records, mutation requests
+and responses, actual uploaded ZIPs, controls and final readbacks using the
+unchanged runtime validators. Initiation and completion orders are independent;
+a concurrent request completion is not rewritten into an invented serial order.
+Its result measures recorded semantics and explicitly withholds authenticated
+owner/platform/clock, deployment, client construction and distribution authority.
+
+`captureBusiness31PreparedInputs.cjs`, `captureBusiness31PreparedHook.cjs` and
+`business31CaptureSession.cjs` retain prepared package inputs and the request
+transcript. The session enforces phase order and once-only use, refuses further
+work after failure, and restores only hooks that it still owns. A persistence
+failure or foreign hook change is retained as a failure, not reported as a
+successful deployment. Exact dependency hashes use the repository's canonical
+LF bytes; verification never normalizes or accepts alternate hashes.
+
+The capture-session tests use the installed Firebase hash, API and upload
+modules with a fresh synthetic Git repository and source ZIP, while HTTPS
+responses are supplied locally. They exercise the once-only 13/5/1 cohorts,
+all 25 original requests, separate initiation and completion order, lost-response
+refusal, and hook cleanup under persistence failures or foreign changes. This
+is local component integration: it does not invoke full Firebase preparation
+or a deployment child, authenticate an observer, owner or clock, or establish
+real cloud completion. Its measurement cannot substitute for original process
+receipts, authenticated controls or complete private closure replay.
+
+## Descriptor and original-path replay
+
+`business31PrivateDescriptor.cjs` verifies actual Git V/M/S identities, the
+complete producer population, finite metadata changes, historical closure and
+exact decision/closure pointer bytes. Its source-manifest commitment comes from
+an independent caller input. A matching digest does not authenticate the caller.
+
+`business31OriginalPathReplay.cjs` composes this boundary with the bounded bundle
+reader and the full business closure entrypoint. It requires the recorded
+original paths to be unavailable, verifies the complete extracted inventory,
+and resolves their unchanged identities through the existing relocation layer.
+It binds every executing helper before replay and checks retained bytes again
+afterward. Callback results, tokens and supplied success summaries cannot stand
+in for the original evidence. A local synthetic replay does not establish real
+cloud deployment or hosted credential isolation.
+
 ## Private bundle transport
 
 `privateEvidenceBundle31.cjs` contains shared bounded byte-custody, gzip-member,

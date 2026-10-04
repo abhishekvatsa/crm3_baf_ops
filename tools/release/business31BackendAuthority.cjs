@@ -3,6 +3,7 @@
 // The caller must independently authenticate its selected verifier/manifest and
 // human/platform records. This module deliberately cannot grant release authority.
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
+const execution = require("./business31ExecutionContract.cjs");
 const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const PROFILE = "build31-exact-business-backend-v1";
 const DECISION_FILE = "release/approvals/build31-business-backend-deployment-approval.json";
@@ -13,7 +14,8 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
   "backendRuntimeReadbacks31.cjs", "backendRuntimeClosure31.cjs", "backendRuntimeControls31.cjs",
   "backendRuntimeExecution31.cjs", "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"].map(v => "tools/release/" + v));
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
-  "business31BackendAuthority.cjs", "clientBuildToolingCompatibility31.cjs"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
+  "business31BackendAuthority.cjs", "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
+  ...execution.CONTROL_PRODUCERS, execution.CAPTURE].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
   firestoreIndexesDeployment: false, iamMutation: false, enforcementMutation: false,
@@ -43,14 +45,9 @@ function safeRelative(value) {
   return value;
 }
 function regular(value, directory = false) {
-  need(typeof value === "string" && path.isAbsolute(value), "absolute local path required");
-  const full = path.resolve(value); let current = path.parse(full).root;
-  for (const part of full.slice(current.length).split(path.sep).filter(Boolean)) {
-    current = path.join(current, part); need(!fs.lstatSync(current).isSymbolicLink(), "redirected local path");
-  }
-  const stat = fs.lstatSync(full);
-  need(directory ? stat.isDirectory() : stat.isFile(), "regular local object required"); return full;
+  return execution.physical(value, directory);
 }
+
 function pointer(value) {
   keys(value, ["file", "sha256", "bytes"], "private pointer"); safeRelative(value.file);
   need(hex(value.sha256, 64) && Number.isSafeInteger(value.bytes) && value.bytes >= 0 && value.bytes <= 64 * 1024 * 1024,
@@ -82,13 +79,16 @@ function verifyStrictAudit31(bytes) {
     need(report.metadata?.vulnerabilities?.[name] === 0, "audit count is not numeric zero");
   return true;
 }
-function ownerQuestion31(source) {
+function ownerQuestion31(source, executionContractSha256) {
+  if (executionContractSha256 !== undefined) { need(hex(executionContractSha256,64), "execution contract digest required");
+    return ownerQuestion31(source) + ` Exact execution contract SHA256: ${executionContractSha256}.`; }
   return `Authorize deployment of exact business backend ${source.commit} (tree ${source.tree}) to the existing 19 Functions in crm3-baf-ops-b8638/asia-south1, preserving Rules, indexes, IAM, App Check enforcement and scheduler controls, with no manual scheduler invocation, client signing or distribution?`;
 }
 function validateDecision31({decision, source, manifestSha256, nowUtc}) {
   keys(decision, ["schemaVersion", "documentType", "profile", "source", "sourceManifestSha256", "scope", "decidedAtUtc",
-    "recordedAtUtc", "executionWindow", "ownerAuthorization", "mainCi", "securityCi", "runtimeProof", "preflightPointers", "schedulerBaseline"], "decision");
-  need(decision.schemaVersion === 1 && decision.documentType === "build31-business-backend-deployment-decision" &&
+    "recordedAtUtc", "executionWindow", "ownerAuthorization", "mainCi", "securityCi", "runtimeProof", "preflightPointers", "schedulerBaseline",
+    ...(decision?.schemaVersion === 2 ? ["executionContract"] : [])], "decision");
+  need([1,2].includes(decision.schemaVersion) && decision.documentType === "build31-business-backend-deployment-decision" &&
     decision.profile === PROFILE && same(decision.source, source) && decision.sourceManifestSha256 === manifestSha256 &&
     same(decision.scope, SCOPE), "exact decision scope/source differs");
   keys(decision.executionWindow, ["notBeforeUtc", "notAfterUtc"], "window");
@@ -99,20 +99,23 @@ function validateDecision31({decision, source, manifestSha256, nowUtc}) {
   for (const name of ["ownerAuthorization", "mainCi", "securityCi", "runtimeProof", "schedulerBaseline"]) pointer(decision[name]);
   keys(decision.preflightPointers, ["controls", "functionFleet", "iamDependencies", "firestoreRulesAndIndexes"], "preflight population");
   for (const value of Object.values(decision.preflightPointers)) pointer(value);
+  if (decision.schemaVersion === 2) pointer(decision.executionContract);
   return {decided, recorded};
 }
-function validateOwner31({owner, original, source, decisionAtUtc, lastCiAtUtc}) {
-  keys(owner, ["schemaVersion", "documentType", "source", "scope", "authorizedAtUtc", "recordedAtUtc", "originalMessage"], "owner");
-  need(owner.schemaVersion === 1 && owner.documentType === "build31-business-source-specific-owner-record" &&
+function validateOwner31({owner, original, source, decisionAtUtc, lastCiAtUtc, executionContract}) {
+  const version = executionContract ? 2 : 1, extra = version === 2 ? ["executionContractSha256"] : [];
+  keys(owner, ["schemaVersion", "documentType", "source", "scope", "authorizedAtUtc", "recordedAtUtc", "originalMessage", ...extra], "owner");
+  need(owner.schemaVersion === version && owner.documentType === "build31-business-source-specific-owner-record" &&
     same(owner.source, source) && same(owner.scope, SCOPE), "owner source/scope differs"); pointer(owner.originalMessage);
   keys(original, ["schemaVersion", "documentType", "source", "question", "answer", "messageId", "conversationId",
-    "receivedAtUtc", "provenance", "humanIdentityMachineAuthenticated"], "original owner message");
-  need(original.schemaVersion === 1 && original.documentType === "retained-direct-human-production-deployment-instruction" &&
-    same(original.source, source) && original.question === ownerQuestion31(source) && original.answer === "Approve exact-source production backend deployment" &&
+    "receivedAtUtc", "provenance", "humanIdentityMachineAuthenticated", ...extra], "original owner message");
+  need(original.schemaVersion === version && original.documentType === "retained-direct-human-production-deployment-instruction" &&
+    same(original.source, source) && original.question === ownerQuestion31(source, executionContract?.sha256) && original.answer === "Approve exact-source production backend deployment" &&
     typeof original.messageId === "string" && original.messageId.trim().length > 0 && original.messageId.length <= 400 &&
     typeof original.conversationId === "string" && original.conversationId.trim().length > 0 && original.conversationId.length <= 400 &&
     original.provenance === "operator-retained-direct-human-message" && original.humanIdentityMachineAuthenticated === false,
     "retained original exact-source human instruction differs");
+  if (version === 2) need(owner.executionContractSha256 === executionContract.sha256 && original.executionContractSha256 === executionContract.sha256, "owner execution contract differs");
   need(instant(lastCiAtUtc) <= instant(original.receivedAtUtc) && instant(original.receivedAtUtc) === instant(owner.authorizedAtUtc) &&
     instant(owner.authorizedAtUtc) <= instant(owner.recordedAtUtc) && instant(owner.recordedAtUtc) <= instant(decisionAtUtc), "owner chronology differs");
 }
@@ -237,7 +240,7 @@ function verifyRuntimeProof31({proof, source, snapshot, repository, evidenceDire
   const rows = require("./backendRuntimeProof31.cjs").verifyInstalledGraph31(installed, manifest, lock, expected);
   const emittedFileCount = verifyCandidateOutputs31({buildRoot, snapshot,
     compilerConfig: json(repository.readBlob(source.commit, "functions/tsconfig.json")), emittedFiles: proof.emittedFiles, evidenceDirectory});
-  return {buildRoot, runtime, emittedFileCount, installedRuntimePathCount: rows.size};
+  return {buildRoot: proof.buildRoot, runtime, emittedFileCount, installedRuntimePathCount: rows.size};
 }
 
 function subtreeOid31(files, prefix) {
@@ -300,7 +303,7 @@ function verifyBusiness31BackendAuthority(options) {
   need(decisionPointer.file === DECISION_FILE && hex(decisionPointer.commit, 40) && hex(decisionPointer.sha256, 64), "exact decision custody required");
   // Bootstrap code is an independently selected unprivileged entry, not loaded
   // from a path named by candidate evidence. Its own byte binding is checked below.
-  const repository = require("./business31TrustedInput.cjs").openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256});
+  const repository = require("./business31TrustedInput.cjs").openTrustedGitRepository31({repositoryRoot: regular(repositoryRoot,true), gitExecutable: regular(gitExecutable), gitSha256});
   const verifier = repository.snapshot(trustedVerifier.commit), snapshot = repository.snapshot(sourceCommit), custody = repository.snapshot(decisionPointer.commit);
   need(verifier.tree === trustedVerifier.tree && snapshot.parents.length === 2, "verifier tree/normal source merge differs");
   repository.requireAncestor(verifier.commit, sourceCommit); repository.requireAncestor(sourceCommit, custody.commit);
@@ -314,7 +317,7 @@ function verifyBusiness31BackendAuthority(options) {
       sha(fs.readFileSync(regular(path.join(__dirname, path.basename(file))))) === digest.toUpperCase(), "executing producer differs from V");
   }
   for (const file of IMMUTABLE) need(repository.readBlob(IMMUTABLE_COMMIT, file).equals(repository.readBlob(verifier.commit, file)), "original immutable verifier changed");
-  const measurement = require("./business31SourceAdmission.cjs").verifyBusiness31Source({repositoryRoot, gitExecutable, gitSha256,
+  const measurement = require("./business31SourceAdmission.cjs").verifyBusiness31Source({repositoryRoot: regular(repositoryRoot,true), gitExecutable: regular(gitExecutable), gitSha256,
     sourceCommit, manifest: sourceManifest, trustedManifestSha256});
   const source = {commit: snapshot.commit, tree: snapshot.tree, functionsTree: subtreeOid31(snapshot.files, "functions")};
   const rawEnvelope = repository.readBlob(custody.commit, DECISION_FILE);
@@ -334,15 +337,24 @@ function verifyBusiness31BackendAuthority(options) {
   const lastCiAtUtc = [release.capturedAtUtc, security.capturedAtUtc].sort((a, b) => instant(a) < instant(b) ? -1 : instant(a) > instant(b) ? 1 : 0).at(-1);
   const owner = json(readPrivate(evidenceDirectory, decision.ownerAuthorization));
   validateOwner31({owner, original: json(readPrivate(evidenceDirectory, owner.originalMessage)), source,
-    decisionAtUtc: decision.decidedAtUtc, lastCiAtUtc});
+    decisionAtUtc: decision.decidedAtUtc, lastCiAtUtc, executionContract: decision.executionContract});
   const runtime = verifyRuntimeProof31({proof: json(readPrivate(evidenceDirectory, decision.runtimeProof)), source, snapshot, repository,
     evidenceDirectory, afterCi: lastCiAtUtc, beforeDecision: decision.decidedAtUtc});
+  let executionInputs = null;
+  if (decision.schemaVersion === 2) {
+    const before = repository.snapshot(execution.BASELINE), original = json(readPrivate(evidenceDirectory,owner.originalMessage));
+    executionInputs = execution.verifyExecutionContract31({contract:json(readPrivate(evidenceDirectory,decision.executionContract)),decision,
+      proof:json(readPrivate(evidenceDirectory,decision.runtimeProof)),source,
+      baseline:{commit:before.commit,tree:before.tree,functionsTree:subtreeOid31(before.files,"functions")},
+      manifestSha256:measurement.trustedManifestSha256,ownerReceivedAtUtc:original.receivedAtUtc,
+      read:p=>readPrivate(evidenceDirectory,p),instant,mergeParents:snapshot.parents,release,security});
+  }
   const controls = bindControlOriginals31({decision, source, evidenceDirectory, lastCiAtUtc});
   // The complete original control meanings, deployment captures and closure must
   // be replayed by the separate closed-chain adapter. Bound bytes alone cannot pass it.
   return Object.freeze({schemaVersion: 1, documentType: "build31-business-preparation-measurement", profile: PROFILE,
     source, sourceMeasurement: measurement, verifierCommit: verifier.commit, decisionPointer, originalDecision: envelope.privateRecord,
-    executionWindow: decision.executionWindow, runtime, controlOriginals: controls,
+    executionWindow: decision.executionWindow, runtime, controlOriginals: controls, executionInputs,
     preparationOnly: true, sourceAndRecordBindingsVerified: true, rawControlSemanticsReplayed: false,
     privateClosedChainVerified: false, platformIdentityAuthenticated: false, humanIdentityAuthenticated: false,
     trustedClockAuthenticated: false, decisionCustodyTimestampAuthenticated: false,
