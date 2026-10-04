@@ -7,6 +7,8 @@ const SELF = "tools/release/business31NpmBinMaterialization.cjs";
 const ROOTS = Object.freeze({root:"node_modules",functions:"functions/node_modules",cli:"tooling/firebase-cli/node_modules"});
 const MARKER = "#!/bin/sh\n# build31 measured npm Node launcher v1\n";
 const npmBinMember = (name,platform=process.platform) => { const member=platform==="win32"?name.toLowerCase():name;return member.startsWith(".bin/") || member.includes("/node_modules/.bin/"); };
+// Default Windows PATHEXT names plus the supported PowerShell interpreter path.
+const WINDOWS_NODE_SHADOW = /^node(?:\.(?:com|exe|bat|cmd|vbs|vbe|js|jse|wsf|wsh|msc|ps1))?$/i;
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const need = (value,message) => { if(!value) throw Error("Business31 npm materialization: " + message); };
 function own(map,name,value) { need(!Object.hasOwn(map,name),"duplicate inventory member"); Object.defineProperty(map,name,{value,enumerable:true,writable:true,configurable:true}); }
@@ -93,7 +95,7 @@ function windowsShimDescription31(root,file) {
   need(directory===".bin" || directory.endsWith("/node_modules/.bin"),"Windows npm shim must be a direct bin member");
   // The standard templates prefer a sibling Node before PATH. No package bin
   // may shadow that interpreter. External PATH/COMSPEC trust is a caller concern.
-  need(!/^node(?:\.(?:exe|cmd|ps1))?$/i.test(name),"Windows npm shim interpreter shadow refused");
+  need(!WINDOWS_NODE_SHADOW.test(name),"Windows npm shim interpreter shadow refused");
   const candidates=[file,...(/\.(?:cmd|ps1)$/.test(file)?[file.replace(/\.(?:cmd|ps1)$/,"")]:[])],matches=[];
   for(const base of candidates) {
     try {
@@ -120,8 +122,28 @@ function windowsShimDescription31(root,file) {
   need(matches.length===1,"Windows npm shim has no unique canonical package-owned triplet");
   return matches[0];
 }
+// Empty interpreter-path directories affect npm's local-Node branches but have no
+// file digest. Inspect names before type branching, including during remote replay.
+function verifyWindowsInterpreterPaths31(root,preparing=false) {
+  root=physical(root,true);let directories=0;
+  function walk(directory) {
+    need(++directories<=100000,"Windows npm shim directory population exceeds bound");
+    for(const entry of fs.readdirSync(directory,{withFileTypes:true})) {
+      const full=path.join(directory,entry.name),file=portable(path.relative(root,full).split(path.sep).join("/"));
+      const bin=path.posix.dirname(file).toLowerCase();
+      need(!((bin===".bin"||bin.endsWith("/node_modules/.bin"))&&WINDOWS_NODE_SHADOW.test(entry.name)),"Windows npm shim interpreter shadow refused");
+      // Preparation leaves nonreserved aliases to scan31's unchanged validation.
+      // Replay requires regular members. Neither phase follows a redirect here.
+      if(entry.isSymbolicLink()){need(preparing,"Windows npm shim redirected member refused");continue;}
+      if(entry.isDirectory())walk(physical(full,true));
+      else need(entry.isFile(),"Windows npm shim unsupported filesystem member");
+    }
+  }
+  walk(root);
+}
 function scan31(root,allowAliases=false) {
-  root=physical(root,true);const files={},aliases=[];let count=0,total=0;
+  root=physical(root,true);if(allowAliases&&process.platform==="win32")verifyWindowsInterpreterPaths31(root,true);
+  const files={},aliases=[];let count=0,total=0;
   function walk(directory) { for(const entry of fs.readdirSync(directory,{withFileTypes:true}).sort((a,b)=>a.name.localeCompare(b.name))) {
     const full=path.join(directory,entry.name),file=portable(path.relative(root,full).split(path.sep).join("/"));
     if(entry.isDirectory()) { physical(full,true);walk(full);continue; }
@@ -168,6 +190,7 @@ function verifyNpmBinMaterialization31({receipt,buildRoot,nodeExecutable,produce
   need(executablePlatform31(nodeBytes)===receipt.platform,"materializer platform differs from bound Node executable");
   for(const [kind,directory] of Object.entries(ROOTS)) {
     const row=receipt.roots[kind],map=fileMaps[kind],root=physical(path.join(buildRoot,directory),true);
+    if(receipt.platform==="win32")verifyWindowsInterpreterPaths31(root);
     exact(row,["directory","beforeFilesSha256","afterFilesSha256","fileCount","aliases"],"materialized root");
     need(row.directory===directory&&Number.isSafeInteger(row.fileCount)&&row.fileCount===Object.keys(map).length&&row.fileCount<=100000&&sha(canonical(map))===row.afterFilesSha256&&Array.isArray(row.aliases)&&row.aliases.length<=row.fileCount,"materialized population differs");
     need(receipt.platform!=="win32"||row.aliases.length===0,"Windows receipt cannot claim POSIX alias normalization");

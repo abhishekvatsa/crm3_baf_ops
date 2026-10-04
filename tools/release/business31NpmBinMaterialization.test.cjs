@@ -99,6 +99,13 @@ test("schema3 original-path replay retains command JSON with originals absent an
     return authority.verifyRuntimeProof31({...f.input,proof:JSON.parse(retained)});
   });assert.equal(result.installedRuntimePathCount,1);assert.equal(result.buildRoot,original);assert.equal(fs.existsSync(original),false);assert.deepEqual(fs.readFileSync(path.join(extracted.root,"build/.dart_tool/retained-runtime-proof.json")),proofBytes);
   for(const member of rawMembers){const file=path.join(destination,member.file);assert.equal(fs.lstatSync(file).isFile(),true);assert.equal(fs.lstatSync(file).isSymbolicLink(),false);if(process.platform!=="win32")assert.equal(fs.statSync(file).mode&0o777,0o600);}
+  if(process.platform==="win32") {
+    const before=api.scan31(path.join(extracted.root,"build")).files;
+    fs.mkdirSync(path.join(extracted.root,"build/node_modules/.bin/NoDe.ExE"),{recursive:true});
+    assert.deepEqual(api.scan31(path.join(extracted.root,"build")).files,before);
+    assert.throws(()=>access.runRelocated31({privateBundleRoot:extracted.root,relocation,members:Object.entries(inventory).map(([file,b])=>({path:file,...b})),evidenceDirectory:f.input.evidenceDirectory,verifierFiles},()=>authority.verifyRuntimeProof31(f.input)),/Windows npm shim interpreter shadow/);
+    assert.equal(fs.existsSync(original),false);assert.deepEqual(fs.readFileSync(path.join(extracted.root,"build/.dart_tool/retained-runtime-proof.json")),proofBytes);
+  }
 });
 
 test("complete finite Node shebang rejects unsupported flags hidden beyond the old truncation",()=>{
@@ -256,3 +263,74 @@ for(const [label,mutate,pattern] of [
   ["wrong recorded npm version despite approved bytes",f=>{const p=f.input.proof.toolchainProbes,r=f.read(p.npm);r.stdout=f.retain("99.0.0\n");p.npm=f.retain(r);},/probe stdout/],
   ["install before version probes finish",f=>{const k="root-install",r=f.read(f.input.proof.commands[k]);r.startedAtUtc="2026-01-02T02:02:00Z";f.input.proof.commands[k]=f.retain(r);},/probe|install/],
 ])test("schema3 full runtime refuses "+label,()=>{const f=runtimeFixture();mutate(f);assert.throws(()=>authority.verifyRuntimeProof31(f.input),pattern);});
+
+
+// Metadata-only shadows are absent from ordinary file maps. Retain the map from
+// before insertion so receipt refusal cannot accidentally depend on caller rescans.
+function windowsShadowOptions(root,receipt,fileMaps) {
+  let nodeExecutable=receipt.nodeExecutable;
+  if(process.platform!=="win32") {
+    const pe=Buffer.alloc(256);pe.write("MZ");pe.writeUInt32LE(64,0x3c);pe.writeUInt32LE(0x4550,64);pe.writeUInt16LE(0x8664,68);pe.writeUInt16LE(1,70);pe.writeUInt16LE(112,84);pe.writeUInt16LE(2,86);pe.writeUInt16LE(0x20b,88);
+    const executable=put(make("shadow-pe-header"),"node.exe",pe);nodeExecutable={path:executable,sha256:api.sha(pe)};receipt={...receipt,nodeExecutable};
+  }
+  return {receipt,buildRoot:root,nodeExecutable,producerSha256:api.sha(fs.readFileSync(require.resolve("./business31NpmBinMaterialization.cjs"))),fileMaps};
+}
+const shadowPrefixes=["node_modules/","functions/node_modules/","tooling/firebase-cli/node_modules/","functions/node_modules/outer/node_modules/"];
+const shadowNames=["node",..."COM EXE BAT CMD VBS VBE JS JSE WSF WSH MSC ps1".split(" ").map(extension=>"NoDe."+extension)];
+const windowsShadowApi=process.platform==="win32"?api:platformBranch("win32");
+test("Windows interpreter occupancy preparation rejects root nested and case-varied empty directories",()=>{
+  for(const prefix of shadowPrefixes)for(const name of shadowNames) {
+    const root=regularTree();windowsPackage(root,{prefix});const before=maps(root);fs.mkdirSync(path.join(root,prefix,".bin",name));
+    const install=path.join(root,prefix.startsWith("functions/")?api.ROOTS.functions:prefix.startsWith("tooling/")?api.ROOTS.cli:api.ROOTS.root);
+    assert.throws(()=>windowsShadowApi.scan31(install,true),/Windows npm shim interpreter shadow/);
+    assert.throws(()=>windowsShadowApi.materializeNpmBins31({buildRoot:root}),/Windows npm shim interpreter shadow/);assert.deepEqual(maps(root),before);
+  }
+});
+test("Windows interpreter occupancy receipt rejects later empty directories with original maps on any replay host",()=>{
+  for(const prefix of shadowPrefixes)for(const name of shadowNames) {
+    const root=regularTree();windowsPackage(root,{prefix});const receipt=windowsShadowApi.materializeNpmBins31({buildRoot:root}),fileMaps=maps(root),options=windowsShadowOptions(root,receipt,fileMaps);
+    assert.equal(api.verifyNpmBinMaterialization31(options).recordedMaterializationVerified,true);
+    fs.mkdirSync(path.join(root,prefix,".bin",name));assert.deepEqual(maps(root),fileMaps);
+    assert.throws(()=>api.verifyNpmBinMaterialization31(options),/Windows npm shim interpreter shadow/);
+    assert.throws(()=>platformBranch("linux").verifyNpmBinMaterialization31(options),/Windows npm shim interpreter shadow/);
+  }
+});
+test("Windows interpreter occupancy refuses file nonempty directory and junction without following redirects",()=>{
+  for(const prefix of [shadowPrefixes[0],shadowPrefixes[3]])for(const type of ["file","nonempty-directory","junction"]) {
+    const root=regularTree();windowsPackage(root,{prefix});const receipt=windowsShadowApi.materializeNpmBins31({buildRoot:root}),options=windowsShadowOptions(root,receipt,maps(root)),shadow=path.join(root,prefix,".bin/NoDe.ExE");
+    let target;
+    if(type==="file")fs.writeFileSync(shadow,"inert shadow; never executed\n");
+    else if(type==="nonempty-directory"){fs.mkdirSync(shadow);fs.writeFileSync(path.join(shadow,"retained.txt"),"unchanged\n");}
+    else {target=make("shadow-junction-target");put(target,"retained.txt","unchanged\n");fs.symlinkSync(target,shadow,process.platform==="win32"?"junction":"dir");}
+    assert.throws(()=>windowsShadowApi.materializeNpmBins31({buildRoot:root}),/Windows npm shim interpreter shadow/);
+    assert.throws(()=>api.verifyNpmBinMaterialization31(options),/Windows npm shim interpreter shadow/);
+    if(target){assert.equal(fs.lstatSync(shadow).isSymbolicLink(),true);assert.equal(fs.readFileSync(path.join(target,"retained.txt"),"utf8"),"unchanged\n");}
+  }
+});
+test("Windows interpreter occupancy rejects shadows in otherwise empty bin directories including alternate casing",()=>{
+  for(const file of ["node_modules/.BIN/NoDe","functions/node_modules/outer/NODE_MODULES/.bin/NODE.EXE","tooling/firebase-cli/node_modules/outer/node_modules/.bIn/node.cmd"]) {
+    const root=regularTree(),receipt=windowsShadowApi.materializeNpmBins31({buildRoot:root}),fileMaps=maps(root),options=windowsShadowOptions(root,receipt,fileMaps);
+    fs.mkdirSync(path.join(root,file),{recursive:true});assert.deepEqual(maps(root),fileMaps);
+    assert.throws(()=>windowsShadowApi.materializeNpmBins31({buildRoot:root}),/Windows npm shim interpreter shadow/);
+    assert.throws(()=>api.verifyNpmBinMaterialization31(options),/Windows npm shim interpreter shadow/);
+  }
+});
+test("Windows interpreter occupancy preserves no-shadow and unrelated empty package-directory controls",()=>{
+  const root=regularTree();for(const prefix of shadowPrefixes)windowsPackage(root,{prefix});windowsPackage(root,{packageName:"node-gyp",bin:"node-gyp"});
+  const receipt=windowsShadowApi.materializeNpmBins31({buildRoot:root}),fileMaps=maps(root),options=windowsShadowOptions(root,receipt,fileMaps);
+  for(const file of ["node_modules/probe/node","functions/node_modules/outer/node_modules/probe/Node.Exe","tooling/firebase-cli/node_modules/.bin/node-other"])fs.mkdirSync(path.join(root,file),{recursive:true});
+  assert.deepEqual(maps(root),fileMaps);assert.deepEqual(windowsShadowApi.materializeNpmBins31({buildRoot:root}),receipt);
+  assert.equal(api.verifyNpmBinMaterialization31(options).recordedMaterializationVerified,true);
+  assert.equal(platformBranch("linux").verifyNpmBinMaterialization31(options).recordedMaterializationVerified,true);
+});
+
+test("Windows interpreter occupancy rejects canonical package triplets for default interpreter extensions",()=>{
+  const acceptedPreparation=[],acceptedDescription=[];
+  for(const name of shadowNames) {
+    const root=regularTree(),row=windowsPackage(root,{packageName:"interpreter-shadow",bin:name});
+    try{windowsShadowApi.materializeNpmBins31({buildRoot:root});acceptedPreparation.push(name);}catch(error){assert.match(String(error),/Windows npm shim interpreter shadow/);}
+    try{api.windowsShimDescription31(path.join(root,"node_modules"),".bin/"+name);acceptedDescription.push(name);}catch(error){assert.match(String(error),/Windows npm shim interpreter shadow/);}
+  }
+  console.log("canonical interpreter extension refusals",JSON.stringify({nativePlatform:process.platform,acceptedPreparation,acceptedDescription}));
+  assert.deepEqual(acceptedPreparation,[]);assert.deepEqual(acceptedDescription,[]);
+});
