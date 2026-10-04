@@ -1250,6 +1250,52 @@
       "reArmCondition": "Re-arm when the line ceiling is exceeded, observed responsibilities change, a required boundary marker disappears, a forbidden responsibility returns, or the named regression no longer passes."
     },
     {
+      "path": "lib/features/inspections/presentation/inspection_programmes_editors.dart",
+      "disposition": "bounded-exception",
+      "owner": "Architecture / inspections",
+      "purpose": "Owns definition and programme draft editing, synchronous validation and snapshot capture, and pending capability-check interaction and route lifecycles.",
+      "responsibilities": [
+        "presentation",
+        "serialization",
+        "state-orchestration"
+      ],
+      "authorityBoundary": "Reads actor-bound capability providers before returning new v2 drafts. UI hints and snapshots grant no authority; origin checks, durable campaign preparation and server command admission remain outside this editor part.",
+      "persistenceOwnership": "Owns only transient controllers, selections and draft payload serialization. Providers own reads, and command and durable submission services own persistence; no direct database or callable access is admitted here.",
+      "transactionOwnership": "Owns no database or cross-source transaction. Cancelling or refusing a capability check returns no submitted draft and does not alter saved work.",
+      "rationale": "The reviewed save-race repair keeps snapshot creation and pending focus, pointer and route guards beside the existing controller owners in this already-extracted editor part. A new library split during this concurrency repair would add lifecycle movement without reducing persistence or transaction ownership. The measured 1,209-line ceiling admits only this reviewed state; this is a current source classification, not new CI closure or operational authority.",
+      "regressionTests": [
+        "test/inspection_authoring_availability_test.dart",
+        "test/a02_architecture_boundary_contract_test.dart"
+      ],
+      "maximumLines": 1209,
+      "requiredMarkers": [
+        "part of 'inspection_programmes_screen.dart';",
+        "class _InspectionDefinitionEditorState",
+        "class _InspectionCampaignEditorState",
+        "class _InspectionPendingForm",
+        "final draft = _InspectionDefinitionDraft(",
+        "final draft = _InspectionCampaignDraft(",
+        "readingFields = readInspectionReadingFields(",
+        "if (_checkingCapability) return;",
+        "await _requireNewInspectionV2Authoring(context, ref)",
+        "route?.isCurrent != true",
+        "child: ExcludeFocus(",
+        "absorbing: checkingCapability"
+      ],
+      "forbiddenMarkers": [
+        "FirebaseFirestore",
+        "FirebaseAuth",
+        "Isar.getInstance",
+        "writeTxn(",
+        "runTransaction(",
+        "HttpsCallable",
+        "httpsCallable(",
+        "jsonEncode(",
+        "jsonDecode("
+      ],
+      "reArmCondition": "Re-arm if the exact line ceiling is exceeded, responsibilities or required markers change, a forbidden persistence or transport marker appears, or the named regression fails. Further growth requires focused presentation extraction preserving each draft owner and its pending lifecycle. Capability completion must not mix later edits, submit after cancellation or pop another route; new source still needs its own admitted CI evidence."
+    },
+    {
       "path": "lib/features/inspections/presentation/inspection_programmes_screen.dart",
       "disposition": "bounded-exception",
       "owner": "Architecture / inspections",

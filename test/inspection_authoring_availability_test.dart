@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:crm3_baf_ops/features/assets/data/asset_registry_model.dart';
+import 'package:crm3_baf_ops/features/inspections/presentation/inspection_reading_contract_editor.dart';
 
 import 'package:crm3_baf_ops/core/persistence/durable_submission.dart';
 import 'package:crm3_baf_ops/features/inspections/services/inspection_campaign_submission_controller.dart';
@@ -38,17 +40,22 @@ Map<String, Object?> response([bool enabled = true]) => {
     if (enabled) inspectionV2AuthoringCapability,
   ],
 };
-InspectionDefinition definition({bool multi = true}) => InspectionDefinition(
-  id: 'definition',
+InspectionDefinition definition({
+  bool multi = true,
+  String id = 'definition',
+  String title = 'Existing labelled inspection',
+  List<InspectionReadingField>? fields,
+}) => InspectionDefinition(
+  id: id,
   version: 1,
   status: InspectionDefinitionStatus.active,
   updatedAt: DateTime.utc(2026),
   frozen: FrozenInspectionDefinition(
-    id: 'definition',
+    id: id,
     version: 1,
     schemaVersion: multi ? 2 : 1,
     code: 'CHECK',
-    title: 'Existing labelled inspection',
+    title: title,
     description: 'Check the furnace.',
     assetTypeKeys: const ['furnace'],
     assetClassIds: const ['class-furnace'],
@@ -61,13 +68,14 @@ InspectionDefinition definition({bool multi = true}) => InspectionDefinition(
     preconditions: const [],
     requiresChargeNo: false,
     readingFields: multi
-        ? const [
-            InspectionReadingField(
-              id: 'checked',
-              label: 'Checked?',
-              valueType: InspectionValueType.boolean,
-            ),
-          ]
+        ? fields ??
+              const [
+                InspectionReadingField(
+                  id: 'checked',
+                  label: 'Checked?',
+                  valueType: InspectionValueType.boolean,
+                ),
+              ]
         : const [],
   ),
 );
@@ -76,6 +84,43 @@ class NoSavedCampaign extends Fake
     implements InspectionCampaignSubmissionController {
   @override
   Future<DurableSubmission?> restore() async => null;
+}
+
+AssetInstanceRecord asset(int number) => AssetInstanceRecord(
+  id: 'furnace-$number',
+  assetClassId: 'class-furnace',
+  assetClassCode: 'FURNACE',
+  assetClassName: 'Furnaces',
+  assetNumber: number,
+  name: 'Furnace $number',
+  serviceState: AssetServiceState.values.first,
+  ownershipStatus: AssetOwnershipStatus.confirmed,
+  status: AssetHierarchyStatus.active,
+  activeComponentCount: 0,
+  version: 1,
+  createdAt: DateTime.utc(2026),
+  updatedAt: DateTime.utc(2026),
+  lastMutationId: 'seed',
+);
+
+class CaptureCampaign extends NoSavedCampaign {
+  CaptureCampaign(this.prepared);
+  final List<Map<String, Object?>> prepared;
+  @override
+  Future<DurableSubmission> prepare({
+    required String originActorUid,
+    required Map<String, Object?> payload,
+    required String definitionCode,
+    required String definitionTitle,
+    String? commandId,
+    String? campaignId,
+  }) async {
+    expect(originActorUid, 'admin');
+    expect(definitionCode, 'CHECK');
+    prepared.add(payload);
+    // Observe the real editor boundary without a durable store or backend call.
+    throw StateError('Captured at the durable preparation boundary');
+  }
 }
 
 void main() {
@@ -209,6 +254,8 @@ void main() {
     required Future<void> Function(String) check,
     List<InspectionDefinition> definitions = const [],
     List<WorkflowCommand>? sent,
+    List<Map<String, Object?>>? prepared,
+    List<AssetInstanceRecord> assets = const [],
   }) async {
     await tester.binding.setSurfaceSize(const Size(1100, 1300));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -243,14 +290,14 @@ void main() {
             ),
           ),
           inspectionCampaignSubmissionControllerProvider.overrideWith(
-            (ref) => NoSavedCampaign(),
+            (ref) => prepared == null
+                ? NoSavedCampaign()
+                : CaptureCampaign(prepared),
           ),
           pendingInspectionCampaignSubmissionProvider.overrideWith(
             (ref) async => null,
           ),
-          allAssetInstancesProvider.overrideWith(
-            (ref) => Stream.value(const []),
-          ),
+          allAssetInstancesProvider.overrideWith((ref) => Stream.value(assets)),
           assetClassesProvider.overrideWith((ref) => Stream.value([cls])),
           assetHierarchyNodesProvider(
             'class-furnace',
@@ -470,4 +517,300 @@ void main() {
       expect(contract.containsKey('valueType'), isFalse);
     },
   );
+  TextEditingController controller(WidgetTester tester, String label) => tester
+      .widget<TextFormField>(find.widgetWithText(TextFormField, label))
+      .controller!;
+
+  Future<void> openDefinition(WidgetTester tester) async {
+    await tap(tester, find.byTooltip('Definition actions'));
+    await tap(tester, find.text('Edit as new version'));
+  }
+
+  Future<void> openCampaign(WidgetTester tester) async {
+    await tap(tester, find.text('Active'));
+    await tap(tester, find.widgetWithText(FilledButton, 'New'));
+    await fill(tester, 'Purpose of this programme', 'Original purpose');
+    await fill(tester, 'Physical positions (optional)', 'Left, Right');
+    await fill(tester, 'Opening reason', 'Original opening reason');
+  }
+
+  testWidgets('deferred definition save submits one complete snapshot', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    var calls = 0;
+    final sent = <WorkflowCommand>[];
+    final choices = ['Pass', 'Fail'];
+    await mount(
+      tester,
+      definitions: [
+        definition(
+          fields: [
+            InspectionReadingField(
+              id: 'result',
+              label: 'Result',
+              valueType: InspectionValueType.choice,
+              choiceValues: choices,
+            ),
+          ],
+        ),
+      ],
+      sent: sent,
+      check: (_) async {
+        if (++calls > 1) await gate.future;
+      },
+    );
+    await openDefinition(tester);
+    await fill(tester, 'Field-facing title', 'Captured title');
+    await fill(tester, 'Preconditions · one per line', 'Isolated\nCooled');
+    await fill(tester, 'Governance reason', 'Captured reason');
+    await tap(tester, find.text('Save version'));
+    expect(calls, 2);
+    expect(sent, isEmpty);
+    // Deliberate controller/model mutation also tests snapshot isolation even
+    // when a callback already retained by another widget is invoked directly.
+    controller(tester, 'Field-facing title').text = 'Later title';
+    controller(tester, 'Preconditions · one per line').text =
+        'Later prerequisite';
+    controller(tester, 'Governance reason').text = 'Later reason';
+    choices[0] = 'Changed choice';
+    tester
+        .widget<InspectionReadingContractEditor>(
+          find.byType(InspectionReadingContractEditor),
+        )
+        .onChanged(const [
+          InspectionReadingField(
+            id: 'other',
+            label: 'Different reading',
+            valueType: InspectionValueType.date,
+          ),
+        ]);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(sent, hasLength(1));
+    expect(sent.single.payload['reason'], 'Captured reason');
+    final payload = sent.single.payload['definition'] as Map;
+    expect(payload['title'], 'Captured title');
+    expect(payload['preconditions'], ['Isolated', 'Cooled']);
+    expect(payload['readingFields'], [
+      const InspectionReadingField(
+        id: 'result',
+        label: 'Result',
+        valueType: InspectionValueType.choice,
+        choiceValues: ['Pass', 'Fail'],
+      ).toMap(),
+    ]);
+    expect(payload['assetClassIds'], ['class-furnace']);
+    expect(payload['schemaVersion'], 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('deferred campaign save submits one complete snapshot', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    var calls = 0;
+    final prepared = <Map<String, Object?>>[];
+    final original = definition();
+    final other = definition(id: 'other', title: 'Other contract');
+    await mount(
+      tester,
+      definitions: [original, other],
+      prepared: prepared,
+      assets: [asset(101), asset(102)],
+      check: (_) async {
+        if (++calls > 1) await gate.future;
+      },
+    );
+    await openCampaign(tester);
+    await tap(tester, find.text('Open programme'));
+    expect(calls, 2);
+    expect(prepared, isEmpty);
+    controller(tester, 'Purpose of this programme').text = 'Later purpose';
+    controller(tester, 'Opening reason').text = 'Later reason';
+    tester
+        .widget<DropdownButtonFormField<InspectionDefinition>>(
+          find.byType(DropdownButtonFormField<InspectionDefinition>),
+        )
+        .onChanged!(other);
+    tester
+        .widget<FilterChip>(find.widgetWithText(FilterChip, 'Operations'))
+        .onSelected!(false);
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(prepared, hasLength(1));
+    expect(prepared.single, {
+      'definitionId': 'definition',
+      'definitionVersion': 1,
+      'purpose': 'Original purpose',
+      'assetTypeKey': 'furnace',
+      'assetClassId': 'class-furnace',
+      'populationMode': 'assetInstances',
+      'hostAssetClassId': null,
+      'targetAssetNumbers': [101, 102],
+      'expectedPopulation': 4,
+      'physicalPositionLabels': ['Left', 'Right'],
+      'baselineCampaignId': null,
+      'observerRoleKeys': [
+        'operations',
+        'refractory',
+        'seniorElectrical',
+        'seniorInstrumentation',
+        'seniorMechanical',
+      ],
+      'reason': 'Original opening reason',
+    });
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final campaign in [false, true]) {
+    testWidgets(
+      'pending ${campaign ? 'campaign' : 'definition'} blocks editing and duplicate save; denial retains draft',
+      (tester) async {
+        final gate = Completer<void>();
+        var calls = 0;
+        final sent = <WorkflowCommand>[];
+        final prepared = <Map<String, Object?>>[];
+        await mount(
+          tester,
+          definitions: [definition()],
+          sent: sent,
+          prepared: prepared,
+          assets: [asset(101)],
+          check: (_) async {
+            if (++calls == 2) await gate.future;
+          },
+        );
+        if (campaign) {
+          await openCampaign(tester);
+        } else {
+          await openDefinition(tester);
+        }
+        final fieldLabel = campaign
+            ? 'Purpose of this programme'
+            : 'Field-facing title';
+        await fill(tester, fieldLabel, 'Preserve this draft');
+        final action = find.widgetWithText(
+          FilledButton,
+          campaign ? 'Open programme' : 'Save version',
+        );
+        final savedCallback = tester.widget<FilledButton>(action).onPressed!;
+        await tap(tester, action);
+        savedCallback();
+        await tester.pump();
+        expect(calls, 2, reason: 'The in-flight guard is synchronous.');
+        final editable = find.descendant(
+          of: find.widgetWithText(TextFormField, fieldLabel),
+          matching: find.byType(EditableText),
+        );
+        expect(
+          tester.widget<EditableText>(editable).focusNode.canRequestFocus,
+          isFalse,
+        );
+        final nested = campaign
+            ? find.widgetWithText(TextButton, 'Choose')
+            : find.byKey(const ValueKey('inspection-contract-edit-checked'));
+        await tester.ensureVisible(nested);
+        await tester.tap(nested, warnIfMissed: false);
+        await tester.pumpAndSettle();
+        expect(find.byType(AlertDialog), findsOneWidget);
+        gate.completeError(
+          const CommandCapabilityException('unavailable', 'Check failed'),
+        );
+        await tester.pumpAndSettle();
+        expect(sent, isEmpty);
+        expect(prepared, isEmpty);
+        expect(controller(tester, fieldLabel).text, 'Preserve this draft');
+        expect(
+          tester.widget<EditableText>(editable).focusNode.canRequestFocus,
+          isTrue,
+        );
+        expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+        await fill(tester, fieldLabel, 'Reviewed retry');
+        await tap(tester, action);
+        expect(campaign ? prepared.length : sent.length, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'cancel pending ${campaign ? 'campaign' : 'definition'} does not submit after capability returns',
+      (tester) async {
+        final gate = Completer<void>();
+        var calls = 0;
+        final sent = <WorkflowCommand>[];
+        final prepared = <Map<String, Object?>>[];
+        await mount(
+          tester,
+          definitions: [definition()],
+          sent: sent,
+          prepared: prepared,
+          assets: [asset(101)],
+          check: (_) async {
+            if (++calls > 1) await gate.future;
+          },
+        );
+        if (campaign) {
+          await openCampaign(tester);
+        } else {
+          await openDefinition(tester);
+        }
+        await tap(
+          tester,
+          find.text(campaign ? 'Open programme' : 'Save version'),
+        );
+        await tap(tester, find.widgetWithText(TextButton, 'Cancel'));
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(sent, isEmpty);
+        expect(prepared, isEmpty);
+        expect(find.byType(AlertDialog), findsNothing);
+        expect(find.byType(InspectionProgrammesScreen), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('capability completion cannot pop a different current route', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    var calls = 0;
+    final sent = <WorkflowCommand>[];
+    await mount(
+      tester,
+      definitions: [definition()],
+      sent: sent,
+      check: (_) async {
+        if (++calls == 2) await gate.future;
+      },
+    );
+    await openDefinition(tester);
+    await tap(tester, find.text('Save version'));
+    final context = tester.element(find.byType(AlertDialog));
+    unawaited(
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Unrelated dialog'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Dismiss unrelated'),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Unrelated dialog'), findsOneWidget);
+    expect(sent, isEmpty);
+    await tap(tester, find.text('Dismiss unrelated'));
+    expect(find.text('Save version'), findsOneWidget);
+    await tap(tester, find.text('Save version'));
+    expect(sent, hasLength(1));
+    expect(tester.takeException(), isNull);
+  });
 }
