@@ -74,6 +74,20 @@ function verifyMutationResponse31(evidenceDirectory,responsePointer,bindingPoint
   need(bodyText===response.bodyText,"derived response body differs from retained wire response");
   return response;
 }
+// Version3 records the live guard's samples, not the earlier measurement clock.
+// Historical records lack this evidence and never gain late-settlement permission.
+function verifyMutationInitiation31(record,window) {
+  need(record.schemaVersion===3 && record.error===null,"mutation live initiation evidence required");
+  const start=t(record.startedAtUtc),admitted=t(record.requestAdmittedAtUtc),outbound=t(record.firstOutboundAtUtc),completed=t(record.completedAtUtc);
+  need(t(window.notBeforeUtc)<=start && start<=admitted && admitted<=outbound && outbound<=t(window.notAfterUtc) && outbound<=completed,"mutation live initiation/window differs");
+}
+function verifyClosureExecutionWindow31({closure,executionWindow,nowUtc}) {
+  // Only initiation is deadline-bound. Exact raw mutation samples are mandatory
+  // in replayRecordedCohorts31; settlement, readbacks and custody keep their order.
+  need(t(executionWindow.notBeforeUtc)<=t(closure.startedAtUtc) && t(closure.startedAtUtc)<=t(executionWindow.notAfterUtc) &&
+    t(closure.startedAtUtc)<=t(closure.completedAtUtc) && t(closure.completedAtUtc)<=t(closure.recordedAtUtc) &&
+    t(closure.recordedAtUtc)<=t(nowUtc),"closure chronology/window differs");
+}
 function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,archivePointer}) {
   const names = phase === "fleet" ? ctx.cohorts.schedulers : ctx.cohorts[phase];
   need(Array.isArray(records) && records.length === names.length + 2,"complete generate/upload/update transcript required");
@@ -83,11 +97,12 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
   guard.preparedMatches(capture); let previous=t(capture.completedAtUtc); const completions=[]; let uploadedAt=null, justGeneratedAt=null; const expectedKinds=["generate-upload","source-upload",...names.map(()=>"function-update")];
   for (let index=0;index<records.length;index++) {
     const r = read(ctx.evidenceDirectory,records[index]);
-    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","completedAtUtc","request","wireBody","response","responseBinding","liveObservation","error"],"mutation transcript");
-    // Schema1 has no hash-bound observed status/body sidecar and is deliberately refused.
-    need(r.schemaVersion===2 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
+    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","requestAdmittedAtUtc","firstOutboundAtUtc","completedAtUtc","request","wireBody","response","responseBinding","liveObservation","error"],"mutation transcript");
+    // Schema1 lacks response-wire proof; schema2 lacks live forwarding times. Both are refused.
+    need(r.schemaVersion===3 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
       (index<2?r.name===null:names.includes(r.name)) && Number.isSafeInteger(r.completionSequence) && r.completionSequence>=1 && r.completionSequence<=records.length && r.error===null,"mutation order/completion differs");
     need(previous<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(command.completedAtUtc),"mutation interval differs"); previous=t(r.startedAtUtc);
+    verifyMutationInitiation31(r,ctx.decision.executionWindow);
     if(index===1) need(t(justGeneratedAt)<=t(r.startedAtUtc),"upload started before generation completed");
     if(index>=2) need(uploadedAt<=t(r.startedAtUtc),"function update preceded completed ZIP upload");
     const observed=read(ctx.evidenceDirectory,r.liveObservation);
@@ -136,6 +151,7 @@ function replayRecordedCohorts31({ctx,closure,baseline,intent,archiveExpectedFil
     eq(r.source,ctx.source,"cohort source differs"); eq(r.approvalPointer,ctx.approvalPointer,"cohort decision differs"); eq(r.functions,names,"cohort functions differ");
     need(r.executionContractSha256===ctx.decision.executionContract.sha256,"cohort execution contract differs"); covered.push(...names);
     need(previous<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(closure.completedAtUtc),"cohort order differs"); previous=t(r.completedAtUtc);
+    need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"cohort initiation outside execution window");
     need(r.executable===ctx.runtime.nodeExecutable && r.nodeSha256===ctx.runtime.nodeSha256 && r.cwd===ctx.proof.buildRoot,"cohort runtime/original cwd differs");
     eq(r.arguments,["--no-global-search-paths",path.join(r.cwd,x.CAPTURE),"--config",path.join(ctx.evidenceDirectory,"deployment-attempts",ctx.approvalPointer.sha256,phase,"context.json")],"cohort capture command differs");
     eq(r.cliArguments,["deploy","--only",names.map(n=>"functions:"+n).join(","),"--project","crm3-baf-ops-b8638","--non-interactive"],"cohort CLI differs");
@@ -155,6 +171,7 @@ function replayRecordedCohorts31({ctx,closure,baseline,intent,archiveExpectedFil
       approvalSha256:ctx.approvalPointer.sha256,decisionAtUtc:ctx.decision.decidedAtUtc,phase,cohorts:ctx.cohorts,endpointRuntimeHashes:labels,requiredProducerBindings:ctx.runtime.requiredProducerBindings,installedControlRuntime:ctx.runtime.installedControlRuntime});
     neutral.verifyCohortControlChronology31(r,capture,current);
     need(t(capture.startedAtUtc)>=t(r.startedAtUtc) && t(capture.completedAtUtc)<=t(r.completedAtUtc),"capture interval differs");
+    need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(capture.startedAtUtc) && t(capture.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"preparation initiation outside execution window");
     const replay=replayMutationTranscript31({ctx,phase,command:r,capture,baseline,records:r.mutations,archivePointer:r.archive});
     keys(completion,["schemaVersion","documentType","phase","source","approvalPointer","capture","archive","mutations","events","completedAtUtc","exitCode","error"],"completion");
     need(completion.schemaVersion===1 && completion.documentType==="build31-business-instrumented-completion" && completion.phase===phase && completion.exitCode===0 && completion.error===null,"instrumented completion missing");
@@ -197,8 +214,7 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
   eq(closure.source,prepared.source,"closure source differs");eq(closure.baseline,contract.baseline,"closure F baseline differs");eq(closure.approvalPointer,prepared.decisionPointer,"closure decision differs");
   need(closure.executionContractSha256===decision.executionContract.sha256 && envelope.recordedAtUtc===closure.recordedAtUtc,"closure approved contract/custody differs");
   eq(closure.scope,{functionsChanged:true,businessLogicChanged:true,rulesChanged:false,indexesChanged:false,iamChanged:false,enforcementChanged:false,manualSchedulerExecution:false,businessDataMutation:false},"closure mutation scope differs");
-  need(t(decision.executionWindow.notBeforeUtc)<=t(closure.startedAtUtc) && t(closure.startedAtUtc)<=t(closure.completedAtUtc) && t(closure.completedAtUtc)<=t(decision.executionWindow.notAfterUtc) &&
-    t(closure.completedAtUtc)<=t(closure.recordedAtUtc) && t(closure.recordedAtUtc)<=t(authorityOptions.nowUtc),"closure chronology/window differs");
+  verifyClosureExecutionWindow31({closure,executionWindow:decision.executionWindow,nowUtc:authorityOptions.nowUtc});
   const policy=json(repository.readBlob(prepared.source.commit,"release/function-fleet-runtime-identity-policy.json"));
   const cohorts=x.cohortsFromPolicy(policy), historicalBytes=repository.readBlob(prepared.source.commit,"release/evidence/build30-current-source-backend-deployment-closure.json");
   need(sha(historicalBytes)==="3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45","historical F closure changed");
@@ -245,4 +261,4 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
     platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
     privateHostedReplayAuthenticated:false,deploymentAuthorized:false,credentialAccessAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={CLOSURE_FILE,PHASES,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohorts31,verifyBusiness31BackendClosure};
+module.exports={CLOSURE_FILE,PHASES,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohorts31,verifyBusiness31BackendClosure};

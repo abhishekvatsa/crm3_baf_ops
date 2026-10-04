@@ -63,7 +63,7 @@ a concurrent request completion is not rewritten into an invented serial order.
 Its result measures recorded semantics and explicitly withholds authenticated
 owner/platform/clock, deployment, client construction and distribution authority.
 
-Successful mutation replay requires **mutation schema 2**. Each mutation's
+Successful mutation replay requires **mutation schema 3**. Each mutation's
 `responseBinding` pointer binds the retained raw response bytes, content encoding,
 completion state, byte count and observed HTTP status. Replay verifies those
 immutable pointers, requires a completed successful response, and compares both
@@ -72,11 +72,25 @@ response used by the transport guard. Encoded and decoded response bodies retain
 the capture writer's fixed 16 MiB limits; empty successful upload bodies remain
 valid. A derived success response alone is insufficient.
 
-Legacy schema 1 mutation transcripts are explicitly refused by this closure
-path. Their unreferenced sidecars are never reconstructed or promoted into the
-new proof. Historical source snapshots, failed attempts and synthetic replay
-receipts remain unchanged and qualified to their original verifier and scope;
-they do not prove the new schema 2 path or authenticate deployment.
+Each schema 3 mutation also records `requestAdmittedAtUtc` immediately before
+the original HTTP request and `firstOutboundAtUtc` immediately before its first
+underlying write or end. These are samples from the live guard's wall clock,
+not the earlier injectable record clock. Replay requires both samples, in order
+between record initiation and response completion, inside the exact decision's
+execution window. Closure, cohort and preparation starts remain inside that
+window. An already-admitted request may settle afterward; process completion,
+final readbacks, after-controls, recording and custody retain their existing
+chronology checks. A later request or cohort cannot inherit that settlement
+permission. Subsequent bytes of the same admitted request are settlement, not a
+new request; the guard does not claim it can undo bytes already sent.
+
+Legacy schema 1 and 2 mutation transcripts are explicitly refused by this
+closure path. Schema 1 lacks response-wire binding; schema 2 lacks these live
+forwarding samples. Missing evidence is never reconstructed or promoted.
+Historical source snapshots, failed attempts and synthetic replay receipts
+remain unchanged and qualified to their original verifier and scope; they do
+not prove the new schema 3 path or authenticate deployment. This mutation
+version does not change decision, runtime-proof or descriptor schema versions.
 
 `captureBusiness31PreparedInputs.cjs`, `captureBusiness31PreparedHook.cjs` and
 `business31CaptureSession.cjs` retain prepared package inputs and the request

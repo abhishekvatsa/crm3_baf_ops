@@ -11,7 +11,7 @@ const SOURCE={commit:"a".repeat(40),tree:"b".repeat(40),functionsTree:"f".repeat
 const resource="projects/crm3-baf-ops-b8638/locations/asia-south1/functions/";
 const ZIP=Buffer.from("synthetic retained ZIP bytes; archive parser qualified separately"),labels=Object.fromEntries(cohorts.fleet.map(n=>[n,hash(Buffer.from(n))]));
 const baseline=Object.fromEntries(cohorts.fleet.map(n=>[n,{name:resource+n,labels:{"firebase-functions-hash":"prior",preserved:"synthetic"},buildConfig:{source:{storageSource:{bucket:"old",object:"old",generation:"1"}}},serviceConfig:{maxInstanceCount:20}}]));
-function fixture(t,window){const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-capture-host-"));let tick=0;const epoch=Date.now(),clock=()=>new Date(epoch+tick++).toISOString();const writer=new BusinessCapture31({evidenceDirectory:dir,approvalPointer:APPROVAL,source:SOURCE,cohorts,now:clock});if(window!==false)writer.bindExecutionWindow(window??{notBeforeUtc:new Date(epoch-1000).toISOString(),notAfterUtc:new Date(epoch+3600000).toISOString()});t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return {dir,writer,clock};}
+function fixture(t,window){const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-capture-host-"));const epoch=Date.now(),clock=()=>new Date().toISOString();const writer=new BusinessCapture31({evidenceDirectory:dir,approvalPointer:APPROVAL,source:SOURCE,cohorts,now:clock});if(window!==false)writer.bindExecutionWindow(window??{notBeforeUtc:new Date(epoch-1000).toISOString(),notAfterUtc:new Date(epoch+3600000).toISOString()});t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return {dir,writer,clock};}
 function start(f,phase="callables") {const capture={schemaVersion:1,documentType:"firebase-cli-prepared-backend-hash-inputs",actualCliPreparationCaptured:true,approvalPointer:APPROVAL,phase,source:SOURCE,sourceArchiveHash:"synthetic",endpointRuntimeHashes:labels,archiveSha256:hash(ZIP),archiveBytes:ZIP.length,completedAtUtc:f.clock()};return f.writer.startCohort({phase,capture,archive:ZIP,guardInputs:{baselineFunctions:baseline,projectNumber:"123456789"}});}
 function read(f,p){return JSON.parse(fs.readFileSync(path.join(f.dir,p.file)));}
 function injected(f,options={}) {
@@ -64,7 +64,11 @@ test("malformed UTF8 response is never replacement-decoded",()=>{assert.throws((
 test("unsupported compression and decompression expansion refuse",()=>{assert.throws(()=>decodeResponse(Buffer.from("x"),"unknown"));assert.throws(()=>decodeResponse(zlib.gzipSync(Buffer.alloc(LIMITS.response+1)),"gzip"));});
 test("unchanged original helpers are reused by identity",()=>{const original=require(path.join(__dirname,"captureBackendRuntimePreparedInputs31.cjs"));const candidate=require(modulePath);assert.equal(candidate.captureActualPreparedInputs31,original.captureActualPreparedInputs31);assert.equal(candidate.readCurrentControlResponse31,original.readCurrentControlResponse31);});
 
-test("nested credential-refresh request/response is excluded from mutation capture",async t=>{const f=fixture(t);const {result:r,requests}=await all(f,"callables",{nestedCredential:true});assert.equal(r.complete,true);assert.equal(r.mutations.length,15);assert.equal(requests.filter(v=>v.url==="https://oauth2.googleapis.com/token").length,15);const text=f.writer.allBindings.map(p=>fs.readFileSync(path.join(f.dir,p.file)).toString()).join("\n");assert.equal(text.includes("SECRET_REFRESH_TOKEN_BODY"),false);assert.equal(text.includes("oauth2.googleapis.com"),false);});
+test("nested credential-refresh request/response is excluded from mutation capture",async t=>{const f=fixture(t);const {result:r,requests}=await all(f,"callables",{nestedCredential:true});assert.equal(r.complete,true);assert.equal(r.mutations.length,15);assert.equal(requests.filter(v=>v.url==="https://oauth2.googleapis.com/token").length,15);const retained=f.writer.allBindings.map(p=>fs.readFileSync(path.join(f.dir,p.file)));
+ const text=retained.map(bytes=>bytes.toString()).join("\n");assert.equal(text.includes("SECRET_REFRESH_TOKEN_BODY"),false);
+ // Check retained evidence bytes for leakage; this is not URL host authorization.
+ const retainedBytes=Buffer.concat(retained.flatMap((bytes,index)=>index?[Buffer.from("\n"),bytes]:[bytes]));
+ assert.equal(retainedBytes.indexOf(Buffer.from("oauth2.googleapis.com","utf8")),-1);});
 test("wire mutation is stopped by unchanged transport before any body is forwarded",async t=>{const f=fixture(t),s=start(f),env=injected(f,{changedWire:true});try{await assert.rejects(firstTwo(f,env,s));const r=f.writer.finishCohort();assert.equal(r.complete,false);const upload=read(f,r.mutations[1]);assert.equal(upload.wireBody.bytes,0);assert.equal(upload.error.requestComplete,false);assert.equal(env.requests[1].bytes.length,0);}finally{env.restore();}});
 test("stale live observation prevents the original network request",async t=>{const f=fixture(t),s=start(f),env=injected(f,{observeLive:async()=>({observedAtUtc:"2026-01-01T00:00:00.000Z",completedAtUtc:"2026-01-01T00:00:00.000Z"})});try{await assert.rejects(firstTwo(f,env,s));assert.equal(env.requests.length,0);assert.equal(f.writer.finishCohort().complete,false);}finally{env.restore();}});
 test("duplicate update cannot create a second transport or complete the cohort",async t=>{const f=fixture(t),s=start(f),env=injected(f);try{const cli=await firstTwo(f,env,s);await update(cli,cohorts.callables[0]);await assert.rejects(update(cli,cohorts.callables[0]),/retry forbidden/);assert.equal(env.requests.length,3);assert.equal(f.writer.finishCohort().complete,false);}finally{env.restore();}});
@@ -82,7 +86,7 @@ function deadlineFixture(t){
  globalThis.Date=TestDate;t.after(()=>{globalThis.Date=RealDate;});
  const window={notBeforeUtc:new RealDate(at-1000).toISOString(),notAfterUtc:new RealDate(end).toISOString()};
  const f=fixture(t,window);f.writer.now=()=>new Date().toISOString();f.clock=f.writer.now;
- return {...f,expire:()=>{at=end+1;},window};
+ return {...f,expire:()=>{at=end+1;},advance:ms=>{at+=ms;},window};
 }
 function generate(env){const c=new env.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"});return c.request({method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",body:null});}
 for(const delay of ["observer","persistence","client","body"]){
@@ -98,7 +102,7 @@ for(const delay of ["observer","persistence","client","body"]){
    assert.equal(env.requests.length,delay==="body"?1:0);assert.equal(env.requests.reduce((n,r)=>n+r.bytes.length,0),0);
    assert.equal(f.writer.active.pending,0);assert.equal(f.writer.failed,true);
    const result=f.writer.finishCohort();assert.equal(result.complete,false);
-   for(const p of result.mutations.filter(Boolean)){const record=read(f,p);assert.equal(record.schemaVersion,2);assert.equal(record.response,null);assert.ok(record.error);}
+   for(const p of result.mutations.filter(Boolean)){const record=read(f,p);assert.equal(record.schemaVersion,3);assert.equal(record.response,null);assert.ok(record.error);}
   }finally{fs.writeFileSync=originalWrite;env.restore();}
  });
 }
@@ -132,5 +136,18 @@ for(const [name,edit]of [["missing",d=>delete d.executionWindow],["extra",d=>d.e
 test("deadline binding: changed decision bytes refuse before window binding",t=>{const f=boundDecisionFixture(t);fs.appendFileSync(path.join(f.dir,"decision.json")," ");assert.throws(()=>require("./captureBusiness31PreparedHook.cjs").bindIntent31(f));assert.throws(()=>f.writer.assertExecutionWindow(),/bound decision/);});
 test("deadline binding: missing live window refuses activation",t=>{const f=fixture(t,false);assert.throws(()=>start(f),/bound decision execution window/);assert.equal(f.writer.active,null);});
 test("deadline settlement: a request begun within window may settle after expiry without fake rollback",async t=>{
- const f=deadlineFixture(t);start(f);const env=injected(f,{beforeResponse:f.expire});try{await generate(env);assert.equal(env.requests.length,1);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);const record=read(f,result.mutations[0]);assert.equal(record.schemaVersion,2);assert.equal(read(f,record.response).httpStatus,200);assert.equal(record.error,null);assert.ok(record.startedAtUtc<=f.window.notAfterUtc&&record.completedAtUtc>f.window.notAfterUtc);}finally{env.restore();}
+ const f=deadlineFixture(t);start(f);const env=injected(f,{beforeResponse:f.expire});try{await generate(env);assert.equal(env.requests.length,1);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);const record=read(f,result.mutations[0]);assert.equal(record.schemaVersion,3);require("./business31BackendClosure.cjs").verifyMutationInitiation31(record,f.window);assert.equal(read(f,record.response).httpStatus,200);assert.equal(record.error,null);assert.ok(record.startedAtUtc<=f.window.notAfterUtc&&record.completedAtUtc>f.window.notAfterUtc);}finally{env.restore();}
+});
+
+
+test("first outbound sample is real guard time after Client and body delays",async t=>{
+ const f=deadlineFixture(t);start(f);const env=injected(f,{beforeTransport:async()=>{await Promise.resolve();f.advance(100);},beforeBody:()=>f.advance(100),beforeResponse:f.expire});
+ try{await generate(env);const record=read(f,f.writer.finishCohort().mutations[0]);assert.equal(Date.parse(record.requestAdmittedAtUtc)-Date.parse(record.startedAtUtc),100);assert.equal(Date.parse(record.firstOutboundAtUtc)-Date.parse(record.requestAdmittedAtUtc),100);assert.ok(record.completedAtUtc>record.firstOutboundAtUtc);require("./business31BackendClosure.cjs").verifyMutationInitiation31(record,f.window);}finally{env.restore();}
+});
+
+
+for(const field of ["requestAdmittedAtUtc","firstOutboundAtUtc"])test("live boundary refuses prepopulated "+field+" and drains settled capture",async t=>{
+ const f=deadlineFixture(t);start(f);const prepopulate=()=>{f.writer.active.records[0].record[field]=f.clock();};
+ const env=injected(f,field==="requestAdmittedAtUtc"?{beforeTransport:async()=>prepopulate()}:{beforeBody:prepopulate});
+ try{await assert.rejects(generate(env),/second mutation transport|already recorded/);assert.equal(env.requests.length,field==="requestAdmittedAtUtc"?0:1);assert.equal(env.requests.reduce((n,r)=>n+r.bytes.length,0),0);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);assert.ok(read(f,result.mutations[0]).error);}finally{env.restore();}
 });

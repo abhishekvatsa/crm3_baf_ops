@@ -20,6 +20,7 @@ const ancestor=commit([]), left=commit([ancestor]), right=git(["commit-tree",tre
 const source={commit:M,tree,functionsTree:"3".repeat(40)}, baseline={commit:x.BASELINE,tree:"4".repeat(40),functionsTree:"5".repeat(40)};
 const cohorts={callables:Array.from({length:13},(_,i)=>"call"+String(i).padStart(2,"0")),events:Array.from({length:5},(_,i)=>"event"+i),schedulers:["scheduled" ]};cohorts.fleet=[...cohorts.callables,...cohorts.events,...cohorts.schedulers].sort();
 const T=n=>new Date(Date.UTC(2026,0,2,2,0,n)).toISOString();
+const executionWindow={notBeforeUtc:T(100),notAfterUtc:T(700)};
 function ci(kind,id,pr){return {schemaVersion:1,evidenceType:kind==="release"?"github-exact-main-release-gate":"github-exact-main-codeql",repository:"abhishekvatsa/crm3_baf_ops",sourceCommit:M,sourceTree:tree,capturedAtUtc:T(50),pullRequest:pr,run:{id,run_attempt:1,repository:{full_name:"abhishekvatsa/crm3_baf_ops"},head_sha:M,head_branch:"main",event:"push",path:kind==="release"?".github/workflows/release-gate.yml":".github/workflows/codeql.yml",status:"completed",conclusion:"success",created_at:T(10),updated_at:T(40)},jobs:{total_count:(kind==="release"?old.RELEASE_JOBS:old.SECURITY_JOBS).length,jobs:(kind==="release"?old.RELEASE_JOBS:old.SECURITY_JOBS).map((name,i)=>({id:id*100+i,run_id:id,run_attempt:1,head_sha:M,name,status:"completed",conclusion:"success",completed_at:T(30)}))}};}
 const issue="https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/issues/999",request={id:1,issue_url:issue,body:"Review "+right,created_at:T(-20)},response={id:2,issue_url:issue,body:"No major issues. **Reviewed commit:** `"+right+"`",created_at:T(-10),user:{login:"chatgpt-codex-connector[bot]"},performed_via_github_app:{slug:"chatgpt-codex-connector"}};
 const pr={number:999,merged:true,merge_commit_sha:M,merged_at:T(0),head:{sha:right},base:{ref:"main",repo:{full_name:"abhishekvatsa/crm3_baf_ops"}}};
@@ -36,11 +37,11 @@ function mutationFixture(phase="callables",endpointLabels=labels) {
  const names=phase==="fleet"?cohorts.schedulers:cohorts[phase], baselineFunctions=Object.fromEntries(cohorts.fleet.map(name=>[name,{name:resource+name,buildConfig:{runtime:"nodejs22",entryPoint:name,source:{storageSource:{bucket:"old",object:"old",generation:"1"}}},labels:{"firebase-functions-hash":"b".repeat(40),preserved:"yes"},serviceConfig:{maxInstanceCount:20,environmentVariables:{CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK:"false"}}}]));
  const baselineRaw={controls:{project:{bodyText:'{"projectNumber":"123"}'}}}, baseline={baselineFunctions,raw:baselineRaw,scheduler:{}};
  const capture={sourceArchiveHash:checked.sourceArchiveHash,endpointRuntimeHashes:endpointLabels,archiveSha256:archive.sha256,archiveBytes:archive.bytes,completedAtUtc:T(110)};
- const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime,cohorts,liveApproval};const command={completedAtUtc:T(250)};const records=[];
+ const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime,cohorts,liveApproval,decision:{executionWindow}};const command={completedAtUtc:T(250)};const records=[];
  function append(kind,name,client,options,wire,responseBody){
   const index=records.length,start=112+index*4,bodyText=typeof responseBody==="string"?responseBody:JSON.stringify(responseBody);
   const responseRaw=retain(Buffer.from(bodyText)),responseBinding=retain({responseRaw,contentEncoding:null,responseComplete:true,retainedBytes:responseRaw.bytes,httpStatus:200});
-  records.push(retain({schemaVersion:2,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),completedAtUtc:T(start+3),request:retain({client,request:options}),wireBody:retain(wire),response:retain({httpStatus:200,bodyText}),responseBinding,liveObservation:retain(observation(start)),error:null}));
+  records.push(retain({schemaVersion:3,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),requestAdmittedAtUtc:T(start+2),firstOutboundAtUtc:T(start+2),completedAtUtc:T(start+3),request:retain({client,request:options}),wireBody:retain(wire),response:retain({httpStatus:200,bodyText}),responseBinding,liveObservation:retain(observation(start)),error:null}));
  }
  const location={bucket:"synthetic",object:"source",generation:"2"},uploadUrl="https://storage.googleapis.com/synthetic-"+phase+"?proof=synthetic";
  append("generate-upload",null,{urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"},{method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",queryParams:{},body:null},Buffer.alloc(0),{uploadUrl,storageSource:location});
@@ -74,7 +75,7 @@ test("parallel updates retain initiation order and independently reversed comple
  const f=mutationFixture("events"), count=f.records.length;
  // Start in reverse endpoint order. Complete in opposite order with overlap.
  const updates=f.records.slice(2).reverse().map(j);
- updates.forEach((r,i)=>{r.sequence=i+3;r.completionSequence=count-i;r.startedAtUtc=T(130+i);r.completedAtUtc=T(160-i);r.liveObservation=retain(observation(120+i));f.records[i+2]=retain(r);});
+ updates.forEach((r,i)=>{r.sequence=i+3;r.completionSequence=count-i;r.startedAtUtc=T(130+i);r.requestAdmittedAtUtc=T(130+i);r.firstOutboundAtUtc=T(130+i);r.completedAtUtc=T(160-i);r.liveObservation=retain(observation(120+i));f.records[i+2]=retain(r);});
  const r=replay(f);assert.deepEqual(r.events.filter(e=>e.kind==="function-update").map(e=>e.sequence),[7,6,5,4,3]);
 });
 
@@ -135,13 +136,13 @@ function outerFixture(){
  const hashInput={schemaVersion:1,documentType:"firebase-cli-approved-intended-hash-inputs",codebase:"default",source,sourceBefore:source,sourceAfter:source,...i};
  const endpointLabels=neutral.endpointRuntimeHashes31({sourceArchiveHash:checked.sourceArchiveHash,inputs:hashInput,runtime:rtime,names:cohorts.fleet,source});
  const approvalPointer={commit:M,file:a.DECISION_FILE,sha256:"A".repeat(64)},executionContract=retain({synthetic:true});
- const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime:rtime,cohorts,liveApproval,approvalPointer,decision:{executionContract,decidedAtUtc:T(100)},proof:{buildRoot:repo},producerBindings:{synthetic:"not-authenticated"}};
+ const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime:rtime,cohorts,liveApproval,approvalPointer,decision:{executionContract,decidedAtUtc:T(100),executionWindow},proof:{buildRoot:repo},producerBindings:{synthetic:"not-authenticated"}};
  const outer={commands:{},startedAtUtc:T(101),completedAtUtc:T(699),endpointRuntimeHashes:endpointLabels};let baseline;
  const controlPairs={};
  ["callables","events","fleet"].forEach((phase,phaseIndex)=>{
   const f=mutationFixture(phase,endpointLabels),delta=phaseIndex*200,names=phase==="fleet"?cohorts.schedulers:cohorts[phase];baseline??=f.baseline;
   const move=value=>new Date(Date.parse(value)+delta*1000).toISOString();
-  const records=f.records.map(p=>{const row=j(p),ob=j(row.liveObservation);ob.observedAtUtc=move(ob.observedAtUtc);ob.completedAtUtc=move(ob.completedAtUtc);row.startedAtUtc=move(row.startedAtUtc);row.completedAtUtc=move(row.completedAtUtc);row.liveObservation=retain(ob);return retain(row);});
+  const records=f.records.map(p=>{const row=j(p),ob=j(row.liveObservation);ob.observedAtUtc=move(ob.observedAtUtc);ob.completedAtUtc=move(ob.completedAtUtc);row.startedAtUtc=move(row.startedAtUtc);row.requestAdmittedAtUtc=move(row.requestAdmittedAtUtc);row.firstOutboundAtUtc=move(row.firstOutboundAtUtc);row.completedAtUtc=move(row.completedAtUtc);row.liveObservation=retain(ob);return retain(row);});
   const captured={...hashInput,documentType:"firebase-cli-prepared-backend-hash-inputs",...f.capture,phase,actualCliPreparationCaptured:true,source,sourceBefore:source,sourceAfter:source,startedAtUtc:T(105+delta),completedAtUtc:T(110+delta),approvalPointer,instrumentationProducerSha256:rtime.instrumentationProducerSha256};
   const capture=retain(captured),pair=rawPair();pair.after.raw.startedAtUtc=T(108+delta);pair.after.raw.completedAtUtc=T(109+delta);controlPairs[phase]=pair;
   const currentControls=retain(pair.after.raw),completion=retain({schemaVersion:1,documentType:"build31-business-instrumented-completion",phase,source,approvalPointer,capture,archive,mutations:records,events:records.map(p=>{const r=j(p);return {kind:r.kind,sequence:r.sequence,...(r.name?{name:r.name}:{})};}),completedAtUtc:T(180+delta),exitCode:0,error:null});
@@ -206,4 +207,85 @@ test("oversized wire response declaration is refused before reading its bytes",(
  const f=responseFixture(),b=j(f.binding),wireFile=path.join(evidence,b.responseRaw.file);b.responseRaw.bytes=b.retainedBytes=16*1024*1024+1;f.binding=retain(b);
  const prior=fs.readFileSync;let reads=0;fs.readFileSync=function(file,...args){if(path.resolve(String(file))===wireFile)reads++;return prior.call(this,file,...args);};
  try{assert.throws(()=>replayResponse(f),/byte count/);assert.equal(reads,0);}finally{fs.readFileSync=prior;}
+});
+
+
+// Settlement timing is checked by the same helpers invoked by the full entry.
+test("closure initiation stays bounded while proven response settlement may finish later",()=>{
+ const c={startedAtUtc:T(101),completedAtUtc:T(800),recordedAtUtc:T(805)};
+ assert.doesNotThrow(()=>closure.verifyClosureExecutionWindow31({closure:c,executionWindow,nowUtc:T(810)}));
+ for(const value of [T(99),T(701)])assert.throws(()=>closure.verifyClosureExecutionWindow31({closure:{...c,startedAtUtc:value},executionWindow,nowUtc:T(810)}),/chronology\/window/);
+ assert.throws(()=>closure.verifyClosureExecutionWindow31({closure:{...c,recordedAtUtc:T(799)},executionWindow,nowUtc:T(810)}),/chronology\/window/);
+ assert.throws(()=>closure.verifyClosureExecutionWindow31({closure:c,executionWindow,nowUtc:T(804)}),/chronology\/window/);
+});
+for(const [name,edit,pattern]of [
+ ["legacy schema2",r=>r.schemaVersion=2,/mutation order/],
+ ["missing request admission",r=>delete r.requestAdmittedAtUtc,/fields differ/],
+ ["null request admission",r=>r.requestAdmittedAtUtc=null,/explicit UTC required/],
+ ["missing first outbound",r=>delete r.firstOutboundAtUtc,/fields differ/],
+ ["null first outbound",r=>r.firstOutboundAtUtc=null,/explicit UTC required/],
+ ["admission before record start",r=>r.requestAdmittedAtUtc=T(113),/initiation\/window/],
+ ["first outbound before admission",r=>r.firstOutboundAtUtc=T(113),/initiation\/window/],
+ ["admission after deadline",r=>{r.requestAdmittedAtUtc=T(701);r.firstOutboundAtUtc=T(701);r.completedAtUtc=T(702);},/initiation\/window/],
+ ["first outbound after deadline",r=>{r.firstOutboundAtUtc=T(701);r.completedAtUtc=T(702);},/initiation\/window/],
+ ["response before outbound",r=>r.firstOutboundAtUtc=T(116),/initiation\/window/],
+])test("raw timing replay refuses "+name,()=>{const f=mutationFixture("fleet");f.command.completedAtUtc=T(800);change(f,0,edit);assert.throws(()=>replay(f),pattern);});
+
+test("raw timing uses nanoseconds at the exact inclusive deadline",()=>{
+ const f=mutationFixture("fleet"),r=j(f.records[0]);
+ const window={notBeforeUtc:T(100),notAfterUtc:r.firstOutboundAtUtc.replace(".000Z",".000000001Z")};
+ r.firstOutboundAtUtc=window.notAfterUtc;
+ assert.doesNotThrow(()=>closure.verifyMutationInitiation31(r,window));
+ r.firstOutboundAtUtc=r.firstOutboundAtUtc.replace("000000001Z","000000002Z");
+ assert.throws(()=>closure.verifyMutationInitiation31(r,window),/initiation\/window/);
+});
+
+for(const preparation of [false,true])test("OUTER WIRING ONLY refuses late "+(preparation?"preparation":"cohort")+" initiation",()=>{
+ const f=outerFixture();f.args.ctx.decision={...f.args.ctx.decision,executionWindow:{notBeforeUtc:T(100),notAfterUtc:T(preparation?104:101)}};
+ assert.throws(()=>outerRun(f),preparation?/preparation initiation/:/cohort initiation/);
+});
+
+test("actual writer schema3 all25 records replay; final response settles late with no later cohort",async()=>{
+ // Real writer + raw replay + installed hash, injected HTTPS and synthetic CI/owner.
+ // The outer controls context remains the same documented substitute; NOT full authority.
+ const f=outerFixture(),{BusinessCapture31,installBusinessCapture31}=require("./captureBusiness31PreparedInputs.cjs");
+ const transport=require("./runtimeDeploymentTransportGuard31.cjs"),https=require("node:https"),{EventEmitter}=require("node:events");
+ const RealDate=globalThis.Date,originalRequest=https.request;let at=Date.parse(T(110)),responses=0;
+ class Clock extends RealDate{constructor(...args){super(...(args.length?args:[at]));}static now(){return at;}}
+ globalThis.Date=Clock;
+ const writer=new BusinessCapture31({evidenceDirectory:evidence,approvalPointer:f.args.ctx.approvalPointer,source,cohorts});writer.bindExecutionWindow(executionWindow);
+ class Client{constructor(opts){this.opts=opts;}async request(request){return new Promise((resolve,reject)=>{
+  const req=https.request(transport.urlOf(this,request),{method:request.method},res=>{const chunks=[];res.on("data",b=>chunks.push(b));res.on("end",()=>{const text=Buffer.concat(chunks).toString();resolve({status:res.statusCode,body:text?JSON.parse(text):""});});});req.on("error",reject);
+  const wire=request.body==null?Buffer.alloc(0):request.body.path?fs.readFileSync(request.body.path):Buffer.from(JSON.stringify(request.body));if(wire.length)req.write(wire);req.end();
+ });}}
+ const retained=[];
+ try{
+  for(const [index,phase]of ["callables","events","fleet"].entries()){
+   const command=j(f.args.closure.commands[phase]),capture=j(command.capture);at=Date.parse(T(110+index*200));
+   const prepared=writer.startCohort({phase,capture,archive:read(archive),guardInputs:{baselineFunctions:f.args.baseline.baselineFunctions,projectNumber:"123"}});
+   https.request=function(input,opts,callback){const req=new EventEmitter();req.write=()=>true;req.destroy=e=>queueMicrotask(()=>req.emit("error",e));req.end=()=>{queueMicrotask(()=>{
+    responses++;at=responses===25?Date.parse(T(800)):at+1000;
+    const body=String(input).endsWith(":generateUploadUrl")?{uploadUrl:"https://storage.googleapis.com/synthetic-"+phase+"?proof=synthetic",storageSource:{bucket:"synthetic",object:"source",generation:"2"}}:opts.method==="PUT"?null:{};
+    const res=new EventEmitter();res.statusCode=200;res.headers={};req.emit("response",res);if(body!==null)res.emit("data",Buffer.from(JSON.stringify(body)));res.emit("end");
+   });return req;};if(callback)req.once("response",callback);return req;};
+   const restore=installBusinessCapture31({Client,writer,observeLive:async()=>{const o=observation((at-RealDate.parse(T(0)))/1000);at+=2000;return o;}});
+   let result;
+   try{
+    const client=new Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"});
+    await client.request({method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",queryParams:{},body:null});
+    await new Client({urlPrefix:"https://storage.googleapis.com",apiVersion:""}).request({method:"PUT",path:"synthetic-"+phase,queryParams:{proof:"synthetic"},body:{path:prepared.archivePath}});
+    for(const name of phase==="fleet"?cohorts.schedulers:cohorts[phase]){const body=structuredClone(f.args.baseline.baselineFunctions[name]);body.buildConfig.source.storageSource={bucket:"synthetic",object:"source",generation:"2"};body.labels["firebase-functions-hash"]=capture.endpointRuntimeHashes[name];await client.request({method:"PATCH",path:resource+name,queryParams:{updateMask:"buildConfig.source,labels"},body});}
+    result=writer.finishCohort();assert.equal(result.complete,true);retained.push(...result.mutations);
+   }finally{restore();}
+   command.capture=result.capture;command.archive=result.archive;command.mutations=result.mutations;command.completion=result.completion;command.completedAtUtc=new Date(at+1000).toISOString();f.args.closure.commands[phase]=retain(command);
+  }
+  f.args.closure.completedAtUtc=T(802);f.args.closure.recordedAtUtc=T(805);
+  assert.equal(writer.finish().mutationCount,25);assert.equal(responses,25);
+  const last=j(retained.at(-1));assert.equal(last.schemaVersion,3);assert.ok(a.instant(last.firstOutboundAtUtc)<=a.instant(executionWindow.notAfterUtc));assert.equal(last.completedAtUtc,T(800));
+  closure.verifyClosureExecutionWindow31({closure:f.args.closure,executionWindow,nowUtc:T(810)});
+  const result=outerRun(f);assert.equal(result.result.cohortCount,3);assert.equal(result.result.functionCount,19);
+  // No record/callback replacement: the late final row above is exactly what the writer persisted.
+  const bad=j(f.args.closure.commands.fleet),lastBad=j(bad.mutations.at(-1));lastBad.firstOutboundAtUtc=T(701);bad.mutations[bad.mutations.length-1]=retain(lastBad);const completion=j(bad.completion);completion.mutations=bad.mutations;bad.completion=retain(completion);f.args.closure.commands.fleet=retain(bad);
+  assert.throws(()=>outerRun(f),/initiation\/window/);
+ }finally{https.request=originalRequest;globalThis.Date=RealDate;}
 });

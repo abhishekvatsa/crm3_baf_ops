@@ -73,8 +73,9 @@ class BusinessCapture31 {
       const bound=executionWindows.get(this);need(bound,"bound decision execution window required");
       // The record clock is caller-supplied test/measurement data, never the live guard.
       // Sample after all work at each forwarding boundary; no callback or evidence IO follows here.
-      const current=business.instant(new Date().toISOString());
+      const sampledAtUtc=new Date().toISOString(),current=business.instant(sampledAtUtc);
       need(bound.start<=current&&current<=bound.end,"outside bound decision execution window");
+      return sampledAtUtc;
     } catch(error) {this.failed=true;if(this.active)this.active.failed=true;throw error;}
   }
   put(name, bytes) {
@@ -119,8 +120,8 @@ class BusinessCapture31 {
     s.lastStarted=startedAtUtc; const original=projectRequest(scope.client,scope.request);
     if(operation.kind==="source-upload") need(original.request.body.path===path.join(this.root,s.archivePointer.file),"upload must use retained exact ZIP path");
     const prefix="mutation-"+String(operation.sequence).padStart(4,"0");
-    const record={schemaVersion:2,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
-      completionSequence:null,kind:operation.kind,name:operation.name??null,startedAtUtc,completedAtUtc:null,
+    const record={schemaVersion:3,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
+      completionSequence:null,kind:operation.kind,name:operation.name??null,startedAtUtc,requestAdmittedAtUtc:null,firstOutboundAtUtc:null,completedAtUtc:null,
       request:this.put(prefix+"-request.json",original),wireBody:null,response:null,responseBinding:null,liveObservation:this.put(prefix+"-live.json",observation),error:null};
     const item={record,prefix,operation,wire:[],wireBytes:0,responseChunks:[],responseBytes:0,wireEnded:false,responseEnded:false,transportCount:0,success:false};
     s.records.push(item);s.pending++;scope.item=item;
@@ -201,12 +202,12 @@ function installBusinessCapture31({Client,writer,observeLive}) {
       const scope=local.getStore(),candidate=scope?.item;
       const effective=neutral.effectiveRequest31(args[0],args[1],api===https?"https:":"http:");
       const item=candidate&&effective.url.href===candidate.operation.url&&effective.method===candidate.operation.method?candidate:null;
-      if(item){need(++item.transportCount===1,"second mutation transport refused");writer.assertExecutionWindow();}
+      if(item){need(++item.transportCount===1&&item.record.requestAdmittedAtUtc===null,"second mutation transport refused");item.record.requestAdmittedAtUtc=writer.assertExecutionWindow();}
       const req=request.apply(this,args);if(!item)return req;
       const write=req.write,end=req.end;let outboundStarted=false;
       const beforeOutbound=()=>{
         if(outboundStarted)return;
-        try{writer.assertExecutionWindow();}catch(error){item.captureError=true;req.destroy(error);throw error;}
+        try{need(item.record.firstOutboundAtUtc===null,"first outbound timestamp already recorded");item.record.firstOutboundAtUtc=writer.assertExecutionWindow();}catch(error){item.captureError=true;req.destroy(error);throw error;}
         outboundStarted=true;
       };
       const retain=chunk=>{if(chunk===undefined||chunk===null)return;need(Buffer.isBuffer(chunk),"original request wire must be bytes");need(item.wireBytes+chunk.length<=LIMITS.wire,"wire bound exceeded");item.wire.push(Buffer.from(chunk));item.wireBytes+=chunk.length;};
