@@ -98,9 +98,9 @@ class BusinessCapture31 {
     s.lastStarted=startedAtUtc; const original=projectRequest(scope.client,scope.request);
     if(operation.kind==="source-upload") need(original.request.body.path===path.join(this.root,s.archivePointer.file),"upload must use retained exact ZIP path");
     const prefix="mutation-"+String(operation.sequence).padStart(4,"0");
-    const record={schemaVersion:1,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
+    const record={schemaVersion:2,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
       completionSequence:null,kind:operation.kind,name:operation.name??null,startedAtUtc,completedAtUtc:null,
-      request:this.put(prefix+"-request.json",original),wireBody:null,response:null,liveObservation:this.put(prefix+"-live.json",observation),error:null};
+      request:this.put(prefix+"-request.json",original),wireBody:null,response:null,responseBinding:null,liveObservation:this.put(prefix+"-live.json",observation),error:null};
     const item={record,prefix,operation,wire:[],wireBytes:0,responseChunks:[],responseBytes:0,wireEnded:false,responseEnded:false,transportCount:0,success:false};
     s.records.push(item);s.pending++;scope.item=item;
     // Intent is retained before the request; a killed process cannot erase an uncompleted attempt.
@@ -117,19 +117,31 @@ class BusinessCapture31 {
   }
   end(scope,apiSuccess) {
     const s=this.active,item=scope.item; if(!item)return;
-    const r=item.record;if(r.completionSequence===null)this.stampCompletion(item);
-    r.wireBody=this.put(item.prefix+"-wire.bin",Buffer.concat(item.wire));
-    // The wire response is retained independently; only its decoded original text enters the frozen schema.
-    const responseRaw=this.put(item.prefix+"-response-wire.bin",Buffer.concat(item.responseChunks));
-    let bodyText=null;
-    try { if(item.responseEnded)bodyText=decodeResponse(Buffer.concat(item.responseChunks),item.encoding); } catch { item.captureError=true; }
-    if(bodyText!==null&&Number.isSafeInteger(item.status)) r.response=this.put(item.prefix+"-response.json",{httpStatus:item.status,bodyText});
-    const okay=apiSuccess&&!item.captureError&&item.transportCount===1&&item.wireEnded&&item.responseEnded&&item.status>=200&&item.status<300&&r.response!==null&&digest(Buffer.concat(item.wire))===item.operation.bodySha256;
-    if(!okay){r.error={code:"ORIGINAL_MUTATION_NOT_PROVEN_SUCCESSFUL",responseReceived:item.responseEnded,requestComplete:item.wireEnded,apiSucceeded:apiSuccess,rawMessageRetained:false};s.failed=true;this.failed=true;}
-    item.success=okay;item.pointer=this.put(item.prefix+".json",r);
-    this.put(item.prefix+"-wire-response-binding.json",{responseRaw,contentEncoding:item.encoding??null,responseComplete:item.responseEnded,retainedBytes:item.responseBytes});
-    item.wire=[];item.responseChunks=[];s.pending--;
-    return okay;
+    need(!item.finalized&&s&&Number.isSafeInteger(s.pending)&&s.pending>0,"capture already finalized or pending accounting differs");
+    item.finalized=true;
+    const r=item.record;
+    try {
+      if(r.completionSequence===null)this.stampCompletion(item);
+      r.wireBody=this.put(item.prefix+"-wire.bin",Buffer.concat(item.wire));
+      // Retain raw response bytes/status and bind them before publishing the derived mutation row.
+      const responseRaw=this.put(item.prefix+"-response-wire.bin",Buffer.concat(item.responseChunks));
+      let bodyText=null;
+      try { if(item.responseEnded)bodyText=decodeResponse(Buffer.concat(item.responseChunks),item.encoding); } catch { item.captureError=true; }
+      if(bodyText!==null&&Number.isSafeInteger(item.status)) r.response=this.put(item.prefix+"-response.json",{httpStatus:item.status,bodyText});
+      const okay=apiSuccess&&!item.captureError&&item.transportCount===1&&item.wireEnded&&item.responseEnded&&item.status>=200&&item.status<300&&r.response!==null&&digest(Buffer.concat(item.wire))===item.operation.bodySha256;
+      if(!okay){r.error={code:"ORIGINAL_MUTATION_NOT_PROVEN_SUCCESSFUL",responseReceived:item.responseEnded,requestComplete:item.wireEnded,apiSucceeded:apiSuccess,rawMessageRetained:false};s.failed=true;this.failed=true;}
+      r.responseBinding=this.put(item.prefix+"-wire-response-binding.json",{responseRaw,contentEncoding:item.encoding??null,responseComplete:item.responseEnded,retainedBytes:item.responseBytes,httpStatus:item.status??null});
+      item.success=okay;item.pointer=this.put(item.prefix+".json",r);
+      return okay;
+    } catch(error) {
+      item.success=false;item.captureError=true;s.failed=true;this.failed=true;
+      r.error={code:"ORIGINAL_CAPTURE_FINALIZATION_FAILED",rawMessageRetained:false};
+      throw error;
+    } finally {
+      // The wrapped request has settled, even when durable evidence could not be saved.
+      // Do not leave it counted as transport work or let a second finalization drain twice.
+      item.wire=[];item.responseChunks=[];s.pending--;
+    }
   }
   finishCohort() {
     const s=this.active;need(s&&s.pending===0,"unfinished original requests remain");

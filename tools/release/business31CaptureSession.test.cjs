@@ -65,7 +65,8 @@ function verifyTranscript(f,result){
  const read=p=>{const b=fs.readFileSync(path.join(f.evidence,p.file));assert.equal(b.length,p.bytes);assert.equal(hash(b),p.sha256);return JSON.parse(b);};
  const capture=read(result.capture),guard=new transport.RuntimeDeploymentTransportGuard31({...f.options.guardInputs,names:result.phase==="fleet"?cohorts.schedulers:cohorts[result.phase],allNames:cohorts.fleet,phase:result.phase,sourceArchiveHash:capture.sourceArchiveHash,endpointRuntimeHashes:capture.endpointRuntimeHashes});guard.preparedMatches(capture);
  const completions=[];
- for(const p of result.mutations){const row=read(p),request=read(row.request),response=read(row.response),wire=fs.readFileSync(path.join(f.evidence,row.wireBody.file));assert.equal(hash(wire),row.wireBody.sha256);assert.equal(row.error,null);assert.equal(response.httpStatus,200);const op=guard.before({opts:request.client},request.request);assert.equal(transport.bodyBinding31(request.request),hash(wire));guard.after(op,{body:op.kind==="generate-upload"?JSON.parse(response.bodyText):undefined});completions.push(row);}
+ for(const p of result.mutations){const row=read(p),request=read(row.request),response=read(row.response),wire=fs.readFileSync(path.join(f.evidence,row.wireBody.file));assert.equal(hash(wire),row.wireBody.sha256);assert.equal(row.schemaVersion,2);require("./business31BackendClosure.cjs").verifyMutationResponse31(f.evidence,row.response,row.responseBinding);assert.equal(row.error,null);assert.equal(response.httpStatus,200);
+  const binding=read(row.responseBinding),raw=fs.readFileSync(path.join(f.evidence,binding.responseRaw.file));assert.equal(raw.length,binding.responseRaw.bytes);assert.equal(hash(raw),binding.responseRaw.sha256);assert.equal(binding.httpStatus,response.httpStatus);assert.equal(binding.responseComplete,true);assert.equal(binding.retainedBytes,raw.length);assert.equal(require("./captureBusiness31PreparedInputs.cjs").decodeResponse(raw,binding.contentEncoding),response.bodyText);const op=guard.before({opts:request.client},request.request);assert.equal(transport.bodyBinding31(request.request),hash(wire));guard.after(op,{body:op.kind==="generate-upload"?JSON.parse(response.bodyText):undefined});completions.push(row);}
  guard.assertComplete();assert.deepEqual(completions.map(x=>x.sequence),Array.from({length:result.mutations.length},(_,i)=>i+1));assert.deepEqual(completions.map(x=>x.completionSequence).sort((a,b)=>a-b),completions.map(x=>x.sequence));
  assert.equal(fs.readFileSync(path.join(f.evidence,result.archive.file)).equals(fs.readFileSync(f.archive)),true);
  const complete=read(result.completion);assert.deepEqual(complete.events,completions.sort((a,b)=>a.completionSequence-b.completionSequence).map(v=>({kind:v.kind,sequence:v.sequence,...(v.name?{name:v.name}:{})})));return completions;
@@ -98,7 +99,10 @@ test("wrong cohort and premature finish are irreversible before any expensive ca
 });
 test("one pending then lost installed response preserves failure and refuses retry and foreign restoration",async()=>{
  const f=fixture(),n=network(f,{holdLost:true});f.session=new BusinessCaptureSession31(f.options);const prep=f.newPrepared();f.session.beginPhase("callables");f.session.capturePrepared(prep.wantBackends,prep.context);
- try{const client=new api.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2",auth:false});const pending=client.post("projects/crm3-baf-ops-b8638/locations/asia-south1/functions:generateUploadUrl");const rejection=assert.rejects(pending);await n.started;assert.throws(()=>f.session.closePhase(),/PENDING/);assert.equal(n.calls.length,1);n.release();await rejection;
+ try{const client=new api.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2",auth:false});const pending=client.post("projects/crm3-baf-ops-b8638/locations/asia-south1/functions:generateUploadUrl");const rejection=assert.rejects(pending);await n.started;assert.throws(()=>f.session.closePhase(),/PENDING/);
+  const stillOwned=f.session._snapshot(),pendingCount=f.session.writer.active.pending;
+  assert.throws(()=>f.session.dispose(),/PENDING/);assert.deepEqual(f.session._snapshot(),stillOwned);assert.equal(f.session.writer.active.pending,pendingCount);assert.equal(pendingCount,1);assert.equal(f.session.inflight,1);
+  assert.equal(n.calls.length,1);n.release();await rejection;
   const foreign=()=>{};require("node:https").request=foreign;
   assert.throws(()=>f.session.closePhase(),/OWNERSHIP|cleanup incomplete/);assert.equal(require("node:https").request,foreign);assert.equal(f.session.cleanupIncomplete,true);
   assert.throws(()=>f.session.beginPhase("callables"),/RETRY/);assert.throws(()=>f.session.beginPhase("events"),/RETRY/);assert.equal(n.calls.length,1);
@@ -134,4 +138,29 @@ test("same owned function with foreign descriptor flags is preserved and cleanup
  try{assert.throws(()=>f.session.dispose(),/cleanup incomplete|cleanup or failure/);assert.deepEqual(Object.getOwnPropertyDescriptor(https,"request"),foreign);assert.equal(f.session.cleanupIncomplete,true);}
  finally{Object.defineProperty(https,"request",owned);n.restore();}
 });
+for(const failedSuffix of ["mutation-0001-wire.bin","mutation-0001.json"])
+test("settled request evidence failure restores owned hooks: "+failedSuffix,async()=>{
+ const f=fixture(),n=network(f);f.session=new BusinessCaptureSession31(f.options);
+ const baseline=f.session.base,prep=f.newPrepared();f.session.beginPhase("callables");f.session.capturePrepared(prep.wantBackends,prep.context);
+ const write=fs.writeFileSync;
+ fs.writeFileSync=function(file,...args){if(String(file).endsWith(failedSuffix))throw Error("INJECTED_END_WRITE_FAILURE");return write.call(this,file,...args);};
+ try {
+  const client=new api.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2",auth:false});
+  await assert.rejects(client.post("projects/crm3-baf-ops-b8638/locations/asia-south1/functions:generateUploadUrl"),/INJECTED_END_WRITE_FAILURE/);
+  fs.writeFileSync=write;assert.equal(n.calls.length,1);assert.equal(f.session.inflight,0);assert.equal(f.session.writer.active.pending,0);
+  const settled=f.session.writer.active.records[0];assert.equal(settled.success,false);assert.equal(settled.finalized,true);assert.equal(settled.record.error.code,"ORIGINAL_CAPTURE_FINALIZATION_FAILED");assert.deepEqual(settled.wire,[]);assert.deepEqual(settled.responseChunks,[]);
+  assert.throws(()=>f.session.writer.end({item:settled},false),/already finalized/);assert.equal(f.session.writer.active.pending,0);
+  assert.doesNotThrow(()=>f.session.dispose());
+  assert.deepEqual(f.session._snapshot(),baseline);assert.equal(f.session.writer.failed,true);assert.equal(f.session.cleanupIncomplete,false);
+  assert.ok(fs.existsSync(path.join(f.session.writer.base,"callables/instrumented-capture-failed.json")));
+  assert.ok(!fs.existsSync(path.join(f.session.writer.base,"callables/instrumented-cli-complete.json")));
+  assert.throws(()=>f.session.finish(),/COMPLETE/);
+ } finally {
+  fs.writeFileSync=write;
+  // Test-only cleanup retains the genuine old failure without leaking hooks to the test worker.
+  if(f.session.state!=="disposed"){try{f.session.dispose();}catch{}if(f.session.owner)f.session._restoreOwned(baseline,f.session.owner);}
+  n.restore();
+ }
+});
+
 test.after(()=>{const files={};for(const name of Object.keys(require.cache))if(name.startsWith(path.dirname(path.dirname(cli))+path.sep))files[path.relative(path.dirname(path.dirname(cli)),name).split(path.sep).join("/")]=hash(fs.readFileSync(name));assert.ok(files["firebase-tools/lib/deploy/functions/cache/applyHash.js"]);assert.ok(files["firebase-tools/lib/apiv2.js"]);assert.ok(files["firebase-tools/lib/gcp/storage.js"]);assert.ok(Object.keys(files).some(p=>p.endsWith("node-fetch/lib/index.js")));assert.equal(Object.keys(files).some(p=>p.endsWith("/prepare.js")||p.endsWith("/bin/firebase.js")),false);fs.writeFileSync(path.join(out,"INSTALLED_MODULE_BINDINGS.json"),JSON.stringify({files,actualFullPrepare:false,realNetwork:false,authInvoked:false,operationalAuthority:false},null,2)+"\n");});

@@ -1,6 +1,7 @@
 "use strict";
 // Proposed raw-record replay only. No network, credential, deployment or client authority.
-const {isDeepStrictEqual:same} = require("node:util");
+const {isDeepStrictEqual:same,TextDecoder} = require("node:util");
+const zlib = require("node:zlib");
 const x = require("./business31ExecutionContract.cjs"), access = require("./backendRuntimeEvidenceAccess31.cjs");
 const path = access.path, {need,keys,sha,json,pointer,privateBytes,pointerView} = x;
 const a = require("./business31BackendAuthority.cjs"), neutral = require("./backendRuntimeClosure31.cjs");
@@ -45,6 +46,34 @@ function verifyIntent31({ctx,intent,archiveExpectedFiles}) {
     intent.environmentVariables.CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK === "false","intent project/enforcement differs");
   return {labels,archive};
 }
+// Matches the capture writer's retained and decoded response bounds. The sidecar
+// is immutable mutation evidence, not an independently trusted success assertion.
+const RESPONSE_BYTES = 16 * 1024 * 1024;
+function verifyMutationResponse31(evidenceDirectory,responsePointer,bindingPointer) {
+  const response=read(evidenceDirectory,responsePointer);
+  keys(response,["httpStatus","bodyText"],"original response");
+  need(Number.isSafeInteger(response.httpStatus) && response.httpStatus>=200 && response.httpStatus<300 &&
+    typeof response.bodyText==="string","successful original response required");
+  pointer(bindingPointer); need(bindingPointer.bytes<=8192,"wire response binding exceeds bound");
+  const binding=read(evidenceDirectory,bindingPointer);
+  keys(binding,["responseRaw","contentEncoding","responseComplete","retainedBytes","httpStatus"],"wire response binding");
+  need(binding.responseComplete===true,"retained wire response is incomplete");
+  need(Number.isSafeInteger(binding.httpStatus) && binding.httpStatus===response.httpStatus,"retained wire response status differs");
+  need([null,"","identity","gzip","deflate","br"].includes(binding.contentEncoding),"unsupported wire response encoding");
+  pointer(binding.responseRaw);
+  need(Number.isSafeInteger(binding.retainedBytes) && binding.retainedBytes>=0 && binding.retainedBytes<=RESPONSE_BYTES &&
+    binding.responseRaw.bytes===binding.retainedBytes,"retained wire response byte count differs or exceeds bound");
+  const wire=privateBytes(evidenceDirectory,binding.responseRaw); let decoded=wire,bodyText;
+  try {
+    if(binding.contentEncoding==="gzip") decoded=zlib.gunzipSync(wire,{maxOutputLength:RESPONSE_BYTES});
+    else if(binding.contentEncoding==="deflate") decoded=zlib.inflateSync(wire,{maxOutputLength:RESPONSE_BYTES});
+    else if(binding.contentEncoding==="br") decoded=zlib.brotliDecompressSync(wire,{maxOutputLength:RESPONSE_BYTES});
+    need(decoded.length<=RESPONSE_BYTES,"decoded wire response exceeds bound");
+    bodyText=new TextDecoder("utf-8",{fatal:true}).decode(decoded);
+  } catch { need(false,"retained wire response cannot be decoded within bound"); }
+  need(bodyText===response.bodyText,"derived response body differs from retained wire response");
+  return response;
+}
 function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,archivePointer}) {
   const names = phase === "fleet" ? ctx.cohorts.schedulers : ctx.cohorts[phase];
   need(Array.isArray(records) && records.length === names.length + 2,"complete generate/upload/update transcript required");
@@ -54,8 +83,9 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
   guard.preparedMatches(capture); let previous=t(capture.completedAtUtc); const completions=[]; let uploadedAt=null, justGeneratedAt=null; const expectedKinds=["generate-upload","source-upload",...names.map(()=>"function-update")];
   for (let index=0;index<records.length;index++) {
     const r = read(ctx.evidenceDirectory,records[index]);
-    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","completedAtUtc","request","wireBody","response","liveObservation","error"],"mutation transcript");
-    need(r.schemaVersion===1 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
+    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","completedAtUtc","request","wireBody","response","responseBinding","liveObservation","error"],"mutation transcript");
+    // Schema1 has no hash-bound observed status/body sidecar and is deliberately refused.
+    need(r.schemaVersion===2 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
       (index<2?r.name===null:names.includes(r.name)) && Number.isSafeInteger(r.completionSequence) && r.completionSequence>=1 && r.completionSequence<=records.length && r.error===null,"mutation order/completion differs");
     need(previous<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(command.completedAtUtc),"mutation interval differs"); previous=t(r.startedAtUtc);
     if(index===1) need(t(justGeneratedAt)<=t(r.startedAtUtc),"upload started before generation completed");
@@ -63,10 +93,9 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
     const observed=read(ctx.evidenceDirectory,r.liveObservation);
     need(t(capture.completedAtUtc)<=t(observed.observedAtUtc) && t(observed.completedAtUtc)<=t(r.startedAtUtc),"fresh per-write observation missing");
     live.verifyPreservedLiveGitHub31(observed,ctx,ctx.liveApproval);
-    const request=read(ctx.evidenceDirectory,r.request), response=read(ctx.evidenceDirectory,r.response), wire=privateBytes(ctx.evidenceDirectory,r.wireBody);
+    const request=read(ctx.evidenceDirectory,r.request), response=verifyMutationResponse31(ctx.evidenceDirectory,r.response,r.responseBinding), wire=privateBytes(ctx.evidenceDirectory,r.wireBody);
     keys(request,["client","request"],"original request"); keys(request.client,["urlPrefix","apiVersion"],"original client");
     keys(request.request,["method","path","queryParams","body"],"original request options");
-    keys(response,["httpStatus","bodyText"],"original response"); need(Number.isSafeInteger(response.httpStatus) && response.httpStatus>=200 && response.httpStatus<300 && typeof response.bodyText==="string","successful original response required");
     const options=structuredClone(request.request);
     if(r.kind==="source-upload") {
       keys(options.body,["path"],"upload original path");
@@ -216,4 +245,4 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
     platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
     privateHostedReplayAuthenticated:false,deploymentAuthorized:false,credentialAccessAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={CLOSURE_FILE,PHASES,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohorts31,verifyBusiness31BackendClosure};
+module.exports={CLOSURE_FILE,PHASES,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohorts31,verifyBusiness31BackendClosure};

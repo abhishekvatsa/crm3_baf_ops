@@ -3,7 +3,7 @@
 const test=require("node:test"), assert=require("node:assert/strict"), fs=require("node:fs"), os=require("node:os"), path=require("node:path"), cp=require("node:child_process");
 const base=__dirname, x=require(path.join(base,"business31ExecutionContract.cjs")), a=require(path.join(base,"business31BackendAuthority.cjs"));
 const closure=require(path.join(base,"business31BackendClosure.cjs")), neutral=require(path.join(base,"backendRuntimeClosure31.cjs")), old=require(path.join(base,"backendRuntimeAdmission31.cjs"));
-const gate=require(path.join(base,"backendRuntimeExecutionAdmission31.cjs"));
+const gate=require(path.join(base,"backendRuntimeExecutionAdmission31.cjs")),zlib=require("node:zlib");
 for(const name of ["node:http","node:https"]) { const api=require(name); api.request=api.get=()=>{throw Error("No network permitted in synthetic closure fixture");}; }
 globalThis.fetch=()=>{throw Error("No network permitted in synthetic closure fixture");};
 const temp=fs.mkdtempSync(path.join(os.tmpdir(),"business31-closure-")), evidence=path.join(temp,"evidence"), repo=path.join(temp,"repository");
@@ -37,7 +37,11 @@ function mutationFixture(phase="callables",endpointLabels=labels) {
  const baselineRaw={controls:{project:{bodyText:'{"projectNumber":"123"}'}}}, baseline={baselineFunctions,raw:baselineRaw,scheduler:{}};
  const capture={sourceArchiveHash:checked.sourceArchiveHash,endpointRuntimeHashes:endpointLabels,archiveSha256:archive.sha256,archiveBytes:archive.bytes,completedAtUtc:T(110)};
  const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime,cohorts,liveApproval};const command={completedAtUtc:T(250)};const records=[];
- function append(kind,name,client,options,wire,responseBody){const index=records.length,start=112+index*4;records.push(retain({schemaVersion:1,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),completedAtUtc:T(start+3),request:retain({client,request:options}),wireBody:retain(wire),response:retain({httpStatus:200,bodyText:typeof responseBody==="string"?responseBody:JSON.stringify(responseBody)}),liveObservation:retain(observation(start)),error:null}));}
+ function append(kind,name,client,options,wire,responseBody){
+  const index=records.length,start=112+index*4,bodyText=typeof responseBody==="string"?responseBody:JSON.stringify(responseBody);
+  const responseRaw=retain(Buffer.from(bodyText)),responseBinding=retain({responseRaw,contentEncoding:null,responseComplete:true,retainedBytes:responseRaw.bytes,httpStatus:200});
+  records.push(retain({schemaVersion:2,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),completedAtUtc:T(start+3),request:retain({client,request:options}),wireBody:retain(wire),response:retain({httpStatus:200,bodyText}),responseBinding,liveObservation:retain(observation(start)),error:null}));
+ }
  const location={bucket:"synthetic",object:"source",generation:"2"},uploadUrl="https://storage.googleapis.com/synthetic-"+phase+"?proof=synthetic";
  append("generate-upload",null,{urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"},{method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",queryParams:{},body:null},Buffer.alloc(0),{uploadUrl,storageSource:location});
  append("source-upload",null,{urlPrefix:"https://storage.googleapis.com",apiVersion:""},{method:"PUT",path:"synthetic-"+phase,queryParams:{proof:"synthetic"},body:{path:path.join(evidence,archive.file)}},read(archive),"");
@@ -59,7 +63,7 @@ for(const [name,pattern,mutate]of [
  ["changed upload identity",/upload original archive/,f=>change(f,1,r=>{const q=j(r.request);q.request.body.path=path.join(evidence,"other.zip");r.request=retain(q);})],
  ["observation after write",/per-write observation/,f=>change(f,2,r=>{const o=j(r.liveObservation);o.completedAtUtc=r.completedAtUtc;r.liveObservation=retain(o);})],
  ["truncated pointer",/private original bytes/,f=>{f.records[2]={...f.records[2],bytes:f.records[2].bytes-1};}],
- ["malformed generation response",/invalid private JSON/,f=>change(f,0,r=>r.response=retain({httpStatus:200,bodyText:""}))],
+ ["malformed generation response",/invalid private JSON/,f=>change(f,0,r=>{r.response=retain({httpStatus:200,bodyText:""});const responseRaw=retain(Buffer.alloc(0));r.responseBinding=retain({responseRaw,contentEncoding:null,responseComplete:true,retainedBytes:0,httpStatus:200});})],
  ["duplicate completion order",/completion population/,f=>change(f,2,r=>r.completionSequence=2)],
  ["update before upload completion",/completed ZIP upload/,f=>change(f,2,r=>{r.startedAtUtc=T(118);r.completedAtUtc=T(123);} )],
 ])test("raw composition refuses "+name,()=>{const f=mutationFixture("fleet");mutate(f);assert.throws(()=>replay(f),pattern);});
@@ -106,7 +110,7 @@ function relocation(){const bundle=fs.mkdtempSync(path.join(temp,"bundle-")),dir
 test("Windows original strings and pointer3 remain exact during bounded physical relocation and pointer2 view",()=>{const r=relocation();access.runRelocated31(r.config,()=>{assert.deepEqual(x.privateBytes(r.originalRoot,r.pointer),r.bytes);assert.deepEqual(x.pointerView(r.originalRoot,r.pointer),{file:r.pointer.file,sha256:r.pointer.sha256});assert.equal(x.json(x.privateBytes(r.originalRoot,r.pointer)).path,"C:/unchanged/original");});assert.deepEqual(fs.readFileSync(path.join(r.dir,r.pointer.file)),r.bytes);});
 for(const [name,edit,pattern]of [["missing mapping",r=>r.originalRoot="Y:/not-mapped",/no unique immutable relocation/],["overlapping mapping",r=>r.config.relocation.roots.push({original:r.originalRoot+"/nested",memberRoot:"raw"}),/Overlapping/],["unlisted file",r=>r.config.members=[],/Unlisted/],["changed mapped bytes",r=>fs.appendFileSync(path.join(r.dir,r.pointer.file)," "),/changed/],["wrong byte count",r=>r.pointer.bytes++,/changed/],["pointer extra field",r=>r.pointer.accepted=true,/fields differ/]])test("relocation refuses "+name,()=>{const r=relocation();edit(r);assert.throws(()=>access.runRelocated31(r.config,()=>x.privateBytes(r.originalRoot,r.pointer)),pattern);});
 
-const projectRoot=path.resolve(__dirname,"../.."),controls=require(path.join(base,"backendRuntimeControls31.cjs")),iam=require(path.join(projectRoot,"tools/release/scopedCallableInvokerIam.js"));
+const projectRoot=path.resolve(process.env.BUSINESS31_TEST_PROJECT_ROOT||path.join(__dirname,"../..")),controls=require(path.join(base,"backendRuntimeControls31.cjs")),iam=require(path.join(projectRoot,"tools/release/scopedCallableInvokerIam.js"));
 const policy=JSON.parse(fs.readFileSync(path.join(projectRoot,"release/function-fleet-runtime-identity-policy.json"))),rawFactory=require("./business31RawControlsFixture.cjs");
 function rawPair(){const names=Object.keys(policy.functionBindings),opts={policy,sourceCommit:M,approvalSha256:"A".repeat(64)};return {before:rawFactory.makeRawControls({...opts,startedAtUtc:T(51),completedAtUtc:T(52),outputTag:"before",endpointLabels:Object.fromEntries(names.map(n=>[n,"1".repeat(40)]))}),after:rawFactory.makeRawControls({...opts,startedAtUtc:T(251),completedAtUtc:T(252),outputTag:"after",endpointLabels:Object.fromEntries(names.map(n=>[n,"2".repeat(40)]))})};}
 function compareRaw(pair){const summary=raw=>controls.summarizeRaw({raw,policy,sourceCommit:M,guard:iam});return controls.compareWithSupplement({before:summary(pair.before.raw),after:summary(pair.after.raw),policy,runtime:"nodejs22",declaredMaxInstances:20});}
@@ -158,3 +162,48 @@ for(const [name,edit,pattern]of [["overlapping cohorts",f=>{const p=f.args.closu
 
 // The superseded private implementation and its known-failure reproduction remain
 // retained locally; the current outer-loop regression above exercises this source.
+
+// Regression from the exact published P1: retained wire evidence must constrain replay.
+test("P1 regression: contradictory retained response cannot replay a fabricated successful generation",()=>{
+ const f=mutationFixture("fleet"),row=j(f.records[0]);
+ const responseRaw=retain(Buffer.from('{"error":"synthetic retained server failure"}'));
+ const binding=retain({responseRaw,contentEncoding:null,responseComplete:true,retainedBytes:responseRaw.bytes,httpStatus:500});
+ row.responseBinding=binding;f.records[0]=retain(row);
+ assert.throws(()=>replay(f),/response|wire|schema/i);
+});
+
+function responseFixture(bodyText='{"uploadUrl":"https://storage.googleapis.com/synthetic"}',encoding=null) {
+ const raw=Buffer.from(bodyText),encoded=encoding==="gzip"?zlib.gzipSync(raw):encoding==="deflate"?zlib.deflateSync(raw):encoding==="br"?zlib.brotliCompressSync(raw):raw;
+ const responseRaw=retain(encoded);return {response:retain({httpStatus:200,bodyText}),binding:retain({responseRaw,contentEncoding:encoding,responseComplete:true,retainedBytes:encoded.length,httpStatus:200})};
+}
+const replayResponse=f=>closure.verifyMutationResponse31(evidence,f.response,f.binding);
+const changeBinding=(f,edit)=>{const b=j(f.binding);edit(b);f.binding=retain(b);};
+for(const encoding of [null,"","identity","gzip","deflate","br"])test("wire response preserves exact decoded UTF-8 for "+String(encoding),()=>{
+ const body='{"message":"synthetic π 雨"}',f=responseFixture(body,encoding);assert.deepEqual(replayResponse(f),{httpStatus:200,bodyText:body});
+});
+test("wire response admits a completed zero-byte source upload body",()=>{const f=responseFixture("");assert.equal(replayResponse(f).bodyText,"");});
+test("schema1 mutations cannot inherit the new response-wire proof",()=>{const f=mutationFixture("fleet");change(f,0,r=>r.schemaVersion=1);assert.throws(()=>replay(f),/mutation order/);});
+for(const [name,edit,pattern]of [
+ ["derived status only",f=>{const r=j(f.response);r.httpStatus=201;f.response=retain(r);},/wire response status/],
+ ["derived generation body only",f=>{const r=j(f.response);r.bodyText='{"uploadUrl":"https://storage.googleapis.com/forged"}';f.response=retain(r);},/derived response body/],
+ ["retained failed status",f=>changeBinding(f,b=>b.httpStatus=500),/wire response status/],
+ ["missing retained status",f=>changeBinding(f,b=>delete b.httpStatus),/binding fields/],
+ ["incomplete response",f=>changeBinding(f,b=>b.responseComplete=false),/incomplete/],
+ ["count differs",f=>changeBinding(f,b=>b.retainedBytes++),/byte count/],
+ ["count has wrong type",f=>changeBinding(f,b=>b.retainedBytes=String(b.retainedBytes)),/byte count/],
+ ["binding digest differs",f=>f.binding.sha256="0".repeat(64),/private original bytes/],
+ ["wire digest differs",f=>changeBinding(f,b=>b.responseRaw.sha256="0".repeat(64)),/private original bytes/],
+ ["wire byte count differs",f=>changeBinding(f,b=>b.responseRaw.bytes++),/byte count/],
+ ["unsupported encoding",f=>changeBinding(f,b=>b.contentEncoding="compress"),/unsupported wire/],
+ ["falsy non-string encoding",f=>changeBinding(f,b=>b.contentEncoding=false),/unsupported wire/],
+ ["encoding contradicts bytes",f=>changeBinding(f,b=>b.contentEncoding="gzip"),/cannot be decoded/],
+ ["binding success substitute",f=>changeBinding(f,b=>b.PASS=true),/binding fields/],
+ ["malformed gzip",f=>changeBinding(f,b=>{b.responseRaw=retain(Buffer.from([31,139,8]));b.retainedBytes=3;b.contentEncoding="gzip";}),/cannot be decoded/],
+ ["invalid UTF-8",f=>changeBinding(f,b=>{b.responseRaw=retain(Buffer.from([0xc3,0x28]));b.retainedBytes=2;}),/cannot be decoded/],
+ ["decoded response exceeds fixed bound",f=>changeBinding(f,b=>{const raw=zlib.gzipSync(Buffer.alloc(16*1024*1024+1));b.responseRaw=retain(raw);b.retainedBytes=raw.length;b.contentEncoding="gzip";}),/cannot be decoded/],
+])test("wire response refuses "+name,()=>{const f=responseFixture();edit(f);assert.throws(()=>replayResponse(f),pattern);});
+test("oversized wire response declaration is refused before reading its bytes",()=>{
+ const f=responseFixture(),b=j(f.binding),wireFile=path.join(evidence,b.responseRaw.file);b.responseRaw.bytes=b.retainedBytes=16*1024*1024+1;f.binding=retain(b);
+ const prior=fs.readFileSync;let reads=0;fs.readFileSync=function(file,...args){if(path.resolve(String(file))===wireFile)reads++;return prior.call(this,file,...args);};
+ try{assert.throws(()=>replayResponse(f),/byte count/);assert.equal(reads,0);}finally{fs.readFileSync=prior;}
+});

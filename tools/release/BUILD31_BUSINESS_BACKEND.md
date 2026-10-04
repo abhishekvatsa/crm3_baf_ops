@@ -63,6 +63,21 @@ a concurrent request completion is not rewritten into an invented serial order.
 Its result measures recorded semantics and explicitly withholds authenticated
 owner/platform/clock, deployment, client construction and distribution authority.
 
+Successful mutation replay requires **mutation schema 2**. Each mutation's
+`responseBinding` pointer binds the retained raw response bytes, content encoding,
+completion state, byte count and observed HTTP status. Replay verifies those
+immutable pointers, requires a completed successful response, and compares both
+the observed status and the bounded, strictly decoded UTF-8 body with the derived
+response used by the transport guard. Encoded and decoded response bodies retain
+the capture writer's fixed 16 MiB limits; empty successful upload bodies remain
+valid. A derived success response alone is insufficient.
+
+Legacy schema 1 mutation transcripts are explicitly refused by this closure
+path. Their unreferenced sidecars are never reconstructed or promoted into the
+new proof. Historical source snapshots, failed attempts and synthetic replay
+receipts remain unchanged and qualified to their original verifier and scope;
+they do not prove the new schema 2 path or authenticate deployment.
+
 `captureBusiness31PreparedInputs.cjs`, `captureBusiness31PreparedHook.cjs` and
 `business31CaptureSession.cjs` retain prepared package inputs and the request
 transcript. The session enforces phase order and once-only use, refuses further
