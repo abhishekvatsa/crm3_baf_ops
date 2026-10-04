@@ -182,8 +182,9 @@ class _InspectionDefinitionEditorState
       ),
       content: SizedBox(
         width: 680,
-        child: Form(
-          key: _formKey,
+        child: _InspectionPendingForm(
+          checkingCapability: _checkingCapability,
+          formKey: _formKey,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,6 +497,7 @@ class _InspectionDefinitionEditorState
   }
 
   Future<void> _upgradeReadingContract({bool asDate = false}) async {
+    if (_checkingCapability) return;
     if (!inspectionV2AuthoringAvailable(
       ref.read(inspectionV2AuthoringAvailabilityProvider),
       ref.read(currentAppUserProvider),
@@ -544,6 +546,7 @@ class _InspectionDefinitionEditorState
   }
 
   Future<void> _submit(AssetClassRecord selectedClass) async {
+    if (_checkingCapability) return;
     if (!_formKey.currentState!.validate()) return;
     final min = double.tryParse(_minimum.text.trim());
     final max = double.tryParse(_maximum.text.trim());
@@ -551,9 +554,10 @@ class _InspectionDefinitionEditorState
       _showEditorError(context, 'Minimum cannot exceed maximum.');
       return;
     }
+    var readingFields = const <InspectionReadingField>[];
     if (_readingFields.isNotEmpty) {
       try {
-        readInspectionReadingFields(
+        readingFields = readInspectionReadingFields(
           _readingFields.map((field) => field.toMap()).toList(),
         );
       } on Object {
@@ -564,37 +568,37 @@ class _InspectionDefinitionEditorState
         return;
       }
     }
-    if (_readingFields.isNotEmpty) {
-      setState(() => _checkingCapability = true);
-      final allowed = await _requireNewInspectionV2Authoring(context, ref);
-      if (!mounted) return;
-      setState(() => _checkingCapability = false);
-      if (!allowed) return;
-    }
-    Navigator.pop(
-      context,
-      _InspectionDefinitionDraft(
-        readingFields: _readingFields,
-        code: _code.text.trim().toUpperCase(),
-        title: _title.text.trim(),
-        description: _description.text.trim(),
-        assetTypeKey: selectedClass.legacyAssetTypeKey ?? 'governedCustom',
-        assetClassId: selectedClass.id,
-        componentNodeIds: _componentIds.toList()..sort(),
-        valueType: _valueType,
-        unit: _valueType == InspectionValueType.number
-            ? _unit.text.trim()
-            : null,
-        choiceValues: _valueType == InspectionValueType.choice
-            ? _lines(_choices.text)
-            : const [],
-        minimumValue: _valueType == InspectionValueType.number ? min : null,
-        maximumValue: _valueType == InspectionValueType.number ? max : null,
-        preconditions: _lines(_preconditions.text),
-        requiresChargeNo: _requiresCharge,
-        reason: _reason.text.trim(),
-      ),
+    final draft = _InspectionDefinitionDraft(
+      readingFields: readingFields,
+      code: _code.text.trim().toUpperCase(),
+      title: _title.text.trim(),
+      description: _description.text.trim(),
+      assetTypeKey: selectedClass.legacyAssetTypeKey ?? 'governedCustom',
+      assetClassId: selectedClass.id,
+      componentNodeIds: List.unmodifiable(_componentIds.toList()..sort()),
+      valueType: _valueType,
+      unit: _valueType == InspectionValueType.number ? _unit.text.trim() : null,
+      choiceValues: _valueType == InspectionValueType.choice
+          ? List.unmodifiable(_lines(_choices.text))
+          : const [],
+      minimumValue: _valueType == InspectionValueType.number ? min : null,
+      maximumValue: _valueType == InspectionValueType.number ? max : null,
+      preconditions: List.unmodifiable(_lines(_preconditions.text)),
+      requiresChargeNo: _requiresCharge,
+      reason: _reason.text.trim(),
     );
+    final route = ModalRoute.of(context);
+    if (draft.readingFields.isNotEmpty) {
+      FocusScope.of(context).unfocus();
+      setState(() => _checkingCapability = true);
+      try {
+        final allowed = await _requireNewInspectionV2Authoring(context, ref);
+        if (!mounted || !allowed || route?.isCurrent != true) return;
+      } finally {
+        if (mounted) setState(() => _checkingCapability = false);
+      }
+    }
+    Navigator.pop(context, draft);
   }
 }
 
@@ -717,8 +721,9 @@ class _InspectionCampaignEditorState
       title: const Text('New inspection programme'),
       content: SizedBox(
         width: 620,
-        child: Form(
-          key: _formKey,
+        child: _InspectionPendingForm(
+          checkingCapability: _checkingCapability,
+          formKey: _formKey,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -876,6 +881,7 @@ class _InspectionCampaignEditorState
   }
 
   Future<void> _submit() async {
+    if (_checkingCapability) return;
     if (!_formKey.currentState!.validate()) return;
     if (_roles.isEmpty) {
       _showEditorError(context, 'Select at least one observer role.');
@@ -921,30 +927,32 @@ class _InspectionCampaignEditorState
       );
       return;
     }
-    if (_definition.frozen.isMultiReading) {
-      setState(() => _checkingCapability = true);
-      final allowed = await _requireNewInspectionV2Authoring(context, ref);
-      if (!mounted) return;
-      setState(() => _checkingCapability = false);
-      if (!allowed) return;
-    }
-    Navigator.pop(
-      context,
-      _InspectionCampaignDraft(
-        definition: _definition,
-        purpose: _purpose.text.trim(),
-        assetTypeKey: _assetTypeKey(_definition),
-        assetClassId: _definition.frozen.assetClassIds.firstOrNull,
-        populationMode: _populationMode,
-        hostAssetClassId: _hostAssetClassId,
-        targetNumbers: numbers,
-        expectedPopulation: expected,
-        physicalPositionLabels: positions,
-        baselineCampaignId: _baselineCampaignId,
-        observerRoles: _roles.toList()..sort(),
-        reason: _reason.text.trim(),
-      ),
+    final draft = _InspectionCampaignDraft(
+      definition: _definition,
+      purpose: _purpose.text.trim(),
+      assetTypeKey: _assetTypeKey(_definition),
+      assetClassId: _definition.frozen.assetClassIds.firstOrNull,
+      populationMode: _populationMode,
+      hostAssetClassId: _hostAssetClassId,
+      targetNumbers: List.unmodifiable(numbers),
+      expectedPopulation: expected,
+      physicalPositionLabels: List.unmodifiable(positions),
+      baselineCampaignId: _baselineCampaignId,
+      observerRoles: List.unmodifiable(_roles.toList()..sort()),
+      reason: _reason.text.trim(),
     );
+    final route = ModalRoute.of(context);
+    if (draft.definition.frozen.isMultiReading) {
+      FocusScope.of(context).unfocus();
+      setState(() => _checkingCapability = true);
+      try {
+        final allowed = await _requireNewInspectionV2Authoring(context, ref);
+        if (!mounted || !allowed || route?.isCurrent != true) return;
+      } finally {
+        if (mounted) setState(() => _checkingCapability = false);
+      }
+    }
+    Navigator.pop(context, draft);
   }
 
   InspectionCampaignPopulationMode get _populationMode =>
@@ -1007,6 +1015,7 @@ class _InspectionCampaignEditorState
   }
 
   Future<void> _chooseTargets() async {
+    if (_checkingCapability) return;
     final selected = await showDialog<Set<int>>(
       context: context,
       builder: (_) => _InspectionTargetPickerDialog(
@@ -1174,5 +1183,27 @@ String _targetLabel(
 void _showEditorError(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(content: Text(message), backgroundColor: BafColors.danger),
+  );
+}
+
+/// Keep the validated draft stable while its fresh capability check is pending.
+/// Cancel remains available outside the form; the submitter checks route identity.
+class _InspectionPendingForm extends StatelessWidget {
+  const _InspectionPendingForm({
+    required this.checkingCapability,
+    required this.formKey,
+    required this.child,
+  });
+  final bool checkingCapability;
+  final GlobalKey<FormState> formKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => AbsorbPointer(
+    absorbing: checkingCapability,
+    child: ExcludeFocus(
+      excluding: checkingCapability,
+      child: Form(key: formKey, child: child),
+    ),
   );
 }
