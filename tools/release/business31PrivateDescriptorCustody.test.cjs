@@ -54,6 +54,7 @@ function make(kind){
  if(kind==='order'){approvalCommit=commit([C]);descriptorParent=approvalCommit;}
  const bindings=structuredClone(files);if(kind==='nested-omitted')delete bindings[nested];
  const d={schemaVersion:2,documentType:'build31-business-backend-private-replay',profile:subject.PROFILE,verifier:{commit:V,tree:verifierTree},source:{commit:M,tree:tree(M),functionsTree:git(['rev-parse',M+':functions'])},sourceManifestSha256:'A'.repeat(64),approvalPointer:{commit:approvalCommit,file:subject.FILES.approvalPointer,sha256:sha(approvalBytes)},closurePointer:{commit:C,file:subject.FILES.closurePointer,sha256:sha(closureBytes)},custody:{provider:'gcs',bucket:'crm3-baf-ops-b8638-firestore-restore',objectName:'release-custody/build-31/business-backend/'+M+'/fixture/private-replay-bundle.json',generation:'1',bytes:1,sha256:'B'.repeat(64)},bundleEncoding:'gzip-members-v1',expandedBytes:1,membersSha256:'C'.repeat(64),relocationSha256:'D'.repeat(64),producerBindings:bindings,historicalBaseline:subject.HISTORICAL};
+ if(kind==='descriptor-extra')put('README.md','Unrelated admitted metadata mixed into descriptor custody\n');
  const descriptorBytes=Buffer.from(JSON.stringify(d)+'\n');put(subject.DESCRIPTOR,descriptorBytes);const D=commit([descriptorParent]);
  put('pubspec.yaml','name: fixture\nversion: 1.0.1+31\n');const S=commit([D]);git(['update-ref','refs/heads/candidate',S]);
  // Every altered public object is retained in actual Git with matching raw SHA;
@@ -67,7 +68,23 @@ const cases=[
  ['order','reversed decision and closure ancestry refuses despite matching public pointer bytes',/Required Git ancestry absent/],
  ['decision-extra','decision custody refuses an unrelated allowed metadata change',/custody delta must change only its exact named record/],
  ['closure-extra','closure custody refuses an unrelated allowed metadata change',/custody delta must change only its exact named record/],
+ ['descriptor-extra','descriptor custody refuses an unrelated allowed metadata change',/custody delta must change only its exact named record/],
  ['historical','M historical closure byte alteration refuses despite valid Git and stable M to S',/historical closure bytes differ/],
  ['nested-omitted','real nested producer omission from descriptor and external map refuses',/descriptor must bind complete release producer population/]
 ];
 for(const [kind,name,expected]of cases)test(name,()=>{const args=make(kind);let refusal;assert.throws(()=>subject.verifyBusiness31DescriptorPreparation(args),e=>{refusal={name:e.name,message:e.message};return expected.test(e.message);});fs.writeFileSync(path.join(root,kind+'-refusal.json'),JSON.stringify({synthetic:true,expectedRefusal:expected.source,actual:refusal},null,2)+'\n',{flag:'wx'});});
+
+
+test('dedicated descriptor custody measures preparation without operational authority',()=>{
+ const args=make('dedicated-descriptor');
+ const result=subject.verifyBusiness31DescriptorPreparation(args);
+ assert.equal(result.descriptorStructureVerified,true);
+ assert.equal(result.pointerBytesVerified,true);
+ assert.equal(result.inputBoundaryVerified,true);
+ assert.equal(result.functionsTreeVerified,true);
+ assert.equal(result.historicalClosureBytesVerified,true);
+ assert.equal(result.sourceManifestCommitmentJoined,true);
+ for(const key of ['metadataSemanticsVerified','platformIdentityAuthenticated','ownerAuthenticated',
+  'privateReplayVerified','credentialAccessAuthorized','deploymentAuthorized','constructionAuthorized','distributionAuthorized'])
+  assert.equal(result[key],false,key);
+});

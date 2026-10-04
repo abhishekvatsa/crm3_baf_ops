@@ -11,7 +11,7 @@ const SOURCE={commit:"a".repeat(40),tree:"b".repeat(40),functionsTree:"f".repeat
 const resource="projects/crm3-baf-ops-b8638/locations/asia-south1/functions/";
 const ZIP=Buffer.from("synthetic retained ZIP bytes; archive parser qualified separately"),labels=Object.fromEntries(cohorts.fleet.map(n=>[n,hash(Buffer.from(n))]));
 const baseline=Object.fromEntries(cohorts.fleet.map(n=>[n,{name:resource+n,labels:{"firebase-functions-hash":"prior",preserved:"synthetic"},buildConfig:{source:{storageSource:{bucket:"old",object:"old",generation:"1"}}},serviceConfig:{maxInstanceCount:20}}]));
-function fixture(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-capture-host-"));let tick=0;const clock=()=>new Date(Date.UTC(2026,9,4)+tick++).toISOString();const writer=new BusinessCapture31({evidenceDirectory:dir,approvalPointer:APPROVAL,source:SOURCE,cohorts,now:clock});t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return {dir,writer,clock};}
+function fixture(t,window){const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-capture-host-"));let tick=0;const epoch=Date.now(),clock=()=>new Date(epoch+tick++).toISOString();const writer=new BusinessCapture31({evidenceDirectory:dir,approvalPointer:APPROVAL,source:SOURCE,cohorts,now:clock});if(window!==false)writer.bindExecutionWindow(window??{notBeforeUtc:new Date(epoch-1000).toISOString(),notAfterUtc:new Date(epoch+3600000).toISOString()});t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return {dir,writer,clock};}
 function start(f,phase="callables") {const capture={schemaVersion:1,documentType:"firebase-cli-prepared-backend-hash-inputs",actualCliPreparationCaptured:true,approvalPointer:APPROVAL,phase,source:SOURCE,sourceArchiveHash:"synthetic",endpointRuntimeHashes:labels,archiveSha256:hash(ZIP),archiveBytes:ZIP.length,completedAtUtc:f.clock()};return f.writer.startCohort({phase,capture,archive:ZIP,guardInputs:{baselineFunctions:baseline,projectNumber:"123456789"}});}
 function read(f,p){return JSON.parse(fs.readFileSync(path.join(f.dir,p.file)));}
 function injected(f,options={}) {
@@ -20,7 +20,7 @@ function injected(f,options={}) {
  net.Socket.prototype.connect=function(){throw Error("HOST TEST NETWORK FORBIDDEN");};tls.connect=function(){throw Error("HOST TEST TLS FORBIDDEN");};
  const requests=[],pending=[];
  https.request=function(input,opts,callback){const url=String(input);requests.push({url,method:opts.method,bytes:[]});const row=requests.at(-1),req=new EventEmitter();req.write=b=>{row.bytes.push(Buffer.from(b));return true;};req.destroy=e=>queueMicrotask(()=>req.emit("error",e));req.end=()=>{
-  const dispatch=()=>{
+  const dispatch=()=>{if(options.beforeResponse)options.beforeResponse();
    if(options.lost&&url.includes(options.lost)){req.emit("error",Error("SENSITIVE_INTERNAL_TOKEN_MUST_NOT_BE_CAPTURED"));return;}
    let status=options.status??200,plain=url.includes(":generateUploadUrl")?JSON.stringify({uploadUrl:"https://storage.googleapis.com/synthetic-upload?X-Goog-Signature=SYNTHETIC_PRIVATE_QUERY",storageSource:{bucket:"synthetic",object:"source.zip",generation:"1"}}):opts.method==="PUT"?"":JSON.stringify({name:"synthetic-operation"});
    const res=new EventEmitter();res.statusCode=status;res.headers={authorization:"SECRET_RESPONSE_HEADER",...(options.encoding?{"content-encoding":options.encoding}:{})};res.destroy=e=>{res.emit("error",e);req.emit("error",e);};
@@ -34,10 +34,10 @@ function injected(f,options={}) {
   return req;
  };if(callback)req.once("response",callback);return req;};
  http.request=function(){throw Error("Unexpected HTTP in injected capture test");};
- class Client {constructor(opts){this.opts=opts;} async request(request){assert.equal(request.retries,0);assert.deepEqual(request.retryCodes,[]);return new Promise((resolve,reject)=>{
+ class Client {constructor(opts){this.opts=opts;} async request(request){assert.equal(request.retries,0);assert.deepEqual(request.retryCodes,[]);if(options.beforeTransport)await options.beforeTransport();return new Promise((resolve,reject)=>{
    if(options.nestedCredential){const tokenReq=https.request("https://oauth2.googleapis.com/token",{method:"POST"},res=>{res.on("error",reject);});tokenReq.on("error",reject);tokenReq.write(Buffer.from("SECRET_REFRESH_TOKEN_BODY"));tokenReq.end();}
    const req=https.request(transport.urlOf(this,request),{method:request.method,headers:{Authorization:"SECRET_AUTH_HEADER"}},res=>{res.on("error",reject);res.on("end",()=>{if(res.statusCode>=300)return reject(Error("original API failure"));resolve({status:res.statusCode,body:res.decoded?JSON.parse(res.decoded):""});});});req.on("error",reject);
-   const bytes=request.body==null?Buffer.alloc(0):request.body.path?fs.readFileSync(request.body.path):Buffer.from(JSON.stringify(request.body));if(bytes.length)req.write(options.changedWire?Buffer.concat([bytes,Buffer.from(" changed")]):bytes);req.end();
+   const bytes=request.body==null?Buffer.alloc(0):request.body.path?fs.readFileSync(request.body.path):Buffer.from(JSON.stringify(request.body));if(options.beforeBody)options.beforeBody();if(bytes.length)req.write(options.changedWire?Buffer.concat([bytes,Buffer.from(" changed")]):bytes);req.end();
   });}}
  const restore=installBusinessCapture31({Client,writer:f.writer,observeLive:options.observeLive??(async()=>({observedAtUtc:f.clock(),completedAtUtc:f.clock(),syntheticObservation:true}))});
  return {Client,requests,restore(){restore();https.request=saved.https;http.request=saved.http;net.Socket.prototype.connect=saved.net;tls.connect=saved.tls;}};
@@ -74,3 +74,63 @@ test("unexpected source or custody fields cannot become private credential stora
 test("OAuth token query is rejected rather than retained",()=>{assert.throws(()=>projectRequest({opts:{urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"}},{method:"POST",path:"x",queryParams:{access_token:"SECRET"},body:null}),/credential query/);});
 
 test("full business source point and exact approval custody path are required",t=>{const f=fixture(t);assert.throws(()=>new BusinessCapture31({evidenceDirectory:f.dir,approvalPointer:APPROVAL,source:{commit:SOURCE.commit,tree:SOURCE.tree},cohorts}));assert.throws(()=>new BusinessCapture31({evidenceDirectory:f.dir,approvalPointer:{...APPROVAL,file:"release/evidence/approval.json"},source:SOURCE,cohorts}));});
+
+// Live expiry regressions: local clock and HTTPS peer are injected; no real network.
+function deadlineFixture(t){
+ const RealDate=globalThis.Date;let at=RealDate.UTC(2026,9,4);const end=at+1000;
+ class TestDate extends RealDate{constructor(...args){super(...(args.length?args:[at]));}static now(){return at;}}
+ globalThis.Date=TestDate;t.after(()=>{globalThis.Date=RealDate;});
+ const window={notBeforeUtc:new RealDate(at-1000).toISOString(),notAfterUtc:new RealDate(end).toISOString()};
+ const f=fixture(t,window);f.writer.now=()=>new Date().toISOString();f.clock=f.writer.now;
+ return {...f,expire:()=>{at=end+1;},window};
+}
+function generate(env){const c=new env.Client({urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"});return c.request({method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",body:null});}
+for(const delay of ["observer","persistence","client","body"]){
+ test("deadline regression: "+delay+" crossing refuses original mutation and permits cleanup",async t=>{
+  const f=deadlineFixture(t);start(f);const originalWrite=fs.writeFileSync;
+  if(delay==="persistence")fs.writeFileSync=function(file,...args){const result=originalWrite.call(this,file,...args);if(String(file).endsWith("-intent.json"))f.expire();return result;};
+  const options={};if(delay==="observer")options.observeLive=async()=>{f.expire();return {observedAtUtc:f.clock(),completedAtUtc:f.clock()};};
+  if(delay==="client")options.beforeTransport=async()=>{await Promise.resolve();f.expire();};
+  if(delay==="body")options.beforeBody=f.expire;
+  const env=injected(f,options);let error;
+  try{try{await generate(env);}catch(e){error=e;}
+   assert.ok(error,"expired mutation was forwarded and returned success");assert.match(error.message,/execution window/);
+   assert.equal(env.requests.length,delay==="body"?1:0);assert.equal(env.requests.reduce((n,r)=>n+r.bytes.length,0),0);
+   assert.equal(f.writer.active.pending,0);assert.equal(f.writer.failed,true);
+   const result=f.writer.finishCohort();assert.equal(result.complete,false);
+   for(const p of result.mutations.filter(Boolean)){const record=read(f,p);assert.equal(record.schemaVersion,2);assert.equal(record.response,null);assert.ok(record.error);}
+  }finally{fs.writeFileSync=originalWrite;env.restore();}
+ });
+}
+test("deadline regression: serialized update queue cannot release writes after expiry",async t=>{
+ const f=deadlineFixture(t),s=start(f);let release,queued=0;const gate=new Promise(r=>release=r);
+ const env=injected(f,{observeLive:async operation=>{if(operation.kind==="function-update"){queued++;if(queued===1)await gate;}return {observedAtUtc:f.clock(),completedAtUtc:f.clock()};}});
+ try{const c=await firstTwo(f,env,s),a=update(c,cohorts.callables[0]),b=update(c,cohorts.callables[1]);const done=Promise.allSettled([a,b]);
+  await new Promise(r=>setImmediate(r));f.expire();release();const results=await done;
+  assert.equal(results.every(r=>r.status==="rejected"),true,"queued expired updates succeeded");assert.equal(env.requests.length,2);assert.equal(f.writer.active.pending,0);assert.equal(f.writer.finishCohort().complete,false);
+ }finally{env.restore();}
+});
+
+function boundDecisionFixture(t,edit){
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-deadline-decision-"));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const retain=(file,value)=>{const bytes=Buffer.from(JSON.stringify(value)+"\n");fs.writeFileSync(path.join(dir,file),bytes,{flag:"wx"});return {file,sha256:hash(bytes),bytes:bytes.length};};
+ const T=d=>new Date(Date.now()+d).toISOString(),proof=retain("proof.json",{});
+ const intent=retain("intent.json",{schemaVersion:1,documentType:"firebase-cli-approved-intended-hash-inputs",codebase:"default",source:SOURCE,sourceBefore:SOURCE,sourceAfter:SOURCE,completedAtUtc:T(-5000)});
+ const contract=retain("contract.json",{schemaVersion:1,documentType:"build31-business-execution-contract",profile:"build31-exact-business-backend-v1",source:SOURCE,sourceManifestSha256:"A".repeat(64),runtimeProof:proof,preparedAtUtc:T(-4000),intendedHashInputs:intent});
+ const decision={schemaVersion:2,documentType:"build31-business-backend-deployment-decision",profile:"build31-exact-business-backend-v1",source:SOURCE,sourceManifestSha256:"A".repeat(64),runtimeProof:proof,decidedAtUtc:T(-3000),executionContract:contract,executionWindow:{notBeforeUtc:T(-2000),notAfterUtc:T(60000)}};if(edit)edit(decision);
+ const pointer=retain("decision.json",decision),envelopeBytes=Buffer.from(JSON.stringify({schemaVersion:1,documentType:"build31-business-private-record-custody",recordKind:"decision",source:SOURCE,privateRecord:pointer}));
+ const writer=new BusinessCapture31({evidenceDirectory:dir,source:SOURCE,approvalPointer:{...APPROVAL,sha256:hash(envelopeBytes)},cohorts});
+ return {dir,writer,envelopeBytes,decision};
+}
+test("deadline binding: exact retained decision drives immutable live window",t=>{
+ const f=boundDecisionFixture(t),hook=require("./captureBusiness31PreparedHook.cjs");hook.bindIntent31(f);f.writer.assertExecutionWindow();
+ f.writer.bindExecutionWindow({...f.decision.executionWindow});
+ assert.throws(()=>f.writer.bindExecutionWindow({...f.decision.executionWindow,notAfterUtc:new Date(Date.now()+120000).toISOString()}),/cannot be rebound/);
+ f.writer.now=()=>"2099-01-01T00:00:00.000Z";f.writer.assertExecutionWindow(); // Measurement clock is not live authority.
+});
+for(const [name,edit]of [["missing",d=>delete d.executionWindow],["extra",d=>d.executionWindow.extra=true],["invalid date",d=>d.executionWindow.notAfterUtc="2026-02-31T00:00:00Z"],["overlong",d=>d.executionWindow.notAfterUtc=new Date(Date.now()+7*3600000).toISOString()]])test("deadline binding: "+name+" bound decision refuses",t=>{const f=boundDecisionFixture(t,edit);assert.throws(()=>require("./captureBusiness31PreparedHook.cjs").bindIntent31(f));assert.throws(()=>f.writer.assertExecutionWindow(),/bound decision/);});
+test("deadline binding: changed decision bytes refuse before window binding",t=>{const f=boundDecisionFixture(t);fs.appendFileSync(path.join(f.dir,"decision.json")," ");assert.throws(()=>require("./captureBusiness31PreparedHook.cjs").bindIntent31(f));assert.throws(()=>f.writer.assertExecutionWindow(),/bound decision/);});
+test("deadline binding: missing live window refuses activation",t=>{const f=fixture(t,false);assert.throws(()=>start(f),/bound decision execution window/);assert.equal(f.writer.active,null);});
+test("deadline settlement: a request begun within window may settle after expiry without fake rollback",async t=>{
+ const f=deadlineFixture(t);start(f);const env=injected(f,{beforeResponse:f.expire});try{await generate(env);assert.equal(env.requests.length,1);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);const record=read(f,result.mutations[0]);assert.equal(record.schemaVersion,2);assert.equal(read(f,record.response).httpStatus,200);assert.equal(record.error,null);assert.ok(record.startedAtUtc<=f.window.notAfterUtc&&record.completedAtUtc>f.window.notAfterUtc);}finally{env.restore();}
+});

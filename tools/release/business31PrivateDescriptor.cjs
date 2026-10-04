@@ -131,6 +131,7 @@ function verifyBusiness31DescriptorPreparation({repositoryRoot,gitExecutable,git
   }
   custodyDelta(M,repository.snapshot(d.approvalPointer.commit),FILES.approvalPointer);
   custodyDelta(repository.snapshot(d.approvalPointer.commit),repository.snapshot(d.closurePointer.commit),FILES.closurePointer);
+  custodyDelta(repository.snapshot(d.closurePointer.commit),repository.snapshot(descriptorPointer.commit),DESCRIPTOR);
 
   need(d.source.commit===M.commit&&d.source.tree===M.tree,'descriptor source differs');
   const files=Object.keys(M.files).filter(producer).sort();

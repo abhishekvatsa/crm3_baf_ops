@@ -40,7 +40,7 @@ for(const [label,arrange,error] of [
 ])test("refuses "+label+" before any materialization",()=>{const root=make(label.replaceAll(" ","-"));arrange(root);assert.throws(()=>api.scan31(root,true),error);});
 test("receipt refuses altered producer and omitted or tampered populations",()=>{
   const root=regularTree(),good=api.materializeNpmBins31({buildRoot:root});for(const mutate of [r=>r.producer.sha256="A".repeat(64),r=>r.roots.root.fileCount++,r=>r.roots.cli.afterFilesSha256="A".repeat(64),r=>r.roots.functions.beforeFilesSha256="A".repeat(64),r=>delete r.roots.root]){const bad=structuredClone(good);mutate(bad);assert.throws(()=>verify(root,bad));}
-  put(root,"node_modules/.bin/unrecorded",api.MARKER+"exit 0\n");const changed=structuredClone(good),map=maps(root).root;changed.roots.root.afterFilesSha256=api.sha(api.canonical(map));changed.roots.root.beforeFilesSha256=changed.roots.root.afterFilesSha256;changed.roots.root.fileCount=Object.keys(map).length;assert.throws(()=>verify(root,changed),/unrecorded materialized/);
+  put(root,"node_modules/.bin/unrecorded",api.MARKER+"exit 0\n");const changed=structuredClone(good),map=maps(root).root;changed.roots.root.afterFilesSha256=api.sha(api.canonical(map));changed.roots.root.beforeFilesSha256=changed.roots.root.afterFilesSha256;changed.roots.root.fileCount=Object.keys(map).length;assert.throws(()=>verify(root,changed),/unrecorded materialized|unrecorded POSIX/);
 });
 function runtimeFixture(){
   const root=make("schema2"),evidence=path.join(root,".dart_tool/evidence"),runtimeRoot=make("runtime"),source={commit:"a".repeat(40),tree:"b".repeat(40),functionsTree:"c".repeat(40)},sourceBytes={};roots(root);fs.mkdirSync(evidence,{recursive:true});
@@ -94,4 +94,66 @@ test("complete finite Node shebang rejects unsupported flags hidden beyond the o
   assert.throws(()=>api.verifyNodeShebang31(Buffer.from("#!/usr/bin/env node --require other\n")),/unsupported bin interpreter/);
   assert.throws(()=>api.verifyNodeShebang31(Buffer.from("#!/usr/bin/env node")),/lacks newline/);
   assert.throws(()=>api.verifyNodeShebang31(Buffer.from("#!/usr/bin/env node\u00a0\n")),/unsupported bin interpreter/);
+});
+
+function platformBranch(platform) {
+  const filename=require.resolve("./business31NpmBinMaterialization.cjs"),moduleValue={exports:{}};
+  // Exercises only the platform branch on local inert fixtures. The actual
+  // native clean-install test remains the Linux/Windows execution qualification.
+  new Function("require","module","exports","__filename","__dirname","process",fs.readFileSync(filename,"utf8"))
+    (require,moduleValue,moduleValue.exports,filename,path.dirname(filename),{...process,platform});
+  return moduleValue.exports;
+}
+function elfHeader() {
+  const raw=Buffer.alloc(64);Buffer.from([0x7f,0x45,0x4c,0x46,2,1,1,0]).copy(raw);raw.writeUInt16LE(3,16);raw.writeUInt16LE(62,18);raw.writeUInt32LE(1,20);raw.writeUInt16LE(64,52);return raw;
+}
+function syntheticPosixReceipt(root) {
+  // Header-only fixture is never executed or described as an installed Node.
+  const executable=put(make("synthetic-executable"),"node",elfHeader()),nodeExecutable={path:executable,sha256:api.sha(fs.readFileSync(executable))},fileMaps=maps(root);
+  const receipt={schemaVersion:1,documentType:"build31-npm-bin-materialization",producer:{file:api.SELF,sha256:api.sha(fs.readFileSync(require.resolve("./business31NpmBinMaterialization.cjs")))},nodeExecutable,platform:"linux",roots:{}};
+  for(const [kind,directory] of Object.entries(api.ROOTS)){const map=fileMaps[kind],digest=api.sha(api.canonical(map));receipt.roots[kind]={directory,beforeFilesSha256:digest,afterFilesSha256:digest,fileCount:Object.keys(map).length,aliases:[]};}
+  return {receipt,buildRoot:root,nodeExecutable,producerSha256:receipt.producer.sha256,fileMaps};
+}
+test("POSIX preparation refuses regular root and nested bin entries before changing any bytes",()=>{
+  for(const name of ["node_modules/.bin/unowned","functions/node_modules/outer/node_modules/.bin/unowned","tooling/firebase-cli/node_modules/.bin/deep/unowned"]){
+    const root=regularTree();put(root,name,"#!/bin/sh\nexit 0\n",0o755);const before=maps(root),linux=platformBranch("linux");
+    assert.throws(()=>linux.materializeNpmBins31({buildRoot:root}),/POSIX npm .bin preparation requires original package aliases/);assert.deepEqual(maps(root),before);
+  }
+});
+test("Windows preparation retains ordinary regular npm shims",()=>{
+  const root=regularTree();for(const extension of ["",".cmd",".ps1"])put(root,"node_modules/.bin/probe"+extension,"inert existing npm shim"+extension);
+  const before=maps(root),windows=platformBranch("win32"),receipt=windows.materializeNpmBins31({buildRoot:root});assert.deepEqual(maps(root),before);assert.equal(receipt.roots.root.aliases.length,0);
+  if(process.platform==="win32")assert.equal(verify(root,receipt).recordedMaterializationVerified,true);
+});
+test("POSIX receipt refuses arbitrary regular bin entries even with complete recomputed maps",()=>{
+  for(const name of ["node_modules/.bin/unowned","functions/node_modules/outer/node_modules/.bin/unowned"]){const root=regularTree();put(root,name,"#!/bin/sh\nexit 0\n");const options=syntheticPosixReceipt(root);assert.throws(()=>api.verifyNpmBinMaterialization31(options),/unrecorded POSIX .bin launcher/);}
+});
+test("receipt cannot change platform or executable bytes to evade POSIX alias coverage",()=>{
+  const root=regularTree();put(root,"node_modules/.bin/unowned","#!/bin/sh\nexit 0\n");const options=syntheticPosixReceipt(root);
+  for(const platform of ["win32","darwin"]){const receipt=structuredClone(options.receipt);receipt.platform=platform;assert.throws(()=>api.verifyNpmBinMaterialization31({...options,receipt}),/platform differs from bound Node executable/);}
+  fs.appendFileSync(options.nodeExecutable.path,"tamper");assert.throws(()=>api.verifyNpmBinMaterialization31(options),/Node bytes differ/);
+});
+test("POSIX replay retains regular launchers only with complete package-owned alias evidence",()=>{
+  const root=regularTree(),directory=path.join(root,api.ROOTS.root),options=syntheticPosixReceipt(root),file=".bin/probe",target="probe/bin/run.js",packageJson="probe/package.json",linkTarget="../probe/bin/run.js";
+  const manifest=Buffer.from('{"name":"probe","version":"1.0.0","bin":{"probe":"bin/run.js"}}'),targetBytes=Buffer.from("#!/usr/bin/env node\n// retained fixture, never executed\n");
+  put(directory,packageJson,manifest);put(directory,target,targetBytes,0o600);
+  const launcher=api.launcherBytes31(options.nodeExecutable.path,file,target);put(directory,file,launcher,0o600);
+  // Recorded original0755 modes differ deliberately from regular0600 replay
+  // bytes. This is semantic fixture evidence, not a POSIX execution claim.
+  const alias={file,linkTarget,target,packageJson,packageJsonSha256:api.sha(manifest),binName:"probe",declaredBin:"bin/run.js",targetSha256:api.sha(targetBytes),targetMode:0o755,shimSha256:api.sha(launcher),shimMode:0o755};
+  options.fileMaps=maps(root);const after=options.fileMaps.root,before={...after,[file]:api.sha(Buffer.from(linkTarget))};
+  options.receipt.roots.root={directory:api.ROOTS.root,beforeFilesSha256:api.sha(api.canonical(before)),afterFilesSha256:api.sha(api.canonical(after)),fileCount:Object.keys(after).length,aliases:[alias]};
+  assert.equal(api.verifyNpmBinMaterialization31(options).recordedMaterializationVerified,true);
+  const omitted=structuredClone(options.receipt);omitted.roots.root.aliases=[];omitted.roots.root.beforeFilesSha256=omitted.roots.root.afterFilesSha256;
+  assert.throws(()=>api.verifyNpmBinMaterialization31({...options,receipt:omitted}),/unrecorded POSIX .bin launcher/);
+  for(const key of ["targetMode","shimMode"]){const bad=structuredClone(options.receipt);bad.roots.root.aliases[0][key]=0o600;assert.throws(()=>api.verifyNpmBinMaterialization31({...options,receipt:bad}),/recorded alias mode/);}
+});
+test("format classifier binds actual host Node and bounded supported synthetic executable headers",()=>{
+  assert.equal(api.executablePlatform31(fs.readFileSync(process.execPath)),process.platform);assert.equal(api.executablePlatform31(elfHeader()),"linux");
+  const pe=Buffer.alloc(256);pe.write("MZ");pe.writeUInt32LE(64,0x3c);pe.writeUInt32LE(0x4550,64);pe.writeUInt16LE(0x8664,68);pe.writeUInt16LE(1,70);pe.writeUInt16LE(112,84);pe.writeUInt16LE(2,86);pe.writeUInt16LE(0x20b,88);assert.equal(api.executablePlatform31(pe),"win32");
+  const mach=Buffer.alloc(40);mach.writeUInt32LE(0xfeedfacf,0);mach.writeUInt32LE(2,12);mach.writeUInt32LE(1,16);mach.writeUInt32LE(8,20);assert.equal(api.executablePlatform31(mach),"darwin");
+  for(const raw of [Buffer.from("MZ"),Buffer.from("#!/bin/sh\n"),Buffer.from(pe),Buffer.from(elfHeader()),Buffer.from(mach)]){
+    if(raw.length===256)raw.writeUInt32LE(0xffffffff,0x3c);else if(raw.length===64)raw.writeUInt16LE(1,16);else if(raw.length===40)raw.writeUInt32LE(0xffffffff,20);
+    assert.throws(()=>api.executablePlatform31(raw),/executable/);
+  }
 });

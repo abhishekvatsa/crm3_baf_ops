@@ -18,6 +18,7 @@ function bindIntent31({writer,envelopeBytes}) {
   need(intent.schemaVersion===1&&intent.documentType==="firebase-cli-approved-intended-hash-inputs"&&intent.codebase==="default","ordered original intent required");
   for(const p of [intent.source,intent.sourceBefore,intent.sourceAfter])sameSource(p,writer.source);
   need(old.helpers.time(intent.completedAtUtc)<=old.helpers.time(contract.preparedAtUtc)&&old.helpers.time(contract.preparedAtUtc)<=old.helpers.time(decision.decidedAtUtc),"intent was not covered before decision");
+  writer.bindExecutionWindow(decision.executionWindow);
   return {envelopeBytes,decision,contract,intent,decisionPointer:envelope.privateRecord,contractPointer:decision.executionContract,intentPointer:contract.intendedHashInputs,
     originalHashes:{envelope:sha(envelopeBytes),decision:sha(decisionBytes),contract:sha(contractBytes),intent:sha(intentBytes)}};
 }

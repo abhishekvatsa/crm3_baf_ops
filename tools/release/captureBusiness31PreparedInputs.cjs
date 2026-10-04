@@ -6,6 +6,8 @@ const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const zlib = require("node:zlib");
 const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
 const prepared = require("./captureBackendRuntimePreparedInputs31.cjs");
+const business = require("./business31BackendAuthority.cjs");
+const executionWindows = new WeakMap();
 const PHASES = Object.freeze(["callables", "events", "fleet"]);
 const LIMITS = Object.freeze({wire:64*1024*1024, response:16*1024*1024, json:8*1024*1024});
 const digest = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
@@ -58,6 +60,23 @@ class BusinessCapture31 {
     if(!fs.existsSync(attempts)) fs.mkdirSync(attempts,{mode:0o700});
     noLinks(attempts); fs.mkdirSync(this.base,{mode:0o700}); // Existing attempt is never reused.
   }
+  bindExecutionWindow(window) {
+    need(window&&same(Object.keys(window).sort(),["notAfterUtc","notBeforeUtc"]),"exact decision execution window required");
+    const start=business.instant(window.notBeforeUtc),end=business.instant(window.notAfterUtc);
+    need(start<end&&end-start<=6n*3600n*1000000000n,"decision execution window duration differs");
+    const previous=executionWindows.get(this);
+    need(!previous||same(previous.window,window),"decision execution window cannot be rebound");
+    if(!previous){need(!this.active&&this.completed.length===0&&!this.failed,"execution window must bind before preparation");executionWindows.set(this,{window:Object.freeze(clone(window)),start,end});}
+  }
+  assertExecutionWindow() {
+    try {
+      const bound=executionWindows.get(this);need(bound,"bound decision execution window required");
+      // The record clock is caller-supplied test/measurement data, never the live guard.
+      // Sample after all work at each forwarding boundary; no callback or evidence IO follows here.
+      const current=business.instant(new Date().toISOString());
+      need(bound.start<=current&&current<=bound.end,"outside bound decision execution window");
+    } catch(error) {this.failed=true;if(this.active)this.active.failed=true;throw error;}
+  }
   put(name, bytes) {
     need(this.active&&/^[a-z0-9.-]+$/.test(name),"fixed active capture path required");
     const raw=Buffer.isBuffer(bytes)?bytes:Buffer.from(JSON.stringify(bytes,null,2)+"\n");
@@ -79,6 +98,7 @@ class BusinessCapture31 {
     const guard=new neutral.RuntimeDeploymentTransportGuard31({...guardInputs,names,allNames:this.cohorts.fleet,phase,
       sourceArchiveHash:capture.sourceArchiveHash,endpointRuntimeHashes:capture.endpointRuntimeHashes});
     guard.preparedMatches(capture);
+    this.assertExecutionWindow();
     this.active={phase,directory,guard,capture:clone(capture),records:[],completed:0,pending:0,refused:0,failed:false,lastStarted:capture.completedAtUtc,lastCompleted:capture.completedAtUtc,queue:Promise.resolve()};
     this.active.archivePointer=this.put("actual-source.zip",archive);
     this.active.capturePointer=this.put("actual-prepared-inputs.json",capture);
@@ -93,6 +113,7 @@ class BusinessCapture31 {
     if(operation.sequence>2) need(s.records[1]?.success===true,"upload has not completed successfully");
     need(observation&&typeof observation==="object","fresh live observation required");
     exactTime(observation.observedAtUtc);exactTime(observation.completedAtUtc);
+    this.assertExecutionWindow();
     const startedAtUtc=exactTime(this.now());
     need(s.capture.completedAtUtc<=observation.observedAtUtc&&observation.observedAtUtc<=observation.completedAtUtc&&observation.completedAtUtc<=startedAtUtc&&s.lastStarted<=startedAtUtc,"live/start chronology differs");
     s.lastStarted=startedAtUtc; const original=projectRequest(scope.client,scope.request);
@@ -180,12 +201,17 @@ function installBusinessCapture31({Client,writer,observeLive}) {
       const scope=local.getStore(),candidate=scope?.item;
       const effective=neutral.effectiveRequest31(args[0],args[1],api===https?"https:":"http:");
       const item=candidate&&effective.url.href===candidate.operation.url&&effective.method===candidate.operation.method?candidate:null;
-      if(item){need(++item.transportCount===1,"second mutation transport refused");}
+      if(item){need(++item.transportCount===1,"second mutation transport refused");writer.assertExecutionWindow();}
       const req=request.apply(this,args);if(!item)return req;
-      const write=req.write,end=req.end;
+      const write=req.write,end=req.end;let outboundStarted=false;
+      const beforeOutbound=()=>{
+        if(outboundStarted)return;
+        try{writer.assertExecutionWindow();}catch(error){item.captureError=true;req.destroy(error);throw error;}
+        outboundStarted=true;
+      };
       const retain=chunk=>{if(chunk===undefined||chunk===null)return;need(Buffer.isBuffer(chunk),"original request wire must be bytes");need(item.wireBytes+chunk.length<=LIMITS.wire,"wire bound exceeded");item.wire.push(Buffer.from(chunk));item.wireBytes+=chunk.length;};
-      req.write=function(chunk,...rest){retain(chunk);return write.call(this,chunk,...rest);};
-      req.end=function(chunk,...rest){retain(chunk);item.wireEnded=true;return end.call(this,chunk,...rest);};
+      req.write=function(chunk,...rest){retain(chunk);beforeOutbound();return write.call(this,chunk,...rest);};
+      req.end=function(chunk,...rest){retain(chunk);beforeOutbound();item.wireEnded=true;return end.call(this,chunk,...rest);};
       req.prependListener("response",res=>{
         item.status=res.statusCode; item.encoding=res.headers?.["content-encoding"]??null;
         res.prependListener("data",chunk=>{

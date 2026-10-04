@@ -6,6 +6,7 @@ const physical = require("./business31ExecutionContract.cjs").physical;
 const SELF = "tools/release/business31NpmBinMaterialization.cjs";
 const ROOTS = Object.freeze({root:"node_modules",functions:"functions/node_modules",cli:"tooling/firebase-cli/node_modules"});
 const MARKER = "#!/bin/sh\n# build31 measured npm Node launcher v1\n";
+const npmBinMember = name => name.startsWith(".bin/") || name.includes("/node_modules/.bin/");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const need = (value,message) => { if(!value) throw Error("Business31 npm materialization: " + message); };
 function own(map,name,value) { need(!Object.hasOwn(map,name),"duplicate inventory member"); Object.defineProperty(map,name,{value,enumerable:true,writable:true,configurable:true}); }
@@ -14,6 +15,36 @@ function exact(value,fields,label) { need(value&&typeof value==="object"&&!Array
 function portable(value) { need(typeof value==="string"&&value.length>0&&value.length<=400&&/^[A-Za-z0-9_@+.~/-]+$/.test(value)&&!value.startsWith("/")&&value.split("/").every(p=>p&&p!=="."&&p!==".."&&!/[. ]$/.test(p)&&!/^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(p)),"unsafe relative member");return value; }
 function bytes(file) { file=physical(file);const before=fs.statSync(file,{bigint:true});need(before.size<=128n*1024n*1024n,"file bound exceeded");const value=fs.readFileSync(file),after=fs.statSync(file,{bigint:true});need(before.size===after.size&&before.ino===after.ino&&before.mtimeNs===after.mtimeNs&&before.ctimeNs===after.ctimeNs&&BigInt(value.length)===after.size,"member changed during read");return value; }
 function jsonFile(file) { const raw=bytes(file);need(raw.length<=8*1024*1024,"package manifest bound exceeded");const value=JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(raw));need(value&&typeof value==="object"&&!Array.isArray(value),"package manifest must be an object");return {value,raw}; }
+function executablePlatform31(raw) {
+  need(Buffer.isBuffer(raw),"executable bytes required");
+  // Format classification only. Authenticity remains the existing external hash
+  // binding; neither a receipt field nor the replay host selects the platform.
+  if(raw.length>=64 && raw[0]===0x4d && raw[1]===0x5a) {
+    const offset=raw.readUInt32LE(0x3c);
+    need(offset>=64 && offset<=raw.length-24 && raw.readUInt32LE(offset)===0x4550,"invalid PE executable signature");
+    const machine=raw.readUInt16LE(offset+4),sections=raw.readUInt16LE(offset+6),optional=raw.readUInt16LE(offset+20);
+    need([0x14c,0x8664,0xaa64].includes(machine) && sections>0 && sections<=96 &&
+      (raw.readUInt16LE(offset+22)&2)!==0 && optional>=112 && offset+24+optional+40*sections<=raw.length,"invalid PE executable header");
+    need([0x10b,0x20b].includes(raw.readUInt16LE(offset+24)),"unsupported PE executable format");
+    return "win32";
+  }
+  if(raw.length>=16 && raw.subarray(0,4).equals(Buffer.from([0x7f,0x45,0x4c,0x46]))) {
+    const bits=raw[4],endian=raw[5],size=bits===1?52:64;
+    need([1,2].includes(bits) && [1,2].includes(endian) && raw[6]===1 && [0,3].includes(raw[7]) && raw.length>=size,"unsupported ELF executable format");
+    const u16=offset=>endian===1?raw.readUInt16LE(offset):raw.readUInt16BE(offset),u32=offset=>endian===1?raw.readUInt32LE(offset):raw.readUInt32BE(offset);
+    need([2,3].includes(u16(16)) && u32(20)===1 && u16(bits===1?40:52)===size,"invalid ELF executable header");
+    return "linux";
+  }
+  if(raw.length>=4) {
+    const magic=raw.readUInt32BE(0),little=[0xcefaedfe,0xcffaedfe].includes(magic),wide=[0xfeedfacf,0xcffaedfe].includes(magic);
+    if([0xfeedface,0xfeedfacf,0xcefaedfe,0xcffaedfe].includes(magic)) {
+      const size=wide?32:28,u32=offset=>little?raw.readUInt32LE(offset):raw.readUInt32BE(offset);
+      need(raw.length>=size && u32(12)===2 && u32(16)>0 && u32(16)<=4096 && u32(20)>=8*u32(16) && size+u32(20)<=raw.length,"invalid Mach-O executable header");
+      return "darwin";
+    }
+  }
+  throw Error("Business31 npm materialization: unsupported executable format");
+}
 function verifyNodeShebang31(targetBytes) {
   need(Buffer.isBuffer(targetBytes),"bin bytes required");
   const newline=targetBytes.indexOf(10);
@@ -56,7 +87,7 @@ function scan31(root,allowAliases=false) {
     if(entry.isDirectory()) { physical(full,true);walk(full);continue; }
     need(++count<=100000,"file population exceeds bound");
     if(entry.isSymbolicLink()) { need(allowAliases,"regular installed population required");const raw=fs.readlinkSync(full),info=aliasDescription(root,file,raw);need(fs.realpathSync(full)===physical(path.join(root,...info.target.split("/"))),"actual alias does not resolve to its declared target");aliases.push(info);own(files,file,sha(Buffer.from(raw)));total+=Buffer.byteLength(raw); }
-    else { need(entry.isFile(),"unsupported filesystem member");const raw=bytes(full);total+=raw.length;own(files,file,sha(raw)); }
+    else { need(entry.isFile(),"unsupported filesystem member");need(!allowAliases || process.platform==="win32" || !npmBinMember(file),"POSIX npm .bin preparation requires original package aliases");const raw=bytes(full);total+=raw.length;own(files,file,sha(raw)); }
     need(total<=2*1024*1024*1024,"installed population exceeds bound");
   }}walk(root);need(Object.keys(files).length===count,"inventory cardinality differs");return {files,aliases:aliases.sort((a,b)=>a.file.localeCompare(b.file)),count};
 }
@@ -93,6 +124,8 @@ function verifyNpmBinMaterialization31({receipt,buildRoot,nodeExecutable,produce
   need(receipt.schemaVersion===1&&receipt.documentType==="build31-npm-bin-materialization"&&["win32","linux","darwin"].includes(receipt.platform),"normalization profile differs");
   exact(receipt.producer,["file","sha256"],"producer");need(receipt.producer.file===SELF&&receipt.producer.sha256===producerSha256,"materializer producer differs");
   need(isDeepStrictEqual(receipt.nodeExecutable,nodeExecutable),"materializer Node differs");exact(receipt.roots,Object.keys(ROOTS),"root populations");exact(fileMaps,Object.keys(ROOTS),"installed maps");
+  const nodeBytes=bytes(nodeExecutable.path);need(sha(nodeBytes)===nodeExecutable.sha256,"materializer Node bytes differ");
+  need(executablePlatform31(nodeBytes)===receipt.platform,"materializer platform differs from bound Node executable");
   for(const [kind,directory] of Object.entries(ROOTS)) {
     const row=receipt.roots[kind],map=fileMaps[kind],root=physical(path.join(buildRoot,directory),true);
     exact(row,["directory","beforeFilesSha256","afterFilesSha256","fileCount","aliases"],"materialized root");
@@ -110,7 +143,8 @@ function verifyNpmBinMaterialization31({receipt,buildRoot,nodeExecutable,produce
       const raw=launcherBytes31(nodeExecutable.path,alias.file,alias.target);need(alias.shimSha256===sha(raw)&&map[alias.file]===alias.shimSha256&&bytes(path.join(root,...alias.file.split("/"))).equals(raw),"materialized launcher bytes differ");
       Object.defineProperty(original,alias.file,{value:sha(Buffer.from(alias.linkTarget)),enumerable:true,writable:true,configurable:true});
     }
-    for(const name of Object.keys(map).filter(name=>name.startsWith(".bin/")||name.includes("/node_modules/.bin/"))) {
+    for(const name of Object.keys(map).filter(npmBinMember)) {
+      if(receipt.platform!=="win32")need(seen.has(name),"unrecorded POSIX .bin launcher");
       const raw=bytes(path.join(root,...name.split("/")));if(raw.subarray(0,Buffer.byteLength(MARKER)).toString()===MARKER)need(seen.has(name),"unrecorded materialized alias");
     }
     need(sha(canonical(original))===row.beforeFilesSha256,"original alias population commitment differs");
@@ -121,4 +155,4 @@ if(require.main===module) {
   try { need(process.argv.length===4&&process.argv[2]==="--build-root","exact --build-root command required");process.stdout.write(JSON.stringify(materializeNpmBins31({buildRoot:process.argv[3]}))+"\n"); }
   catch(error) { process.stderr.write(String(error.stack||error)+"\n");process.exitCode=1; }
 }
-module.exports={SELF,ROOTS,MARKER,sha,canonical,verifyNodeShebang31,launcherBytes31,scan31,materializeNpmBins31,verifyNpmBinMaterialization31};
+module.exports={SELF,ROOTS,MARKER,sha,canonical,executablePlatform31,verifyNodeShebang31,launcherBytes31,scan31,materializeNpmBins31,verifyNpmBinMaterialization31};
