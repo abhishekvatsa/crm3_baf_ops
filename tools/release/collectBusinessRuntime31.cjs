@@ -53,6 +53,75 @@ function supportMap(root) {
   }
   walk(root);return Object.fromEntries(rows);
 }
+// This is a complete, externally selected installation binding, not an observed
+// import subset or publisher authentication. Startup imports run before Python
+// can inspect its own paths, so Node must establish this boundary first.
+function verifyPythonRuntime31(python) {
+  exact(python,["schemaVersion","root","executable","files"],"Python installation");
+  need(python.schemaVersion===2,"complete Python installation schema2 required");
+  const root=regular(python.root,true);
+  exact(python.executable,["path","sha256"],"Python executable");
+  need(path.resolve(python.executable.path)===path.join(root,"python.exe") &&
+    path.isAbsolute(python.executable.path) && HASH.test(python.executable.sha256),"standard Python executable required");
+  need(python.files && typeof python.files==="object" && !Array.isArray(python.files),"complete Python map required");
+  const expected=Object.keys(python.files), folded=new Set();
+  need(expected.length>0 && expected.length<=10000,"Python population bound exceeded");
+  for(const name of expected) {
+    need(typeof name==="string" && name.length<=512 && !/[\\:\x00-\x1f]/.test(name) &&
+      name.split("/").every(v=>v && v!=="." && v!==".." && !/[. ]$/.test(v)) &&
+      !folded.has(name.toLowerCase()) && HASH.test(python.files[name]),"Python map path/hash differs");
+    folded.add(name.toLowerCase());
+  }
+  need(python.files["python.exe"]===python.executable.sha256,"Python executable missing from complete map");
+  for(const name of ["python313.dll","python3.dll","Lib/os.py","Lib/encodings/__init__.py"]) {
+    need(Object.hasOwn(python.files,name),"standard Python landmark absent: "+name);
+  }
+  regular(path.join(root,"Lib"),true);regular(path.join(root,"DLLs"),true);
+  // CPython getpath checks these before the runner. Refuse configuration and
+  // build-tree discovery rather than trusting a later sys.path assertion.
+  for(const dir of new Set([root,path.dirname(root),path.dirname(path.dirname(root))])) {
+    for(const row of fs.readdirSync(dir,{withFileTypes:true})) {
+      const lower=row.name.toLowerCase();
+      need(lower!=="pyvenv.cfg" && lower!=="pybuilddir.txt" && !lower.endsWith("._pth"),
+        "Python startup override refused");
+      if(lower==="modules") {
+        const modules=regular(path.join(dir,row.name),true);
+        need(!fs.readdirSync(modules).some(v=>v.toLowerCase()==="setup.local"),"Python build landmark refused");
+      }
+    }
+  }
+  const rows=[],seen=new Set();let directories=0,total=0;
+  function walk(dir,prefix="",depth=0) {
+    need(depth<=32 && ++directories<=10000,"Python directory bound exceeded");
+    for(const row of fs.readdirSync(dir,{withFileTypes:true})) {
+      const name=prefix+row.name,lower=name.toLowerCase(),file=path.join(dir,row.name);
+      need(!seen.has(lower) && !/[\\:\x00-\x1f]/.test(row.name) && !/[. ]$/.test(row.name),"Python path collision or alias refused");
+      seen.add(lower);need(!row.isSymbolicLink(),"Python runtime redirect refused");
+      const stat=fs.lstatSync(file);
+      need(!stat.isSymbolicLink(),"Python runtime redirect refused");
+      if(stat.isDirectory())walk(file,name+"/",depth+1);
+      else {
+        need(stat.isFile() && rows.length<10000,"Python regular-file population differs");
+        total+=stat.size;need(total<=2*1024*1024*1024,"Python population exceeds2GiB");
+        rows.push([name,supportHash(file)]);
+      }
+    }
+  }
+  walk(root);
+  need(rows.length===expected.length && same(Object.fromEntries(rows),python.files),"complete Python population differs");
+  return {root,executable:path.join(root,"python.exe"),files:rows.length};
+}
+function runPythonRunner31(python,requestFile,options) {
+  python=structuredClone(python);
+  const selected=verifyPythonRuntime31(python);
+  need(requestFile===null || (typeof requestFile==="string" && path.isAbsolute(requestFile)),"absolute runner request required");
+  const args=["-I","-S","-B",path.join(__dirname,"runtime_process_runner.py"),"--python-root",selected.root,
+    requestFile===null?"--check-ports":requestFile];
+  const result=cp.spawnSync(selected.executable,args,options);
+  // Do not lose original process output on a detected post-launch change.
+  try {verifyPythonRuntime31(python);} catch(error) {error.pythonResult=result;throw error;}
+  return result;
+}
 function binding(v) {
   exact(v, ["path", "sha256"], "file binding"); need(HASH.test(v.sha256) && sha(read(v.path)) === v.sha256, "bound file differs"); return v;
 }
@@ -84,11 +153,7 @@ function copyFile(p, to, expected) {
   write(to,bytes); need(sha(read(to))===expected,"retained copy differs");
 }
 function verifySupport(config, api, policy) {
-  exact(config.python,["executable","files"],"Python"); binding(config.python.executable);
-  need(config.python.files && Object.keys(config.python.files).length > 0 && Object.keys(config.python.files).length <= 100,
-    "bound Python runtime files required");
-  need(config.python.files[config.python.executable.path]===config.python.executable.sha256,"Python executable not in runtime map");
-  for(const [p,h] of Object.entries(config.python.files)) binding({path:p,sha256:h});
+  verifyPythonRuntime31(config.python);
   exact(config.windows,["systemRoot","commandProcessor","java","firestoreJar"],"Windows inputs");
   const systemRoot=regular(config.windows.systemRoot,true); binding(config.windows.commandProcessor);
   need(path.resolve(config.windows.commandProcessor.path)===path.join(systemRoot,"System32/cmd.exe"),"fixed Windows command processor required");
@@ -128,7 +193,7 @@ function runtimeCheck(ctx,runtime) {
   if(ctx.wrapperBindings)for(const value of ctx.wrapperBindings)binding(value);
 }
 function checkPorts(config) {
-  const result=cp.spawnSync(config.python.executable.path,["-I","-S",path.join(__dirname,"runtime_process_runner.py"),"--check-ports"],
+  const result=runPythonRunner31(config.python,null,
     {env:{SystemRoot:config.windows.systemRoot,WINDIR:config.windows.systemRoot},windowsHide:true,encoding:null,timeout:15000,maxBuffer:65536});
   need(!result.error&&result.status===0&&result.stderr.length===0,"Windows listener read failed");
   const value=JSON.parse(result.stdout.toString("utf8"));
@@ -144,6 +209,7 @@ function checkEmulatorInputs(ctx,buildRoot,environment) {
     metadata.expectedSize===fs.statSync(regular(file)).size && supportHash(file)===selected.sha256,"selected Firestore cache differs from installed pinned CLI metadata");
 }
 function preflightBusinessRuntime31(config) {
+  config=structuredClone(config);
   exact(config,["schemaVersion","repositoryRoot","gitExecutable","gitSha256","source","runtime","attemptRoot",
     "afterCi","python","windows","limits"],"collector input");
   need(config.schemaVersion===1 && process.platform==="win32","Windows collector input required");
@@ -237,7 +303,9 @@ function archiveGeneratedLogs(ctx,buildRoot,evidence,kind) {
   return moved;
 }
 function collectBusinessRuntime31(config) {
-  const ctx=preflightBusinessRuntime31(config),root=path.resolve(config.attemptRoot);
+  const ctx=preflightBusinessRuntime31(config);
+  config=ctx.config;
+  const root=path.resolve(config.attemptRoot);
   fs.mkdirSync(root);const evidence=path.join(root,"evidence"),buildRoot=path.join(root,"build"),prefix=path.join(root,"runtime");
   fs.mkdirSync(evidence);fs.mkdirSync(buildRoot);fs.mkdirSync(prefix);
   const progress=[];let current="source-export",proof,proofWritten=false;
@@ -274,9 +342,18 @@ function collectBusinessRuntime31(config) {
       write(requestFile,{schemaVersion:1,parentPid:process.pid,supervisorSha256:SUPERVISOR_SHA,executable:runtime.nodeExecutable.path,
         arguments:argv,cwd:buildRoot,environment,outputDirectory:processDir,timeoutSeconds:config.limits.commandSeconds,
         maxOutputBytes:config.limits.outputBytes,cleanupSeconds:config.limits.cleanupSeconds});
-      const run=cp.spawnSync(config.python.executable.path,["-I","-S",path.join(__dirname,"runtime_process_runner.py"),requestFile],
-        {cwd:root,env:environment,windowsHide:true,encoding:null,maxBuffer:1024*1024,
-          timeout:(config.limits.commandSeconds+config.limits.cleanupSeconds*3+15)*1000});
+      let run;
+      try {
+        run=runPythonRunner31(config.python,requestFile,
+          {cwd:root,env:environment,windowsHide:true,encoding:null,maxBuffer:1024*1024,
+            timeout:(config.limits.commandSeconds+config.limits.cleanupSeconds*3+15)*1000});
+      } catch(error) {
+        if(error.pythonResult) {
+          write(path.join(evidence,"runner",kind+".stdout.bin"),error.pythonResult.stdout??Buffer.alloc(0));
+          write(path.join(evidence,"runner",kind+".stderr.bin"),error.pythonResult.stderr??Buffer.alloc(0));
+        }
+        throw error;
+      }
       write(path.join(evidence,"runner",kind+".stdout.bin"),run.stdout??Buffer.alloc(0));
       write(path.join(evidence,"runner",kind+".stderr.bin"),run.stderr??Buffer.alloc(0));
       const physical=path.join(processDir,"result.json");
@@ -329,7 +406,7 @@ function collectBusinessRuntime31(config) {
       successfulProofWritten:proofWritten,collectionComplete:false,authenticated:false,deploymentAuthorized:false});throw error;
   }
 }
-module.exports={PLAN,preflightBusinessRuntime31,collectBusinessRuntime31};
+module.exports={PLAN,preflightBusinessRuntime31,collectBusinessRuntime31,verifyPythonRuntime31,runPythonRunner31};
 if(require.main===module) {
   try { need(process.argv.length===3,"one explicit data-only collector input file required");
     const result=collectBusinessRuntime31(json(process.argv[2]));process.stdout.write(JSON.stringify(result)+"\n");

@@ -321,6 +321,33 @@ the completed-CI lower time bound; and finite process/output limits. Selection
 and authentication of the collector, host, tools and CI remain external gates.
 The collector does not create an owner decision or authorize deployment.
 
+The `python` input uses schema 2: `schemaVersion`, an absolute installation
+`root`, an `executable` path/SHA-256 binding, and `files`, the complete relative
+path-to-SHA-256 map of that installation. Caller-selected import subsets are
+refused. The supported layout is a regular CPython 3.13 Windows installation
+with `python.exe`, `python3.dll`, `python313.dll`, `Lib` and `DLLs`. The census
+includes every file, including existing bytecode, site packages and an optional
+`python313.zip`; no import-observation exclusions are made. Redirects, case/path
+aliases, virtual-environment configuration, `._pth` overrides and build-tree
+discovery markers are refused. Bounds are 10,000 files, 10,000 directories,
+32 directory levels, 512 MiB per file and 2 GiB total.
+
+Trusted Node checks this complete map before every Python launch, including the
+listener check, and again after it returns. A retained copy of the selected map
+prevents a caller's later map change from rebinding the launch. Python runs with
+`-I -S -B`; before importing any standard-library module, the fixed runner checks
+the executable, all prefixes and the exact ZIP/DLLs/Lib/root search path using
+only builtin `sys`. The Node check is primary because startup imports precede
+the runner. `-B` prevents this collector from writing new bytecode caches.
+Post-launch drift fails collection; command-launch failures retain the original
+runner output in evidence. Listener-preflight drift fails before collection,
+with output attached to the error for an API caller; the CLI prints only the
+error message and does not persist that listener output.
+Selection of the complete expected manifest still requires the trusted launcher;
+matching a caller-provided manifest does not authenticate Python's publisher.
+The Windows OS/native dependencies and protection against concurrent hostile
+filesystem mutation remain trusted-host requirements, not a sandbox guarantee.
+
 The attempt path must be new. Complete source blobs are exported into its build
 folder, and the approved Node executable and whole npm package are copied into
 a private conventional prefix. Private home, temporary, npm-cache and emulator
@@ -356,8 +383,9 @@ backend deployment or a delivered client upgrade.
 
 The Windows integration test requires an explicit private host configuration at
 `BUSINESS31_COLLECTOR_TEST_HOST_CONFIG`, containing absolute `gitExecutable`,
-`pythonRoot` and `systemRoot` paths. Its current fixture uses Python 3.13 and
-checks the executable, Python DLL, ctypes and libffi files. Missing Windows
+`pythonRoot` and `systemRoot` paths. Its fixture uses an independently measured
+complete Python 3.13 installation map, including the standard library and
+existing bytecode, with the same constrained launch as collection. Missing Windows
 configuration fails visibly. Other platforms report the Windows integration as
 skipped and cannot establish its acceptance. Test output names the retained
 synthetic evidence directory; no fixture or original failed attempt is deleted.

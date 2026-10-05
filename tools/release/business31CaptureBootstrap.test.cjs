@@ -52,7 +52,17 @@ else if(process.argv[2]!=="--component-child"){
 async function runSynthetic(kind,root,tools) {
 const fs=require("node:fs"),path=require("node:path"),crypto=require("node:crypto"),assert=require("node:assert/strict");
 const {pathToFileURL}=require("node:url");
-if(kind==="cached-writer"||kind==="cached-hook"){const own=path.join(root,"own-tools");fs.mkdirSync(own);for(const name of fs.readdirSync(tools))fs.copyFileSync(path.join(tools,name),path.join(own,name));tools=own;}
+if(kind==="cached-writer"||kind==="cached-hook"){
+ const own=path.join(root,"own-tools");fs.mkdirSync(own);
+ // These shared-process cases need the flat helper files; nested test fixtures are not imported.
+ for(const entry of fs.readdirSync(tools,{withFileTypes:true})){
+  assert.equal(entry.isSymbolicLink(),false,"redirected helper fixture entry refused");
+  if(entry.isDirectory())continue;
+  assert.equal(entry.isFile(),true,"non-regular helper fixture entry refused");
+  fs.copyFileSync(path.join(tools,entry.name),path.join(own,entry.name),fs.constants.COPYFILE_EXCL);
+ }
+ tools=own;
+}
 const hash=b=>crypto.createHash("sha256").update(b).digest("hex").toUpperCase();
 const cp=require("node:child_process");for(const n of ["exec","execSync","execFile","execFileSync","spawn","spawnSync","fork"])cp[n]=()=>{throw Error("CHILD_PROCESS_FORBIDDEN");};
 const https=require("node:https"),http=require("node:http"),net=require("node:net"),tls=require("node:tls"),Module=require("node:module");

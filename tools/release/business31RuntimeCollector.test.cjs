@@ -6,7 +6,7 @@ const test=require("node:test"),assert=require("node:assert/strict"),fs=require(
 if(process.platform!=="win32") {
   test("Windows owned-process collector integration",{skip:"Requires Windows job objects; this platform cannot qualify the Windows collector"},()=>{});
 } else {
-const {createFixture,binding,sha,put}=require("./fixtures/business31CollectorFixture.cjs");
+const {createFixture,binding,sha,put,regularMap}=require("./fixtures/business31CollectorFixture.cjs");
 const candidate=__dirname;
 const collector=require(path.join(candidate,"collectBusinessRuntime31.cjs"));
 const toolsDirectory=__dirname;
@@ -20,11 +20,13 @@ process.stdout.write("Retained synthetic collector evidence: "+parent+"\n");
 const authority=require(path.join(toolsDirectory,"business31BackendAuthority.cjs"));
 const trusted=require(path.join(toolsDirectory,"business31TrustedInput.cjs"));
 const {gitExecutable,pythonRoot,systemRoot}=host;
-const pythonFiles=Object.fromEntries(["python.exe","python313.dll","DLLs/_ctypes.pyd","DLLs/libffi-8.dll"].map(name=>{const full=path.join(pythonRoot,name);return [full,binding(full).sha256];}));
+// Independently census the complete selected installation; do not derive expected
+// bytes from the validator being tested. This is measurement, not publisher auth.
+const pythonFiles=regularMap(pythonRoot);
 function make(name,behaviour={}){
   const f=createFixture({parent,name,toolsDirectory,gitExecutable,behaviour});
   f.config={schemaVersion:1,repositoryRoot:f.repositoryRoot,gitExecutable,gitSha256:f.gitSha256,source:f.source,runtime:f.runtime,attemptRoot:f.attemptRoot,
-    afterCi:new Date(Date.now()-60000).toISOString(),python:{executable:binding(path.join(pythonRoot,"python.exe")),files:pythonFiles},windows:{systemRoot,commandProcessor:binding(path.join(systemRoot,"System32/cmd.exe")),java:null,firestoreJar:null},limits:{commandSeconds:20,cleanupSeconds:5,outputBytes:1024*1024}};
+    afterCi:new Date(Date.now()-60000).toISOString(),python:{schemaVersion:2,root:pythonRoot,executable:binding(path.join(pythonRoot,"python.exe")),files:pythonFiles},windows:{systemRoot,commandProcessor:binding(path.join(systemRoot,"System32/cmd.exe")),java:null,firestoreJar:null},limits:{commandSeconds:20,cleanupSeconds:5,outputBytes:1024*1024}};
   return f;
 }
 function json(file){return JSON.parse(fs.readFileSync(file,"utf8"));}

@@ -1,11 +1,34 @@
 """Data-only owned-process bridge. No install or collector policy lives here."""
+import sys
+
+
+def _verify_isolated_startup():
+    """No stdlib imports until the Node-verified installation paths agree."""
+    if len(sys.argv) != 4 or sys.argv[1] != "--python-root":
+        raise ValueError("Exact bound Python root and one runner operation required")
+    root = sys.argv[2]
+    norm = lambda value: value.replace("/", "\\").rstrip("\\").casefold()
+    expected = [root + "/python313.zip", root + "/DLLs", root + "/Lib", root]
+    if (sys.platform != "win32" or sys.version_info[:2] != (3, 13)
+            or not sys.flags.isolated or not sys.flags.no_site
+            or not sys.flags.dont_write_bytecode or not sys.flags.ignore_environment
+            or norm(sys.executable) != norm(root + "/python.exe")
+            or norm(sys._base_executable) != norm(sys.executable)
+            or any(norm(value) != norm(root) for value in
+                   (sys.prefix, sys.exec_prefix, sys.base_prefix, sys.base_exec_prefix))
+            or [norm(value) for value in sys.path] != [norm(value) for value in expected]):
+        raise ValueError("Python isolated installation/search path differs")
+    sys.argv[:] = [sys.argv[0], sys.argv[3]]
+
+
+_verify_isolated_startup()
+
 import ctypes
 import hashlib
 import importlib.util
 import json
 import os
 from pathlib import Path
-import sys
 import threading
 from ctypes import wintypes
 
