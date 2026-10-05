@@ -115,9 +115,10 @@ or make an arbitrary shared process trustworthy.
 This is a component-test launcher, not the operational deployment launcher.
 `launchBusinessCapture31` explicitly refuses execution. The externally admitted
 Node/bootstrap/source launch, fixed authenticated observer, real CLI controller
-and existing three-child receipt integration remain unimplemented. The approved
-real toolchain profile population remains empty. A child consistency hash,
-caller flag or successful component measurement supplies none of that authority.
+and existing three-child receipt integration remain unimplemented. The finite
+Windows toolchain profile is described below; its enrollment supplies byte
+identity, not operational qualification. A child consistency hash, caller flag
+or successful component measurement supplies none of that authority.
 The existing three-child closure contract and immutable historical verifiers
 are unchanged; component children cannot stand in for deployment receipts.
 
@@ -256,11 +257,23 @@ the descriptor code-producer map; existing complete-source M-to-S and exact
 custody-delta checks cannot change its path. The helper is an exact executing
 producer and must appear in descriptor, closure and capture-session bindings.
 
-The checked-in profile population is deliberately empty. Therefore real business
-runtime qualification is closed until a separately reviewed, provenance-backed
-profile is enrolled in source. This preparation change does not enable release,
-choose a deployment source or approve the current computer's tools. Synthetic
-profiles in synthetic test repositories qualify only those tests.
+The checked-in table contains one finite profile:
+`win32-x64-node22-23-1-npm10-9-8`. Its Node 22.23.1 Windows x64 archive was
+verified against the Node release signature and signed checksums. npm 10.9.8
+was verified against its registry ECDSA signature and SHA-512 integrity, with the
+exact registry public-key bytes independently corroborated by pinned Corepack
+source. Every one of the 2,009 regular npm package files, including bundled
+dependencies, is bound. The retained independent archive review has digest
+`216BAE18CD673E4BE709207722D5A5932364FA2BC0A53A96780274B94F463C75`.
+These checks establish release/registry authenticity; they do not claim npm
+author OIDC provenance.
+
+This source profile does not approve the current host's installed tools or
+establish successful runtime execution. The exact approved bytes, real version
+probes, clean-install/test records and all remaining authority checks are still
+required. Other platforms have no implicit profile. Empty or unknown profile
+selections still refuse. Synthetic profiles in synthetic test repositories
+qualify only those tests.
 
 A finite platform/architecture profile binds the exact Node binary hash, policy
 Node/npm versions, fixed `bin/npm-cli.js` entry, and every regular file in the npm
@@ -275,10 +288,10 @@ Before interpreting command success, replay verifies these approved bytes, then
 requires original `node-version` and `npm-version` schema-1 process records. Their
 argv, executable, source, working directory and times are exact; stdout must be
 the expected version with one LF or CRLF line ending, and stderr must be empty. Node's probe precedes
-npm's probe, and both finish before every clean install. A future live collector
-must run the same identity check before executing either tool and preserve all
-original process results. Such a trusted collector and independently approved
-real toolchain profile are still prerequisites, not supplied by this verifier.
+npm's probe, and both finish before every clean install. The local collector
+runs the same identity check before executing either tool and preserves all
+original process results. The profile supplies an independently verified byte
+identity; this verifier alone does not collect or authenticate actual execution.
 
 Offline replay resolves retained original paths through the existing evidence
 access adapter and reads bytes only. It never executes extracted Node/npm files
@@ -297,3 +310,54 @@ so all three recorded output maps must equal the final complete emitted bytes.
 Later rebuilding different bytes cannot inherit earlier test success. Other
 process records and tool version probes remain schema 1. Historical runtime
 proofs are not relabelled to satisfy these new joins.
+
+## Windows runtime collection
+
+`collectBusinessRuntime31.cjs` collects local schema-3 evidence from one explicit
+JSON input file. Its input names an exact source commit, tree and Functions tree;
+a self-contained trusted Git repository; a selected source-approved Node/npm
+profile; bound Git, Python and Windows support files; the private attempt path;
+the completed-CI lower time bound; and finite process/output limits. Selection
+and authentication of the collector, host, tools and CI remain external gates.
+The collector does not create an owner decision or authorize deployment.
+
+The attempt path must be new. Complete source blobs are exported into its build
+folder, and the approved Node executable and whole npm package are copied into
+a private conventional prefix. Private home, temporary, npm-cache and emulator
+cache folders keep the child environment independent of user credentials and
+configuration. External ancestor `node_modules/.bin` directories are rejected;
+a fixed PATH alone is insufficient for nested npm scripts. Real governed
+emulator collection requires its exact Java/cache prerequisites and free fixed
+ports; it cannot take over an existing owner emulator.
+
+The collector executes the fixed sequence: Node and npm version probes; three
+clean installs; npm executable materialization; Functions build, host tests and
+governed emulator tests; dependency compatibility; installed runtime inventory;
+and five strict audits. Each command runs through the fixed data-only Python
+bridge and Windows Job Object supervisor. Child creation assigns the private
+kill-on-close job atomically before resume. Completion requires the owned tree
+and both captured streams to finish. Timeout, parent loss, cancellation and
+capture failure do not leave owned children running.
+
+Original stdout, stderr, process results and failures remain in the attempt.
+The first unsuccessful command stops collection without retrying. Known generated
+Firebase/Firestore logs are retained in private evidence after the owned process
+tree settles, before the unchanged exact-source check; unknown generated files
+are not ignored. Build and both test commands each bind the complete emitted
+population. All three maps must match the final outputs.
+
+Success is written only after the unchanged `verifyRuntimeProof31` accepts the
+original process pointers, command ordering, source identity, installed file
+populations, audit outputs and tested emitted files. A completed local measurement
+still reports `authenticated: false` and `deploymentAuthorized: false`. Synthetic
+collector tests execute real owned processes against explicitly inert source/npm
+fixtures; they do not establish real dependency installation, emulator acceptance,
+backend deployment or a delivered client upgrade.
+
+The Windows integration test requires an explicit private host configuration at
+`BUSINESS31_COLLECTOR_TEST_HOST_CONFIG`, containing absolute `gitExecutable`,
+`pythonRoot` and `systemRoot` paths. Its current fixture uses Python 3.13 and
+checks the executable, Python DLL, ctypes and libffi files. Missing Windows
+configuration fails visibly. Other platforms report the Windows integration as
+skipped and cannot establish its acceptance. Test output names the retained
+synthetic evidence directory; no fixture or original failed attempt is deleted.
