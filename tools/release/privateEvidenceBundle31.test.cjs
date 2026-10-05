@@ -102,3 +102,21 @@ test('portable member identity rejects trailing-dot components before extraction
   assert.throws(()=>api.verifyBundleBytes31(m.bytes,m.descriptor,kind),/Unsafe portable member/);
  }
 });
+
+for(const kind of ['runtime','business'])test(kind+' special member names retain complete own inventory and exact extraction',()=>{
+ const m=fixture(kind),names=['__proto__','constructor','toString','hasOwnProperty','nested/__proto__','nested/constructor','nested/toString','nested/hasOwnProperty'];
+ m.bundle.members=names.map((file,index)=>{const raw=Buffer.from('special member '+index),z=gzipSync(raw);return {path:file,bytes:raw.length,sha256:sha(raw),encoding:'gzip',compressedBytes:z.length,compressedSha256:sha(z),base64:z.toString('base64')};});bind(m);
+ const r=api.verifyBundleBytes31(m.bytes,m.descriptor,kind),expected=Object.fromEntries(m.bundle.members.map(v=>[v.path,{bytes:v.bytes,sha256:v.sha256}]));
+ assert.equal(Object.getPrototypeOf(r.inventory),Object.prototype);assert.deepEqual(r.inventory,expected);assert.equal(Object.keys(r.inventory).length,names.length);assert.equal(r.records.length,names.length);
+ for(const name of names){assert.equal(Object.hasOwn(r.inventory,name),true);assert.equal(Object.getOwnPropertyDescriptor(r.inventory,name).enumerable,true);}
+ const parent=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'crm31-special-members-')),target=path.join(parent,'fresh');
+ const extracted=api.extractVerifiedBundle31(m.bytes,m.descriptor,target,kind);assert.deepEqual(extracted.inventory,expected);
+ for(const record of r.records)assert.deepEqual(fs.readFileSync(path.join(target,record.file)),record.raw);
+});
+for(const kind of ['runtime','business'])test(kind+' refuses an inventory commitment omitting a root prototype-named member',()=>{
+ const m=fixture(kind);m.bundle.members.push({...m.bundle.members[0],path:'__proto__'});bind(m);
+ const omitted=Object.fromEntries(m.bundle.members.filter(v=>v.path!=='__proto__').map(v=>[v.path,{bytes:v.bytes,sha256:v.sha256}]));m.descriptor.membersSha256=sha(Buffer.from(canonical(omitted)));
+ assert.throws(()=>api.verifyBundleBytes31(m.bytes,m.descriptor,kind),/Private member inventory differs/);
+ const parent=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),'crm31-omitted-member-')),target=path.join(parent,'never-extracted');
+ assert.throws(()=>api.extractVerifiedBundle31(m.bytes,m.descriptor,target,kind),/Private member inventory differs/);assert.equal(fs.existsSync(target),false);
+});

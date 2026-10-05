@@ -47,6 +47,106 @@ closed-chain verification and every operational authority. The future trusted
 controller must establish those separate prerequisites from original evidence
 before any deployment or private-credential access.
 
+## Recorded execution and closure
+
+`business31ExecutionContract.cjs` binds the prepared source, intended package
+and ordered endpoint inputs, settled review and observer identity before the
+owner decision. Schema 2 decision/owner records additionally bind this exact
+contract. Schema 1 decision/owner records remain readable for their original
+scope and cannot authorize the schema 2 execution path.
+
+`business31BackendClosure.cjs` replays the recorded 13 callable, five event and
+one scheduler cohorts. It checks original command records, mutation requests
+and responses, actual uploaded ZIPs, controls and final readbacks using the
+unchanged runtime validators. Initiation and completion orders are independent;
+a concurrent request completion is not rewritten into an invented serial order.
+Its result measures recorded semantics and explicitly withholds authenticated
+owner/platform/clock, deployment, client construction and distribution authority.
+
+Successful mutation replay requires **mutation schema 3**. Each mutation's
+`responseBinding` pointer binds the retained raw response bytes, content encoding,
+completion state, byte count and observed HTTP status. Replay verifies those
+immutable pointers, requires a completed successful response, and compares both
+the observed status and the bounded, strictly decoded UTF-8 body with the derived
+response used by the transport guard. Encoded and decoded response bodies retain
+the capture writer's fixed 16 MiB limits; empty successful upload bodies remain
+valid. A derived success response alone is insufficient.
+
+Each schema 3 mutation also records `requestAdmittedAtUtc` immediately before
+the original HTTP request and `firstOutboundAtUtc` immediately before its first
+underlying write or end. These are samples from the live guard's wall clock,
+not the earlier injectable record clock. Replay requires both samples, in order
+between record initiation and response completion, inside the exact decision's
+execution window. Closure, cohort and preparation starts remain inside that
+window. An already-admitted request may settle afterward; process completion,
+final readbacks, after-controls, recording and custody retain their existing
+chronology checks. A later request or cohort cannot inherit that settlement
+permission. Subsequent bytes of the same admitted request are settlement, not a
+new request; the guard does not claim it can undo bytes already sent.
+
+Legacy schema 1 and 2 mutation transcripts are explicitly refused by this
+closure path. Schema 1 lacks response-wire binding; schema 2 lacks these live
+forwarding samples. Missing evidence is never reconstructed or promoted.
+Historical source snapshots, failed attempts and synthetic replay receipts
+remain unchanged and qualified to their original verifier and scope; they do
+not prove the new schema 3 path or authenticate deployment. This mutation
+version is independent of decision, runtime-proof and descriptor schema versions.
+
+`captureBusiness31PreparedInputs.cjs`, `captureBusiness31PreparedHook.cjs` and
+`business31CaptureSession.cjs` retain prepared package inputs and the request
+transcript. The session enforces phase order and once-only use, refuses further
+work after failure, and restores only hooks that it still owns. A persistence
+failure or foreign hook change is retained as a failure, not reported as a
+successful deployment. Exact dependency hashes use the repository's canonical
+LF bytes; verification never normalizes or accepts alternate hashes.
+
+`business31CaptureBootstrap.cjs` replaces unsupported shared-process startup of
+these capture APIs with a fixed, fresh component-test entry. The component
+launcher checks the selected Node and source bytes, supplies explicit arguments
+and a scrubbed environment, and accepts only fixed suite/case identifiers and
+bounded data. Requests cannot supply a module, driver or observer callback.
+Before helper or CLI imports, the child rejects an inherited helper cache and
+installs the source, resolution-metadata and loader checks. A failed admission
+or the final CLI lease ends that process's capture eligibility; cleanup does
+not reopen it. This clean-entry requirement excludes a registrar reference
+saved by earlier caller code; it does not revoke an already escaped reference
+or make an arbitrary shared process trustworthy.
+
+This is a component-test launcher, not the operational deployment launcher.
+`launchBusinessCapture31` explicitly refuses execution. The externally admitted
+Node/bootstrap/source launch, fixed authenticated observer, real CLI controller
+and existing three-child receipt integration remain unimplemented. The approved
+real toolchain profile population remains empty. A child consistency hash,
+caller flag or successful component measurement supplies none of that authority.
+The existing three-child closure contract and immutable historical verifiers
+are unchanged; component children cannot stand in for deployment receipts.
+
+The capture-session tests use the installed Firebase hash, API and upload
+modules with a fresh synthetic Git repository and source ZIP, while HTTPS
+responses are supplied locally. They exercise the once-only 13/5/1 cohorts,
+all 25 original requests, separate initiation and completion order, lost-response
+refusal, and hook cleanup under persistence failures or foreign changes. This
+is local component integration: it does not invoke full Firebase preparation
+or a deployment child, authenticate an observer, owner or clock, or establish
+real cloud completion. Its measurement cannot substitute for original process
+receipts, authenticated controls or complete private closure replay.
+
+## Descriptor and original-path replay
+
+`business31PrivateDescriptor.cjs` verifies actual Git V/M/S identities, the
+complete producer population, finite metadata changes, historical closure and
+exact decision/closure pointer bytes. Its source-manifest commitment comes from
+an independent caller input. A matching digest does not authenticate the caller.
+
+`business31OriginalPathReplay.cjs` composes this boundary with the bounded bundle
+reader and the full business closure entrypoint. It requires the recorded
+original paths to be unavailable, verifies the complete extracted inventory,
+and resolves their unchanged identities through the existing relocation layer.
+It binds every executing helper before replay and checks retained bytes again
+afterward. Callback results, tokens and supplied success summaries cannot stand
+in for the original evidence. A local synthetic replay does not establish real
+cloud deployment or hosted credential isolation.
+
 ## Private bundle transport
 
 `privateEvidenceBundle31.cjs` contains shared bounded byte-custody, gzip-member,
@@ -87,3 +187,113 @@ precede client/metadata authority and protected signing. Inspection labelled
 reading authoring remains default closed until the reader rollout requirements
 in [the inspection rollout document](../../docs/INSPECTION_V2_ROLLOUT.md) are
 satisfied. None of these source files enables the production writer switch.
+
+## Measured npm executable materialization
+
+Current source requires runtime-proof schema 3, including the source-approved
+toolchain and tested-output joins below. The materializer remains a fixed member
+of the complete verifier/source population. Older schema-1 link-free and
+schema-2 materialization records remain historical evidence under their original
+verifier/source snapshots; never rewrite them as current schema-3 success.
+
+Use the materializer only in a newly owned build tree, after all three exact npm
+clean installs and before any build, test, installed-graph check or audit. It
+covers root, Functions and governed CLI dependency populations, including nested
+`node_modules/.bin` directories. On POSIX, only relative, package-declared file
+aliases targeting an unchanged regular Node script inside the same dependency
+population are supported. Directory links, chained/escaping/dangling targets,
+backslash target spellings, undeclared commands and unsupported interpreters or
+flags fail closed. Windows keeps npm's regular launchers and refuses a symbolic
+alias population. No existing development install or retained evidence is
+normalized in place.
+
+Windows preparation and receipt replay validate every bare, `.cmd` and `.ps1`
+launcher as one complete package-owned triplet. Each file must match the finite
+Node/no-flags cmd-shim 7 template, its package's declared bin target and supported
+Node shebang. Missing, altered, extra or ambiguously owned launchers, alternate
+Windows directory casing and local Node interpreter shadows are refused. The
+existing shim bytes are never rewritten or executed by this check. Template
+inspection of installed npm 10.9.2/cmd-shim 7 and read-only Windows fixtures does
+not establish approved npm 10.9.8 execution; unsupported templates fail closed.
+External PATH and command-interpreter trust remain live-collector prerequisites.
+
+The producer replaces each verified POSIX alias with a deterministic regular
+0755 shell launcher. That launcher invokes the exact bound Node executable and
+the original package script with unchanged arguments; it does not copy JavaScript
+into `.bin`. The original target must have owner-execute permission and its bytes
+and recorded mode remain unchanged. The receipt retains the original lexical
+link, owning package declaration/hash, target/hash/mode, generated launcher/hash/
+mode, complete before/after file commitments and counts. All non-alias bytes stay
+unchanged. Unsupported materialization leaves a failed, retained preparation;
+there is no success receipt or automatic retry.
+
+The materialization fields, introduced in runtime-proof schema 2 and retained
+in schema 3, add the pointed materialization receipt and the root
+installed-file map alongside Functions and CLI. The exact producer command's
+retained stdout must equal that receipt. Every install must complete before the
+producer starts, and all subsequent runtime commands and audits must start after
+it completes. Original build-root strings are preserved in command records even
+when read through the immutable relocation adapter. These remain recorded
+semantics, not authenticated process or deployment authority.
+
+The bundle and source walkers continue to reject all symbolic links. The same
+normalized regular bytes enter custody and extraction; extraction deliberately
+uses mode 0600. Replay checks original recorded executable modes and current
+content commitments without executing or chmod-ing extracted launchers. A local
+Windows copy or clean-install check is not a Linux result: selected Ubuntu CI must
+exercise actual npm-created POSIX links, launcher argument behavior and the
+0755-preparation to 0600-extraction boundary. Fixed file/byte custody limits are
+unchanged and must be checked before any full replay fixture is constructed.
+
+## Source-approved Node and npm identity
+
+Current runtime-proof schema 3 requires `business31ToolchainIdentity.cjs` and
+the fixed `business31ToolchainProfiles.json` data file. The independently selected
+verifier V, source M and decision-custody commit must contain identical regular
+profile-data bytes; a runtime record cannot select another approval file or
+provide its own trusted hashes. The JSON stays non-executable source data outside
+the descriptor code-producer map; existing complete-source M-to-S and exact
+custody-delta checks cannot change its path. The helper is an exact executing
+producer and must appear in descriptor, closure and capture-session bindings.
+
+The checked-in profile population is deliberately empty. Therefore real business
+runtime qualification is closed until a separately reviewed, provenance-backed
+profile is enrolled in source. This preparation change does not enable release,
+choose a deployment source or approve the current computer's tools. Synthetic
+profiles in synthetic test repositories qualify only those tests.
+
+A finite platform/architecture profile binds the exact Node binary hash, policy
+Node/npm versions, fixed `bin/npm-cli.js` entry, and every regular file in the npm
+package including bundled dependencies. It records distribution digest/integrity
+and an independent provenance-review digest. Complete package inventory and
+package name/version must agree; extra, missing, changed or redirected files
+refuse. Executable-format inspection joins platform/architecture to the approved
+Node bytes; it is not independent publisher authentication. No current-host hash
+or reported version can create a profile automatically.
+
+Before interpreting command success, replay verifies these approved bytes, then
+requires original `node-version` and `npm-version` schema-1 process records. Their
+argv, executable, source, working directory and times are exact; stdout must be
+the expected version with one LF or CRLF line ending, and stderr must be empty. Node's probe precedes
+npm's probe, and both finish before every clean install. A future live collector
+must run the same identity check before executing either tool and preserve all
+original process results. Such a trusted collector and independently approved
+real toolchain profile are still prerequisites, not supplied by this verifier.
+
+Offline replay resolves retained original paths through the existing evidence
+access adapter and reads bytes only. It never executes extracted Node/npm files
+or treats their stripped executable modes as original preparation. Retained
+process output remains unauthenticated until a trusted controller establishes
+its origin; all operational-authority flags remain false.
+
+## Tested emitted outputs
+
+Runtime-proof schema 3 additionally binds `testedEmittedFiles` for the standalone
+Functions build, host tests and governed emulator tests. Each of these three
+process records uses schema 2 and points by `emittedFilesAfterSha256` to its
+complete emitted-file map. The standalone build must finish before host tests,
+which must finish before emulator tests. Both test commands rebuild internally,
+so all three recorded output maps must equal the final complete emitted bytes.
+Later rebuilding different bytes cannot inherit earlier test success. Other
+process records and tool version probes remain schema 1. Historical runtime
+proofs are not relabelled to satisfy these new joins.
