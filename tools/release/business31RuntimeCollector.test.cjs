@@ -58,7 +58,7 @@ for(const [name,change,pattern]of [
   ["wrong approved Node bytes",f=>{f.config.runtime.nodeExecutable={...f.config.runtime.nodeExecutable,sha256:"0".repeat(64)};},/Node differs from independently approved bytes/],
   ["wrong exact source tree",f=>{f.config.source={...f.config.source,tree:"0".repeat(40)};},/source tree differs/],
 ])test("preflight refuses "+name+" before launching any runtime child",{timeout:60000},async()=>{
-  const f=make(name.replaceAll(" ","-"),name==="absent source-approved profile"?{noProfile:true}:{});change(f);await assert.rejects(async()=>collector.preflightBusinessRuntime31(f.config),pattern);assert.equal(processes(f.attemptRoot).length,0);assert.deepEqual(invocations(f),[]);noSuccessfulProof(f);f.assertOriginalsUnchanged();
+  const f=make(name.toLowerCase().replaceAll(" ","-"),name==="absent source-approved profile"?{noProfile:true}:{});change(f);await assert.rejects(async()=>collector.preflightBusinessRuntime31(f.config),pattern);assert.equal(processes(f.attemptRoot).length,0);assert.deepEqual(invocations(f),[]);noSuccessfulProof(f);f.assertOriginalsUnchanged();
 });
 test("preflight refuses a different source-bound collector producer before runtime launch",{timeout:60000},async()=>{
   const f=make("source-producer-mismatch",{producerMismatch:true});await assert.rejects(async()=>collector.preflightBusinessRuntime31(f.config),/executing collector producer differs from source/);assert.equal(processes(f.attemptRoot).length,0);assert.deepEqual(invocations(f),[]);noSuccessfulProof(f);f.assertOriginalsUnchanged();

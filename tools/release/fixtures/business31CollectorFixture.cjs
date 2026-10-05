@@ -41,8 +41,9 @@ function createFixture({parent,name,toolsDirectory,gitExecutable,behaviour={}}){
   const git=(args,input)=>cp.execFileSync(gitExecutable,["-c","core.autocrlf=false","-c","commit.gpgsign=false","-c","core.hooksPath="+path.join(root,"absent-hooks"),"-c","protocol.allow=never","-C",repositoryRoot,...args],{env,input,encoding:"utf8",windowsHide:true,timeout:30000,stdio:["pipe","pipe","pipe"]}).trim();
   const sourceNames=Object.keys(regularMap(repositoryRoot)).sort();
   git(["init","--initial-branch=main"]);
-  // Direct packed construction keeps the unchanged trusted Git layout checks
-  // cheap. No pruning/deletion, alternate object store, or shallow history.
+  // Direct Git construction retains the complete source without pruning,
+  // deletion, alternate object stores, or shallow history. Git may unpack small
+  // imports; packed storage and a packing speedup are not asserted.
   const message="Explicit synthetic inert collector fixture only\n";
   const chunks=[Buffer.from("commit refs/heads/main\ncommitter Synthetic collector test <fixture@example.invalid> "+Math.floor(Date.now()/1000)+" +0000\ndata "+Buffer.byteLength(message)+"\n"+message)];
   for(const name of sourceNames){assert.match(name,/^[A-Za-z0-9_@+.~/-]+$/);const raw=fs.readFileSync(path.join(repositoryRoot,name));chunks.push(Buffer.from("M 100644 inline "+name+"\ndata "+raw.length+"\n"),raw,Buffer.from("\n"));}
