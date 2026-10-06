@@ -720,7 +720,7 @@
     "bundletoolSha256": "A099CFA1543F55593BC2ED16A70A7C67FE54B1747BB7301F37FDFD6D91028E29",
     "firebaseToolsVersion": "15.22.4",
     "firebaseToolsLockfile": "tooling/firebase-cli/package-lock.json",
-    "firebaseToolsLockfileSha256": "5B91170080C8FFE6C1BF08A3E9D49BEF898CDC01C0E12B3A6D9C809705D8484F",
+    "firebaseToolsLockfileSha256": "0E72C573D3EECBCA915A5B70AED03BA3AD550F017CE56A8CF10EE843566C151A",
     "linuxIsarCoreSha256": "142421FBCC62A1FBD613E7217764678A1AE32F0CC77848A55CB8731BAF251259",
     "linuxIsarCoreAuthorityReceipt": "release/approvals/linux-isar-community-core-authority.json",
     "githubActionPinsFile": "release/github-actions-pins.json",

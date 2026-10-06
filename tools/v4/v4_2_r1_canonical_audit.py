@@ -3391,7 +3391,18 @@ check(
     and undici.get("version") == "8.10.2"
     and undici.get("resolved") == "https://registry.npmjs.org/undici/-/undici-8.10.2.tgz"
     and undici.get("integrity") == "sha512-/y4/bH9YNU5hi9NIrpOuvGXFcxrj3CMrV+/AYpowAYTpHn8gX/XPFjNy766FPoYY0miQhdW977JFWKGNhBdwyQ=="
-    and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9",
+    and firebase_cli_package.get("overrides", {}).get("@modelcontextprotocol/sdk") == "1.31.0"
+    and mcp_sdk.get("version") == "1.31.0"
+    and mcp_sdk.get("resolved") == "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz"
+    and mcp_sdk.get("integrity") == "sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw=="
+    and all(
+        entry.get("version") == "1.31.0"
+        and entry.get("resolved") == "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz"
+        and entry.get("integrity") == "sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw=="
+        for key, entry in firebase_cli_packages.items()
+        if key == "node_modules/@modelcontextprotocol/sdk" or key.endswith("/node_modules/@modelcontextprotocol/sdk")
+    )
+    and mcp_sdk.get("dependencies", {}).get("@hono/node-server") == "^1.19.9 || ^2.0.5",
 )
 brace_adapter_package = data("tooling/brace-expansion-compat/package.json")
 brace_adapter_cjs = text("tooling/brace-expansion-compat/index.cjs")

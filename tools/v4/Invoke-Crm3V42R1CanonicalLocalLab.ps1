@@ -43,6 +43,7 @@ $expected = [ordered]@{
   firebaseTools = '15.22.4'
   basicFtp = '6.2.1'
   grpcJs = '1.14.5'
+  mcpSdk = '1.31.0'
   honoNodeServer = '2.0.10'
   fastUri = '3.1.8'
   honoRuntime = '4.13.7'
@@ -260,6 +261,7 @@ function Assert-FirebaseCliLockPolicy {
   $braceExpansionDeclared = [string](Get-JsonPropertyValue -Object $package.dependencies -Name 'brace-expansion')
   $basicFtpOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'basic-ftp')
   $grpcJsOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@grpc/grpc-js')
+  $mcpSdkOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@modelcontextprotocol/sdk')
   $honoOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name '@hono/node-server')
   $fastUriOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'fast-uri')
   $honoRuntimeOverride = [string](Get-JsonPropertyValue -Object $package.overrides -Name 'hono')
@@ -309,7 +311,11 @@ function Assert-FirebaseCliLockPolicy {
     honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
     honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz')
     honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==')
-    honoNaturalRange = ($mcpHonoRange -eq '^1.19.9')
+    mcpSdkOverride = ($mcpSdkOverride -eq $expected.mcpSdk)
+    mcpSdkLocked = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'version') -eq $expected.mcpSdk)
+    mcpSdkResolved = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz')
+    mcpSdkIntegrity = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'integrity') -eq 'sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==')
+    honoNaturalRange = ($mcpHonoRange -eq '^1.19.9 || ^2.0.5')
     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
     fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz')
@@ -369,12 +375,21 @@ function Assert-FirebaseCliLockPolicy {
       [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw=='
     )
   }
+  foreach ($key in @($lockPackages.Keys | Where-Object { $_ -match '(^|/)node_modules/@modelcontextprotocol/sdk$' })) {
+    $entry = $lockPackages[$key]
+    $checks["mcpSdkCopy:$key"] = (
+      [string](Get-JsonPropertyValue -Object $entry -Name 'version') -eq $expected.mcpSdk -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz' -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw=='
+    )
+  }
   $failed = @($checks.GetEnumerator() | Where-Object {-not $_.Value} | ForEach-Object {$_.Key})
   $report = [ordered]@{
     expected = [ordered]@{
       firebaseTools = $expected.firebaseTools
       basicFtp = $expected.basicFtp
       grpcJs = $expected.grpcJs
+      mcpSdk = $expected.mcpSdk
       honoNodeServer = $expected.honoNodeServer
       fastUri = $expected.fastUri
       honoRuntime = $expected.honoRuntime
@@ -390,6 +405,7 @@ function Assert-FirebaseCliLockPolicy {
       firebaseTools = $firebaseToolsDeclared
       basicFtpOverride = $basicFtpOverride
       grpcJsOverride = $grpcJsOverride
+      mcpSdkOverride = $mcpSdkOverride
       braceExpansion = $braceExpansionDeclared
       braceExpansionOverride = $braceExpansionOverride
       re2Override = $re2Override
@@ -407,6 +423,7 @@ function Assert-FirebaseCliLockPolicy {
       firebaseTools = if ($null -ne $firebaseToolsLock) {[string](Get-JsonPropertyValue -Object $firebaseToolsLock -Name 'version')} else {$null}
       basicFtp = if ($null -ne $basicFtpLock) {[string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'version')} else {$null}
       grpcJs = if ($null -ne $grpcJsLock) {[string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'version')} else {$null}
+      mcpSdk = if ($null -ne $mcpLock) {[string](Get-JsonPropertyValue -Object $mcpLock -Name 'version')} else {$null}
       honoNodeServer = if ($null -ne $honoLock) {[string](Get-JsonPropertyValue -Object $honoLock -Name 'version')} else {$null}
       fastUri = if ($null -ne $fastUriLock) {[string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version')} else {$null}
       honoRuntime = if ($null -ne $honoRuntimeLock) {[string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version')} else {$null}
@@ -435,6 +452,7 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = Join-Path $workspace 'tooling/firebase-cli/node_modules/firebase-tools/package.json'
     basicFtp = Join-Path $workspace 'tooling/firebase-cli/node_modules/basic-ftp/package.json'
     grpcJs = Join-Path $workspace 'tooling/firebase-cli/node_modules/@grpc/grpc-js/package.json'
+    mcpSdk = Join-Path $workspace 'tooling/firebase-cli/node_modules/@modelcontextprotocol/sdk/package.json'
     honoNodeServer = Join-Path $workspace 'tooling/firebase-cli/node_modules/@hono/node-server/package.json'
     fastUri = Join-Path $workspace 'tooling/firebase-cli/node_modules/fast-uri/package.json'
     honoRuntime = Join-Path $workspace 'tooling/firebase-cli/node_modules/hono/package.json'
@@ -446,6 +464,14 @@ function Assert-FirebaseCliInstalledVersions {
     braceExpansionUpstream = Join-Path $workspace 'tooling/firebase-cli/node_modules/brace-expansion-modern/package.json'
     re2 = Join-Path $workspace 'tooling/firebase-cli/node_modules/re2/package.json'
     tar = Join-Path $workspace 'tooling/firebase-cli/node_modules/tar/package.json'
+  }
+  # A correct top-level SDK must not hide an unsafe installed nested copy.
+  $cliRoot = Join-Path $workspace 'tooling/firebase-cli'
+  foreach ($directory in @(Get-ChildItem -LiteralPath (Join-Path $cliRoot 'node_modules') -Directory -Recurse -Force -ErrorAction Stop)) {
+    $relative = [IO.Path]::GetRelativePath($cliRoot, $directory.FullName).Replace([char]92, [char]47)
+    if ($relative -match '(^|/)node_modules/@modelcontextprotocol/sdk$' -and $relative -ne 'node_modules/@modelcontextprotocol/sdk') {
+      $packagePaths["mcpSdkCopy:$relative"] = Join-Path $directory.FullName 'package.json'
+    }
   }
   $actual = [ordered]@{}
   foreach ($key in $packagePaths.Keys) {
@@ -460,6 +486,7 @@ function Assert-FirebaseCliInstalledVersions {
     firebaseTools = $expected.firebaseTools
     basicFtp = $expected.basicFtp
     grpcJs = $expected.grpcJs
+    mcpSdk = $expected.mcpSdk
     honoNodeServer = $expected.honoNodeServer
     fastUri = $expected.fastUri
     honoRuntime = $expected.honoRuntime
@@ -471,6 +498,9 @@ function Assert-FirebaseCliInstalledVersions {
     braceExpansionUpstream = $expected.braceExpansion
     re2 = $expected.re2
     tar = $expected.tar
+  }
+  foreach ($key in @($packagePaths.Keys | Where-Object { $_.StartsWith('mcpSdkCopy:') })) {
+    $expectedVersions[$key] = $expected.mcpSdk
   }
   $mismatches = @()
   foreach ($key in $expectedVersions.Keys) {

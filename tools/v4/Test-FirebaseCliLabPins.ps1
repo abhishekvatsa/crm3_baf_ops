@@ -55,7 +55,7 @@ Assert-FirebaseCliLockPolicy | Out-Null
 $script:passedCases++
 $workspace = $fixtureRoot
 Restore-LockFixture
-$packages = @('basic-ftp', '@grpc/grpc-js', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
+$packages = @('basic-ftp', '@grpc/grpc-js', '@modelcontextprotocol/sdk', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
 foreach ($packageName in $packages) {
   foreach ($field in @('version', 'resolved', 'integrity', 'missing', 'override')) {
     Restore-LockFixture
@@ -95,6 +95,28 @@ foreach ($field in @('version', 'resolved', 'integrity')) {
   $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
   Assert-Rejected -Case "nested @grpc/grpc-js $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
 }
+
+# The former SDK and unsafe nested copies must fail the real laboratory guard.
+Restore-LockFixture
+$lock = $lockJson | ConvertFrom-Json -AsHashtable
+$lock.packages['node_modules/@modelcontextprotocol/sdk'].version = '1.29.0'
+$lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+Assert-Rejected -Case 'old MCP SDK' -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
+foreach ($field in @('version', 'resolved', 'integrity')) {
+  Restore-LockFixture
+  $lock = $lockJson | ConvertFrom-Json -AsHashtable
+  $copy = $lock.packages['node_modules/@modelcontextprotocol/sdk'].Clone()
+  $copy[$field] = if ($field -eq 'version') { '1.29.0' } else { 'unbound-nested-bytes' }
+  $lock.packages['node_modules/fixture/node_modules/@modelcontextprotocol/sdk'] = $copy
+  $lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+  Assert-Rejected -Case "nested MCP SDK $field" -Action { Assert-FirebaseCliLockPolicy } -ExpectedMessage '^Firebase CLI lock policy failed:'
+}
+Restore-LockFixture
+$lock = $lockJson | ConvertFrom-Json -AsHashtable
+$lock.packages['node_modules/fixture/node_modules/@modelcontextprotocol/sdk'] = $lock.packages['node_modules/@modelcontextprotocol/sdk'].Clone()
+$lock | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $lockPath -Encoding utf8
+Assert-FirebaseCliLockPolicy | Out-Null
+$script:passedCases++
 
 # The shared adapter and aliased upstream have different identities/resolution
 # rules from registry overrides; exercise each actual lock guard independently.
@@ -141,4 +163,15 @@ foreach ($packageName in ($packages + @('brace-expansion', 'brace-expansion-mode
     [IO.File]::WriteAllText($target, $original)
   }
 }
+# An unrecorded installed nested SDK must be checked too. These are synthetic
+# package metadata only; no npm install or SDK code execution occurs.
+$nestedSdk = Join-Path $fixtureCli 'node_modules/fixture/node_modules/@modelcontextprotocol/sdk'
+New-Item -ItemType Directory -Path $nestedSdk -Force | Out-Null
+Assert-Rejected -Case 'nested SDK missing package metadata' -Action { Assert-FirebaseCliInstalledVersions } -ExpectedMessage '^Installed Firebase CLI dependency package.json missing:'
+$nestedMetadata = Join-Path $nestedSdk 'package.json'
+'{"version":"1.29.0"}' | Set-Content -LiteralPath $nestedMetadata -Encoding utf8
+Assert-Rejected -Case 'nested SDK installed old version' -Action { Assert-FirebaseCliInstalledVersions } -ExpectedMessage '^Installed Firebase CLI dependency version mismatch:'
+@{version=$expected.mcpSdk} | ConvertTo-Json | Set-Content -LiteralPath $nestedMetadata -Encoding utf8
+Assert-FirebaseCliInstalledVersions | Out-Null
+$script:passedCases++
 Write-Output "PASS_FIREBASE_CLI_LAB_PIN_CONTRACTS: $script:passedCases cases"
