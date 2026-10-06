@@ -18,7 +18,39 @@ function fixture(){
  return {root,npmRoot,profile,table,runtime,bind,input,check:()=>api.verifyToolchainIdentity31(input)};
 }
 test("explicit synthetic source identity binds whole npm implementation without executing or authenticating it",()=>{const f=fixture(),result=f.check();assert.equal(result.sourceApprovedBytesVerified,true);assert.equal(result.processExecutionAuthenticated,false);assert.equal(result.deploymentAuthorized,false);});
-test("checked-in production profile table is deliberately closed",()=>{const bytes=fs.readFileSync(path.join(__dirname,"business31ToolchainProfiles.json"));assert.deepEqual(api.profileTable31(bytes).profiles,{});const f=fixture();f.table.profiles={};f.bind();assert.throws(f.check,/no independently approved/);});
+test("checked-in profile binds the independently verified finite Windows distribution", () => {
+ const table = api.profileTable31(fs.readFileSync(path.join(__dirname, "business31ToolchainProfiles.json")));
+ assert.deepEqual(Object.keys(table.profiles), ["win32-x64-node22-23-1-npm10-9-8"]);
+ const profile = table.profiles["win32-x64-node22-23-1-npm10-9-8"];
+ const policy = JSON.parse(fs.readFileSync(path.join(__dirname, "../../release/production-release-policy.json")));
+ assert.equal(profile.platform, "win32");
+ assert.equal(profile.arch, "x64");
+ assert.equal(profile.nodeVersion, policy.toolchain.nodeVersion);
+ assert.equal(profile.npmVersion, policy.toolchain.npmVersion);
+ assert.equal(profile.nodeSha256, "F8D162C0641DCEE512132F3BCF8A68169C7ECB852EFD8E1A46C9FEC5A0F469ED");
+ assert.equal(profile.npmFileCount, 2009);
+ assert.equal(profile.npmFilesSha256, "B124166FBA2324AD2898D15AB6980877582251D04AA2BF4C45AD33A35220AC6B");
+ assert.deepEqual(profile.provenance.nodeDistribution, {
+  url: "https://nodejs.org/dist/v22.23.1/node-v22.23.1-win-x64.zip",
+  sha256: "7DF0BC9375723F4A86B3AA1B7CC73342423D9677A8DF4538ACA31A049E309C29",
+ });
+ assert.deepEqual(profile.provenance.npmDistribution, {
+  url: "https://registry.npmjs.org/npm/-/npm-10.9.8.tgz",
+  sha256: "3E68F9B5FCAF1A94BA0E37E6A565C920B2BE6BD98998C50970385D6A692AF780",
+  integrity: "sha512-fYwb6ODSmHkqrJQQaCxY3M2lPf/mpgC7ik0HSzzIwG5CGtabRp4bNqikatvCoT42b5INQSqudVH0R7yVmC9hVg==",
+ });
+ assert.equal(profile.provenance.reviewEvidenceSha256, "216BAE18CD673E4BE709207722D5A5932364FA2BC0A53A96780274B94F463C75");
+});
+
+test("empty or unselected source profiles still refuse self-reported host toolchains", () => {
+ const f = fixture();
+ f.table.profiles = {};
+ f.bind();
+ assert.throws(f.check, /no independently approved/);
+ f.table.profiles = {"different-approved-profile": f.profile};
+ f.bind();
+ assert.throws(f.check, /no independently approved/);
+});
 for(const [name,mutate,error]of [
  ["fake Node self-hash",f=>{const file=put(f.root,"fake-node",nodeBytes.subarray(0,512));f.runtime.nodeExecutable={path:file,sha256:api.sha(fs.readFileSync(file))};},/Node differs from independently approved/],
  ["fake npm entry and self-hash",f=>{put(f.npmRoot,"bin/npm-cli.js","process.stdout.write('success');\n");f.runtime.npmCliFile.sha256=api.sha(fs.readFileSync(f.runtime.npmCliFile.path));},/complete npm implementation differs/],
