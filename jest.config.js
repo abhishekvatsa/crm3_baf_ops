@@ -5,5 +5,7 @@ module.exports = {
   testEnvironment: "node",
   testTimeout: 60000,
   // Scope to the root test/ folder only (excludes functions/test/*).
-  testMatch: ["<rootDir>/test/**/*.test.js"],
+  // Keep the absolute Windows path out of the glob (e.g. a .codex ancestor).
+  roots: ["<rootDir>/test"],
+  testMatch: ["**/*.test.js"],
 };
