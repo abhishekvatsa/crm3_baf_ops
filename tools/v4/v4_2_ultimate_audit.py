@@ -26,6 +26,66 @@ def data(rel: str):
     return json.loads(text(rel))
 
 
+def http_and_json_dependency_pins_match() -> bool:
+    """Require the reviewed HTTP/JSON/YAML fixes in every matching lock path."""
+    def registry_copies(manifest: str, name: str, version: str, integrity: str) -> bool:
+        package = data(manifest)
+        packages = data(manifest.replace("package.json", "package-lock.json")).get("packages", {})
+        if not isinstance(packages, dict) or package.get("overrides", {}).get(name) != version:
+            return False
+        copies = [entry for key, entry in packages.items()
+                  if key == f"node_modules/{name}" or key.endswith(f"/node_modules/{name}")]
+        return bool(copies) and all(
+            isinstance(entry, dict) and entry.get("version") == version
+            and entry.get("resolved") == f"https://registry.npmjs.org/{name}/-/{name}-{version}.tgz"
+            and entry.get("integrity") == integrity for entry in copies
+        )
+
+    yaml_integrity = "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
+    if (data("package.json").get("devDependencies", {}).get("js-yaml") != "4.3.2"
+            or not all(registry_copies(manifest, "js-yaml", "4.3.2", yaml_integrity)
+                       for manifest in ("package.json", "functions/package.json", "tooling/firebase-cli/package.json"))):
+        return False
+    for lock in ("package-lock.json", "functions/package-lock.json"):
+        packages = data(lock).get("packages", {})
+        if not isinstance(packages, dict) or any(
+                key == "node_modules/sprintf-js" or key.endswith("/node_modules/sprintf-js")
+                for key in packages):
+            return False
+
+    proxy_integrity = "sha512-5nnx0yGyVUcY6t9RnWcARWtwT9F1D8O9rt08htPvnd49W1IgZtmLkhu9WfMzQj1cFxjHIO6connUNVW5k7AVyQ=="
+    if not all(registry_copies(manifest, "proxy-addr", "2.0.8", proxy_integrity)
+               for manifest in ("functions/package.json", "tooling/firebase-cli/package.json")):
+        return False
+    if not registry_copies("tooling/firebase-cli/package.json", "compression", "1.8.2",
+                           "sha512-o8vI5RE5A6EVVOd9o41jKp41aJom+QTEO/Bx8MYNjexMo/Bv2WOjUfZr+aL0WnYSgymUy6zeguqLTsIhV0gMvQ=="):
+        return False
+    package = data("tooling/firebase-cli/package.json")
+    adapter = data("tooling/stream-json-compat/package.json")
+    packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
+    if (not isinstance(packages, dict)
+            or package.get("dependencies", {}).get("stream-json") != "file:../stream-json-compat"
+            or package.get("overrides", {}).get("stream-json") != "$stream-json"
+            or adapter.get("name") != "stream-json" or adapter.get("version") != "3.6.0"
+            or adapter.get("dependencies", {}).get("stream-json-modern") != "npm:stream-json@3.6.0"):
+        return False
+    local = [entry for key, entry in packages.items()
+             if key == "node_modules/stream-json" or key.endswith("/node_modules/stream-json")]
+    upstream = [entry for key, entry in packages.items()
+                if key == "node_modules/stream-json-modern" or key.endswith("/node_modules/stream-json-modern")]
+    return bool(local) and bool(upstream) and all(
+        isinstance(entry, dict) and entry.get("version") == "3.6.0"
+        and entry.get("resolved") == "file:../stream-json-compat"
+        and entry.get("dependencies", {}).get("stream-json-modern") == "npm:stream-json@3.6.0"
+        for entry in local
+    ) and all(
+        isinstance(entry, dict) and entry.get("name") == "stream-json" and entry.get("version") == "3.6.0"
+        and entry.get("resolved") == "https://registry.npmjs.org/stream-json/-/stream-json-3.6.0.tgz"
+        and entry.get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
+        for entry in upstream
+    )
+
+
 def grpc_pin_matches(manifest_rel: str, version: str, integrity: str) -> bool:
     """Check every gRPC copy in a domain, including override and registry custody."""
     package = data(manifest_rel)
@@ -261,8 +321,8 @@ check(
     and functions_versions["body-parser"] == "1.20.6"
     and root_versions["brace-expansion"] == "5.0.12"
     and functions_versions["brace-expansion"] == "5.0.12"
-    and root_versions["js-yaml"] == "3.15.2"
-    and functions_versions["js-yaml"] == "3.15.2",
+    and root_versions["js-yaml"] == "4.3.2"
+    and functions_versions["js-yaml"] == "4.3.2",
     f"root={root_versions}; functions={functions_versions}",
 )
 check(
@@ -288,6 +348,11 @@ check(
     and tooling_versions["morgan"] == "1.12.1"
     and tooling_versions["undici"] == "8.10.2",
     str(tooling_versions),
+)
+check(
+    "Functions and CLI HTTP/JSON dependency fixes retain exact registry and local-adapter pins",
+    http_and_json_dependency_pins_match(),
+    "All proxy-addr, compression, stream-json adapter and aliased upstream copies must match the reviewed pins.",
 )
 
 # 6. Historical pre-v4 no-loss evidence is embedded. Generated property

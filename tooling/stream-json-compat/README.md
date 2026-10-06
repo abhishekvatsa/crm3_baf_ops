@@ -2,10 +2,10 @@
 
 This is a local adapter, not an upstream stream-json release. It delegates all
 JSON parsing, filtering, assembly, and nesting-depth protection to the pinned
-upstream `stream-json@3.5.0`, installed as `stream-json-modern`.
+upstream `stream-json@3.6.0`, installed as `stream-json-modern`.
 
 Firebase CLI 15.22.4 uses the stream-json 1.x CommonJS path names and Node streams.
-Upstream 3.5.0 uses lowercase ES module paths and exposes explicit `asStream` /
+Upstream 3.6.0 uses lowercase ES module paths and exposes explicit `asStream` /
 `withParserAsStream` entry points. These wrappers preserve only the interfaces
 actually imported by this pinned CLI: parser, Pick, Filter, StreamArray, and
 StreamObject. No parser logic is copied and no depth limit is disabled.
