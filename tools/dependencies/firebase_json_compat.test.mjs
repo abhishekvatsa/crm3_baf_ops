@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {createRequire} from 'node:module';
+import {IncomingMessage, ServerResponse} from 'node:http';
 import {Readable} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 import {fileURLToPath} from 'node:url';
@@ -33,7 +34,7 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   const entries = Object.entries(lock.packages).filter(([key, value]) =>
     /node_modules\/stream-json(?:-modern)?$/.test(key) || value.name === 'stream-json');
   assert.equal(entries.length, 2);
-  for (const [, value] of entries) assert.equal(value.version, '3.5.0');
+  for (const [, value] of entries) assert.equal(value.version, '3.6.0');
   assert.equal(lock.packages['node_modules/stream-json'].resolved, 'file:../stream-json-compat');
   assert.equal(lock.packages['node_modules/@grpc/grpc-js'].version, '1.14.5');
   assert.equal(require('@grpc/grpc-js/package.json').version, '1.14.5');
@@ -42,12 +43,85 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   assert.equal(lock.packages['node_modules/morgan'].version, '1.12.1');
   assert.equal(lock.packages['node_modules/undici'].version, '8.10.2');
   assert.equal(lock.packages['node_modules/qs'].version, '6.16.0');
+  for (const [name, version] of [['proxy-addr', '2.0.8'], ['compression', '1.8.2']]) {
+    assert.equal(lock.packages[`node_modules/${name}`].version, version);
+    assert.equal(require(`${name}/package.json`).version, version);
+  }
   for (const dir of [root, path.join(root, 'functions')]) {
     const otherLock = JSON.parse(fs.readFileSync(path.join(dir, 'package-lock.json')));
     assert.ok(!Object.keys(otherLock.packages).some(key => /stream-json/.test(key)),
       'The parser adapter must remain confined to Firebase CLI tooling');
   }
 });
+
+test('mapped IPv6 trust subnets do not accept spoofed forwarding from an unrelated IPv4 peer', () => {
+  const proxyaddr = require('proxy-addr');
+  const peer = '203.0.113.9';
+  const forwarded = '192.0.2.123';
+  const request = address => ({socket: {remoteAddress: address},
+    headers: {'x-forwarded-for': forwarded}});
+  for (const subnet of ['::ffff:10.0.0.0/8', '::/1']) {
+    const trust = proxyaddr.compile(subnet);
+    assert.equal(trust(peer), false, subnet);
+    assert.equal(proxyaddr(request(peer), trust), peer, subnet);
+  }
+  for (const subnet of ['10.0.0.0/8', '::ffff:10.0.0.0/104']) {
+    const trust = proxyaddr.compile(subnet);
+    assert.equal(trust('10.1.2.3'), true, subnet);
+    assert.equal(trust(peer), false, subnet);
+    assert.equal(proxyaddr(request('10.1.2.3'), trust), forwarded, subnet);
+    assert.equal(proxyaddr(request(peer), trust), peer, subnet);
+  }
+});
+
+for (const closeBeforeHeaders of [false, true]) {
+  test(`compression releases a real gzip stream when response closes ${closeBeforeHeaders ? 'before' : 'after'} headers`,
+    {timeout: 5000}, async () => {
+      const compression = require('compression');
+      const zlib = require('node:zlib');
+      const original = Object.getOwnPropertyDescriptor(zlib, 'createGzip');
+      let stream;
+      let closed;
+      let cleanupDeadline;
+      // An unattached ServerResponse exercises the middleware with no socket,
+      // listener or network request. The observed compressor is genuine zlib.
+      const request = new IncomingMessage(null);
+      request.method = 'GET';
+      request.headers = {'accept-encoding': 'gzip'};
+      const response = new ServerResponse(request);
+      Object.defineProperty(zlib, 'createGzip', {...original, value: (...args) => {
+        stream = original.value(...args);
+        closed = new Promise((resolve, reject) => {
+          cleanupDeadline = setTimeout(() => reject(new Error('gzip close was not observed')), 2000);
+          stream.once('close', resolve);
+          stream.once('error', reject);
+        });
+        return stream;
+      }});
+      try {
+        let continued = false;
+        compression({threshold: 0})(request, response, () => { continued = true; });
+        assert.equal(continued, true);
+        response.setHeader('Content-Type', 'text/plain');
+        if (closeBeforeHeaders) response.emit('close');
+        response.write('bounded compression fixture');
+        assert.ok(stream, 'the installed middleware must create the real compressor');
+        if (!closeBeforeHeaders) {
+          assert.equal(response.getHeader('Content-Encoding'), 'gzip');
+          assert.equal(stream.destroyed, false);
+          response.emit('close');
+        }
+        await closed;
+        assert.equal(stream.destroyed, true);
+        assert.equal(stream.closed, true);
+      } finally {
+        clearTimeout(cleanupDeadline);
+        Object.defineProperty(zlib, 'createGzip', original);
+        if (stream && !stream.destroyed) stream.destroy();
+        response.destroy();
+      }
+    });
+}
 
 test('URI parsing rejects an unclosed host bracket and retains valid IPv6', () => {
   const uri = require('fast-uri');
@@ -98,6 +172,28 @@ test('database import retains its function filter for root imports', async () =>
   assert.deepEqual(await collect('{"one":1,"two":{"three":true}}', [
     Filter.withParser({filter: () => true, pathSeparator: '/'}), StreamObject.streamObject(),
   ]), [{key: 'one', value: 1}, {key: 'two', value: {three: true}}]);
+});
+
+test('JSON adapter retains prototype-shaped keys as own data without replacing object prototypes', async () => {
+  const text = '{"users":[{"localId":"one","__proto__":{"isAdmin":true},' +
+    '"constructor":{"role":"reader"},"hasOwnProperty":"retained"},' +
+    '{"localId":"two","nested":{"__proto__":null,"toString":"retained"}}]}';
+  const rows = await collect(text, [
+    Pick.withParser({filter: /^users$/}), StreamArray.streamArray(),
+  ]);
+  assert.deepEqual(rows, JSON.parse(text).users.map((value, key) => ({key, value})));
+  for (const value of [rows[0].value, rows[1].value.nested]) {
+    assert.equal(Object.getPrototypeOf(value), Object.prototype);
+    const descriptor = Object.getOwnPropertyDescriptor(value, '__proto__');
+    assert.ok(descriptor, '__proto__ must remain an own property');
+    assert.equal(descriptor.enumerable, true);
+    assert.equal(descriptor.writable, true);
+    assert.equal(descriptor.configurable, true);
+    assert.equal(Object.hasOwn(descriptor, 'get'), false);
+    assert.equal(value.isAdmin, undefined, 'attacker data must not become inherited authorization');
+  }
+  assert.deepEqual(Object.keys(rows[0].value), ['localId', '__proto__', 'constructor', 'hasOwnProperty']);
+  assert.equal(Object.prototype.isAdmin, undefined);
 });
 
 test('Next dependency extraction preserves the CLI parser options and named exports', async () => {

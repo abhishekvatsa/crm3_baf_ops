@@ -96,6 +96,9 @@ jobs:
       - name: Verify CLI FTP dependency guards
         run: python3 -m unittest discover -s tools/v4 -p 'test_basic_ftp_dependency_policy.py'
 
+      - name: Verify HTTP and JSON dependency guards
+        run: python3 -m unittest discover -s tools/dependencies -p 'test_http_json_dependency_policy.py'
+
       - name: Ultimate source and dependency audit
         run: python3 tools/v4/v4_2_ultimate_audit.py
 
@@ -349,7 +352,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="AFCCCC1625CEC68A83214E63C1A5F22328E0155DFF760F14C175923DBB0694CB"
+          expected_lock_sha="5B91170080C8FFE6C1BF08A3E9D49BEF898CDC01C0E12B3A6D9C809705D8484F"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -422,7 +425,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="AFCCCC1625CEC68A83214E63C1A5F22328E0155DFF760F14C175923DBB0694CB"
+          expected_lock_sha="5B91170080C8FFE6C1BF08A3E9D49BEF898CDC01C0E12B3A6D9C809705D8484F"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"

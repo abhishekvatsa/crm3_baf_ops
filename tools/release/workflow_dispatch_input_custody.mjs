@@ -15,7 +15,7 @@ export const repositoryRoot = path.resolve(
 );
 
 export function parseWorkflow(source, workflowPath = '<workflow>') {
-  const workflow = yaml.safeLoad(source, { schema: yaml.JSON_SCHEMA });
+  const workflow = yaml.load(source, { schema: yaml.JSON_SCHEMA });
   if (workflow == null || typeof workflow !== 'object' || Array.isArray(workflow)) {
     throw new TypeError(`${workflowPath} must contain a YAML mapping`);
   }
