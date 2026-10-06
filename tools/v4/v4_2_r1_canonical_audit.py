@@ -3347,7 +3347,6 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.6.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
-    and http_and_json_dependency_pins_match()
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.7"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.1"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
@@ -3412,6 +3411,10 @@ check(
         "functions/.npmrc",
         "tooling/firebase-cli/.npmrc",
     )),
+)
+check(
+    "HTTP/JSON/YAML dependencies retain exact patched registry and local-adapter pins",
+    http_and_json_dependency_pins_match(),
 )
 check(
     "Firebase CLI tooling contains no private registry resolution",
