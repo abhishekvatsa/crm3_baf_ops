@@ -64,6 +64,21 @@ def check_ports():
     return 0
 
 
+def load_supervisor(source, expected_sha256):
+    """Execute precisely the measured source bytes, without bytecode lookup."""
+    source_bytes = source.read_bytes()
+    if hashlib.sha256(source_bytes).hexdigest().upper() != expected_sha256:
+        raise ValueError("Supervisor bytes differ")
+    spec = importlib.util.spec_from_loader(
+        "private_runtime_supervisor", loader=None, origin=str(source))
+    supervisor = importlib.util.module_from_spec(spec)
+    supervisor.__file__ = str(source)
+    supervisor.__cached__ = None
+    code = compile(source_bytes, str(source), "exec", dont_inherit=True)
+    exec(code, supervisor.__dict__)
+    return supervisor
+
+
 def main():
     if sys.argv[1:] == ["--check-ports"]:
         return check_ports()
@@ -78,11 +93,7 @@ def main():
     if set(request) != expected or request["schemaVersion"] != 1 or request["parentPid"] != os.getppid():
         raise ValueError("Exact parent/request required")
     source = Path(__file__).with_name("runtime_supervisor.py")
-    if hashlib.sha256(source.read_bytes()).hexdigest().upper() != request["supervisorSha256"]:
-        raise ValueError("Supervisor bytes differ")
-    spec = importlib.util.spec_from_file_location("private_runtime_supervisor", source)
-    supervisor = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(supervisor)
+    supervisor = load_supervisor(source, request["supervisorSha256"])
     open_process = supervisor._api("OpenProcess", supervisor.HANDLE, supervisor.W.DWORD,
                                    supervisor.W.BOOL, supervisor.W.DWORD)
     parent = open_process(0x100000, False, request["parentPid"])
