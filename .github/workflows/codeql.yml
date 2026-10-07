@@ -1,192 +1,299 @@
-name: Inert hosted runtime measurement
+name: Inert Linux launcher compatibility
 
-# Private draft for a reviewed, never-merge diagnostic ref only.
-# No checkout, candidate execution, private environment, secret or cloud access.
+# Private draft for the reviewed never-merge probe branch only.
+# Existing Linux runtimes, fixed public source bytes, three inert process cases.
 on:
   workflow_dispatch:
 
-permissions: {}
+permissions:
+  contents: read
 
 jobs:
-  measure:
-    name: Runtime bytes (${{ matrix.profile }})
-    runs-on: ${{ matrix.image }}
-    timeout-minutes: 8
-    strategy:
-      fail-fast: false
-      max-parallel: 3
-      matrix:
-        include:
-          - profile: private-ubuntu24-existing
-            image: ubuntu-24.04
-            setup_node: false
-          - profile: public-production-ubuntu24
-            image: ubuntu-24.04
-            setup_node: true
-          - profile: public-flutter-ubuntu-latest
-            image: ubuntu-latest
-            setup_node: true
+  compatibility:
+    name: Inert Linux launcher compatibility
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: Reproduce existing public Node setup
-        if: matrix.setup_node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: '22.23.1'
-
-      - name: Read existing tool identities and versions
+      - name: Retain job identity and verify existing runtime bytes
         shell: bash
-        env:
-          DIAGNOSTIC_PROFILE: ${{ matrix.profile }}
-          DIAGNOSTIC_IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
-          selected_python="$(command -v python3)"
-          resolved_python="$(readlink -f -- "$selected_python")"
-          export DIAGNOSTIC_PYTHON_COMMAND="$selected_python"
-          "$resolved_python" -I -S -B - <<'PY'
+          umask 077
+          owned="$RUNNER_TEMP/business31-linux-launcher-probe"
+          mkdir -- "$owned"
+          printf '%s\n' \
+            "repository=$GITHUB_REPOSITORY" \
+            "workflow_ref=$GITHUB_WORKFLOW_REF" \
+            "workflow_sha=$GITHUB_SHA" \
+            "workflow_ref_name=$GITHUB_REF" \
+            "run_id=$GITHUB_RUN_ID" \
+            "run_attempt=$GITHUB_RUN_ATTEMPT" \
+            "runner_os=$RUNNER_OS" \
+            "runner_arch=$RUNNER_ARCH" \
+            "image_os=${ImageOS:-unavailable}" \
+            "image_version=${ImageVersion:-unavailable}" \
+            'source_compatibility_commit=5021550d2f49ac73d0c5fa4f7d94cf34267bcfb5' \
+            'enrollment_authorized=false' > "$owned/job-identity.txt"
+          sha256sum -- /usr/local/bin/node /usr/bin/python3.12 /usr/bin/git > "$owned/runtime-before.sha256"
+          printf '%s\n' \
+            'fde6a4bf8d0562f7751d1a2d6cb9b417c4cfe107bbcb0aa3e9a24e125e348f48  /usr/local/bin/node' \
+            'e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f  /usr/bin/python3.12' \
+            'd4d2ba562243015206d4248edfec871a74786499292d00ed072dbca2f5ae8073  /usr/bin/git' \
+            > "$owned/runtime.expected.sha256"
+          sha256sum --check --strict "$owned/runtime.expected.sha256" > "$owned/runtime-verification.txt" 2>&1
+
+      - name: Read only three reviewed public source files
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: '5021550d2f49ac73d0c5fa4f7d94cf34267bcfb5'
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/release/business31HostedLauncher.py
+            /tools/release/business31HostedReplay.cjs
+            /tools/release/business31HostedProtocol.cjs
+
+      - name: Verify source bytes and materialize reviewed inert diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          owned="$RUNNER_TEMP/business31-linux-launcher-probe"
+          actual_commit="$(/usr/bin/git rev-parse --verify HEAD)"
+          printf '%s\n' "$actual_commit" > "$owned/source-checkout.txt"
+          test "$actual_commit" = '5021550d2f49ac73d0c5fa4f7d94cf34267bcfb5'
+          printf '%s\n' \
+            'b1336c8be1ed4f02edd6a2b962a3cd945fd15f8d814ddf8f23b1522e90e387ad  tools/release/business31HostedLauncher.py' \
+            'c7b032c6fd5ba3a25c160026d7b3271e75cd90516431862a1dbae49a2509276b  tools/release/business31HostedReplay.cjs' \
+            '482a5564eae5ac119d122381920df2520c0e6653db08e1ba94214ffc7e6974cb  tools/release/business31HostedProtocol.cjs' \
+            > "$owned/source.expected.sha256"
+          sha256sum --check --strict "$owned/source.expected.sha256" > "$owned/source-verification.txt" 2>&1
+          cat > "$owned/diagnostic.py" <<'PY_DIAGNOSTIC'
+          """Private draft only: three inert Linux compatibility cases, no enrollment.
+          
+          Run only after independent review, with the three source files materialized from
+          reviewed commit 5021550d2f49ac73d0c5fa4f7d94cf34267bcfb5. This is not V or M.
+          No download, installation, credential, network request or business fixture.
+          """
+          import argparse
+          from contextlib import contextmanager
+          import hashlib
+          import importlib.util
+          import json
+          import os
           from pathlib import Path
-          import datetime, hashlib, json, os, platform, shutil, stat, subprocess, sys
-
-          def now():
-              return datetime.datetime.now(datetime.timezone.utc).isoformat()
-
-          profile = os.environ['DIAGNOSTIC_PROFILE']
-          if profile not in ('private-ubuntu24-existing', 'public-production-ubuntu24', 'public-flutter-ubuntu-latest'):
-              raise RuntimeError('Unexpected measurement profile')
-          parent = Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
-          if not parent.is_dir():
-              raise RuntimeError('Missing runner temporary directory')
-          owned = parent / ('business31-runtime-measurement-' + profile)
-          owned.mkdir(mode=0o700, exist_ok=False)
-          home = owned / 'home'
-          home.mkdir(mode=0o700)
-          report_file = owned / 'runtime-measurement.json'
-          clean_env = {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
-                       'HOME': str(home), 'TMPDIR': str(owned), 'GIT_CONFIG_NOSYSTEM': '1',
-                       'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0',
-                       'GIT_NO_REPLACE_OBJECTS': '1', 'GIT_NO_LAZY_FETCH': '1',
-                       'GIT_ALLOW_PROTOCOL': ''}
-
-          def ancestors(raw):
-              p = Path(raw)
-              if not p.is_absolute():
-                  raise RuntimeError('Tool path is not absolute')
-              paths = [p, *p.parents]
-              if len(paths) > 64:
-                  raise RuntimeError('Ancestor bound')
-              values = []
-              for item in paths:
-                  s = item.lstat()
-                  values.append({'path': str(item), 'mode': s.st_mode,
-                                 'isSymlink': stat.S_ISLNK(s.st_mode),
-                                 'isRegularFile': stat.S_ISREG(s.st_mode),
-                                 'isDirectory': stat.S_ISDIR(s.st_mode),
-                                 'linkTarget': os.readlink(item) if stat.S_ISLNK(s.st_mode) else None})
-              return values
-
-          def signature(s):
-              return (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
-
-          def measure_file(path):
-              before = path.stat()
-              if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 512 * 1024 * 1024:
-                  raise RuntimeError('Executable regular-file/size bound')
+          import signal
+          import sys
+          import tempfile
+          import time
+          
+          RUNTIMES = {
+              '/usr/local/bin/node': 'FDE6A4BF8D0562F7751D1A2D6CB9B417C4CFE107BBCB0AA3E9A24E125E348F48',
+              '/usr/bin/python3.12': 'E50D468E8B0ADFB05733F5B87B3CFF34829C4A8C1AEA50C865AA8BDFE4BB150F',
+              '/usr/bin/git': 'D4D2BA562243015206D4248EDFEC871A74786499292D00ED072DBCA2F5AE8073',
+          }
+          SOURCES = {
+              'tools/release/business31HostedLauncher.py': 'B1336C8BE1ED4F02EDD6A2B962A3CD945FD15F8D814DDF8F23B1522E90E387AD',
+              'tools/release/business31HostedReplay.cjs': 'C7B032C6FD5BA3A25C160026D7B3271E75CD90516431862A1DBAE49A2509276B',
+              'tools/release/business31HostedProtocol.cjs': '482A5564EAE5AC119D122381920DF2520C0E6653DB08E1BA94214FFC7E6974CB',
+          }
+          NODE = '/usr/local/bin/node'
+          
+          
+          def need(ok, reason):
+              if not ok:
+                  raise RuntimeError(reason)
+          
+          
+          def regular(value, directory=False):
+              p = Path(value)
+              need(p.is_absolute(), 'Absolute path required')
+              need(not any(x.is_symlink() for x in (p, *p.parents)), 'Redirected path refused')
+              need(p.is_dir() if directory else p.is_file(), 'Regular selected path required')
+              return p
+          
+          
+          def sha_file(p):
+              before = p.stat()
+              need(0 < before.st_size <= 512 * 1024 * 1024, 'Selected file size bound')
               h = hashlib.sha256()
-              total = 0
-              with path.open('rb') as f:
-                  for chunk in iter(lambda: f.read(1024 * 1024), b''):
-                      total += len(chunk)
-                      if total > 512 * 1024 * 1024:
-                          raise RuntimeError('Executable byte bound')
+              size = 0
+              with p.open('rb') as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b''):
+                      size += len(chunk)
+                      need(size <= 512 * 1024 * 1024, 'Selected file byte bound')
                       h.update(chunk)
-              after = path.stat()
-              if total != before.st_size or signature(before) != signature(after):
-                  raise RuntimeError('Executable changed while reading')
-              return {'sha256': h.hexdigest().upper(), 'bytes': total, 'mode': before.st_mode,
-                      'device': before.st_dev, 'inode': before.st_ino,
-                      'mtimeNs': before.st_mtime_ns, 'ctimeNs': before.st_ctime_ns}
-
-          def inspect(label, raw, args, required=True):
-              value = {'label': label, 'required': required, 'selectedPath': raw,
-                       'measured': False, 'measurementStartedAtUtc': now()}
-              if raw is None or not Path(raw).exists():
-                  value['finding'] = 'not-present'
-                  return value
+              after = p.stat()
+              attrs = ('st_dev', 'st_ino', 'st_mode', 'st_size', 'st_mtime_ns', 'st_ctime_ns')
+              need(size == before.st_size and all(getattr(before, a) == getattr(after, a) for a in attrs),
+                   'Selected file changed while reading')
+              return h.hexdigest().upper()
+          
+          
+          def verify_files(root):
+              for name, expected in RUNTIMES.items():
+                  need(sha_file(regular(name)) == expected, 'Measured runtime bytes changed: ' + name)
+              for name, expected in SOURCES.items():
+                  need(sha_file(regular(root / name)) == expected, 'Reviewed source bytes changed: ' + name)
+          
+          
+          @contextmanager
+          def bounded_call():
+              def expired(signum, frame):
+                  raise TimeoutError('Inert case exceeded 20 seconds')
+              previous = signal.signal(signal.SIGALRM, expired)
+              signal.alarm(20)
               try:
-                  value['selectedAncestors'] = ancestors(raw)
-                  resolved = Path(raw).resolve(strict=True)
-                  value['resolvedPath'] = str(resolved)
-                  value['resolvedAncestors'] = ancestors(str(resolved))
-                  if any(x['isSymlink'] for x in value['resolvedAncestors']):
-                      raise RuntimeError('Resolved path retains redirect')
-                  before = measure_file(resolved)
-                  value['argv'] = [str(resolved), *args]
-                  result = subprocess.run(value['argv'], cwd=owned, env=clean_env,
-                                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                                          stderr=subprocess.PIPE, timeout=20, check=False)
-                  if len(result.stdout) > 65536 or len(result.stderr) > 65536:
-                      raise RuntimeError('Version output bound')
-                  value['exitCode'] = result.returncode
-                  value['stdout'] = result.stdout.decode('utf-8', errors='strict')
-                  value['stderr'] = result.stderr.decode('utf-8', errors='strict')
-                  after = measure_file(resolved)
-                  value['before'] = before
-                  value['after'] = after
-                  value['bytesStableAcrossProbe'] = before == after
-                  if result.returncode != 0 or before != after:
-                      raise RuntimeError('Version query or executable stability failed')
-                  value['measured'] = True
-              except Exception as error:
-                  value['finding'] = type(error).__name__ + ': ' + str(error)[:1500]
-              value['measurementCompletedAtUtc'] = now()
-              return value
+                  yield
+              finally:
+                  signal.alarm(0)
+                  signal.signal(signal.SIGALRM, previous)
+          
+          
+          def proc(pid):
+              try:
+                  text = Path('/proc/' + str(pid) + '/stat').read_text(encoding='ascii')
+              except FileNotFoundError:
+                  return None
+              fields = text.rsplit(')', 1)[1].split()
+              return {'state': fields[0], 'parent': int(fields[1]), 'group': int(fields[2])}
+          
+          
+          def main():
+              need(sys.platform == 'linux' and sys.flags.isolated == 1 and sys.flags.no_site == 1 and
+                   sys.dont_write_bytecode, 'Isolated Linux Python required')
+              need(sys.executable == '/usr/bin/python3.12', 'Exact observed Python path required')
+              parser = argparse.ArgumentParser()
+              parser.add_argument('--source-root', required=True)
+              parser.add_argument('--output-parent', required=True)
+              args = parser.parse_args()
+              root = regular(args.source_root, directory=True)
+              output_parent = regular(args.output_parent, directory=True)
+              verify_files(root)
+              owned = Path(tempfile.mkdtemp(prefix='inert-launcher-compat-', dir=output_parent))
+              report = {'schemaVersion': 1, 'profile': 'inert-linux-launcher-compatibility-v1',
+                        'sourceCompatibilityCommit': '5021550d2f49ac73d0c5fa4f7d94cf34267bcfb5',
+                        'sourceHashes': SOURCES, 'runtimeHashes': RUNTIMES, 'cases': [],
+                        'finalV': None, 'finalM': None, 'runtimeEnrolled': False,
+                        'privateReplayProved': False, 'constructionAuthorized': False,
+                        'signingAuthorized': False, 'distributionAuthorized': False}
+              try:
+                  spec = importlib.util.spec_from_file_location('measured_actual_launcher',
+                              root / 'tools/release/business31HostedLauncher.py')
+                  launcher = importlib.util.module_from_spec(spec)
+                  spec.loader.exec_module(launcher)
+                  env = {'PATH': '/usr/local/bin:/usr/bin:/bin', 'HOME': str(owned), 'TMPDIR': str(owned),
+                         'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8', 'GIT_CONFIG_NOSYSTEM': '1',
+                         'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0', 'GIT_NO_LAZY_FETCH': '1'}
+          
+                  case = owned / 'success'
+                  case.mkdir()
+                  with bounded_call():
+                      stdout, stderr = launcher.run_child(
+                          [NODE, '--no-global-search-paths', '-e', 'process.stdout.write("inert-ok\\n")'], env, case)
+                  need(stdout == b'inert-ok\n' and stderr == b'', 'Real pipe capture differs')
+                  report['cases'].append({'name': 'real-node-success-and-pipe-capture', 'passed': True})
+          
+                  case = owned / 'nonzero-owned-descendant'
+                  case.mkdir()
+                  pid_file = case / 'owned-pids.json'
+                  program = ('const fs=require("node:fs"),cp=require("node:child_process");'
+                             'const child=cp.spawn(process.execPath,["--no-global-search-paths","-e",'
+                             '"setInterval(()=>{},1000)"],{stdio:"ignore",env:process.env});'
+                             'fs.writeFileSync(process.argv[1],JSON.stringify({parent:process.pid,child:child.pid}),'
+                             '{flag:"wx",mode:0o600});process.exit(7);')
+                  expected_failure = False
+                  try:
+                      with bounded_call():
+                          launcher.run_child([NODE, '--no-global-search-paths', '-e', program, str(pid_file)], env, case)
+                  except ValueError as error:
+                      need(str(error) == 'BUSINESS_HOSTED_CHILD_FAILURE', 'Wrong failure path')
+                      expected_failure = True
+                  finally:
+                      # The actual launcher owns group cleanup. A bounded fallback below
+                      # addresses only the freshly recorded matching group if it failed.
+                      if pid_file.exists():
+                          ids = json.loads(pid_file.read_bytes())
+                          need(set(ids) == {'parent', 'child'} and all(type(v) is int and v > 1 for v in ids.values()),
+                               'Owned PID metadata differs')
+                          deadline = time.monotonic() + 5
+                          state = proc(ids['child'])
+                          while state is not None and state['state'] != 'Z' and time.monotonic() < deadline:
+                              time.sleep(0.05)
+                              state = proc(ids['child'])
+                          if state is not None and state['state'] != 'Z':
+                              need(state['group'] == ids['parent'], 'Refuse cleanup of an unrelated process group')
+                              os.killpg(ids['parent'], signal.SIGKILL)
+                              raise RuntimeError('Actual launcher failed owned-group cleanup; fallback kill retained')
+                          report['ownedDescendantAfterCleanup'] = {'pid': ids['child'], 'state': state,
+                                                                  'runnable': False}
+                  need(expected_failure and pid_file.exists(), 'Nonzero owned-child case did not execute')
+                  report['cases'].append({'name': 'real-nonzero-child-and-owned-group-termination', 'passed': True,
+                                          'meaning': 'A zombie, if observed, is reported as terminated, not falsely absent.'})
+          
+                  case = owned / 'fresh-replay-entry-invalid-argv'
+                  case.mkdir()
+                  expected_failure = False
+                  try:
+                      with bounded_call():
+                          launcher.run_child([NODE, '--no-global-search-paths',
+                                              str(root / 'tools/release/business31HostedReplay.cjs')], env, case)
+                  except ValueError as error:
+                      need(str(error) == 'BUSINESS_HOSTED_CHILD_FAILURE', 'Wrong CLI failure path')
+                      expected_failure = True
+                  need(expected_failure and (case / 'child.stdout').read_bytes() == b'' and
+                       (case / 'child.stderr').read_bytes() == b'Business hosted replay failed; no result is admissible.\n',
+                       'Actual cold entry did not reach the intended pre-input CLI refusal')
+                  report['cases'].append({'name': 'actual-fresh-replay-entry-pre-input-cli-refusal', 'passed': True,
+                                          'credentialsSupplied': False, 'networkOperationReached': False})
+                  verify_files(root)
+                  report['runtimeAndSourceBytesStable'] = True
+                  report['passed'] = True
+              except BaseException as error:
+                  report['passed'] = False
+                  report['failure'] = type(error).__name__ + ': ' + str(error)
+              raw = (json.dumps(report, indent=2) + '\n').encode()
+              with (owned / 'RESULT.json').open('xb') as target:
+                  target.write(raw)
+              print(json.dumps({'result': str(owned / 'RESULT.json'), 'sha256': hashlib.sha256(raw).hexdigest().upper(),
+                                'passed': report['passed']}))
+              return 0 if report['passed'] else 1
+          
+          
+          if __name__ == '__main__':
+              raise SystemExit(main())
+          PY_DIAGNOSTIC
+          printf '%s  %s\n' '62c51d42b26cd12a13b370635be13908c0399354c8613c928d62600176a3a18a' "$owned/diagnostic.py" \
+            > "$owned/diagnostic.expected.sha256"
+          sha256sum --check --strict "$owned/diagnostic.expected.sha256" > "$owned/diagnostic-verification.txt" 2>&1
 
-          report = {'schemaVersion': 1, 'profile': 'build31-inert-linux-runtime-measurement-v1',
-                    'context': profile, 'requestedRunnerImage': os.environ['DIAGNOSTIC_IMAGE'],
-                    'startedAtUtc': now(), 'system': platform.system(), 'machine': platform.machine(),
-                    'runnerFields': {key: os.environ.get(key) for key in
-                                     ('ImageOS', 'ImageVersion', 'RUNNER_ARCH', 'RUNNER_OS')},
-                    'run': {key: os.environ.get(key) for key in
-                            ('GITHUB_REPOSITORY', 'GITHUB_WORKFLOW_REF', 'GITHUB_SHA', 'GITHUB_REF',
-                             'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT')},
-                    'bootstrapPython': {'commandPath': os.environ['DIAGNOSTIC_PYTHON_COMMAND'],
-                                        'sysExecutable': sys.executable,
-                                        'isolated': sys.flags.isolated, 'noSite': sys.flags.no_site,
-                                        'dontWriteBytecode': sys.dont_write_bytecode},
-                    'tools': [], 'enrollmentAuthorized': False, 'hostedReplayProved': False,
-                    'sourceQualified': False, 'constructionAuthorized': False,
-                    'signingAuthorized': False, 'distributionAuthorized': False}
-          report['tools'].append(inspect('node-first-path', shutil.which('node'),
-                                         ['--no-global-search-paths', '-p',
-                                          'JSON.stringify({version:process.version,execPath:process.execPath,platform:process.platform,arch:process.arch})']))
-          report['tools'].append(inspect('python3-first-path', shutil.which('python3'),
-                                         ['-I', '-S', '-B', '-c',
-                                          'import json,sys;print(json.dumps({"version":sys.version,"executable":sys.executable,"isolated":sys.flags.isolated,"noSite":sys.flags.no_site}))']))
-          report['tools'].append(inspect('git-first-path', shutil.which('git'), ['--version']))
-          # One fixed existing cache candidate only; never search/download/install a private runtime.
-          report['runnerToolCacheDirectory'] = os.environ.get('RUNNER_TOOL_CACHE')
-          cached_node = '/opt/hostedtoolcache/node/22.23.1/x64/bin/node'
-          report['tools'].append(inspect('node22.23.1-existing-toolcache', cached_node,
-                                         ['--no-global-search-paths', '--version'], required=False))
-          report['measurementComplete'] = all(t['measured'] for t in report['tools'] if t['required'])
-          report['completedAtUtc'] = now()
-          raw = (json.dumps(report, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
-          if len(raw) > 256 * 1024:
-              raise RuntimeError('Report bound')
-          with report_file.open('xb') as f:
-              f.write(raw)
-          print(json.dumps({'profile': profile, 'reportSha256': hashlib.sha256(raw).hexdigest().upper(),
-                            'measurementComplete': report['measurementComplete']}))
-          if not report['measurementComplete']:
-              raise SystemExit(1)
-          PY
+      - name: Exercise only the three inert launcher process cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          owned="$RUNNER_TEMP/business31-linux-launcher-probe"
+          # Recheck before Python/import; the diagnostic repeats all identities.
+          sha256sum --check --strict "$owned/runtime.expected.sha256" > "$owned/runtime-preexecution-verification.txt" 2>&1
+          sha256sum --check --strict "$owned/source.expected.sha256" > "$owned/source-preexecution-verification.txt" 2>&1
+          sha256sum --check --strict "$owned/diagnostic.expected.sha256" > "$owned/diagnostic-preexecution-verification.txt" 2>&1
+          set +e
+          /usr/bin/python3.12 -I -S -B "$owned/diagnostic.py" \
+            --source-root "$GITHUB_WORKSPACE" --output-parent "$owned" \
+            > "$owned/diagnostic.stdout" 2> "$owned/diagnostic.stderr"
+          result=$?
+          set -e
+          printf '%s\n' "$result" > "$owned/diagnostic-exit-code.txt"
+          exit "$result"
 
-      - name: Retain only nonsecret runtime metadata
+      - name: Retain only owned diagnostic evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: inert-runtime-${{ matrix.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/business31-runtime-measurement-${{ matrix.profile }}/runtime-measurement.json
+          name: inert-launcher-compatibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/business31-linux-launcher-probe/
           if-no-files-found: error
           retention-days: 1
           include-hidden-files: false
