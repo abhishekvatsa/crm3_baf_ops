@@ -6,7 +6,7 @@ import {test} from 'node:test';
 import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {execFileSync, spawnSync} from 'node:child_process';
-import {verifySource, verifyGraph, verifyInstalled, EXPECTED_FILES} from './verify_braces_depth_guard.mjs';
+import {verifySource, verifyGraph, verifyInstalled, verifyWatcher, EXPECTED_FILES} from './verify_braces_depth_guard.mjs';
 
 const source = process.env.CRM3_BRACES_GUARD_TEST_SOURCE ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../tooling/braces-depth-guard');
 function fixture(t) {
@@ -94,3 +94,26 @@ test('public compile AST overload returns exact escaped values without stdout or
   assert.equal(result.stderr, '');
   assert.equal(result.stdout, JSON.stringify(['}', '\\}']));
 });
+
+for (const ancestor of ['ordinary', '.hidden', 'runner.log', 'node_modules/runner']) {
+  test(`real watcher preserves events and ignores beneath ${ancestor}`, {timeout: 20000}, async t => {
+    const f = fixture(t);
+    const parent = path.join(f.root, ancestor);
+    fs.mkdirSync(parent, {recursive: true});
+    const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const cliRequire = createRequire(path.join(repository, 'tooling/firebase-cli/package.json'));
+    const firebaseRequire = createRequire(cliRequire.resolve('firebase-tools/package.json'));
+    const chokidarFile = firebaseRequire.resolve('chokidar/package.json');
+    assert.equal(JSON.parse(fs.readFileSync(chokidarFile, 'utf8')).version, '3.6.0');
+    const chokidar = firebaseRequire('chokidar');
+    let watchCalls = 0;
+    await verifyWatcher({watch(paths, options) {
+      watchCalls++;
+      assert.equal(path.dirname(fs.realpathSync(paths[0])), fs.realpathSync(parent),
+        'Regression must exercise the requested ancestor');
+      return chokidar.watch(paths, options);
+    }}, parent);
+    assert.equal(watchCalls, 1);
+    assert.deepEqual(fs.readdirSync(parent), [], 'Watcher fixture must be cleaned after close');
+  });
+}

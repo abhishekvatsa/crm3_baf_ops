@@ -122,17 +122,29 @@ export function verifyGraph(repository, directory) {
   }
 }
 
-export async function verifyWatcher(chokidar) {
-  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-braces-watch-'));
-  assert.ok(inside(fs.realpathSync(os.tmpdir()), fs.realpathSync(temporary)));
+export async function verifyWatcher(chokidar, temporaryParent = os.tmpdir()) {
+  const parent = fs.realpathSync(temporaryParent);
+  const temporary = fs.mkdtempSync(path.join(parent, 'crm3-braces-watch-'));
+  assert.equal(path.dirname(fs.realpathSync(temporary)), parent);
   const events = [];
   let failure;
+  const ignoredPatterns = [
+    /(^|[\/\\])\../, /.+\.log/, /.+?[\\/]node_modules[\\/].+?/, /.+?[\\/]venv[\\/].+?/,
+  ];
+  const ignoredWithinFixture = file => {
+    if (!inside(temporary, file)) return true;
+    const relative = path.relative(temporary, file).replaceAll('\\', '/');
+    if (relative === '') return false;
+    // Ignore fixture contents, not an ancestor such as .codex or runner.log.
+    // A neutral prefix preserves the patterns for root-level dependency dirs.
+    return ignoredPatterns.some(pattern => pattern.test(`watch-root/${relative}`));
+  };
   // This is the pinned Firebase functions-emulator mixture, including the
   // **/ prefix used for configured ignores. The added brace ignore exercises
   // the existing glob capability instead of silently accepting chokidar 4.
   // The additional braced watch path exercises chokidar's own braces.expand call.
   const watcher = chokidar.watch([temporary, path.join(temporary, '{nested,other}')], {ignoreInitial: true, persistent: true, ignored: [
-    /(^|[\/\\])\../, /.+\.log/, /.+?[\\/]node_modules[\\/].+?/, /.+?[\\/]venv[\\/].+?/,
+    ignoredWithinFixture,
     '**/skip-*', '**/*.{skip,tmp}',
   ]});
   watcher.on('all', (event, file) => events.push({event, file: path.relative(temporary, file).replaceAll('\\', '/')}));
@@ -155,7 +167,16 @@ export async function verifyWatcher(chokidar) {
     await until(() => events.some(x => x.event === 'add' && x.file === 'nested/keep.js'), 'add');
     fs.appendFileSync(file, 'second');
     await until(() => events.some(x => x.event === 'change' && x.file === 'nested/keep.js'), 'change');
-    for (const name of ['skip-one.js', 'nested/hidden.skip', 'nested/hidden.tmp', 'nested/event.log', 'nested/.secret']) fs.writeFileSync(path.join(temporary, name), 'ignored');
+    for (const name of [
+      'skip-one.js', 'nested/skip-two.js', 'root.skip', 'root.tmp',
+      'nested/hidden.skip', 'nested/hidden.tmp', 'event.log', 'nested/event.log',
+      '.secret', 'nested/.secret', '.hidden/child.js', 'nested/.hidden/child.js',
+      'node_modules/child.js', 'nested/node_modules/child.js',
+      'venv/child.js', 'nested/venv/child.js',
+    ]) {
+      fs.mkdirSync(path.dirname(path.join(temporary, name)), {recursive: true});
+      fs.writeFileSync(path.join(temporary, name), 'ignored');
+    }
     fs.unlinkSync(file);
     await until(() => events.some(x => x.event === 'unlink' && x.file === 'nested/keep.js'), 'unlink');
     await new Promise(resolve => setTimeout(resolve, 300));
@@ -163,7 +184,7 @@ export async function verifyWatcher(chokidar) {
     assert.ok(!failure);
   } finally {
     await watcher.close();
-    assert.ok(inside(fs.realpathSync(os.tmpdir()), fs.realpathSync(temporary)));
+    assert.equal(path.dirname(fs.realpathSync(temporary)), parent);
     fs.rmSync(temporary, {recursive: true, force: true});
   }
 }
