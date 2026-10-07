@@ -89,6 +89,7 @@ jobs:
           import sys
           import tempfile
           import time
+          import traceback
           
           RUNTIMES = {
               '/usr/local/bin/node': 'FDE6A4BF8D0562F7751D1A2D6CB9B417C4CFE107BBCB0AA3E9A24E125E348F48',
@@ -156,7 +157,7 @@ jobs:
           def proc(pid):
               try:
                   text = Path('/proc/' + str(pid) + '/stat').read_text(encoding='ascii')
-              except FileNotFoundError:
+              except (FileNotFoundError, ProcessLookupError):
                   return None
               fields = text.rsplit(')', 1)[1].split()
               return {'state': fields[0], 'parent': int(fields[1]), 'group': int(fields[2])}
@@ -226,7 +227,11 @@ jobs:
                               state = proc(ids['child'])
                           if state is not None and state['state'] != 'Z':
                               need(state['group'] == ids['parent'], 'Refuse cleanup of an unrelated process group')
-                              os.killpg(ids['parent'], signal.SIGKILL)
+                              try:
+                                  os.killpg(ids['parent'], signal.SIGKILL)
+                              except ProcessLookupError as error:
+                                  raise RuntimeError('Owned descendant appeared runnable after cleanup deadline; '
+                                                     'group disappeared before diagnostic fallback kill') from error
                               raise RuntimeError('Actual launcher failed owned-group cleanup; fallback kill retained')
                           report['ownedDescendantAfterCleanup'] = {'pid': ids['child'], 'state': state,
                                                                   'runnable': False}
@@ -255,6 +260,7 @@ jobs:
               except BaseException as error:
                   report['passed'] = False
                   report['failure'] = type(error).__name__ + ': ' + str(error)
+                  report['failureTraceback'] = traceback.format_exc()
               raw = (json.dumps(report, indent=2) + '\n').encode()
               with (owned / 'RESULT.json').open('xb') as target:
                   target.write(raw)
@@ -266,7 +272,7 @@ jobs:
           if __name__ == '__main__':
               raise SystemExit(main())
           PY_DIAGNOSTIC
-          printf '%s  %s\n' '62c51d42b26cd12a13b370635be13908c0399354c8613c928d62600176a3a18a' "$owned/diagnostic.py" \
+          printf '%s  %s\n' '22bb286afa7e3b99d43b0b1df7f56b32ac9983bb9232cf9704234f5d60615c90' "$owned/diagnostic.py" \
             > "$owned/diagnostic.expected.sha256"
           sha256sum --check --strict "$owned/diagnostic.expected.sha256" > "$owned/diagnostic-verification.txt" 2>&1
 
