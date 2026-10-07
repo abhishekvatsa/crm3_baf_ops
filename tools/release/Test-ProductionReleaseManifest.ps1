@@ -602,12 +602,96 @@ if ($policy.schemaVersion -ne 3) {
   throw 'Unsupported policy schema in source archive.'
 }
 $runtime31Proof = $null
+$business31Proof = $null
+$business31Selected = $null -ne $policy.PSObject.Properties['businessBackendPrivateReplay']
+foreach ($pointerName in @('clientBackendCompatibility', 'runtimeBackendPrivateReplay')) {
+  if ($null -ne $policy.PSObject.Properties[$pointerName] -and $null -ne $policy.$pointerName) {
+    foreach ($field in @('profile', 'file')) {
+      if ($null -ne $policy.$pointerName.PSObject.Properties[$field] -and [string]$policy.$pointerName.$field -match 'business') {
+        $business31Selected = $true
+      }
+    }
+  }
+}
 $runtime31Selected = $null -ne $policy.PSObject.Properties['runtimeBackendPrivateReplay'] -or
   ($null -ne $policy.PSObject.Properties['clientBackendCompatibility'] -and
     ($policy.clientBackendCompatibility.file -ceq 'release/approvals/build31-runtime-client-compatibility-approval.json' -or
      ($null -ne $policy.clientBackendCompatibility.PSObject.Properties['profile'] -and
       $policy.clientBackendCompatibility.profile -ceq 'build31-exact-grpc-runtime-backend-v1')))
-if ($runtime31Selected) {
+if ($business31Selected) {
+  if ($runtime31Selected -or $null -ne $manifest.PSObject.Properties['runtimeBackend31'] -or [string]::IsNullOrWhiteSpace($RepositoryRoot)) {
+    throw 'Business31 package requires its separate route and actual Git source custody.'
+  }
+  $configBytes = [IO.File]::ReadAllBytes($env:BUSINESS31_CONTROLLER_CONFIG)
+  if ($configBytes.Length -gt 2097152 -or $env:BUSINESS31_CONTROLLER_CONFIG_SHA256 -cnotmatch '^[A-F0-9]{64}$' -or
+      [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($configBytes)) -cne $env:BUSINESS31_CONTROLLER_CONFIG_SHA256) {
+    throw 'Business31 independent package verifier enrollment differs.'
+  }
+  $businessConfig = [Text.Encoding]::UTF8.GetString($configBytes) | ConvertFrom-Json -AsHashtable -Depth 100
+  # Bind both executable helpers to external V AND the real S archive before
+  # loading either. S's own hashes alone cannot select a trusted verifier.
+  foreach ($name in @('Runtime-BackendPrivateReplay31.ps1', 'Business-BackendPrivateReplay31.ps1')) {
+    $entry = 'tools/release/' + $name
+    $helper = Join-Path $packageDirectory $name
+    if ($businessConfig.controller.files[$entry] -cnotmatch '^[A-F0-9]{64}$' -or
+        (Get-Sha256 $helper) -cne $businessConfig.controller.files[$entry] -or
+        (Get-Sha256 $helper) -cne (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $entry)) {
+      throw 'Business31 package helper differs from independent V or archived S.'
+    }
+    Assert-Runtime31HelperGitBinding -Root $RepositoryRoot -Commit ([string]$manifest.source.gitCommit) -Entry $entry -Helper $helper
+  }
+  . (Join-Path $packageDirectory 'Runtime-BackendPrivateReplay31.ps1')
+  . (Join-Path $packageDirectory 'Business-BackendPrivateReplay31.ps1')
+  Assert-ProductionRuntime31SourceArchive -RepositoryRoot $RepositoryRoot -SourceArchivePath $sourceArchivePath `
+    -SourceCommit ([string]$manifest.source.gitCommit)
+  # Reject cheap package drift before requesting the expensive private replay.
+  if (@($manifest.artifacts).Count -ne 2 -or @($manifest.artifacts | Where-Object type -CEQ 'apk').Count -ne 1 -or
+      @($manifest.artifacts | Where-Object type -CEQ 'aab').Count -ne 1 -or
+      (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath 'release/production-release-policy.json') -cne
+        ([string]$manifest.policy.sha256).ToUpperInvariant()) { throw 'Business31 package/policy population differs.' }
+  foreach ($artifact in $manifest.artifacts) {
+    $artifactPath = Resolve-ContainedFile -Root $packageDirectory -RelativePath ([string]$artifact.file)
+    if ((Get-Sha256 $artifactPath) -cne ([string]$artifact.sha256).ToUpperInvariant()) { throw 'Business31 package bytes changed before replay.' }
+  }
+  $fresh = Invoke-ProductionBusiness31PrerequisiteReplay -Purpose PackageVerification -RepositoryRoot $RepositoryRoot `
+    -Policy $policy -SourceArchivePath $sourceArchivePath -ManifestPath $ManifestPath
+  if ($fresh.replayMode -cne 'fresh-dispatch') { throw 'Package verification requires a new full private replay.' }
+  $record = (Read-Business31Json $ManifestPath 2097152).businessBackend31
+  Assert-Business31Keys $record @('schemaVersion', 'profile', 'constructionObservationFile', 'constructionObservationSha256') 'Business31 construction record'
+  if ($record.schemaVersion -cne 1 -or $record.profile -cne 'build31-business-construction-record-v1' -or
+      $record.constructionObservationFile -cne 'business31-construction-observation.json' -or
+      $record.constructionObservationSha256 -cnotmatch '^[A-F0-9]{64}$') { throw 'Business31 construction record is malformed.' }
+  $observationPath = Resolve-ContainedFile -Root $packageDirectory -RelativePath $record.constructionObservationFile
+  if ((Get-Sha256 $observationPath) -cne $record.constructionObservationSha256) { throw 'Business31 retained construction observation changed.' }
+  $retained = Read-Business31Json $observationPath 2097152
+  if ($retained.ok -isnot [bool] -or -not $retained.ok -or $retained.route -cne 'business-backend31') {
+    throw 'Business31 retained construction route differs.'
+  }
+  $observed = $retained.businessBackend31.prerequisiteResult
+  if ($observed.profile -cne 'build31-business-prerequisite-measurement-v1' -or $observed.purpose -cne 'construction' -or
+      $observed.replayMode -cne 'same-parent-reauthentication' -or
+      $observed.challenge.requester.kind -cne 'github-actions' -or
+      $observed.challenge.requester.runId -cne [string]$manifest.ciAuthority.runId -or
+      $observed.challenge.requester.runAttempt -cne [string]$manifest.ciAuthority.runAttempt) {
+    throw 'Business31 construction observation differs from the signing run.'
+  }
+  # Nonces and run/timestamp fields intentionally differ. This is a fresh
+  # package check, and the historical construction record is not replay authority.
+  foreach ($field in @('verifier', 'source', 'candidate', 'descriptorPointer', 'closurePointer', 'commitments', 'client', 'limits')) {
+    Assert-Business31Same $observed[$field] $fresh.$field "Business31 construction/package $field"
+  }
+  $descriptor = (Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $fresh.descriptorPointer.file) | ConvertFrom-Json -Depth 100
+  $backend = (Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $fresh.closurePointer.file) | ConvertFrom-Json -Depth 100
+  if ((Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $fresh.descriptorPointer.file) -cne $fresh.descriptorPointer.sha256 -or
+      (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $fresh.closurePointer.file) -cne $fresh.closurePointer.sha256) {
+    throw 'Business31 archived descriptor or closure differs from fresh replay.'
+  }
+  $business31Proof = [pscustomobject]@{ok=$true;route='business-backend31';businessBackend31=[pscustomobject]@{
+    source=$fresh.source;descriptorPointer=$fresh.descriptorPointer;closurePointer=$fresh.closurePointer;
+    clientPointer=$fresh.client.decisionPointer;approvalPointer=$descriptor.approvalPointer;currentBackend=$backend;prerequisiteResult=$fresh}}
+} elseif ($null -ne $manifest.PSObject.Properties['businessBackend31']) {
+  throw 'Business31 package record is not selected by immutable source policy.'
+} elseif ($runtime31Selected) {
   if ([string]::IsNullOrWhiteSpace($RepositoryRoot)) {
     throw 'Runtime31 package verification requires actual Git ancestry and authenticated private evidence access.'
   }
@@ -657,7 +741,7 @@ if ($policy.release.buildNumber -ge 30) {
     -BackendReceipt ((Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry) | ConvertFrom-Json) `
     -ApprovalSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckApprovalEntry) `
     -BackendReceiptSha256 (Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $appCheckBackendEntry) `
-    -Runtime31Proof $runtime31Proof
+    -Runtime31Proof $runtime31Proof -Business31Proof $business31Proof
   Assert-ProductionAppCheckManifest -Manifest $manifest -Expected $expectedAppCheck
 }
 

@@ -1865,8 +1865,66 @@ if ($stagedAuthorityProof.ok -isnot [bool] -or $stagedAuthorityProof.ok -ne $tru
   throw 'Staged promotion source or governance authority was not verified.'
 }
 . (Join-Path $RepositoryRoot 'tools/release/Runtime-BackendPrivateReplay31.ps1')
+. (Join-Path $RepositoryRoot 'tools/release/Business-BackendPrivateReplay31.ps1')
+function Assert-ProductionBusiness31PublicBinding {
+  param([object]$Policy, [object]$Proof, [object]$CurrentSuccessorState)
+  $Policy = ($Policy | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
+  $CurrentSuccessorState = ($CurrentSuccessorState | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
+  $backend = ($Proof.businessBackend31 | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
+  $hasPolicy = $backend.Contains('policyResult')
+  $hasPrerequisite = $backend.Contains('prerequisiteResult')
+  if ($Proof.ok -isnot [bool] -or $Proof.ok -cne $true -or $Proof.route -cne 'business-backend31' -or
+      $hasPolicy -eq $hasPrerequisite -or $backend.recordedSemanticsReplayAuthenticated -cne $true) {
+    throw 'Business31 requires the distinct authenticated recorded replay route.'
+  }
+  foreach ($name in @('independentlySelectedInputsAuthenticated', 'executingHostAuthenticated', 'humanIdentityAuthenticated',
+      'trustedClockAuthenticated', 'originalProcessExecutionAuthenticated', 'credentialAccessAuthorized',
+      'backendDeploymentAuthorized', 'constructionAuthorized', 'signingAuthorized', 'distributionAuthorized')) {
+    if ($backend[$name] -isnot [bool] -or $backend[$name] -cne $false) { throw 'Business31 recorded replay grants no operational authority.' }
+  }
+  if ($hasPolicy) {
+    $measurement = $backend.policyResult
+    if ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-policy-result-v1' -or
+        $measurement.purpose -cne 'policy' -or $measurement.policyMeasurementVerified -cne $true) {
+      throw 'Business31 public policy measurement scope differs.'
+    }
+  } else {
+    $measurement = $backend.prerequisiteResult
+    if ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-prerequisite-measurement-v1' -or
+        $measurement.purpose -cne 'construction' -or $measurement.replayMode -cne 'same-parent-reauthentication' -or
+        $measurement.freshHostedReplayVerified -cne $true) { throw 'Business31 construction reauthentication differs.' }
+    Assert-Business31Same $measurement.limits ([ordered]@{deploymentAuthorized=$false; constructionAuthorized=$false; signingAuthorized=$false; distributionAuthorized=$false}) 'Business31 operational limits'
+  }
+  Assert-Business31Same $backend.source $measurement.source 'Business31 source M'
+  Assert-Business31Same $backend.closurePointer $measurement.closurePointer 'Business31 closure pointer'
+  Assert-Business31Same $backend.descriptorPointer $measurement.descriptorPointer 'Business31 descriptor pointer'
+  Assert-Business31Same $backend.clientPointer $measurement.client.decisionPointer 'Business31 client decision'
+  Assert-Business31Same $backend.descriptorPointer ([ordered]@{commit=$Policy.businessBackendPrivateReplay.commit; file=$Policy.businessBackendPrivateReplay.file; sha256=$Policy.businessBackendPrivateReplay.sha256}) 'Business31 policy descriptor'
+  Assert-Business31Same $backend.clientPointer ([ordered]@{commit=$Policy.clientBackendCompatibility.commit; file=$Policy.clientBackendCompatibility.file; sha256=$Policy.clientBackendCompatibility.sha256}) 'Business31 policy client'
+  $deployed = $CurrentSuccessorState.authorityPlanes.deployedBackend
+  $closure = $backend.closurePointer; $approval = $backend.approvalPointer
+  $firestore = $Policy.finalization.exactFirestoreRulesIndexesLiveReadback
+  if ($closure.file -cne $Policy.finalization.exactFunctionFleetDeploymentReceiptFile -or
+      $closure.sha256 -cne $Policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -or
+      $closure.file -cne $deployed.functionFleetEvidenceFile -or $closure.sha256 -cne $deployed.functionFleetEvidenceSha256 -or
+      $approval.file -cne $deployed.deploymentApprovalFile -or $approval.sha256 -cne $deployed.deploymentApprovalSha256 -or
+      $backend.source.commit -cne $deployed.functionFleetSourceCommit -or
+      (Get-Sha256 $closure.file) -cne $closure.sha256 -or (Get-Sha256 $approval.file) -cne $approval.sha256 -or
+      $deployed.rulesAndIndexesEvidenceFile -cne $firestore.receiptFile -or
+      $deployed.rulesAndIndexesEvidenceSha256 -cne $firestore.receiptFileSha256) {
+    throw 'Business31 current public source/approval/closure/Rules bindings differ.'
+  }
+  $publicClosure = Get-Content -LiteralPath $closure.file -Raw | ConvertFrom-Json -AsHashtable -Depth 50
+  Assert-Business31Same $backend.currentBackend $publicClosure 'Business31 actual public closure'
+  if ($publicClosure.schemaVersion -cne 1 -or $publicClosure.documentType -cne 'build31-business-private-record-custody' -or
+      $publicClosure.recordKind -cne 'closure') { throw 'Business31 requires its actual public custody envelope.' }
+  Assert-Business31Same $publicClosure.source $backend.source 'Business31 public source M'
+}
+$business31Selected = Test-ProductionBusiness31Selected -Policy $policy
 $runtime31Selected = Test-ProductionRuntime31Selected -Policy $policy
-if ($runtime31Selected) {
+if ($business31Selected) {
+  Assert-ProductionBusiness31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
+} elseif ($runtime31Selected) {
   Assert-ProductionRuntime31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
 }
 if ([string]$policy.postBuildPromotion.status -ne
@@ -2241,7 +2299,24 @@ if ([string]::IsNullOrWhiteSpace($functionFleetDeploymentReceiptPath) -or
 }
 $functionFleetDeploymentReceipt = Get-Content `
   -LiteralPath $functionFleetDeploymentReceiptPath -Raw | ConvertFrom-Json
-if ($runtime31Selected) {
+if ($business31Selected) {
+  Assert-ProductionBusiness31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
+  $businessBackend = $stagedAuthorityProof.businessBackend31
+  $verifiedBackendSourceCommit = [string]$businessBackend.source.commit
+  if ($versionSource.requiredSource.exactFunctionFleetDeploymentSourceCommit -cne $verifiedBackendSourceCommit -or
+      $functionFleetDeploymentReceipt.source.commit -cne $verifiedBackendSourceCommit -or
+      $functionFleetDeploymentReceipt.source.tree -cne $businessBackend.source.tree -or
+      $functionFleetDeploymentReceipt.source.functionsTree -cne $businessBackend.source.functionsTree) {
+    throw 'Business31 exact source/version/public closure differs from authenticated recorded replay.'
+  }
+  $historicalFunctionFleetDeploymentReceiptPath = [string]$stagedAuthorityProof.historicalBackendReceiptFile
+  $currentDeployedBackendAuthority = $currentSuccessorState.authorityPlanes.deployedBackend
+  $currentFunctionFleetDeploymentReceiptPath = [string]$businessBackend.closurePointer.file
+  $currentFunctionFleetDeploymentReceiptSha256 = [string]$businessBackend.closurePointer.sha256
+  $currentDeploymentApprovalPath = [string]$businessBackend.approvalPointer.file
+  $currentDeploymentApprovalSha256 = [string]$businessBackend.approvalPointer.sha256
+  $currentFunctionFleetDeploymentReceipt = $functionFleetDeploymentReceipt
+} elseif ($runtime31Selected) {
   $runtimeBackend = $stagedAuthorityProof.runtimeBackend31
   $verifiedBackendSourceCommit = [string]$runtimeBackend.source.commit
   if ($versionSource.requiredSource.exactFunctionFleetDeploymentSourceCommit -cne $verifiedBackendSourceCommit -or
@@ -2502,7 +2577,7 @@ if ([string]$firestoreReadback.evidenceType -ne
   throw 'Exact Firestore Rules/index live-readback receipt is incomplete.'
 }
 $historicalFirestoreReadbackPath = $firestoreReadbackPath
-if (-not $runtime31Selected) {
+if (-not $runtime31Selected -and -not $business31Selected) {
 $firestoreReadbackAuthority =
   $currentFunctionFleetDeploymentReceipt.cleanMainLiveReadbacks.
     firestoreRulesAndIndexes
@@ -2573,6 +2648,10 @@ if ([string]$firestoreReadback.evidenceType -ne
     $firestoreReadbackAuthority.allIndexesReady -ne $true) {
   throw 'Current Firestore Rules/index live-readback receipt is incomplete.'
 }
+} elseif ($business31Selected) {
+  # The source Rules observation above and the public C are checked separately;
+  # the completed V run authenticated the recorded post-action private semantics.
+  Assert-ProductionBusiness31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
 } else {
   # The source-specific policy readback above remains fully checked. The new
   # deployment's post-action raw Rules/index preservation is separately replayed
@@ -4568,7 +4647,7 @@ foreach ($repository in $requiredProductionActionRepositories) {
 foreach ($required in @(
   'permissions:'
   'contents: write'
-  'actions: read'
+  'actions: write'
   'group: crm3-production-build-number-${{ inputs.build_number }}'
   'CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}'
   'CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}'

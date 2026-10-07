@@ -45,6 +45,8 @@ const ADMITTED_DELTA_PATHS = Object.freeze([
   "tooling/braces-depth-guard/lib/stringify.js",
   "tooling/braces-depth-guard/lib/utils.js",
   "tooling/braces-depth-guard/package.json",
+  "tooling/stream-json-compat/README.md",
+  "tooling/stream-json-compat/package.json",
 ]);
 const admitted = new Set(ADMITTED_DELTA_PATHS);
 function requireValue(ok, message) { if (!ok) throw new Error(message); }

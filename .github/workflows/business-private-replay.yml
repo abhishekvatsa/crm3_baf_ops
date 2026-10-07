@@ -1,0 +1,160 @@
+name: Business private recorded replay
+
+# PRIVATE PROPOSAL. The immutable tag, environment, variables and read-only WIF
+# conditions must be independently enrolled. This file grants none of them.
+on:
+  workflow_dispatch:
+    inputs:
+      request_json:
+        description: Exact candidate and descriptor request; data only
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+concurrency:
+  group: business-private-replay-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  replay:
+    name: Business private replay
+    runs-on: ubuntu-24.04
+    environment: crm3-business-private-replay
+    timeout-minutes: 125
+    env:
+      SELECTED_V: ${{ vars.BUSINESS31_VERIFIER_COMMIT }}
+      TRUST_JSON: ${{ vars.BUSINESS31_TRUST_JSON }}
+      TRUST_SHA: ${{ vars.BUSINESS31_TRUST_SHA256 }}
+      MANIFEST_JSON: ${{ vars.BUSINESS31_SOURCE_MANIFEST_JSON }}
+      NODE_EXE: ${{ vars.BUSINESS31_NODE_EXECUTABLE }}
+      PYTHON_EXE: ${{ vars.BUSINESS31_PYTHON_EXECUTABLE }}
+      PYTHON_SHA: ${{ vars.BUSINESS31_PYTHON_SHA256 }}
+      GIT_EXE: ${{ vars.BUSINESS31_GIT_EXECUTABLE }}
+      LAUNCHER_SHA: ${{ vars.BUSINESS31_LAUNCHER_SHA256 }}
+      CANDIDATE_REQUEST: ${{ inputs.request_json }}
+    steps:
+      - name: Require independently selected immutable workflow revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SELECTED_V" =~ ^[0-9a-f]{40}$ ]]
+          test "$GITHUB_SHA" = "$SELECTED_V"
+          [[ "$GITHUB_REF" == refs/tags/* ]]
+          [[ "$PYTHON_EXE" == /* && "$NODE_EXE" == /* && "$GIT_EXE" == /* ]]
+          [[ "$PYTHON_SHA" =~ ^[A-F0-9]{64}$ && "$LAUNCHER_SHA" =~ ^[A-F0-9]{64}$ ]]
+          test "$(sha256sum -- "$PYTHON_EXE" | cut -d ' ' -f1 | tr a-f A-F)" = "$PYTHON_SHA"
+
+      - name: Checkout only the selected verifier V
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ vars.BUSINESS31_VERIFIER_COMMIT }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: false
+          lfs: false
+
+      - name: Prepare isolated public Git inputs without checking out candidate code
+        shell: bash
+        env:
+          # Independently enrolled environment inputs. Dispatch data can select
+          # neither these records nor the retained private owner message.
+          CLIENT_SELECTED_JSON: ${{ vars.BUSINESS31_CLIENT_SELECTED_JSON }}
+          CLIENT_ORIGINAL_MESSAGE_B64: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64 }}
+        run: |
+          set -euo pipefail
+          test "$(sha256sum tools/release/business31HostedLauncher.py | cut -d ' ' -f1 | tr a-f A-F)" = "$LAUNCHER_SHA"
+          "$PYTHON_EXE" -I -S -B - <<'PY'
+          import base64,hashlib,json,os,pathlib,re,subprocess
+          def need(ok):
+              if not ok: raise RuntimeError('Hosted input preparation refused')
+          def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest().upper()
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'business31-private-job'
+          root.mkdir(mode=0o700,exist_ok=False)
+          trust_raw=os.environ['TRUST_JSON'].encode();need(0<len(trust_raw)<=2*1024*1024)
+          need(hashlib.sha256(trust_raw).hexdigest().upper()==os.environ['TRUST_SHA'])
+          trust=json.loads(trust_raw);need(trust['verifier']['commit']==os.environ['SELECTED_V'])
+          need(trust['pythonSha256']==os.environ['PYTHON_SHA'] and trust['launcherSha256']==os.environ['LAUNCHER_SHA'])
+          git=pathlib.Path(os.environ['GIT_EXE']);need(git.is_absolute() and git.is_file() and not git.is_symlink() and sha(git)==trust['gitSha256'])
+          req_raw=os.environ['CANDIDATE_REQUEST'].encode();need(0<len(req_raw)<=32768)
+          req=json.loads(req_raw);client_mode=req.get('schemaVersion')==2
+          need(req.get('schemaVersion') in (1,2))
+          need(set(req)==({'schemaVersion','candidate','descriptorPointer','challenge'} if client_mode else {'schemaVersion','candidate','descriptorPointer'}))
+          req['runId']=os.environ['GITHUB_RUN_ID'];req['runAttempt']=os.environ['GITHUB_RUN_ATTEMPT']
+          S=req['candidate']['commit'];need(re.fullmatch('[0-9a-f]{40}',S) is not None)
+          name=trust['repository']['name'];need(name==os.environ['GITHUB_REPOSITORY'] and re.fullmatch('[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+',name) is not None)
+          for d in ['home','tmp','template','output']: (root/d).mkdir(mode=0o700)
+          env={'PATH':str(git.parent),'HOME':str(root/'home'),'TMPDIR':str(root/'tmp'),'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'/dev/null','GIT_TERMINAL_PROMPT':'0','GIT_NO_REPLACE_OBJECTS':'1','GIT_ALLOW_PROTOCOL':'https'}
+          def run(args):
+              r=subprocess.run([str(git),'--no-replace-objects','-c','credential.helper=','-c','core.hooksPath='+str(root/'template'),'-c','protocol.allow=never','-c','protocol.https.allow=always',*args],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=300)
+              need(r.returncode==0)
+          repo=root/'repository'
+          run(['clone','--no-checkout','--no-local','--no-hardlinks','--template='+str(root/'template'),'--','https://github.com/'+name+'.git',str(repo)])
+          run(['-C',str(repo),'fetch','--no-tags','origin',S])
+          run(['-C',str(repo),'update-ref','refs/heads/business31-admitted-'+S,S])
+          manifest=json.loads(os.environ['MANIFEST_JSON'])
+          (root/'trust.json').write_bytes(trust_raw)
+          (root/'input.json').write_text(json.dumps({'request':req,'repositoryRoot':str(repo),'gitExecutable':str(git),'sourceManifest':manifest}),encoding='utf8')
+          client_sha=''
+          if client_mode:
+              selected_raw=os.environ['CLIENT_SELECTED_JSON'].encode();need(0<len(selected_raw)<=128*1024)
+              selected=json.loads(selected_raw)
+              original=base64.b64decode(os.environ['CLIENT_ORIGINAL_MESSAGE_B64'],validate=True)
+              need(0<len(original)<=128*1024)
+              need(selected['originalMessage']=={'sha256':hashlib.sha256(original).hexdigest().upper(),'bytes':len(original)})
+              original_file=root/'original-client-message.bin';original_file.write_bytes(original);original_file.chmod(0o600)
+              client={'schemaVersion':1,'profile':'build31-business-hosted-client-input-v1','repositoryRoot':str(repo),
+                      'gitExecutable':str(git),'selected':selected,'originalMessageFile':str(original_file)}
+              client_raw=json.dumps(client,ensure_ascii=False).encode()
+              client_file=root/'client-input.json';client_file.write_bytes(client_raw);client_file.chmod(0o600)
+              client_sha=hashlib.sha256(client_raw).hexdigest().upper()
+          with open(os.environ['GITHUB_OUTPUT'],'a') as out:
+              out.write('candidate='+S+'\n')
+              out.write('client_sha='+client_sha+'\n')
+          PY
+        id: input
+
+      - name: Authenticate platform and replay exact private generation
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          CLIENT_INPUT_SHA: ${{ steps.input.outputs.client_sha }}
+        run: |
+          set -euo pipefail
+          client_args=()
+          if [[ -n "$CLIENT_INPUT_SHA" ]]; then
+            [[ "$CLIENT_INPUT_SHA" =~ ^[A-F0-9]{64}$ ]]
+            client_args=(--client-input "$RUNNER_TEMP/business31-private-job/client-input.json" --client-input-sha256 "$CLIENT_INPUT_SHA")
+          fi
+          "$PYTHON_EXE" -I -S -B tools/release/business31HostedLauncher.py \
+            --mode replay --node "$NODE_EXE" \
+            --trust "$RUNNER_TEMP/business31-private-job/trust.json" --trust-sha256 "$TRUST_SHA" \
+            --input "$RUNNER_TEMP/business31-private-job/input.json" \
+            --output "$RUNNER_TEMP/business31-private-job/output/business31-hosted-result.json" \
+            --private-parent "$RUNNER_TEMP/business31-private-job/tmp" "${client_args[@]}"
+
+      - name: Publish only the strict sanitized result
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: business31-hosted-${{ steps.input.outputs.candidate }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/business31-private-job/output/business31-hosted-result.json
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
+
+      - name: Destroy owned private scratch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$PYTHON_EXE" -I -S -B - <<'PY'
+          import os,pathlib,shutil
+          parent=pathlib.Path(os.environ['RUNNER_TEMP']).resolve()
+          root=parent/'business31-private-job'
+          if root.exists():
+              if root.is_symlink() or root.resolve().parent!=parent: raise RuntimeError('Scratch ownership differs')
+              shutil.rmtree(root)
+          PY

@@ -31,12 +31,12 @@ test('required npm-bin materializer has exact executing bytes before any closure
  assert.equal(require.cache[modulePath],undefined);
 });
 
-test('closure population is precisely the required31 subset, with unchanged digests',()=>{
-  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,31);
+test('closure population is precisely the complete composed42 subset, with unchanged digests',()=>{
+  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,42);
   const full={...bindings,'tools/release/another-controller.cjs':'F'.repeat(64)},subset=subject.deriveClosureProducerBindings31(full);
   assert.deepEqual(Object.keys(subset),actual);for(const file of actual)assert.equal(subset[file],full[file]);assert.equal(full['tools/release/another-controller.cjs'],'F'.repeat(64));
 });
-test('the exact closure30 alone cannot masquerade as complete descriptor authority',()=>{
+test('the closure-only population cannot masquerade as complete descriptor authority',()=>{
   const narrowed=Object.fromEntries(subject.CLOSURE_PRODUCERS.map(f=>[f,bindings[f]]));assert.throws(()=>subject.deriveClosureProducerBindings31(narrowed),/full wrapper\/descriptor\/bundle population/);
 });
 test('missing wrapper or closure binding is rejected',()=>{
@@ -133,4 +133,42 @@ test('complete special-name bundle inventory joins original-path extraction and 
   assert.throws(()=>access.fs.readFileSync(proto.original),/Relocated evidence changed/);
  });
  assert.notDeepEqual(subject.inventory31(extracted.root),verified.inventory);
+});
+
+const supportFiles = ["runtime_process_runner.py", "runtime_supervisor.py", "business31HostedLauncher.py",
+  "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(n => "tools/release/" + n);
+test('every new operational and hosted producer is mandatory before replay', () => {
+  const descriptor = require('./business31PrivateDescriptor.cjs');
+  const complete = Object.fromEntries(subject.REQUIRED_EXECUTING.map(file =>
+    [file, sha(fs.readFileSync(path.join(__dirname, path.basename(file))))]));
+  assert.equal(Object.keys(subject.executingBindings31(complete)).length, subject.REQUIRED_EXECUTING.length);
+  for (const file of supportFiles.concat(['business31CaptureRecorder.cjs','business31CohortProcess.cjs',
+    'business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs',
+    'prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','business31HostedProtocol.cjs',
+    'business31HostedReplay.cjs','business31HostedResult.cjs'].map(n => 'tools/release/' + n))) {
+    assert.ok(descriptor.CORE.includes(file), file);
+    const missing = {...complete}; delete missing[file];
+    assert.throws(() => subject.executingBindings31(missing), /full wrapper\/descriptor\/bundle population/);
+    assert.throws(() => subject.executingBindings31({...complete, [file]: '0'.repeat(64)}), /executing complete producer population differs/);
+  }
+});
+test('non-JavaScript producer admission is finite across descriptor, replay and hosted trust', () => {
+  const descriptor = require('./business31PrivateDescriptor.cjs');
+  const protocol = require('./business31HostedProtocol.cjs');
+  const fixture = require('./fixtures/business31HostedFixture.cjs');
+  const complete = Object.fromEntries(subject.REQUIRED_EXECUTING.map(file =>
+    [file, sha(fs.readFileSync(path.join(__dirname, path.basename(file))))]));
+  for (const file of supportFiles) {
+    assert.equal(descriptor.producer(file), true);
+    const trust = fixture.fixture().trust; trust.verifier.files[file] = complete[file];
+    assert.equal(protocol.validateTrust31(trust), trust);
+  }
+  for (const file of ['tools/release/unselected.py','tools/release/unselected.json',
+    'tools/release/nested/runtime_process_runner.py','tools/release/RUNTIME_PROCESS_RUNNER.PY',
+    'tools/release/runtime_process_runner.py/../other.py']) {
+    assert.equal(descriptor.producer(file), false);
+    assert.throws(() => subject.executingBindings31({...complete, [file]: 'A'.repeat(64)}), /unsafe complete producer identity/);
+    const trust = fixture.fixture().trust; trust.verifier.files[file] = 'A'.repeat(64);
+    assert.throws(() => protocol.validateTrust31(trust), /VERIFIER_MEMBER/);
+  }
 });

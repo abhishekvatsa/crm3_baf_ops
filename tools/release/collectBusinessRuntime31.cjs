@@ -228,11 +228,9 @@ function preflightBusinessRuntime31(config) {
   const repository=api.git.openTrustedGitRepository31({repositoryRoot:config.repositoryRoot,gitExecutable:config.gitExecutable,gitSha256:config.gitSha256});
   const snapshot=repository.snapshot(config.source.commit);
   need(snapshot.tree===config.source.tree && api.authority.subtreeOid31(snapshot.files,"functions")===config.source.functionsTree,"source tree differs");
-  const sourceBytes=new Map();
+  const sourceBytes=repository.readSnapshotBlobs(snapshot);
   for(const name of Object.keys(snapshot.files).sort()) {
-    const bytes=repository.readBlob(snapshot.commit,name);
     need(!["node_modules","functions/node_modules","functions/lib","tooling/firebase-cli/node_modules",".dart_tool"].some(p=>name===p||name.startsWith(p+"/")),"source contains generated runtime files");
-    sourceBytes.set(name,bytes);
   }
   for(const [n,h] of Object.entries(api.hashes)) need(sha(sourceBytes.get("tools/release/"+n)??Buffer.alloc(0))===h,"source contract differs: "+n);
   for(const n of ["collectBusinessRuntime31.cjs","runtime_process_runner.py","runtime_supervisor.py","runtime_contract_bindings.json"])

@@ -438,7 +438,69 @@ function runtime31Git(root,args) { return execFileSync('git',['--no-replace-obje
 // The original verifier is itself hash-bound by the Build30 Rules method.
 // Keep those historical bytes and receipts untouched. Selecting30 here verifies
 // only that backend plane; the independent31 proof below admits the client.
+function closedBusinessClientRoute31(policy) {
+  const has = key => policy != null && Object.hasOwn(policy, key);
+  const businessSignal = value => value != null &&
+    [value.profile, value.file].some(field => typeof field === "string" && /business/i.test(field));
+  if (!has("businessBackendPrivateReplay") &&
+      !businessSignal(policy?.clientBackendCompatibility) &&
+      !businessSignal(policy?.runtimeBackendPrivateReplay)) return null;
+
+  const refuse = reason => ({ok: false, reasons: ["Business client route: " + reason]});
+  if (policy?.release?.buildNumber !== 31 || policy?.versionPolicy?.buildNumber !== 31) {
+    return refuse("both release and version build numbers must be numeric 31.");
+  }
+  if (has("runtimeBackendPrivateReplay")) {
+    return refuse("business and legacy runtime selections must not be mixed.");
+  }
+  function exactPointer(value, profile, file) {
+    return value != null && typeof value === "object" && !Array.isArray(value) &&
+      [Object.prototype, null].includes(Object.getPrototypeOf(value)) &&
+      isDeepStrictEqual(Object.keys(value).sort(), ["commit", "file", "profile", "sha256"]) &&
+      value.profile === profile && value.file === file &&
+      typeof value.commit === "string" && COMMIT.test(value.commit) &&
+      typeof value.sha256 === "string" && SHA256.test(value.sha256);
+  }
+  if (!exactPointer(policy.clientBackendCompatibility, "build31-business-client-compatibility-v1",
+      "release/approvals/build31-business-client-compatibility-approval.json") ||
+      !exactPointer(policy.businessBackendPrivateReplay, "build31-exact-business-backend-v1",
+        "release/evidence/build31-business-private-replay.json")) {
+    return refuse("complete exact client and backend pointers are required; partial or mixed selections are refused.");
+  }
+  return {selected: true};
+}
+
 function verifyClientBackendSourceAuthority({repoRoot, releasePolicy}) {
+  const business = closedBusinessClientRoute31(releasePolicy);
+  if (business !== null) {
+    if (business.selected !== true) return business;
+    try {
+      // Bind the fixed bridge before loading it. The bridge then binds every V
+      // producer and creates a fresh child; candidate policy chooses no code.
+      const configFile = process.env.BUSINESS31_CONTROLLER_CONFIG;
+      const configHash = process.env.BUSINESS31_CONTROLLER_CONFIG_SHA256;
+      const verifierRoot = process.env.BUSINESS31_VERIFIER_ROOT;
+      requireEvidence(typeof configFile === 'string' && path.isAbsolute(configFile) &&
+        typeof verifierRoot === 'string' && path.isAbsolute(verifierRoot) &&
+        typeof configHash === 'string' && /^[A-F0-9]{64}$/.test(configHash), 'Independent business controller selection is absent.');
+      requireEvidence(fs.statSync(configFile).size <= 2 * 1024 * 1024, 'Controller configuration exceeds bound.');
+      const raw = fs.readFileSync(configFile);
+      requireEvidence(crypto.createHash('sha256').update(raw).digest('hex').toUpperCase() === configHash,
+        'Independent controller configuration digest differs.');
+      const selected = JSON.parse(raw.toString('utf8'));
+      const file = 'tools/release/business31PolicyInvocation.cjs';
+      const bridge = path.resolve(verifierRoot, file), expected = selected.controller?.files?.[file];
+      requireEvidence(typeof expected === 'string' && /^[A-F0-9]{64}$/.test(expected) &&
+        fs.statSync(bridge).size <= 2 * 1024 * 1024 && fs.lstatSync(bridge).isFile() &&
+        !fs.lstatSync(bridge).isSymbolicLink() &&
+        crypto.createHash('sha256').update(fs.readFileSync(bridge)).digest('hex').toUpperCase() === expected,
+      'Independent business bridge bytes differ.');
+      return require(bridge).verifyBusiness31PolicySourceAuthoritySync({repoRoot, releasePolicy});
+    } catch {
+      return {ok: false, reasons: ['Business client route: the independently selected protected business consumer is required.'],
+        protectedBusinessConsumerRequired: true, constructionAuthority: false};
+    }
+  }
   if (releasePolicy?.release?.buildNumber !== undefined &&
       releasePolicy.release.buildNumber !== releasePolicy?.versionPolicy?.buildNumber) {
     return {ok: false, reasons: ["Client/backend authority: release and version generations differ."]};

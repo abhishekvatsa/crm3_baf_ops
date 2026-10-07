@@ -205,6 +205,89 @@ def utc_instant(value: object) -> datetime | None:
         return None
 
 
+def business_backend_route_selected(policy: dict) -> bool:
+    def signal(value):
+        return isinstance(value, dict) and any(
+            isinstance(value.get(key), str) and "business" in value[key].lower()
+            for key in ("profile", "file")
+        )
+    return (
+        "businessBackendPrivateReplay" in policy
+        or signal(policy.get("clientBackendCompatibility"))
+        or signal(policy.get("runtimeBackendPrivateReplay"))
+    )
+
+
+def business_backend_private_authority_exact(policy: dict, deployment: dict, deployed: dict) -> dict:
+    # The common bridge starts the independently pinned fresh consumer. Its
+    # recorded measurement and the physical public C must join exactly.
+    try:
+        if not business_backend_route_selected(policy):
+            return {}
+        node = os.environ.get("BUSINESS31_CONTROLLER_NODE", "")
+        if not node or not Path(node).is_absolute():
+            return {}
+        environment = {key: value for key, value in os.environ.items()
+                       if key.upper() not in {"NODE_OPTIONS", "NODE_PATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES"}}
+        process = subprocess.run(
+            [node, "--no-global-search-paths", str(ROOT / "tools/release/clientBackendCompatibility31.js"),
+             str(ROOT), str(ROOT / "release/production-release-policy.json")],
+            cwd=ROOT, env=environment, capture_output=True, text=True, encoding="utf-8", check=False, timeout=660,
+        )
+        proof = json.loads(process.stdout) if process.returncode == 0 else {}
+        business = proof.get("businessBackend31", {})
+        source, closure, approval = (business.get(key, {}) for key in ("source", "closurePointer", "approvalPointer"))
+        has_policy, has_prerequisite = "policyResult" in business, "prerequisiteResult" in business
+        if has_policy == has_prerequisite:
+            return {}
+        measurement = business["policyResult" if has_policy else "prerequisiteResult"]
+        measured = (
+            measurement.get("schemaVersion") == 1
+            and ((has_policy and measurement.get("profile") == "build31-business-policy-result-v1"
+                  and measurement.get("purpose") == "policy" and measurement.get("policyMeasurementVerified") is True)
+                 or (has_prerequisite and measurement.get("profile") == "build31-business-prerequisite-measurement-v1"
+                     and measurement.get("purpose") == "construction" and measurement.get("replayMode") == "same-parent-reauthentication"
+                     and measurement.get("freshHostedReplayVerified") is True
+                     and measurement.get("limits") == {"deploymentAuthorized": False, "constructionAuthorized": False,
+                                                       "signingAuthorized": False, "distributionAuthorized": False}))
+        )
+        descriptor = {key: value for key, value in policy.get("businessBackendPrivateReplay", {}).items() if key != "profile"}
+        client = {key: value for key, value in policy.get("clientBackendCompatibility", {}).items() if key != "profile"}
+        firestore = policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
+        required = (
+            proof.get("ok") is True and proof.get("route") == "business-backend31" and measured
+            and business.get("recordedSemanticsReplayAuthenticated") is True
+            and all(business.get(key) is False for key in (
+                "independentlySelectedInputsAuthenticated", "executingHostAuthenticated", "humanIdentityAuthenticated",
+                "trustedClockAuthenticated", "originalProcessExecutionAuthenticated", "credentialAccessAuthorized",
+                "backendDeploymentAuthorized", "constructionAuthorized", "signingAuthorized", "distributionAuthorized"))
+            and policy.get("release", {}).get("buildNumber") == 31
+            and policy.get("versionPolicy", {}).get("buildNumber") == 31
+            and "runtimeBackendPrivateReplay" not in policy
+            and business.get("descriptorPointer") == descriptor == measurement.get("descriptorPointer")
+            and business.get("clientPointer") == client == measurement.get("client", {}).get("decisionPointer")
+            and source == measurement.get("source") and closure == measurement.get("closurePointer")
+            and deployment == business.get("currentBackend")
+            and set(deployment) == {"schemaVersion", "documentType", "recordKind", "source", "recordedAtUtc", "privateRecord"}
+            and deployment.get("schemaVersion") == 1
+            and deployment.get("documentType") == "build31-business-private-record-custody"
+            and deployment.get("recordKind") == "closure" and deployment.get("source") == source
+            and closure.get("file") == deployed.get("functionFleetEvidenceFile")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptFile")
+            and closure.get("sha256") == deployed.get("functionFleetEvidenceSha256")
+                == policy.get("finalization", {}).get("exactFunctionFleetDeploymentReceiptSha256")
+                == sha(ROOT / closure.get("file", ""))
+            and approval.get("file") == deployed.get("deploymentApprovalFile")
+            and approval.get("sha256") == deployed.get("deploymentApprovalSha256") == sha(ROOT / approval.get("file", ""))
+            and source.get("commit") == deployed.get("functionFleetSourceCommit")
+            and deployed.get("rulesAndIndexesEvidenceFile") == firestore.get("receiptFile")
+            and deployed.get("rulesAndIndexesEvidenceSha256") == firestore.get("receiptFileSha256")
+        )
+        return proof if required else {}
+    except (OSError, TypeError, ValueError, KeyError, AttributeError, subprocess.TimeoutExpired):
+        return {}
+
+
 def runtime_backend_route_selected(policy: dict) -> bool:
     pointer = policy.get("clientBackendCompatibility", {})
     return (
@@ -1760,7 +1843,7 @@ mutable_workflow_action_refs = [
 check(
     "Workflow action references are immutable and repository-wide custody is CI-enforced",
     not mutable_workflow_action_refs
-    and len(workflow_action_refs) == 36
+    and len(workflow_action_refs) == 38
     and "test:workflow-action-custody" in text("package.json")
     and "npm run test:workflow-action-custody"
         in text(".github/workflows/release-gate.yml")
@@ -4988,7 +5071,12 @@ current_backend_deployment_relative = current_deployed_backend.get(
 )
 current_backend_deployment_path = ROOT / current_backend_deployment_relative
 current_backend_deployment = data(current_backend_deployment_relative)
-runtime31_selected = runtime_backend_route_selected(combined_policy)
+business31_selected = business_backend_route_selected(combined_policy)
+business31_source_proof = (
+    business_backend_private_authority_exact(combined_policy, current_backend_deployment, current_deployed_backend)
+    if business31_selected else {}
+)
+runtime31_selected = not business31_selected and runtime_backend_route_selected(combined_policy)
 runtime31_source_proof = (
     runtime_backend_private_authority_exact(combined_policy, current_backend_deployment, current_deployed_backend)
     if runtime31_selected else {}
@@ -5005,7 +5093,7 @@ current_iam_readback_authority = current_backend_readbacks.get(
 current_firestore_authority = current_backend_readbacks.get(
     "firestoreRulesAndIndexes", {}
 )
-if runtime31_selected:
+if runtime31_selected or business31_selected:
     # Preserve the independently checked source-specific Firestore observation;
     # private replay proves post-deployment preservation separately.
     source_firestore = combined_policy.get("finalization", {}).get("exactFirestoreRulesIndexesLiveReadback", {})
@@ -5045,14 +5133,16 @@ current_backend_approval_evidence = current_backend_approval.get(
 current_backend_authority_chronology = current_backend_deployment.get(
     "authorityChronology", {}
 )
-current_backend_immutable_authority_exact = bool(runtime31_source_proof) if runtime31_selected else (
+current_backend_immutable_authority_exact = bool(business31_source_proof) if business31_selected else (bool(runtime31_source_proof) if runtime31_selected else (
 current_backend_authority_proof_exact(
     current_backend_deployment_relative,
     current_backend_deployment,
     current_deployed_backend,
 )
-)
-if runtime31_selected:
+))
+if business31_selected:
+    current_backend_approval_scope_exact = bool(business31_source_proof)
+elif runtime31_selected:
     current_backend_approval_scope_exact = bool(runtime31_source_proof)
 elif current_backend_approval_evidence.get("authorityType") == (
     "owner-delegated agent decision"
@@ -8358,8 +8448,8 @@ check(
         == "19F6676107B2C709850A158230870876688A7F4F4B924BCF622DA391296E4547"
     and sha(build18_iam_readback_path)
         == "D64CAF4AF3643BC9AA811C70F5FF52C53BD281062338CD0412698BD5E27BAD5F"
-    and ((runtime31_selected and bool(runtime31_source_proof)) or (
-        not runtime31_selected
+    and ((business31_selected and bool(business31_source_proof)) or (runtime31_selected and bool(runtime31_source_proof)) or (
+        not runtime31_selected and not business31_selected
     and current_backend_approval.get("approved") is True
     and current_backend_approval.get("firebaseProjectId")
         == "crm3-baf-ops-b8638"
@@ -8540,7 +8630,8 @@ check(
     and current_deployed_backend.get("functionFleetEvidenceFile")
         == current_backend_deployment_relative
     and current_deployed_backend.get("functionFleetSourceCommit")
-        == (runtime31_source_proof.get("runtimeBackend31", {}).get("source", {}).get("commit")
+        == (business31_source_proof.get("businessBackend31", {}).get("source", {}).get("commit") if business31_selected else
+            runtime31_source_proof.get("runtimeBackend31", {}).get("source", {}).get("commit")
             if runtime31_selected else current_backend_deployment.get("sourceAuthority", {}).get("commit"))
     and current_deployed_backend.get("functionFleetReadbackDecision")
         == "PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK"

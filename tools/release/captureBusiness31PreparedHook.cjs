@@ -14,7 +14,7 @@ function bindIntent31({writer,envelopeBytes}) {
   const read=p=>business.readPrivate(writer.root,p),decisionBytes=read(envelope.privateRecord),decision=json(decisionBytes);
   need(decision.schemaVersion===2&&decision.documentType==="build31-business-backend-deployment-decision"&&decision.profile===business.PROFILE,"schema2 business decision required");sameSource(decision.source,writer.source);
   const contractBytes=read(decision.executionContract),contract=json(contractBytes);
-  need(contract.schemaVersion===1&&contract.documentType==="build31-business-execution-contract"&&contract.profile===business.PROFILE,"decision-covered execution contract required");sameSource(contract.source,writer.source);
+  need([1,2].includes(contract.schemaVersion)&&contract.documentType==="build31-business-execution-contract"&&contract.profile===business.PROFILE,"decision-covered execution contract required");sameSource(contract.source,writer.source);
   need(contract.sourceManifestSha256===decision.sourceManifestSha256&&same(contract.runtimeProof,decision.runtimeProof),"execution manifest/runtime binding differs");
   const intentBytes=read(contract.intendedHashInputs),intent=json(intentBytes);
   need(intent.schemaVersion===1&&intent.documentType==="firebase-cli-approved-intended-hash-inputs"&&intent.codebase==="default","ordered original intent required");
@@ -67,7 +67,7 @@ function installBusinessPreparedHook31({writer,phase,admission,envelopeBytes,arc
       result={schemaVersion:1,documentType:"build31-business-prepared-output-hook",source:writer.source,approvalPointer:writer.approval,phase,
         startedAtUtc,completedAtUtc:new Date().toISOString(),originalArchivePath:originalPath,retainedArchivePath:retained.archivePath,archiveSha256:capture.archiveSha256,archiveBytes:capture.archiveBytes,
         originalHashes:bound.originalHashes,capture:writer.active.capturePointer,archive:writer.active.archivePointer,actualHashFunctionCalled:true,hashFunctionReturnType:typeof originalResult,
-        fullFirebasePrepareCalled:false,authenticatedDecision:false,deploymentAuthorized:false};
+        ...(bound.contract.schemaVersion===1?{fullFirebasePrepareCalled:false}:{prepareEntryInvokedByThisHook:false}),authenticatedDecision:false,deploymentAuthorized:false};
       save("captured.json",result);state="captured";return originalResult;
     }catch(error){state="failed";writer.failed=true;if(writer.active)writer.active.failed=true;save("failed.json",{schemaVersion:1,phase,source:writer.source,approvalPointer:writer.approval,startedAtUtc,completedAtUtc:new Date().toISOString(),originalArchivePath:typeof originalPath==="string"?originalPath:null,error:"PREPARED_OUTPUT_REFUSED",automaticRetryAllowed:false,rawErrorMessageRetained:false});throw error;}
   };

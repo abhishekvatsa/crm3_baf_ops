@@ -18,7 +18,8 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
   "backendRuntimeExecution31.cjs", "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"].map(v => "tools/release/" + v));
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
   "business31BackendAuthority.cjs", "business31CaptureBootstrap.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
-  ...execution.CONTROL_PRODUCERS, execution.CAPTURE].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
+  ...execution.CONTROL_PRODUCERS, execution.CAPTURE,
+  "business31CaptureRecorder.cjs", "business31CohortProcess.cjs", "business31IntentPreparation.cjs", "business31OperationalController.cjs", "captureBusiness31PreparedHook.cjs", "prepareBusinessIntent31.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
   firestoreIndexesDeployment: false, iamMutation: false, enforcementMutation: false,
@@ -411,7 +412,7 @@ function verifyBusiness31BackendAuthority(options) {
       proof:json(readPrivate(evidenceDirectory,decision.runtimeProof)),source,
       baseline:{commit:before.commit,tree:before.tree,functionsTree:subtreeOid31(before.files,"functions")},
       manifestSha256:measurement.trustedManifestSha256,ownerReceivedAtUtc:original.receivedAtUtc,
-      read:p=>readPrivate(evidenceDirectory,p),instant,mergeParents:snapshot.parents,release,security});
+      read:p=>readPrivate(evidenceDirectory,p),instant,mergeParents:snapshot.parents,release,security,repository,snapshot,evidenceDirectory});
   }
   const controls = bindControlOriginals31({decision, source, evidenceDirectory, lastCiAtUtc});
   // The complete original control meanings, deployment captures and closure must

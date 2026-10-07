@@ -36,8 +36,18 @@ function before(ctx) {
 function verifyIntent31({ctx,intent,archiveExpectedFiles}) {
   keys(intent,["schemaVersion","documentType","source","sourceBefore","sourceAfter","sourceArchiveHash","codebase","startedAtUtc","completedAtUtc","environmentVariables","endpoints","archive"],"approved intent");
   need(intent.documentType === "firebase-cli-approved-intended-hash-inputs" && intent.schemaVersion === 1,"intent type differs");
-  need(t(ctx.proof.startedAtUtc) <= t(intent.startedAtUtc) && t(intent.startedAtUtc) <= t(intent.completedAtUtc) &&
-    t(intent.completedAtUtc) <= t(ctx.proof.completedAtUtc) && t(intent.completedAtUtc) <= t(ctx.ownerReceivedAtUtc),"intent chronology differs");
+  if(ctx.contract?.schemaVersion===2) {
+    const preparation=read(ctx.evidenceDirectory,ctx.contract.intentPreparation);
+    eq(preparation.intendedHashInputs,ctx.contract.intendedHashInputs,"prepared intent pointer differs");
+    eq(preparation.runtimeProof,ctx.contract.runtimeProof,"prepared runtime pointer differs");
+    need(preparation.startedAtUtc===intent.startedAtUtc&&preparation.completedAtUtc===intent.completedAtUtc&&
+      t(ctx.proof.completedAtUtc)<=t(intent.startedAtUtc)&&t(intent.startedAtUtc)<=t(intent.completedAtUtc)&&
+      t(intent.completedAtUtc)<=t(ctx.contract.preparedAtUtc)&&t(ctx.contract.preparedAtUtc)<=t(ctx.ownerReceivedAtUtc),"post-runtime intent chronology differs");
+    eq(read(ctx.evidenceDirectory,preparation.archiveExpectedFiles),archiveExpectedFiles,"prepared package population differs from actual source");
+  } else {
+    need(t(ctx.proof.startedAtUtc) <= t(intent.startedAtUtc) && t(intent.startedAtUtc) <= t(intent.completedAtUtc) &&
+      t(intent.completedAtUtc) <= t(ctx.proof.completedAtUtc) && t(intent.completedAtUtc) <= t(ctx.ownerReceivedAtUtc),"intent chronology differs");
+  }
   verifyOrderedIntent31(intent,intent,ctx.cohorts.fleet);
   const archive = privateBytes(ctx.evidenceDirectory,intent.archive), checked = neutral.verifyArchiveBytes31(archive,archiveExpectedFiles);
   need(checked.sourceArchiveHash === intent.sourceArchiveHash,"approved ZIP source differs");
@@ -142,42 +152,58 @@ function verifyOrderedIntent31(capture,intent,names) {
     names.every(name=>JSON.stringify(capture.endpoints[name])===JSON.stringify(intent.endpoints[name])) &&
     capture.sourceArchiveHash===intent.sourceArchiveHash,"ordered prepared env/secret inputs changed");
 }
+// The same raw cohort replay is used by closure and live predecessor admission.
+// Bounds are supplied by their measured context, never by a fabricated closure.
+function replayRecordedCohort31({ctx,phase,commandPointer,earliestUtc,latestUtc,endpointRuntimeHashes,baseline,intent,archiveExpectedFiles,predecessors}) {
+  need(PHASES.includes(phase),"exact cohort required");
+  const r=read(ctx.evidenceDirectory,commandPointer), names=phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase];
+  keys(r,["schemaVersion","documentType","source","approvalPointer","executionContractSha256","phase","functions","attempt","startedAtUtc","completedAtUtc","exitCode","signal","error","executable","nodeSha256","cwd","arguments","cliArguments","sourceBefore","sourceAfter","producerBindings","stdout","stderr","capture","archive","currentControls","mutations","completion",...(r.schemaVersion===2?["context","start","process"]:[])],"cohort receipt");
+  need([1,2].includes(r.schemaVersion) && r.documentType==="build31-business-original-cohort" && r.phase===phase && r.attempt===1 && r.exitCode===0 && r.signal===null && r.error===null,"single successful cohort required");
+  need([1,2].includes(ctx.contract?.schemaVersion) && r.schemaVersion===ctx.contract.schemaVersion,
+    "cohort schema differs from execution contract");
+  eq(r.source,ctx.source,"cohort source differs"); eq(r.approvalPointer,ctx.approvalPointer,"cohort decision differs"); eq(r.functions,names,"cohort functions differ");
+  need(r.executionContractSha256===ctx.decision.executionContract.sha256,"cohort execution contract differs");
+  need(t(earliestUtc)<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(latestUtc),"cohort order differs");
+  need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"cohort initiation outside execution window");
+  need(r.executable===ctx.runtime.nodeExecutable && r.nodeSha256===ctx.runtime.nodeSha256 && r.cwd===ctx.proof.buildRoot,"cohort runtime/original cwd differs");
+  eq(r.arguments,["--no-global-search-paths",path.join(r.cwd,x.CAPTURE),"--config",path.join(ctx.evidenceDirectory,"deployment-attempts",ctx.approvalPointer.sha256,phase,"context.json")],"cohort capture command differs");
+  eq(r.cliArguments,["deploy","--only",names.map(n=>"functions:"+n).join(","),"--project","crm3-baf-ops-b8638","--non-interactive"],"cohort CLI differs");
+  eq(r.producerBindings,ctx.producerBindings,"cohort producers differ");
+  if(r.schemaVersion===2) {
+    need(Array.isArray(predecessors),"measured predecessor pointers required");
+    require("./business31CohortProcess.cjs").verifyCohortProcess31({ctx,record:r,predecessors});
+  }
+  for(const point of [r.sourceBefore,r.sourceAfter]) eq(point,{...ctx.source,branch:"main",originMain:ctx.source.commit,liveMain:ctx.source.commit,clean:true},"cohort clean source differs");
+  privateBytes(ctx.evidenceDirectory,r.stdout); privateBytes(ctx.evidenceDirectory,r.stderr);
+  const capture=read(ctx.evidenceDirectory,r.capture), completion=read(ctx.evidenceDirectory,r.completion);
+  need(capture.actualCliPreparationCaptured===true && capture.phase===phase,"actual preparation capture missing");
+  eq(capture.approvalPointer,ctx.approvalPointer,"capture approval differs"); eq(capture.instrumentationProducerSha256,ctx.runtime.instrumentationProducerSha256,"capture runtime producer differs");
+  verifyOrderedIntent31(capture,intent,ctx.cohorts.fleet);
+  const labels=neutral.endpointRuntimeHashes31({sourceArchiveHash:capture.sourceArchiveHash,inputs:capture,runtime:ctx.runtime,names:ctx.cohorts.fleet,source:ctx.source});
+  eq(labels,endpointRuntimeHashes,"cohort endpoint labels differ"); eq(labels,capture.endpointRuntimeHashes,"captured endpoint labels differ");
+  const uploaded=privateBytes(ctx.evidenceDirectory,r.archive); need(sha(uploaded)===capture.archiveSha256 && uploaded.length===capture.archiveBytes,"actual uploaded ZIP differs");
+  need(neutral.verifyArchiveBytes31(uploaded,archiveExpectedFiles).sourceArchiveHash===intent.sourceArchiveHash,"uploaded M ZIP differs");
+  const current=controls.verifyCurrentCohortControls31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,evidenceDirectory:ctx.evidenceDirectory,
+    beforePointer:pointerView(ctx.evidenceDirectory,baseline.controlsPointer),currentPointer:pointerView(ctx.evidenceDirectory,r.currentControls),schedulerBaseline:pointerView(ctx.evidenceDirectory,baseline.schedulerPointer),
+    approvalSha256:ctx.approvalPointer.sha256,decisionAtUtc:ctx.decision.decidedAtUtc,phase,cohorts:ctx.cohorts,endpointRuntimeHashes:labels,requiredProducerBindings:ctx.runtime.requiredProducerBindings,installedControlRuntime:ctx.runtime.installedControlRuntime});
+  neutral.verifyCohortControlChronology31(r,capture,current);
+  need(t(capture.startedAtUtc)>=t(r.startedAtUtc) && t(capture.completedAtUtc)<=t(r.completedAtUtc),"capture interval differs");
+  need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(capture.startedAtUtc) && t(capture.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"preparation initiation outside execution window");
+  const replay=replayMutationTranscript31({ctx,phase,command:r,capture,baseline,records:r.mutations,archivePointer:r.archive});
+  keys(completion,["schemaVersion","documentType","phase","source","approvalPointer","capture","archive","mutations","events","completedAtUtc","exitCode","error"],"completion");
+  need(completion.schemaVersion===1 && completion.documentType==="build31-business-instrumented-completion" && completion.phase===phase && completion.exitCode===0 && completion.error===null,"instrumented completion missing");
+  eq(completion.source,ctx.source,"completion source differs"); eq(completion.approvalPointer,ctx.approvalPointer,"completion decision differs");
+  eq(completion.capture,r.capture,"completion capture differs");eq(completion.archive,r.archive,"completion ZIP differs");eq(completion.mutations,r.mutations,"completion transcript differs");eq(completion.events,replay.events,"completion events differ from raw replay");
+  need(t(r.completedAtUtc)>=t(completion.completedAtUtc) && t(completion.completedAtUtc)>=t(capture.completedAtUtc) && t(completion.completedAtUtc)>=t(replay.completedAtUtc),"completion time differs");
+  return {phase,completedAtUtc:r.completedAtUtc,functions:names,uploadedArchiveSha256:r.archive.sha256,record:r};
+}
 function replayRecordedCohorts31({ctx,closure,baseline,intent,archiveExpectedFiles}) {
-  keys(closure.commands,PHASES,"cohort population"); let previous=t(closure.startedAtUtc); const covered=[],uploads=[];
+  keys(closure.commands,PHASES,"cohort population"); let previous=closure.startedAtUtc; const covered=[],uploads=[];
   for(const phase of PHASES) {
-    const r=read(ctx.evidenceDirectory,closure.commands[phase]), names=phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase];
-    keys(r,["schemaVersion","documentType","source","approvalPointer","executionContractSha256","phase","functions","attempt","startedAtUtc","completedAtUtc","exitCode","signal","error","executable","nodeSha256","cwd","arguments","cliArguments","sourceBefore","sourceAfter","producerBindings","stdout","stderr","capture","archive","currentControls","mutations","completion"],"cohort receipt");
-    need(r.schemaVersion===1 && r.documentType==="build31-business-original-cohort" && r.phase===phase && r.attempt===1 && r.exitCode===0 && r.signal===null && r.error===null,"single successful cohort required");
-    eq(r.source,ctx.source,"cohort source differs"); eq(r.approvalPointer,ctx.approvalPointer,"cohort decision differs"); eq(r.functions,names,"cohort functions differ");
-    need(r.executionContractSha256===ctx.decision.executionContract.sha256,"cohort execution contract differs"); covered.push(...names);
-    need(previous<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(closure.completedAtUtc),"cohort order differs"); previous=t(r.completedAtUtc);
-    need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"cohort initiation outside execution window");
-    need(r.executable===ctx.runtime.nodeExecutable && r.nodeSha256===ctx.runtime.nodeSha256 && r.cwd===ctx.proof.buildRoot,"cohort runtime/original cwd differs");
-    eq(r.arguments,["--no-global-search-paths",path.join(r.cwd,x.CAPTURE),"--config",path.join(ctx.evidenceDirectory,"deployment-attempts",ctx.approvalPointer.sha256,phase,"context.json")],"cohort capture command differs");
-    eq(r.cliArguments,["deploy","--only",names.map(n=>"functions:"+n).join(","),"--project","crm3-baf-ops-b8638","--non-interactive"],"cohort CLI differs");
-    eq(r.producerBindings,ctx.producerBindings,"cohort producers differ");
-    for(const point of [r.sourceBefore,r.sourceAfter]) eq(point,{...ctx.source,branch:"main",originMain:ctx.source.commit,liveMain:ctx.source.commit,clean:true},"cohort clean source differs");
-    privateBytes(ctx.evidenceDirectory,r.stdout); privateBytes(ctx.evidenceDirectory,r.stderr);
-    const capture=read(ctx.evidenceDirectory,r.capture), completion=read(ctx.evidenceDirectory,r.completion);
-    need(capture.actualCliPreparationCaptured===true && capture.phase===phase,"actual preparation capture missing");
-    eq(capture.approvalPointer,ctx.approvalPointer,"capture approval differs"); eq(capture.instrumentationProducerSha256,ctx.runtime.instrumentationProducerSha256,"capture runtime producer differs");
-    verifyOrderedIntent31(capture,intent,ctx.cohorts.fleet);
-    const labels=neutral.endpointRuntimeHashes31({sourceArchiveHash:capture.sourceArchiveHash,inputs:capture,runtime:ctx.runtime,names:ctx.cohorts.fleet,source:ctx.source});
-    eq(labels,closure.endpointRuntimeHashes,"cohort endpoint labels differ"); eq(labels,capture.endpointRuntimeHashes,"captured endpoint labels differ");
-    const uploaded=privateBytes(ctx.evidenceDirectory,r.archive); need(sha(uploaded)===capture.archiveSha256 && uploaded.length===capture.archiveBytes,"actual uploaded ZIP differs");
-    need(neutral.verifyArchiveBytes31(uploaded,archiveExpectedFiles).sourceArchiveHash===intent.sourceArchiveHash,"uploaded M ZIP differs"); uploads.push(r.archive.sha256);
-    const current=controls.verifyCurrentCohortControls31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,evidenceDirectory:ctx.evidenceDirectory,
-      beforePointer:pointerView(ctx.evidenceDirectory,baseline.controlsPointer),currentPointer:pointerView(ctx.evidenceDirectory,r.currentControls),schedulerBaseline:pointerView(ctx.evidenceDirectory,baseline.schedulerPointer),
-      approvalSha256:ctx.approvalPointer.sha256,decisionAtUtc:ctx.decision.decidedAtUtc,phase,cohorts:ctx.cohorts,endpointRuntimeHashes:labels,requiredProducerBindings:ctx.runtime.requiredProducerBindings,installedControlRuntime:ctx.runtime.installedControlRuntime});
-    neutral.verifyCohortControlChronology31(r,capture,current);
-    need(t(capture.startedAtUtc)>=t(r.startedAtUtc) && t(capture.completedAtUtc)<=t(r.completedAtUtc),"capture interval differs");
-    need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(capture.startedAtUtc) && t(capture.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"preparation initiation outside execution window");
-    const replay=replayMutationTranscript31({ctx,phase,command:r,capture,baseline,records:r.mutations,archivePointer:r.archive});
-    keys(completion,["schemaVersion","documentType","phase","source","approvalPointer","capture","archive","mutations","events","completedAtUtc","exitCode","error"],"completion");
-    need(completion.schemaVersion===1 && completion.documentType==="build31-business-instrumented-completion" && completion.phase===phase && completion.exitCode===0 && completion.error===null,"instrumented completion missing");
-    eq(completion.source,ctx.source,"completion source differs"); eq(completion.approvalPointer,ctx.approvalPointer,"completion decision differs");
-    eq(completion.capture,r.capture,"completion capture differs");eq(completion.archive,r.archive,"completion ZIP differs");eq(completion.mutations,r.mutations,"completion transcript differs");eq(completion.events,replay.events,"completion events differ from raw replay");
-    need(previous>=t(completion.completedAtUtc) && t(completion.completedAtUtc)>=t(capture.completedAtUtc) && t(completion.completedAtUtc)>=t(replay.completedAtUtc),"completion time differs");
+    const checked=replayRecordedCohort31({ctx,phase,commandPointer:closure.commands[phase],earliestUtc:previous,
+      latestUtc:closure.completedAtUtc,endpointRuntimeHashes:closure.endpointRuntimeHashes,baseline,intent,archiveExpectedFiles,
+      predecessors:PHASES.slice(0,PHASES.indexOf(phase)).map(p=>({phase:p,pointer:closure.commands[p]}))});
+    previous=checked.completedAtUtc;covered.push(...checked.functions);uploads.push(checked.uploadedArchiveSha256);
   }
   eq(covered.sort(),ctx.cohorts.fleet,"exact once-only19 cohort union required"); return {cohortCount:3,functionCount:covered.length,uploadedArchiveSha256:uploads};
 }
@@ -190,16 +216,68 @@ function verifyClosureChronology31({closure,custodySeconds,nowUtc,afterControls}
   if(afterControls) need(t(closure.completedAtUtc)<=t(afterControls.startedAtUtc) && t(afterControls.startedAtUtc)<=t(afterControls.completedAtUtc) &&
     t(afterControls.completedAtUtc)<=t(closure.recordedAtUtc),"after-controls postdate closure recording");
 }
-function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
-  // The public entry recomputes the preparation and source/custody facts itself;
-  // a caller-supplied PASS/admission object is never accepted.
+function prepareBusinessCaptureBase31(authorityOptions) {
   const prepared=a.verifyBusiness31BackendAuthority(authorityOptions), evidenceDirectory=authorityOptions.evidenceDirectory;
   const decision=read(evidenceDirectory,prepared.originalDecision); need(decision.schemaVersion===2 && prepared.executionInputs,"schema1 preparation cannot become a closure");
   const contract=read(evidenceDirectory,decision.executionContract), proof=read(evidenceDirectory,decision.runtimeProof);
   const owner=read(evidenceDirectory,decision.ownerAuthorization), originalOwner=read(evidenceDirectory,owner.originalMessage);
   const repository=require("./business31TrustedInput.cjs").openTrustedGitRepository31({repositoryRoot:x.physical(authorityOptions.repositoryRoot,true),gitExecutable:x.physical(authorityOptions.gitExecutable),gitSha256:authorityOptions.gitSha256});
+  const sourceSnapshot=repository.snapshot(prepared.source.commit);
+  const policy=json(repository.readBlob(prepared.source.commit,"release/function-fleet-runtime-identity-policy.json"));
+  const cohorts=x.cohortsFromPolicy(policy), historicalBytes=repository.readBlob(prepared.source.commit,"release/evidence/build30-current-source-backend-deployment-closure.json");
+  need(sha(historicalBytes)==="3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45","historical F closure changed");
+  const release=read(evidenceDirectory,decision.mainCi), security=read(evidenceDirectory,decision.securityCi);
+  const runtime=x.deriveRuntime31({proof,executionContract:contract,evidenceDirectory,read:p=>privateBytes(evidenceDirectory,p),repository,source:prepared.source,producerBindings:authorityOptions.trustedVerifier.files});
+  const ctx={source:prepared.source,decision,contract,proof,evidenceDirectory,repoRoot:proof.buildRoot,runtime,cohorts,approvalPointer:prepared.decisionPointer,producerBindings:authorityOptions.trustedVerifier.files,
+    lastCiAtUtc:[release.capturedAtUtc,security.capturedAtUtc].sort((l,r)=>t(l)<t(r)?-1:1).at(-1),historical:json(historicalBytes),ownerReceivedAtUtc:originalOwner.receivedAtUtc,liveApproval:prepared.executionInputs.approval};
+  return {prepared,evidenceDirectory,decision,contract,proof,owner,originalOwner,repository,sourceSnapshot,cohorts,runtime,ctx};
+}
+function finishBusinessCaptureContext31(common) {
+  const {prepared,evidenceDirectory,decision,contract,proof,owner,originalOwner,repository,sourceSnapshot,cohorts,runtime,ctx}=common;
+  // Inventory is enumerated by the exact installed CLI against materialized M.
+  // Every source member and emitted byte must additionally bind to immutable M.
+  const inventory=neutral.actualArchiveInventory31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,buildRoot:proof.buildRoot,runtime});
+  const expectedOutputs=a.expectedEmittedFiles31(sourceSnapshot,json(repository.readBlob(ctx.source.commit,"functions/tsconfig.json")));
+  eq(Object.keys(inventory).filter(n=>n.startsWith("lib/")).sort(),expectedOutputs,"package complete emitted population differs");
+  for(const [name,binding] of Object.entries(inventory)) {
+    const bytes=name.startsWith("lib/")?privateBytes(evidenceDirectory,proof.emittedFiles[name]):repository.readBlob(ctx.source.commit,"functions/"+name);
+    need(binding.bytes===bytes.length && binding.sha256===sha(bytes),"package member differs from exact M/build");
+  }
+  const sourceNames=Object.keys(sourceSnapshot.files).filter(n=>n.startsWith("functions/src/")).map(n=>n.slice(10)); need(sourceNames.every(n=>Object.hasOwn(inventory,n)),"package omits M source");
+  for(const name of ["package.json","package-lock.json"]) need(inventory[name]?.sha256===sha(repository.readBlob(ctx.source.commit,"functions/"+name)),"package dependencies do not bind M");
+  const intent=read(evidenceDirectory,contract.intendedHashInputs), intentResult=verifyIntent31({ctx,intent,archiveExpectedFiles:inventory});
+  const baseline=before(ctx);
+  return {prepared,evidenceDirectory,decision,contract,proof,owner,originalOwner,repository,sourceSnapshot,
+    cohorts,runtime,ctx,inventory,intent,intentResult,baseline};
+}
+function prepareBusinessCaptureContext31(authorityOptions) {
+  return finishBusinessCaptureContext31(prepareBusinessCaptureBase31(authorityOptions));
+}
+function prepareBusinessOperationalCaptureContext31(authorityOptions) {
+  const bootstrap=require("./business31CaptureBootstrap.cjs");
+  bootstrap.assertOperational31();
+  // Authority and the complete runtime proof are verified before admission. The
+  // original hash helper then imports through the same owned CLI lifetime that
+  // the operational controller/phase retains until its final cleanup.
+  const common=prepareBusinessCaptureBase31(authorityOptions);
+  const cliLoadLease=bootstrap.installCliLoadBoundary31(common.runtime);
+  try {
+    const result=finishBusinessCaptureContext31(common);
+    cliLoadLease.assertHealthy();
+    return {...result,cliLoadLease};
+  } catch(error) {
+    try { if(!cliLoadLease.isReleased())cliLoadLease.release(); }
+    catch(cleanup) { throw new AggregateError([error,cleanup],"capture context and CLI cleanup failed"); }
+    throw error;
+  }
+}
+function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
+  // The public entry recomputes the preparation and source/custody facts itself;
+  // a caller-supplied PASS/admission object is never accepted.
+  const {prepared,evidenceDirectory,decision,contract,proof,repository,sourceSnapshot,cohorts,runtime,
+    ctx,inventory,intent,intentResult,baseline}=prepareBusinessCaptureContext31(authorityOptions);
   keys(closurePointer,["commit","file","sha256"],"closure custody pointer"); need(closurePointer.file===CLOSURE_FILE && /^[0-9a-f]{40}$/i.test(closurePointer.commit) && /^[0-9a-f]{64}$/i.test(closurePointer.sha256),"closure custody identity differs");
-  const sourceSnapshot=repository.snapshot(prepared.source.commit), decisionSnapshot=repository.snapshot(prepared.decisionPointer.commit), closureSnapshot=repository.snapshot(closurePointer.commit);
+  const decisionSnapshot=repository.snapshot(prepared.decisionPointer.commit), closureSnapshot=repository.snapshot(closurePointer.commit);
   repository.requireAncestor(prepared.decisionPointer.commit,closureSnapshot.commit); need(closureSnapshot.commit!==prepared.decisionPointer.commit,"closure custody must follow decision custody");
   const changed=[...new Set([...Object.keys(decisionSnapshot.files),...Object.keys(closureSnapshot.files)])].filter(file=>!same(decisionSnapshot.files[file],closureSnapshot.files[file]));
   eq(changed,[CLOSURE_FILE],"closure custody may change only its exact metadata path"); need(closureSnapshot.files[CLOSURE_FILE].mode==="100644","closure custody mode differs");
@@ -215,28 +293,9 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
   need(closure.executionContractSha256===decision.executionContract.sha256 && envelope.recordedAtUtc===closure.recordedAtUtc,"closure approved contract/custody differs");
   eq(closure.scope,{functionsChanged:true,businessLogicChanged:true,rulesChanged:false,indexesChanged:false,iamChanged:false,enforcementChanged:false,manualSchedulerExecution:false,businessDataMutation:false},"closure mutation scope differs");
   verifyClosureExecutionWindow31({closure,executionWindow:decision.executionWindow,nowUtc:authorityOptions.nowUtc});
-  const policy=json(repository.readBlob(prepared.source.commit,"release/function-fleet-runtime-identity-policy.json"));
-  const cohorts=x.cohortsFromPolicy(policy), historicalBytes=repository.readBlob(prepared.source.commit,"release/evidence/build30-current-source-backend-deployment-closure.json");
-  need(sha(historicalBytes)==="3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45","historical F closure changed");
-  const release=read(evidenceDirectory,decision.mainCi), security=read(evidenceDirectory,decision.securityCi);
-  const runtime=x.deriveRuntime31({proof,executionContract:contract,evidenceDirectory,read:p=>privateBytes(evidenceDirectory,p),repository,source:prepared.source,producerBindings:authorityOptions.trustedVerifier.files});
-  const ctx={source:prepared.source,decision,proof,evidenceDirectory,repoRoot:proof.buildRoot,runtime,cohorts,approvalPointer:prepared.decisionPointer,producerBindings:authorityOptions.trustedVerifier.files,
-    lastCiAtUtc:[release.capturedAtUtc,security.capturedAtUtc].sort((l,r)=>t(l)<t(r)?-1:1).at(-1),historical:json(historicalBytes),ownerReceivedAtUtc:originalOwner.receivedAtUtc,liveApproval:prepared.executionInputs.approval};
-  // Inventory is enumerated by the exact installed CLI against materialized M.
-  // Every source member and emitted byte must additionally bind to immutable M.
-  const inventory=neutral.actualArchiveInventory31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,buildRoot:proof.buildRoot,runtime});
   eq(inventory,closure.archiveExpectedFiles,"closure package population differs from exact installed CLI");
-  const expectedOutputs=a.expectedEmittedFiles31(sourceSnapshot,json(repository.readBlob(ctx.source.commit,"functions/tsconfig.json")));
-  eq(Object.keys(inventory).filter(n=>n.startsWith("lib/")).sort(),expectedOutputs,"package complete emitted population differs");
-  for(const [name,binding] of Object.entries(inventory)) {
-    const bytes=name.startsWith("lib/")?privateBytes(evidenceDirectory,proof.emittedFiles[name]):repository.readBlob(ctx.source.commit,"functions/"+name);
-    need(binding.bytes===bytes.length && binding.sha256===sha(bytes),"package member differs from exact M/build");
-  }
-  const sourceNames=Object.keys(sourceSnapshot.files).filter(n=>n.startsWith("functions/src/")).map(n=>n.slice(10)); need(sourceNames.every(n=>Object.hasOwn(inventory,n)),"package omits M source");
-  for(const name of ["package.json","package-lock.json"]) need(inventory[name]?.sha256===sha(repository.readBlob(ctx.source.commit,"functions/"+name)),"package dependencies do not bind M");
-  const intent=read(evidenceDirectory,contract.intendedHashInputs), intentResult=verifyIntent31({ctx,intent,archiveExpectedFiles:inventory});
   need(closure.sourceArchiveHash===intent.sourceArchiveHash,"closure source archive differs");eq(closure.endpointRuntimeHashes,intentResult.labels,"closure endpoint identity differs");
-  const baseline=before(ctx), replay=replayRecordedCohorts31({ctx,closure,baseline,intent,archiveExpectedFiles:inventory});
+  const replay=replayRecordedCohorts31({ctx,closure,baseline,intent,archiveExpectedFiles:inventory});
   keys(closure.readbacks,["functionFleet","iamDependencies","firestoreRulesAndIndexes"],"final readbacks"); const final={};
   for(const [key,p] of Object.entries(closure.readbacks)) { const child=read(evidenceDirectory,p);
     readbacks.verifyMeasuredReadback31({repoRoot:ctx.repoRoot,candidateSource:ctx.source,backendCommit:ctx.source.commit,child,key,earliestUtc:closure.completedAtUtc,latestUtc:closure.recordedAtUtc,
@@ -261,4 +320,4 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
     platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
     privateHostedReplayAuthenticated:false,deploymentAuthorized:false,credentialAccessAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={CLOSURE_FILE,PHASES,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohorts31,verifyBusiness31BackendClosure};
+module.exports={CLOSURE_FILE,PHASES,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohort31,replayRecordedCohorts31,prepareBusinessCaptureContext31,prepareBusinessOperationalCaptureContext31,verifyBusiness31BackendClosure};

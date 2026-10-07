@@ -594,7 +594,29 @@ if ([int]$policy.release.buildNumber -ne $ExpectedBuildNumber) {
 }
 . (Join-Path $PSScriptRoot 'Production-AppCheckPolicy.ps1')
 . (Join-Path $PSScriptRoot 'Runtime-BackendPrivateReplay31.ps1')
-$runtime31Proof = Get-ProductionRuntime31RepositoryEvidence -RepositoryRoot $repo -Policy $policy
+$runtime31Proof = $null
+$business31Proof = $null
+if (Test-ProductionAppCheckBusiness31Selected $policy) {
+  if ([string]::IsNullOrWhiteSpace($env:BUSINESS31_CONSTRUCTION_REQUEST)) {
+    throw 'Business31 requires the fresh pre-reservation construction request from this run.'
+  }
+  # The common adapter invokes only the independently pinned fresh controller.
+  # It reauthenticates this same live parent's completed child; no second
+  # dispatch and no supplied PASS object can replace that observation.
+  $businessOutput = @(& node --no-global-search-paths (Join-Path $PSScriptRoot 'clientBackendCompatibility31.js') `
+    $repo (Join-Path $repo 'release/production-release-policy.json'))
+  if ($LASTEXITCODE -ne 0 -or $businessOutput.Count -ne 1) { throw 'Business31 construction prerequisite could not be reauthenticated.' }
+  $business31Proof = [string]$businessOutput[0] | ConvertFrom-Json -Depth 100
+  if ($business31Proof.ok -isnot [bool] -or -not $business31Proof.ok -or $business31Proof.route -cne 'business-backend31' -or
+      $business31Proof.businessBackend31.prerequisiteResult.purpose -cne 'construction' -or
+      $business31Proof.businessBackend31.prerequisiteResult.replayMode -cne 'same-parent-reauthentication' -or
+      $business31Proof.businessBackend31.prerequisiteResult.challenge.requester.runId -cne $env:GITHUB_RUN_ID -or
+      $business31Proof.businessBackend31.prerequisiteResult.challenge.requester.runAttempt -cne $env:GITHUB_RUN_ATTEMPT) {
+    throw 'Business31 construction measurement differs from this protected run.'
+  }
+} else {
+  $runtime31Proof = Get-ProductionRuntime31RepositoryEvidence -RepositoryRoot $repo -Policy $policy
+}
 $appCheckEvidence = $null
 if ($ExpectedBuildNumber -ge 30) {
   $appCheckEvidence = Get-ProductionAppCheckRepositoryEvidence -RepositoryRoot $repo -Policy $policy
@@ -823,10 +845,15 @@ $identityDefines = [ordered]@{
 if ($null -ne $appCheckEvidence) {
   $identityDefines['CRM3_APP_CHECK_ENABLED'] = $appCheckEvidence.dartDefine
 }
-if ($null -ne $runtime31Proof) {
+if ($null -ne $runtime31Proof -or $null -ne $business31Proof) {
   Export-ZipEntry -ArchivePath $archivePath `
     -EntryPath 'tools/release/Runtime-BackendPrivateReplay31.ps1' `
     -DestinationPath (Join-Path $releaseDirectory 'Runtime-BackendPrivateReplay31.ps1')
+}
+if ($null -ne $business31Proof) {
+  Export-ZipEntry -ArchivePath $archivePath `
+    -EntryPath 'tools/release/Business-BackendPrivateReplay31.ps1' `
+    -DestinationPath (Join-Path $releaseDirectory 'Business-BackendPrivateReplay31.ps1')
 }
 
 $dartDefines = @()
@@ -1013,6 +1040,12 @@ if ($null -ne $runtime31Proof) {
     $runtime31Proof.runtimeBackend31.approvalPointer.file,
     $runtime31Proof.runtimeBackend31.closurePointer.file,
     $runtime31Proof.runtimeBackend31.clientPointer.file)
+}
+if ($null -ne $business31Proof) {
+  $receiptFiles += @($business31Proof.businessBackend31.descriptorPointer.file,
+    $business31Proof.businessBackend31.approvalPointer.file,
+    $business31Proof.businessBackend31.closurePointer.file,
+    $business31Proof.businessBackend31.clientPointer.file)
 }
 foreach ($file in $receiptFiles) {
   $receiptHashes[$file] = Get-ZipEntrySha256 `
@@ -1248,6 +1281,18 @@ $manifestPath =
   Join-Path $releaseDirectory 'production-release-manifest.json'
 if ($null -ne $appCheckEvidence) { $manifest['appCheckBuild'] = $appCheckEvidence }
 if ($null -ne $runtime31Proof) { $manifest['runtimeBackend31'] = $runtime31Proof.runtimeBackend31 }
+if ($null -ne $business31Proof) {
+  # A retained observation for traceability, never reusable construction or
+  # distribution authority. Every package verification performs a fresh replay.
+  $constructionObservation = Join-Path $releaseDirectory 'business31-construction-observation.json'
+  Write-Utf8NoBom -Path $constructionObservation -Text ([string]$businessOutput[0] + "`n")
+  $manifest['businessBackend31'] = [ordered]@{
+    schemaVersion = 1
+    profile = 'build31-business-construction-record-v1'
+    constructionObservationFile = 'business31-construction-observation.json'
+    constructionObservationSha256 = Get-Sha256 $constructionObservation
+  }
+}
 Write-Utf8NoBom `
   -Path $manifestPath `
   -Text (($manifest | ConvertTo-Json -Depth 50) + "`n")

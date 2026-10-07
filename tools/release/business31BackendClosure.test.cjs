@@ -147,7 +147,7 @@ function outerFixture(){
  const hashInput={schemaVersion:1,documentType:"firebase-cli-approved-intended-hash-inputs",codebase:"default",source,sourceBefore:source,sourceAfter:source,...i};
  const endpointLabels=neutral.endpointRuntimeHashes31({sourceArchiveHash:checked.sourceArchiveHash,inputs:hashInput,runtime:rtime,names:cohorts.fleet,source});
  const approvalPointer={commit:M,file:a.DECISION_FILE,sha256:"A".repeat(64)},executionContract=retain({synthetic:true});
- const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime:rtime,cohorts,liveApproval,approvalPointer,decision:{executionContract,decidedAtUtc:T(100),executionWindow},proof:{buildRoot:repo},producerBindings:{synthetic:"not-authenticated"}};
+ const ctx={repoRoot:repo,evidenceDirectory:evidence,source,runtime:rtime,cohorts,liveApproval,approvalPointer,contract:{schemaVersion:1},decision:{executionContract,decidedAtUtc:T(100),executionWindow},proof:{buildRoot:repo},producerBindings:{synthetic:"not-authenticated"}};
  const outer={commands:{},startedAtUtc:T(101),completedAtUtc:T(699),endpointRuntimeHashes:endpointLabels};let baseline;
  const controlPairs={};
  ["callables","events","fleet"].forEach((phase,phaseIndex)=>{

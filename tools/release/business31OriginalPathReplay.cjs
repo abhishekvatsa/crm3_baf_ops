@@ -21,10 +21,15 @@ const CLOSURE_PRODUCERS = Object.freeze([
   'captureBusiness31PreparedInputs.cjs','clientBuildToolingCompatibility31.cjs','clientRuntimeCompatibility31.cjs',
   'closure-preflight31.cjs','collectFirestoreRulesIndexesReadback.js','collectFunctionFleetRuntimeIdentityReadback.js',
   'collectFunctionsIamDependenciesReadback.js','collectProductionGlobalPullBackend.js','deploymentFleetContract.js',
-  'executeBackendRuntime31.cjs','reviewedBackendControls.js','runtimeDeploymentTransportGuard31.cjs','scopedCallableInvokerIam.js'
+  'executeBackendRuntime31.cjs','reviewedBackendControls.js','runtimeDeploymentTransportGuard31.cjs','scopedCallableInvokerIam.js',
+  'business31CaptureRecorder.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json'
 ].map(file=>'tools/release/'+file).sort());
 const REQUIRED_EXECUTING = Object.freeze([...CLOSURE_PRODUCERS, SELF,
-  'tools/release/business31PrivateDescriptor.cjs','tools/release/privateEvidenceBundle31.cjs']);
+  'tools/release/business31PrivateDescriptor.cjs','tools/release/privateEvidenceBundle31.cjs',
+  'tools/release/business31HostedProtocol.cjs','tools/release/business31HostedReplay.cjs',
+  'tools/release/business31HostedResult.cjs','tools/release/business31HostedLauncher.py']);
+// Only these non-JavaScript support files enter the complete producer population.
+const SUPPORT_PRODUCERS = Object.freeze(['tools/release/runtime_process_runner.py','tools/release/runtime_supervisor.py','tools/release/business31HostedLauncher.py','tools/release/runtime_contract_bindings.json','tools/release/business31ToolchainProfiles.json']);
 function exact(value, fields, label) {
   need(value && typeof value==='object' && !Array.isArray(value) &&
     [Object.prototype,null].includes(Object.getPrototypeOf(value)), label+' must be a plain object');
@@ -51,7 +56,7 @@ function executingBindings31(completeBindings) {
   deriveClosureProducerBindings31(completeBindings);
   const result={}, sourceRoot=path.resolve(__dirname,'../..');
   for(const [file,digest]of Object.entries(completeBindings)) {
-    need((/^tools\/release\/[A-Za-z0-9_+./-]+\.(?:js|cjs|ps1)$/.test(file)||file==='tools/v4/v4_2_r1_canonical_audit.py') &&
+    need((/^tools\/release\/[A-Za-z0-9_+./-]+\.(?:js|cjs|ps1)$/.test(file)||file==='tools/v4/v4_2_r1_canonical_audit.py'||SUPPORT_PRODUCERS.includes(file)) &&
       file.split('/').every(p=>p && p!=='.' && p!=='..') && /^[A-F0-9]{64}$/.test(digest),'unsafe complete producer identity');
     const physical=regular(path.join(sourceRoot,...file.split('/')));
     need(sha(fs.readFileSync(physical))===digest,'executing complete producer population differs');result[physical]=digest;

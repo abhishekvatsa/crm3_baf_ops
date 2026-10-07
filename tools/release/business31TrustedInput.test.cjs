@@ -69,7 +69,7 @@ test('real Git metadata boundary binds complete trees and grants no authority', 
 });
 test('neutral API exposes only bounded read operations and exact parents', () => {
   candidate(); const repository = subject.openTrustedGitRepository31(options);
-  assert.deepEqual(Object.keys(repository).sort(), ['readBlob', 'readRef', 'requireAncestor', 'snapshot']);
+  assert.deepEqual(Object.keys(repository).sort(), ['readBlob', 'readRef', 'readSnapshotBlobs', 'requireAncestor', 'snapshot']);
   const snapshot = repository.snapshot(M); assert.deepEqual(snapshot.parents, [mainParent, branch]);
   assert.equal(repository.readBlob(M, 'functions/index.js').toString(), 'module.exports = 2;\n');
   assert.throws(() => repository.readBlob(M, 'functions/index.js', 1), /exceeds bound/);

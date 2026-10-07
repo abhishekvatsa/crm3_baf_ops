@@ -43,14 +43,18 @@ function cohortsFromPolicy(policy) {
     else { need(row.workloadClass === "SCHEDULED_FIRESTORE_MUTATION", "unknown workload"); out.schedulers.push(name); } }
   Object.values(out).forEach(v => v.sort()); need(same([out.callables.length,out.events.length,out.schedulers.length,out.fleet.length],[13,5,1,19]), "exact19 fleet required"); return out;
 }
-function verifyExecutionContract31({contract, decision, proof, source, baseline, manifestSha256, ownerReceivedAtUtc, read, instant, mergeParents, release, security}) {
-  keys(contract,["schemaVersion","documentType","profile","source","baseline","sourceManifestSha256","runtimeProof","preparedAtUtc","intendedHashInputs","githubObserver","settledSourceReview"],"execution contract");
-  need(contract.schemaVersion === 1 && contract.documentType === "build31-business-execution-contract" && contract.profile === PROFILE &&
+function verifyExecutionContract31({contract, decision, proof, source, baseline, manifestSha256, ownerReceivedAtUtc, read, instant, mergeParents, release, security, repository, snapshot, evidenceDirectory}) {
+  keys(contract,["schemaVersion","documentType","profile","source","baseline","sourceManifestSha256","runtimeProof","preparedAtUtc","intendedHashInputs","githubObserver","settledSourceReview",...(contract.schemaVersion===2?["intentPreparation"]:[])],"execution contract");
+  need([1,2].includes(contract.schemaVersion) && contract.documentType === "build31-business-execution-contract" && contract.profile === PROFILE &&
     same(contract.source,source) && baseline.commit === BASELINE && source.commit !== BASELINE && same(contract.baseline,baseline) &&
     contract.sourceManifestSha256 === manifestSha256 && same(contract.runtimeProof,decision.runtimeProof), "execution source/baseline/runtime differs");
   need(instant(proof.completedAtUtc) <= instant(contract.preparedAtUtc) && instant(contract.preparedAtUtc) <= instant(ownerReceivedAtUtc) &&
     instant(ownerReceivedAtUtc) <= instant(decision.decidedAtUtc), "execution contract postdates consent");
   pointer(contract.intendedHashInputs); keys(contract.githubObserver,["path","sha256"],"observer");
+  if(contract.schemaVersion===2) {
+    pointer(contract.intentPreparation);
+    require("./business31IntentPreparation.cjs").verifyIntentPreparation31({contract,proof,source,read,instant,repository,snapshot,evidenceDirectory,ownerReceivedAtUtc});
+  }
   need(path.isAbsolute(contract.githubObserver.path) && hex(contract.githubObserver.sha256,64) && sha(originalBytes(contract.githubObserver.path)) === contract.githubObserver.sha256, "observer bytes differ");
   const selected = contract.settledSourceReview;
   keys(selected,["kind","reviewer","headCommit","request","response","summary"],"settled review");

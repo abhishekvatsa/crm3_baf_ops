@@ -97,3 +97,15 @@ test("missing or extra dependency binding is refused", () => {
 test("production entry refuses branch names before opening repository", () => {
   assert.throws(() => verifyBusiness31Source({sourceCommit: "main"}), /Exact source commit/);
 });
+
+for (const file of ["tooling/stream-json-compat/README.md", "tooling/stream-json-compat/package.json"]) {
+  test(`merged JSON adapter metadata ${file} still needs its exact reviewed blob`, () => {
+    const a = fixture(); a.sourceSnapshot.files[file] = id("5"); refreshMeasurement(a);
+    assert.ok(validateSourceInventory31(a).changedPaths.includes(file));
+    a.sourceSnapshot.files[file] = id("6");
+    assert.throws(() => validateSourceInventory31(a), /complete source population/);
+  });
+}
+test("JSON adapter metadata admission does not allow unreviewed executable changes", () => fails(a => {
+  a.sourceSnapshot.files["tooling/stream-json-compat/index.cjs"] = id("4");
+}, /unadmitted source delta/, {remeasure: true}));

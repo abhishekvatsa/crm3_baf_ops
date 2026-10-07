@@ -11,6 +11,7 @@ const PROFILE = 'build31-business-trusted-input-v1';
 const BOOTSTRAP_PATH = 'tools/release/business31TrustedInput.cjs';
 const MAX_OUTPUT = 16 * 1024 * 1024;
 const MAX_BLOB = 2 * 1024 * 1024;
+const BATCH_OBJECTS = 7;
 const METADATA_PATHS = Object.freeze([
   'README.md', 'release/production-release-policy.json',
   'release/build-number-ledger.json', 'release/current-successor-state.json',
@@ -83,6 +84,33 @@ function configBytes(gitDirectory) {
   }
   return bytes;
 }
+function parseBlobBatch31(output, expectedOids) {
+  need(Buffer.isBuffer(output) && output.length <= MAX_OUTPUT, 'Batch output exceeds bound');
+  need(Array.isArray(expectedOids) && expectedOids.length > 0 && expectedOids.length <= BATCH_OBJECTS &&
+    expectedOids.every(value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value)) &&
+    new Set(expectedOids).size === expectedOids.length, 'Exact bounded batch OIDs required');
+  const blobs = new Map();
+  let offset = 0;
+  for (const expected of expectedOids) {
+    const end = output.indexOf(10, offset);
+    need(end >= offset && end - offset <= 64, 'Batch object header missing or oversized');
+    const header = output.subarray(offset, end);
+    need(header.every(byte => byte >= 32 && byte <= 126), 'Batch object header is not ASCII');
+    const match = /^([0-9a-f]{40}) blob (0|[1-9][0-9]*)$/.exec(header.toString('ascii'));
+    need(match && match[1] === expected, 'Batch object identity/type/order differs');
+    const size = Number(match[2]);
+    need(Number.isSafeInteger(size) && size <= MAX_BLOB, 'Git blob exceeds bound');
+    const start = end + 1, finish = start + size;
+    need(finish < output.length && output[finish] === 10, 'Batch object body or separator truncated');
+    const bytes = Buffer.from(output.subarray(start, finish));
+    const actual = crypto.createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex');
+    need(actual === expected, 'Git blob content hash differs');
+    blobs.set(expected, bytes);
+    offset = finish + 1;
+  }
+  need(offset === output.length, 'Trailing batch output refused');
+  return blobs;
+}
 function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) {
   const root = regularAbsolute(repositoryRoot, 'directory');
   const executable = regularAbsolute(gitExecutable, 'file');
@@ -115,19 +143,30 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
   }
   Object.assign(env, {GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
     GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat', GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1'});
-  function git(args, maxBuffer = MAX_OUTPUT) {
+  function git(args, maxBuffer = MAX_OUTPUT, batchInput) {
+    if (batchInput !== undefined) {
+      need(isDeepStrictEqual(args, ['cat-file', '--batch']) && maxBuffer === MAX_OUTPUT &&
+        Buffer.isBuffer(batchInput) && batchInput.length > 0 && batchInput.length <= BATCH_OBJECTS * 41 &&
+        /^(?:[0-9a-f]{40}\n){1,7}$/.test(batchInput.toString('ascii')) &&
+        batchInput.every(byte => byte === 10 || (byte >= 48 && byte <= 57) || (byte >= 97 && byte <= 102)),
+      'Only fixed bounded blob-batch stdin is permitted');
+    }
     need(layout() === configHash && hash(fs.readFileSync(executable)) === gitSha256.toUpperCase(), 'Git runtime/configuration changed');
     const result = execFileSync(executable, ['--no-replace-objects', '--no-pager', '--no-optional-locks',
       '-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${path.join(gitDirectory, 'disabled-hooks-31')}`,
       '-c', 'core.untrackedCache=false', '-c', 'core.preloadIndex=false', '-c', 'diff.external=',
       '-c', 'credential.helper=', '-c', 'protocol.allow=never', '-C', root, ...args],
-    {env, windowsHide: true, timeout: 30000, maxBuffer, stdio: ['ignore', 'pipe', 'pipe']});
+    {env, windowsHide: true, timeout: 30000, maxBuffer,
+      stdio: [batchInput === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe'],
+      ...(batchInput === undefined ? {} : {input: batchInput})});
     need(layout() === configHash, 'Git configuration changed during read');
+    if (batchInput !== undefined) need(hash(fs.readFileSync(executable)) === gitSha256.toUpperCase(), 'Git runtime changed during batch read');
     return result;
   }
   const text = args => decode(git(args)).trim();
   need(path.resolve(text(['rev-parse', '--show-toplevel'])) === root, 'Git root differs');
   need(text(['rev-parse', '--show-object-format']) === 'sha1', 'Unsupported Git object format');
+  const issuedSnapshots = new WeakSet();
   function snapshot(commit) {
     commit = oid(commit);
     // Strict object verification is independent of an object's storage filename.
@@ -156,7 +195,9 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
       need(!Object.hasOwn(files, file), 'Duplicate Git tree path');
       files[file] = Object.freeze({mode: match[1], oid: match[2]});
     }
-    return Object.freeze({commit, tree, parents: Object.freeze(parents), files: Object.freeze(files)});
+    const result = Object.freeze({commit, tree, parents: Object.freeze(parents), files: Object.freeze(files)});
+    issuedSnapshots.add(result);
+    return result;
   }
   function readBlob(commit, file, maxBytes = MAX_BLOB) {
     const expression = `${oid(commit)}:${safePath(file)}`;
@@ -171,6 +212,24 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
     need(actual === expected, 'Git blob content hash differs');
     return bytes;
   }
+  function readSnapshotBlobs(snapshot) {
+    need(issuedSnapshots.has(snapshot), 'Snapshot was not issued by this repository');
+    need(layout() === configHash && hash(fs.readFileSync(executable)) === gitSha256.toUpperCase(), 'Git runtime/configuration changed');
+    const names = Object.keys(snapshot.files).sort();
+    const unique = [...new Set(names.map(name => snapshot.files[name].oid))];
+    const blobs = new Map();
+    for (let index = 0; index < unique.length; index += BATCH_OBJECTS) {
+      const chunk = unique.slice(index, index + BATCH_OBJECTS);
+      const input = Buffer.from(chunk.map(value => value + '\n').join(''), 'ascii');
+      const parsed = parseBlobBatch31(git(['cat-file', '--batch'], MAX_OUTPUT, input), chunk);
+      for (const [object, bytes] of parsed) blobs.set(object, bytes);
+    }
+    // No partial population escapes on failure. Equal-content paths receive
+    // detached buffers so callers cannot mutate another path through an alias.
+    const result = new Map();
+    for (const name of names) result.set(name, Buffer.from(blobs.get(snapshot.files[name].oid)));
+    return result;
+  }
   function requireAncestor(ancestor, descendant) {
     try { git(['merge-base', '--is-ancestor', oid(ancestor), oid(descendant)]); }
     catch (error) { if (error.status === 1) throw new Error('Required Git ancestry absent'); throw error; }
@@ -180,7 +239,7 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
       !ref.includes('..') && !ref.endsWith('/') && !ref.endsWith('.lock') && !ref.includes('//'), 'Exact local branch reference required');
     return oid(text(['rev-parse', '--verify', `${ref}^{commit}`]));
   }
-  return Object.freeze({snapshot, readBlob, requireAncestor, readRef});
+  return Object.freeze({snapshot, readBlob, readSnapshotBlobs, requireAncestor, readRef});
 }
 function boundedJson(bytes) {
   const value = JSON.parse(decode(bytes));
@@ -253,4 +312,4 @@ function verifyBusiness31TrustedInput({repositoryRoot, gitExecutable, gitSha256,
     inputBoundaryVerified: true, metadataContentsValidated: false, platformIdentityAuthenticated: false,
     privateReplayVerified: false, deploymentAuthorized: false, constructionAuthorized: false});
 }
-module.exports = {openTrustedGitRepository31, verifyBusiness31TrustedInput, PROFILE, METADATA_PATHS};
+module.exports = {openTrustedGitRepository31, verifyBusiness31TrustedInput, parseBlobBatch31, PROFILE, METADATA_PATHS};
