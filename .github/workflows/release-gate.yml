@@ -101,7 +101,10 @@ jobs:
 
       - name: Business replay launcher contract tests
         timeout-minutes: 3
-        run: python3 -I -S -B tools/release/test_business31_hosted_launcher.py
+        shell: bash
+        run: |
+          python_executable="$(readlink -f -- "$(command -v python3)")"
+          "$python_executable" -I -S -B tools/release/test_business31_hosted_launcher.py
 
       - name: Set up Flutter 3.44.0
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
