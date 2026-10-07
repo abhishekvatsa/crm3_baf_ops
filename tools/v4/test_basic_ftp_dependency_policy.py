@@ -14,6 +14,7 @@ FUNCTION_NAME = "basic_ftp_pin_matches"
 PINS = {"tooling/firebase-cli/package.json": ()}
 
 KEY = "node_modules/basic-ftp"
+SDK_KEY = "node_modules/@modelcontextprotocol/sdk"
 
 
 class BasicFtpDependencyPolicyTests(unittest.TestCase):
@@ -148,6 +149,46 @@ class BasicFtpDependencyPolicyTests(unittest.TestCase):
                 else:
                     packages[KEY][field] = "tampered-regression"
                 self.assertFalse(self.canonical_guard())
+
+
+    def test_canonical_rejects_missing_old_or_unbound_sdk(self):
+        original = copy.deepcopy(self.documents)
+        manifest = "tooling/firebase-cli/package.json"
+        for field in ("old-version", "resolved", "integrity", "override", "missing-override", "missing", "hono-range"):
+            with self.subTest(field=field):
+                self.documents = copy.deepcopy(original)
+                packages = self.documents[manifest.replace("package.json", "package-lock.json")]["packages"]
+                if field == "override":
+                    self.documents[manifest]["overrides"]["@modelcontextprotocol/sdk"] = "1.29.0"
+                elif field == "missing-override":
+                    del self.documents[manifest]["overrides"]["@modelcontextprotocol/sdk"]
+                elif field == "missing":
+                    del packages[SDK_KEY]
+                elif field == "old-version":
+                    packages[SDK_KEY]["version"] = "1.29.0"
+                elif field == "hono-range":
+                    packages[SDK_KEY]["dependencies"]["@hono/node-server"] = "^1.19.9"
+                else:
+                    packages[SDK_KEY][field] = "unbound-registry-bytes"
+                self.assertFalse(self.canonical_guard())
+
+    def test_canonical_rejects_unsafe_nested_sdk_with_valid_top_level(self):
+        original = copy.deepcopy(self.documents)
+        lock = "tooling/firebase-cli/package-lock.json"
+        for field in ("version", "resolved", "integrity"):
+            with self.subTest(field=field):
+                self.documents = copy.deepcopy(original)
+                packages = self.documents[lock]["packages"]
+                nested = copy.deepcopy(packages[SDK_KEY])
+                nested[field] = "1.29.0" if field == "version" else "unbound-nested-bytes"
+                packages["node_modules/fixture/" + SDK_KEY] = nested
+                self.assertFalse(self.canonical_guard())
+
+    def test_canonical_accepts_matching_sdk_copy_and_unrelated_package(self):
+        packages = self.documents["tooling/firebase-cli/package-lock.json"]["packages"]
+        packages["node_modules/fixture/" + SDK_KEY] = copy.deepcopy(packages[SDK_KEY])
+        packages["node_modules/unrelated-fixture"] = {"version": "0.0.0"}
+        self.assertTrue(self.canonical_guard())
 
 
 if __name__ == "__main__":
