@@ -1,175 +1,192 @@
-name: CodeQL source security
+name: Inert hosted runtime measurement
 
-# Kotlin needs a traced Flutter/Android build; build-mode:none omits Kotlin.
-# CRM3_CODEQL_PREVIEW is a temporary migration switch. With it absent, uploads
-# are enabled. Keep default setup active until all four preview jobs pass.
+# Private draft for a reviewed, never-merge diagnostic ref only.
+# No checkout, candidate execution, private environment, secret or cloud access.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: ["**"]
-  schedule:
-    - cron: '23 2 * * 1'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
-concurrency:
-  group: codeql-source-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
-  analyze:
-    name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
+  measure:
+    name: Runtime bytes (${{ matrix.profile }})
+    runs-on: ${{ matrix.image }}
+    timeout-minutes: 8
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         include:
-          - language: actions
-            build-mode: none
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          - language: java-kotlin
-            build-mode: manual
-    env:
-      CRM3_CI_PACKAGE_PROOF: 'true'
+          - profile: private-ubuntu24-existing
+            image: ubuntu-24.04
+            setup_node: false
+          - profile: public-production-ubuntu24
+            image: ubuntu-24.04
+            setup_node: true
+          - profile: public-flutter-ubuntu-latest
+            image: ubuntu-latest
+            setup_node: true
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Explain temporary preview
-        if: vars.CRM3_CODEQL_PREVIEW == 'true'
-        run: echo 'Preview analysis only. Default setup remains the active scanner until migration is verified.'
-
-      - name: Set up Java 21
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+      - name: Reproduce existing public Node setup
+        if: matrix.setup_node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          distribution: temurin
-          java-version: '21'
+          node-version: '22.23.1'
 
-      - name: Set up Flutter 3.44.0
-        if: matrix.language == 'java-kotlin'
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          channel: stable
-          flutter-version: '3.44.0'
-          cache: true
-
-      - name: Prepare isolated Android compilation
-        if: matrix.language == 'java-kotlin'
+      - name: Read existing tool identities and versions
         shell: bash
-        run: |
-          set -euo pipefail
-          echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
-          android_sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          "$android_sdk/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
-          # Cached JNI native metadata may invoke Ninja during clean, before
-          # Gradle has a chance to provision CMake for the new build.
-          test -x "$android_sdk/cmake/3.22.1/bin/cmake"
-          test -x "$android_sdk/cmake/3.22.1/bin/ninja"
-          "$android_sdk/cmake/3.22.1/bin/cmake" --version
-          "$android_sdk/cmake/3.22.1/bin/ninja" --version
-          flutter precache --android
-          flutter pub get
-          python3 tools/security/codeql/prepare_android.py
-          python3 -m unittest discover -s tools/security/codeql -p 'test_*.py'
-
-      - name: Initialize CodeQL
-        id: init
-        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-
-      - name: Compile Kotlin inside CodeQL tracing
-        if: matrix.language == 'java-kotlin'
-        working-directory: android
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./gradlew --no-daemon --no-build-cache --no-configuration-cache \
-            --rerun-tasks \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -Pkotlin.incremental=false \
-            -Pdart-defines=Q1JNM19DSV9QQUNLQUdFX1BST09GPXRydWU= \
-            clean :app:assembleDebug
-
-      - name: Analyze without implicit upload
-        id: analyze
-        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          category: /language:${{ matrix.language }}
-          output: ${{ runner.temp }}/codeql-sarif
-          # 'false' means failure-only in this action; 'never' is intentional.
-          upload: never
-          upload-database: false
-
-      - name: Prove app Kotlin method bodies were extracted
-        if: matrix.language == 'java-kotlin'
         env:
-          CODEQL_BINARY: ${{ steps.init.outputs.codeql-path }}
-          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations || '{}').java }}
-          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
-        shell: bash
+          DIAGNOSTIC_PROFILE: ${{ matrix.profile }}
+          DIAGNOSTIC_IMAGE: ${{ matrix.image }}
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/kotlin-extraction"
-          # Resolve java-all and its dependencies from this same CLI bundle.
-          # Do not install a separately versioned pack from a network registry.
-          CODEQL_BUNDLE="$(dirname "$CODEQL_BINARY")"
-          test -f "$CODEQL_BUNDLE/.codeqlmanifest.json"
-          test -d "$CODEQL_BUNDLE/qlpacks/codeql/java-all"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.bqrs" \
-            tools/security/codeql/MainActivityBodies.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/methods.bqrs"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs" \
-            tools/security/codeql/AppExtractionDiagnostics.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs"
-          python3 tools/security/codeql/verify_kotlin_extraction.py \
-            --csv "$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            --diagnostics "$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            --repository-root "$GITHUB_WORKSPACE" \
-            --commit "$(git rev-parse HEAD)" \
-            --codeql-version "$CODEQL_VERSION" \
-            --output "$RUNNER_TEMP/kotlin-extraction/proof.json"
+          selected_python="$(command -v python3)"
+          resolved_python="$(readlink -f -- "$selected_python")"
+          export DIAGNOSTIC_PYTHON_COMMAND="$selected_python"
+          "$resolved_python" -I -S -B - <<'PY'
+          from pathlib import Path
+          import datetime, hashlib, json, os, platform, shutil, stat, subprocess, sys
 
-      - name: Upload accepted security analysis
-        if: vars.CRM3_CODEQL_PREVIEW != 'true'
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          sarif_file: ${{ steps.analyze.outputs.sarif-output }}
-          category: /language:${{ matrix.language }}
-          wait-for-processing: true
+          def now():
+              return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-      - name: Retain analysis and extraction evidence
+          profile = os.environ['DIAGNOSTIC_PROFILE']
+          if profile not in ('private-ubuntu24-existing', 'public-production-ubuntu24', 'public-flutter-ubuntu-latest'):
+              raise RuntimeError('Unexpected measurement profile')
+          parent = Path(os.environ['RUNNER_TEMP']).resolve(strict=True)
+          if not parent.is_dir():
+              raise RuntimeError('Missing runner temporary directory')
+          owned = parent / ('business31-runtime-measurement-' + profile)
+          owned.mkdir(mode=0o700, exist_ok=False)
+          home = owned / 'home'
+          home.mkdir(mode=0o700)
+          report_file = owned / 'runtime-measurement.json'
+          clean_env = {'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
+                       'HOME': str(home), 'TMPDIR': str(owned), 'GIT_CONFIG_NOSYSTEM': '1',
+                       'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_TERMINAL_PROMPT': '0',
+                       'GIT_NO_REPLACE_OBJECTS': '1', 'GIT_NO_LAZY_FETCH': '1',
+                       'GIT_ALLOW_PROTOCOL': ''}
+
+          def ancestors(raw):
+              p = Path(raw)
+              if not p.is_absolute():
+                  raise RuntimeError('Tool path is not absolute')
+              paths = [p, *p.parents]
+              if len(paths) > 64:
+                  raise RuntimeError('Ancestor bound')
+              values = []
+              for item in paths:
+                  s = item.lstat()
+                  values.append({'path': str(item), 'mode': s.st_mode,
+                                 'isSymlink': stat.S_ISLNK(s.st_mode),
+                                 'isRegularFile': stat.S_ISREG(s.st_mode),
+                                 'isDirectory': stat.S_ISDIR(s.st_mode),
+                                 'linkTarget': os.readlink(item) if stat.S_ISLNK(s.st_mode) else None})
+              return values
+
+          def signature(s):
+              return (s.st_dev, s.st_ino, s.st_mode, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+
+          def measure_file(path):
+              before = path.stat()
+              if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= 512 * 1024 * 1024:
+                  raise RuntimeError('Executable regular-file/size bound')
+              h = hashlib.sha256()
+              total = 0
+              with path.open('rb') as f:
+                  for chunk in iter(lambda: f.read(1024 * 1024), b''):
+                      total += len(chunk)
+                      if total > 512 * 1024 * 1024:
+                          raise RuntimeError('Executable byte bound')
+                      h.update(chunk)
+              after = path.stat()
+              if total != before.st_size or signature(before) != signature(after):
+                  raise RuntimeError('Executable changed while reading')
+              return {'sha256': h.hexdigest().upper(), 'bytes': total, 'mode': before.st_mode,
+                      'device': before.st_dev, 'inode': before.st_ino,
+                      'mtimeNs': before.st_mtime_ns, 'ctimeNs': before.st_ctime_ns}
+
+          def inspect(label, raw, args, required=True):
+              value = {'label': label, 'required': required, 'selectedPath': raw,
+                       'measured': False, 'measurementStartedAtUtc': now()}
+              if raw is None or not Path(raw).exists():
+                  value['finding'] = 'not-present'
+                  return value
+              try:
+                  value['selectedAncestors'] = ancestors(raw)
+                  resolved = Path(raw).resolve(strict=True)
+                  value['resolvedPath'] = str(resolved)
+                  value['resolvedAncestors'] = ancestors(str(resolved))
+                  if any(x['isSymlink'] for x in value['resolvedAncestors']):
+                      raise RuntimeError('Resolved path retains redirect')
+                  before = measure_file(resolved)
+                  value['argv'] = [str(resolved), *args]
+                  result = subprocess.run(value['argv'], cwd=owned, env=clean_env,
+                                          stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                          stderr=subprocess.PIPE, timeout=20, check=False)
+                  if len(result.stdout) > 65536 or len(result.stderr) > 65536:
+                      raise RuntimeError('Version output bound')
+                  value['exitCode'] = result.returncode
+                  value['stdout'] = result.stdout.decode('utf-8', errors='strict')
+                  value['stderr'] = result.stderr.decode('utf-8', errors='strict')
+                  after = measure_file(resolved)
+                  value['before'] = before
+                  value['after'] = after
+                  value['bytesStableAcrossProbe'] = before == after
+                  if result.returncode != 0 or before != after:
+                      raise RuntimeError('Version query or executable stability failed')
+                  value['measured'] = True
+              except Exception as error:
+                  value['finding'] = type(error).__name__ + ': ' + str(error)[:1500]
+              value['measurementCompletedAtUtc'] = now()
+              return value
+
+          report = {'schemaVersion': 1, 'profile': 'build31-inert-linux-runtime-measurement-v1',
+                    'context': profile, 'requestedRunnerImage': os.environ['DIAGNOSTIC_IMAGE'],
+                    'startedAtUtc': now(), 'system': platform.system(), 'machine': platform.machine(),
+                    'runnerFields': {key: os.environ.get(key) for key in
+                                     ('ImageOS', 'ImageVersion', 'RUNNER_ARCH', 'RUNNER_OS')},
+                    'run': {key: os.environ.get(key) for key in
+                            ('GITHUB_REPOSITORY', 'GITHUB_WORKFLOW_REF', 'GITHUB_SHA', 'GITHUB_REF',
+                             'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT')},
+                    'bootstrapPython': {'commandPath': os.environ['DIAGNOSTIC_PYTHON_COMMAND'],
+                                        'sysExecutable': sys.executable,
+                                        'isolated': sys.flags.isolated, 'noSite': sys.flags.no_site,
+                                        'dontWriteBytecode': sys.dont_write_bytecode},
+                    'tools': [], 'enrollmentAuthorized': False, 'hostedReplayProved': False,
+                    'sourceQualified': False, 'constructionAuthorized': False,
+                    'signingAuthorized': False, 'distributionAuthorized': False}
+          report['tools'].append(inspect('node-first-path', shutil.which('node'),
+                                         ['--no-global-search-paths', '-p',
+                                          'JSON.stringify({version:process.version,execPath:process.execPath,platform:process.platform,arch:process.arch})']))
+          report['tools'].append(inspect('python3-first-path', shutil.which('python3'),
+                                         ['-I', '-S', '-B', '-c',
+                                          'import json,sys;print(json.dumps({"version":sys.version,"executable":sys.executable,"isolated":sys.flags.isolated,"noSite":sys.flags.no_site}))']))
+          report['tools'].append(inspect('git-first-path', shutil.which('git'), ['--version']))
+          # One fixed existing cache candidate only; never search/download/install a private runtime.
+          report['runnerToolCacheDirectory'] = os.environ.get('RUNNER_TOOL_CACHE')
+          cached_node = '/opt/hostedtoolcache/node/22.23.1/x64/bin/node'
+          report['tools'].append(inspect('node22.23.1-existing-toolcache', cached_node,
+                                         ['--no-global-search-paths', '--version'], required=False))
+          report['measurementComplete'] = all(t['measured'] for t in report['tools'] if t['required'])
+          report['completedAtUtc'] = now()
+          raw = (json.dumps(report, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
+          if len(raw) > 256 * 1024:
+              raise RuntimeError('Report bound')
+          with report_file.open('xb') as f:
+              f.write(raw)
+          print(json.dumps({'profile': profile, 'reportSha256': hashlib.sha256(raw).hexdigest().upper(),
+                            'measurementComplete': report['measurementComplete']}))
+          if not report['measurementComplete']:
+              raise SystemExit(1)
+          PY
+
+      - name: Retain only nonsecret runtime metadata
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: codeql-${{ matrix.language }}-evidence
-          path: |
-            ${{ runner.temp }}/codeql-sarif/*.sarif
-            ${{ runner.temp }}/kotlin-extraction/*.csv
-            ${{ runner.temp }}/kotlin-extraction/*.json
-          if-no-files-found: warn
-          retention-days: 14
+          name: inert-runtime-${{ matrix.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/business31-runtime-measurement-${{ matrix.profile }}/runtime-measurement.json
+          if-no-files-found: error
+          retention-days: 1
+          include-hidden-files: false
