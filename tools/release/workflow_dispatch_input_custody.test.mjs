@@ -68,6 +68,7 @@ test('all current manual workflows keep dispatch inputs out of run blocks', () =
   assert.deepEqual(
     workflowPaths.map((workflowPath) => path.relative(repositoryRoot, workflowPath)),
     [
+      path.join('.github', 'workflows', 'business-private-replay.yml'),
       path.join('.github', 'workflows', 'codeql.yml'),
       path.join('.github', 'workflows', 'production-artifact.yml'),
       path.join('.github', 'workflows', 'verification-artifact.yml'),
@@ -75,11 +76,22 @@ test('all current manual workflows keep dispatch inputs out of run blocks', () =
   );
   assert.deepEqual(auditManualWorkflows(), []);
 
-  // CodeQL accepts no manual inputs; release workflows retain their validation.
-  const codeql = parseWorkflow(fs.readFileSync(workflowPaths[0], 'utf8'));
+  // Each workflow keeps its own input contract; the replay request is data,
+  // while production and verification retain the governed dispatch fields.
+  const byName = (name) => workflowPaths.find((file) => path.basename(file) === name);
+  const codeql = parseWorkflow(fs.readFileSync(byName('codeql.yml'), 'utf8'));
   assert.deepEqual(codeql.on.workflow_dispatch, {});
-  const sources = workflowPaths.slice(1).map((workflowPath) =>
-    fs.readFileSync(workflowPath, 'utf8'));
+  const replay = parseWorkflow(fs.readFileSync(byName('business-private-replay.yml'), 'utf8'));
+  assert.deepEqual(replay.on.workflow_dispatch.inputs, {
+    request_json: {
+      description: 'Exact candidate and descriptor request; data only',
+      required: true,
+      type: 'string',
+    },
+  });
+  assert.equal(replay.jobs.replay.env.CANDIDATE_REQUEST, '${{ inputs.request_json }}');
+  const sources = ['production-artifact.yml', 'verification-artifact.yml'].map((name) =>
+    fs.readFileSync(byName(name), 'utf8'));
   assert.ok(sources.every((source) => source.includes('CRM_DISPATCH_')));
   assert.ok(sources.every((source) =>
     source.includes('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')));

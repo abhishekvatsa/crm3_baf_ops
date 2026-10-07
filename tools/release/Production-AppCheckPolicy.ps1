@@ -9,7 +9,8 @@ function Get-ProductionAppCheckBuildEvidence {
     [AllowNull()][object]$BackendReceipt,
     [AllowEmptyString()][string]$ApprovalSha256 = '',
     [AllowEmptyString()][string]$BackendReceiptSha256 = '',
-    [AllowNull()][object]$Runtime31Proof
+    [AllowNull()][object]$Runtime31Proof,
+    [AllowNull()][object]$Business31Proof
   )
 
   $build = $Policy.release.buildNumber
@@ -119,7 +120,14 @@ function Get-ProductionAppCheckBuildEvidence {
   $runtime31 = $null -ne $Policy.PSObject.Properties['runtimeBackendPrivateReplay'] -or
     ($null -ne $Policy.PSObject.Properties['clientBackendCompatibility'] -and
       $Policy.clientBackendCompatibility.file -ceq 'release/approvals/build31-runtime-client-compatibility-approval.json')
-  if ($runtime31) {
+  $business31 = Test-ProductionAppCheckBusiness31Selected $Policy
+  if ($business31) {
+    if ($runtime31 -or $build -ne 31) { throw 'App Check business31 cannot select a mixed or different build route.' }
+    Assert-ProductionAppCheckBusiness31Binding -Policy $Policy -Proof $Business31Proof -BackendReceipt $BackendReceipt
+    $backendSourceCommit = $Business31Proof.businessBackend31.source.commit
+    $businessMeasurement = Get-ProductionAppCheckBusiness31Measurement $Business31Proof
+    $serverDefaultEnforcement = $businessMeasurement.client.policy.appCheck.serverEnforcementAtBuild
+  } elseif ($runtime31) {
     if ($null -eq $Runtime31Proof -or $build -ne 31) { throw 'App Check runtime31 choice requires complete private replay.' }
     Assert-ProductionRuntime31PublicBinding -Policy $Policy -Proof $Runtime31Proof
     if ($BackendReceipt.schemaVersion -ne 2 -or
@@ -157,7 +165,7 @@ function Get-ProductionAppCheckBuildEvidence {
       identitySourceSha256 = '1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F'
     }
     if (-not $choice.clientEnabled -or $choice.androidProvider -cne 'playIntegrity' -or
-        (-not $runtime31 -and ($BackendReceipt.sourceAuthority.commit -cne '2aa30de56cfdb960da3eeefd8956d8cbbae57b46' -or
+        (-not $runtime31 -and -not $business31 -and ($BackendReceipt.sourceAuthority.commit -cne '2aa30de56cfdb960da3eeefd8956d8cbbae57b46' -or
         $BackendReceiptSha256 -cne '3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45' -or
         $Policy.finalization.exactFunctionFleetDeploymentReceiptFile -cne 'release/evidence/build30-current-source-backend-deployment-closure.json')) -or
         $null -eq $Approval.PSObject.Properties['serverEnforcementScopesAtBuild']) {
@@ -186,7 +194,97 @@ function Get-ProductionAppCheckBuildEvidence {
     tokenValidationEvidence = 'not-proved-by-artifact-construction'
   }
   if ($build -eq 31) { $result.serverEnforcementScopesAtBuild = $scopes }
+  if ($business31) {
+    Assert-ProductionAppCheckSameValue $result $businessMeasurement.client.policy.appCheck 'Business31 replayed App Check compiler choice'
+  }
   $result
+}
+
+function Test-ProductionAppCheckBusiness31Selected {
+  param([Parameter(Mandatory)][object]$Policy)
+  if ($null -ne $Policy.PSObject.Properties['businessBackendPrivateReplay']) { return $true }
+  foreach ($name in @('clientBackendCompatibility', 'runtimeBackendPrivateReplay')) {
+    if ($null -ne $Policy.PSObject.Properties[$name]) {
+      foreach ($field in @('profile', 'file')) {
+        if ($null -ne $Policy.$name -and $null -ne $Policy.$name.PSObject.Properties[$field] -and
+            $Policy.$name.$field -is [string] -and $Policy.$name.$field -match 'business') { return $true }
+      }
+    }
+  }
+  return $false
+}
+
+function Assert-ProductionAppCheckSameValue {
+  param([AllowNull()][object]$Actual, [AllowNull()][object]$Expected, [string]$Label)
+  # Compare closed objects independently of JSON property order; types of scalar
+  # values remain significant. This only joins an already authenticated result.
+  $aObject = $Actual -is [Collections.IDictionary] -or $Actual -is [pscustomobject]
+  $eObject = $Expected -is [Collections.IDictionary] -or $Expected -is [pscustomobject]
+  if ($aObject -or $eObject) {
+    if (-not $aObject -or -not $eObject) { throw "$Label differs." }
+    $aKeys = @(if ($Actual -is [Collections.IDictionary]) { $Actual.Keys } else { $Actual.PSObject.Properties.Name })
+    $eKeys = @(if ($Expected -is [Collections.IDictionary]) { $Expected.Keys } else { $Expected.PSObject.Properties.Name })
+    if (@(Compare-Object ($aKeys | Sort-Object) ($eKeys | Sort-Object) -CaseSensitive).Count -ne 0) { throw "$Label fields differ." }
+    foreach ($key in $aKeys) { Assert-ProductionAppCheckSameValue $Actual.$key $Expected.$key "$Label/$key" }
+    return
+  }
+  if ((ConvertTo-Json -InputObject $Actual -Compress -Depth 30) -cne (ConvertTo-Json -InputObject $Expected -Compress -Depth 30)) {
+    throw "$Label differs."
+  }
+}
+
+function Assert-ProductionAppCheckBusiness31Binding {
+  param([Parameter(Mandatory)][object]$Policy, [AllowNull()][object]$Proof,
+    [Parameter(Mandatory)][object]$BackendReceipt)
+  # The repository adapter obtains this from the independently pinned V child.
+  # This pure join never turns a supplied object into private replay authority.
+  if ($null -eq $Proof -or $Proof.ok -isnot [bool] -or -not $Proof.ok -or
+      $Proof.route -cne 'business-backend31' -or $Policy.versionPolicy.buildNumber -cne 31 -or
+      $Policy.businessBackendPrivateReplay.profile -cne 'build31-exact-business-backend-v1' -or
+      $Policy.clientBackendCompatibility.profile -cne 'build31-business-client-compatibility-v1') {
+    throw 'App Check business31 requires the exact authenticated policy measurement.'
+  }
+  $business = $Proof.businessBackend31
+  $result = Get-ProductionAppCheckBusiness31Measurement $Proof
+  $client = $result.client
+  $measured = $client.policy
+  if ($client.schemaVersion -cne 2 -or $client.profile -cne 'build31-business-client-compatibility-v1' -or
+      $client.appCheckSourcePolicyVerified -isnot [bool] -or -not $client.appCheckSourcePolicyVerified -or
+      $measured.schemaVersion -cne 1 -or $measured.profile -cne 'build31-business-client-policy-v1' -or
+      $measured.policySourceVerified -isnot [bool] -or -not $measured.policySourceVerified -or
+      $measured.appCheckSourcePolicyVerified -isnot [bool] -or -not $measured.appCheckSourcePolicyVerified -or
+      $BackendReceipt.schemaVersion -cne 1 -or $BackendReceipt.documentType -cne 'build31-business-private-record-custody' -or
+      $BackendReceipt.recordKind -cne 'closure') { throw 'App Check business31 policy/closure measurement is incomplete.' }
+  foreach ($name in @('independentlySelectedInputsAuthenticated', 'executingHostAuthenticated', 'humanIdentityAuthenticated',
+      'trustedClockAuthenticated', 'credentialAccessAuthorized', 'backendDeploymentAuthorized',
+      'constructionAuthorized', 'signingAuthorized', 'distributionAuthorized')) {
+    foreach ($scope in @($client, $measured)) {
+      if ($scope.$name -isnot [bool] -or $scope.$name -ne $false) { throw 'App Check business31 measurement cannot grant operational authority.' }
+    }
+  }
+  if ($client.platformIdentityAuthenticated -isnot [bool] -or $client.platformIdentityAuthenticated -ne $false -or
+      $measured.platformIdentityAuthenticated -isnot [bool] -or $measured.platformIdentityAuthenticated -ne $false -or
+      $measured.privateReplayVerified -isnot [bool] -or $measured.privateReplayVerified -ne $false) {
+    throw 'App Check business31 source measurement cannot authenticate processes or private execution.'
+  }
+  Assert-ProductionAppCheckSameValue $BackendReceipt $business.currentBackend 'Business31 actual closure bytes'
+  foreach ($source in @($BackendReceipt.source, $result.source, $measured.source)) {
+    Assert-ProductionAppCheckSameValue $source $business.source 'Business31 source M'
+  }
+  foreach ($entry in @(@('businessBackendPrivateReplay', 'descriptorPointer'), @('clientBackendCompatibility', 'clientPointer'))) {
+    $selected = $Policy.($entry[0]); $pointer = $business.($entry[1])
+    foreach ($field in @('commit', 'file', 'sha256')) {
+      if ($selected.$field -cne $pointer.$field) { throw 'App Check business31 selected pointer differs.' }
+    }
+  }
+  Assert-ProductionAppCheckSameValue $business.descriptorPointer $result.descriptorPointer 'Business31 measured descriptor'
+  Assert-ProductionAppCheckSameValue $business.clientPointer $client.decisionPointer 'Business31 measured client decision'
+  Assert-ProductionAppCheckSameValue $business.closurePointer $result.closurePointer 'Business31 measured closure'
+  if ($business.closurePointer.file -cne $Policy.finalization.exactFunctionFleetDeploymentReceiptFile -or
+      $business.closurePointer.sha256 -cne $Policy.finalization.exactFunctionFleetDeploymentReceiptSha256 -or
+      $measured.release.releaseId -cne $Policy.release.releaseId -or
+      $measured.release.reservationId -cne $Policy.versionPolicy.reservationId -or
+      $measured.release.buildNumber -cne 31) { throw 'App Check business31 release or closure differs.' }
 }
 
 function Assert-ProductionAppCheckManifest {
@@ -207,6 +305,38 @@ function Assert-ProductionAppCheckManifest {
   }
 }
 
+function Get-ProductionAppCheckBusiness31Measurement {
+  param([Parameter(Mandatory)][object]$Proof)
+  $business = $Proof.businessBackend31
+  $hasPolicy = $null -ne $business.PSObject.Properties['policyResult']
+  $hasPrerequisite = $null -ne $business.PSObject.Properties['prerequisiteResult']
+  if ($hasPolicy -eq $hasPrerequisite) { throw 'App Check requires exactly one authenticated measurement route.' }
+  if ($hasPolicy) {
+    $result = $business.policyResult
+    if ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-policy-result-v1' -or
+        $result.purpose -cne 'policy' -or $result.policyMeasurementVerified -isnot [bool] -or -not $result.policyMeasurementVerified) {
+      throw 'App Check policy measurement is incomplete.'
+    }
+    foreach ($name in @('independentlySelectedInputsAuthenticated', 'executingHostAuthenticated', 'humanIdentityAuthenticated',
+        'trustedClockAuthenticated', 'originalProcessExecutionAuthenticated', 'credentialAccessAuthorized',
+        'backendDeploymentAuthorized', 'constructionAuthorized', 'signingAuthorized', 'distributionAuthorized')) {
+      if ($result.$name -isnot [bool] -or $result.$name -ne $false) { throw 'App Check policy measurement cannot grant authority.' }
+    }
+  } else {
+    $result = $business.prerequisiteResult
+    if ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-prerequisite-measurement-v1' -or
+        $result.purpose -cnotin @('construction', 'package-verification') -or
+        $result.replayMode -cnotin @('fresh-dispatch', 'same-parent-reauthentication') -or
+        ($result.purpose -ceq 'package-verification' -and $result.replayMode -cne 'fresh-dispatch') -or
+        $result.freshHostedReplayVerified -isnot [bool] -or -not $result.freshHostedReplayVerified) {
+      throw 'App Check operational prerequisite measurement is incomplete.'
+    }
+    Assert-ProductionAppCheckSameValue $result.limits ([ordered]@{deploymentAuthorized=$false; constructionAuthorized=$false;
+      signingAuthorized=$false; distributionAuthorized=$false}) 'App Check prerequisite limits'
+  }
+  $result
+}
+
 function Get-ProductionAppCheckRepositoryEvidence {
   param([Parameter(Mandatory)][string]$RepositoryRoot, [Parameter(Mandatory)][object]$Policy)
   if ($Policy.release.buildNumber -ge 1 -and $Policy.release.buildNumber -le 29) { return $null }
@@ -222,7 +352,13 @@ function Get-ProductionAppCheckRepositoryEvidence {
   if ($Policy.release.buildNumber -notin @(30, 31)) { throw 'No App Check construction protocol is admitted for this build.' }
   $approvalPath = Join-Path $root "release/approvals/build$($Policy.release.buildNumber)-app-check-client-approval.json"
   $runtimeProof = $null
-  if ($null -ne $Policy.PSObject.Properties['runtimeBackendPrivateReplay'] -or
+  $businessProof = $null
+  if (Test-ProductionAppCheckBusiness31Selected $Policy) {
+    $helper = Join-Path $RepositoryRoot 'tools/release/clientBackendCompatibility31.js'
+    $output = @(& node --no-global-search-paths $helper $RepositoryRoot (Join-Path $RepositoryRoot 'release/production-release-policy.json'))
+    if ($LASTEXITCODE -ne 0 -or $output.Count -ne 1) { throw 'App Check business31 protected policy measurement failed.' }
+    $businessProof = [string]$output[0] | ConvertFrom-Json -Depth 100
+  } elseif ($null -ne $Policy.PSObject.Properties['runtimeBackendPrivateReplay'] -or
       ($null -ne $Policy.PSObject.Properties['clientBackendCompatibility'] -and
        $Policy.clientBackendCompatibility.file -ceq 'release/approvals/build31-runtime-client-compatibility-approval.json')) {
     . (Join-Path $RepositoryRoot 'tools/release/Runtime-BackendPrivateReplay31.ps1')
@@ -233,5 +369,5 @@ function Get-ProductionAppCheckRepositoryEvidence {
     -BackendReceipt (Get-Content -LiteralPath $backendPath -Raw | ConvertFrom-Json) `
     -ApprovalSha256 ((Get-FileHash -LiteralPath $approvalPath -Algorithm SHA256).Hash) `
     -BackendReceiptSha256 ((Get-FileHash -LiteralPath $backendPath -Algorithm SHA256).Hash) `
-    -Runtime31Proof $runtimeProof
+    -Runtime31Proof $runtimeProof -Business31Proof $businessProof
 }

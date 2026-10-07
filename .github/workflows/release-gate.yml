@@ -30,11 +30,19 @@ jobs:
   flutter-gates:
     name: Flutter host analysis + tests + no-loss contracts
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
+          persist-credentials: false
+          # This source-authority job measures actual PR head S. The other
+          # jobs retain their existing synthetic merge checkout coverage.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Cheap checked-in source preflight (no install or device)
         run: python3 tools/testing/run_source_preflight.py
@@ -42,13 +50,58 @@ jobs:
       - name: Validate and publish test evidence taxonomy
         run: python3 tools/testing/verify_test_evidence_taxonomy.py
 
+      - name: Set up Node 22 for A-05 reconciliation contracts
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.23.1'
+
+      - name: Prepare independently enrolled business verifier
+        shell: pwsh
+        env:
+          BUSINESS31_CONFIG_JSON: ${{ vars.BUSINESS31_CONTROLLER_CONFIG_JSON }}
+          BUSINESS31_CONFIG_SHA256: ${{ vars.BUSINESS31_CONTROLLER_CONFIG_SHA256 }}
+          BUSINESS31_REQUEST_JSON: ${{ vars.BUSINESS31_POLICY_REQUEST_JSON }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $policy = Get-Content release/production-release-policy.json -Raw | ConvertFrom-Json
+          $business = $null -ne $policy.PSObject.Properties['businessBackendPrivateReplay']
+          foreach ($name in @('clientBackendCompatibility', 'runtimeBackendPrivateReplay')) {
+            if ($null -ne $policy.PSObject.Properties[$name] -and $null -ne $policy.$name) {
+              foreach ($field in @('profile', 'file')) {
+                if ($null -ne $policy.$name.PSObject.Properties[$field] -and [string]$policy.$name.$field -match 'business') { $business = $true }
+              }
+            }
+          }
+          if (-not $business) { exit 0 }
+          $bytes = [Text.UTF8Encoding]::new($false).GetBytes($env:BUSINESS31_CONFIG_JSON)
+          if ($bytes.Length -eq 0 -or $bytes.Length -gt 2097152 -or
+              $env:BUSINESS31_CONFIG_SHA256 -cnotmatch '^[A-F0-9]{64}$' -or
+              [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)) -cne $env:BUSINESS31_CONFIG_SHA256) {
+            throw 'Independent business verifier enrollment is missing or changed.'
+          }
+          $config = $env:BUSINESS31_CONFIG_JSON | ConvertFrom-Json -AsHashtable -Depth 100
+          $entry = 'tools/release/Initialize-Business31Controller.ps1'
+          if ($config.controller.files[$entry] -cnotmatch '^[A-F0-9]{64}$' -or
+              (Get-FileHash -LiteralPath $entry -Algorithm SHA256).Hash -cne $config.controller.files[$entry]) {
+            throw 'Controller initializer differs from independent enrollment.'
+          }
+          & $entry -RepositoryRoot $PWD -ConfigJson $env:BUSINESS31_CONFIG_JSON `
+            -ConfigSha256 $env:BUSINESS31_CONFIG_SHA256 -PolicyRequestJson $env:BUSINESS31_REQUEST_JSON `
+            -ExportGitHubEnvironment | Out-Null
+
       - name: Production policy and package-verifier runtime gate
         shell: pwsh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           ./tools/release/Test-ProductionReleasePolicy.ps1 `
             -PolicyPath release/production-release-policy.json `
             -AuthorityPath release/backend-authority.prod.json `
             -RepositoryRoot $PWD
+
+      - name: Business replay launcher contract tests
+        timeout-minutes: 3
+        run: python3 -I -B tools/release/test_business31_hosted_launcher.py
 
       - name: Set up Flutter 3.44.0
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
@@ -56,11 +109,6 @@ jobs:
           channel: stable
           flutter-version: "3.44.0"
           cache: true
-
-      - name: Set up Node 22 for A-05 reconciliation contracts
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "22"
 
       - name: Flutter version
         run: flutter --version
@@ -103,6 +151,8 @@ jobs:
         run: python3 tools/v4/v4_2_ultimate_audit.py
 
       - name: Canonical source and authority audit
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/v4/v4_2_r1_canonical_audit.py --phase post-codegen
 
       - name: Build Functions producer for A-05 contracts
@@ -458,7 +508,8 @@ jobs:
           # Expand only the separately versioned business-source and neutral bundle suites.
           shopt -s failglob
           test -f tools/release/privateEvidenceBundle31.test.cjs
-          business31_tests=(tools/release/business31*.test.cjs tools/release/privateEvidenceBundle31.test.cjs)
+          test -f tools/release/Initialize-Business31Controller.test.cjs
+          business31_tests=(tools/release/business31*.test.cjs tools/release/privateEvidenceBundle31.test.cjs tools/release/Initialize-Business31Controller.test.cjs)
           node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs "${business31_tests[@]}"
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody

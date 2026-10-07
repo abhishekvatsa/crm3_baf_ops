@@ -189,14 +189,19 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   syntheticPolicy.toolchain.nodeVersion = process.versions.node;
   put("release/production-release-policy.json", JSON.stringify(syntheticPolicy));
   const syntheticProfile = {...toolchain.format31(fs.readFileSync(process.execPath)),nodeVersion:process.versions.node,npmVersion,nodeSha256:sha(fs.readFileSync(process.execPath)),npmEntry:"bin/npm-cli.js",npmFiles,npmFileCount:Object.keys(npmFiles).length,npmFilesSha256:sha(require("./business31NpmBinMaterialization.cjs").canonical(npmFiles)),provenance:{nodeDistribution:{url:"https://example.invalid/synthetic-node",sha256:"A".repeat(64)},npmDistribution:{url:"https://example.invalid/synthetic-npm",sha256:"B".repeat(64),integrity:"sha512-"+Buffer.alloc(64).toString("base64")},reviewEvidenceSha256:"C".repeat(64)}};
-  // Only this synthetic source approves these inert fixtures. The production
-  // profile table stays empty, and no process success is claimed by this test.
-  put(toolchain.PROFILES, JSON.stringify({schemaVersion:1,documentType:"build31-approved-toolchain-profiles",profiles:{"synthetic-host-case":syntheticProfile}}));
+  // Only this synthetic source approves these inert fixtures. Keep its producer
+  // binding exact; the real enrolled table is unchanged and no process success
+  // is claimed by this test.
+  const syntheticProfiles = Buffer.from(JSON.stringify({schemaVersion:1,documentType:"build31-approved-toolchain-profiles",profiles:{"synthetic-host-case":syntheticProfile}}));
+  put(toolchain.PROFILES, syntheticProfiles); producerBindings[toolchain.PROFILES] = sha(syntheticProfiles);
   const V = commit([fixtureSource]);
   put("fixture-main.txt", "synthetic main parent\n"); const main = commit([V]);
   git(["read-tree", V]); put("fixture-branch.txt", "synthetic reviewed parent\n"); const branch = commit([V]);
   git(["read-tree", main]); put("fixture-branch.txt", "synthetic reviewed parent\n"); const M = commit([main, branch]);
   git(["checkout", "--force", "--detach", M]);
+  // Execute the unchanged authority and its helpers from this same isolated V/M
+  // population, including the deliberately synthetic source-owned profile table.
+  const fixtureSubject = require(path.join(repositoryRoot, "tools/release/business31BackendAuthority.cjs"));
   const options = {repositoryRoot, gitExecutable, gitSha256: sha(fs.readFileSync(gitExecutable))};
   const repository = require("./business31TrustedInput.cjs").openTrustedGitRepository31(options);
   const admission = require("./business31SourceAdmission.cjs"), baseline = repository.snapshot(admission.BASELINE), snapshot = repository.snapshot(M);
@@ -291,14 +296,14 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   put(subject.DECISION_FILE, envelope); const C = commit([M]);
   const input = {...options, trustedVerifier: {commit: V, tree: git(["rev-parse", V + "^{tree}"]), files: producerBindings}, sourceCommit: M, sourceManifest,
     trustedManifestSha256, evidenceDirectory, decisionPointer: {commit: C, file: subject.DECISION_FILE, sha256: sha(envelope)}, nowUtc: "2026-01-02T05:00:00Z"};
-  const result = subject.verifyBusiness31BackendAuthority(input);
+  const result = fixtureSubject.verifyBusiness31BackendAuthority(input);
   assert.equal(result.preparationOnly, true); assert.equal(result.sourceAndRecordBindingsVerified, true); assert.deepEqual(result.source, source);
   assert.equal(result.runtime.emittedFileCount, 252); assert.ok(result.runtime.installedRuntimePathCount > 100);
   for (const key of ["rawControlSemanticsReplayed", "privateClosedChainVerified", "platformIdentityAuthenticated", "humanIdentityAuthenticated", "trustedClockAuthenticated",
     "decisionCustodyTimestampAuthenticated", "deploymentAuthorized", "credentialAccessAuthorized", "constructionAuthorized", "distributionAuthorized"]) assert.equal(result[key], false, key);
   assert.equal(Object.hasOwn(result, "ok"), false);
   const changed = structuredClone(input); changed.trustedVerifier.files["tools/release/business31BackendAuthority.cjs"] = "0".repeat(64);
-  assert.throws(() => subject.verifyBusiness31BackendAuthority(changed), /executing producer differs/);
+  assert.throws(() => fixtureSubject.verifyBusiness31BackendAuthority(changed), /executing producer differs/);
   fs.appendFileSync(path.join(evidenceDirectory, privateRecord.file), " ");
-  assert.throws(() => subject.verifyBusiness31BackendAuthority(input), /private byte count differs/);
+  assert.throws(() => fixtureSubject.verifyBusiness31BackendAuthority(input), /private byte count differs/);
 });

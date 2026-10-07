@@ -5,7 +5,7 @@ const fs = require("node:fs"), path = require("node:path"), crypto = require("no
 const { fileURLToPath, pathToFileURL } = require("node:url"), { isDeepStrictEqual: same, TextDecoder } = require("node:util");
 const { spawnSync } = require("node:child_process");
 const SELF = "business31CaptureBootstrap.cjs";
-const SUITES = Object.freeze({ "capture-session": "business31CaptureSession.test.cjs", "prepared-hook": "business31PreparedHook.test.cjs", "load-boundary": "business31CliLoadBoundary.test.cjs", "bootstrap-regressions": "business31CaptureBootstrap.test.cjs", "capture-recorder": "business31Capture.test.cjs", "capture-installed": "business31CaptureInstalled.test.cjs", "capture-pins": "business31CapturePins.test.cjs", "backend-closure": "business31BackendClosure.test.cjs" });
+const SUITES = Object.freeze({ "controller-primitives": "business31OperationalController.test.cjs", "capture-session": "business31CaptureSession.test.cjs", "prepared-hook": "business31PreparedHook.test.cjs", "load-boundary": "business31CliLoadBoundary.test.cjs", "bootstrap-regressions": "business31CaptureBootstrap.test.cjs", "capture-recorder": "business31Capture.test.cjs", "capture-installed": "business31CaptureInstalled.test.cjs", "capture-pins": "business31CapturePins.test.cjs", "backend-closure": "business31BackendClosure.test.cjs" });
 const CASE_IDS = Object.freeze({
     "load-boundary": [
         "early-api",
@@ -64,6 +64,8 @@ const need = (x, m) => { if (!x)
 const descriptorSame = (a, b) => !!a && !!b && a.enumerable === b.enumerable && a.configurable === b.configurable && Object.hasOwn(a, "value") === Object.hasOwn(b, "value") && (Object.hasOwn(a, "value") ? Object.is(a.value, b.value) && a.writable === b.writable : a.get === b.get && a.set === b.set);
 let active = null;
 let selectedSuite = null;
+let selectedOperation = null;
+let selectedIntentOperation = null;
 function regular(file, directory = false) {
     const absolute = path.resolve(file);
     let part = path.parse(absolute).root;
@@ -112,13 +114,23 @@ function createPopulation(root, bindings) {
     need(same(found.sort(), names.sort()), "complete population differs");
     return { root, bindings: Object.freeze({ ...bindings }), identity: sha(Buffer.from(JSON.stringify(bindings))) };
 }
-function installFreshGuard(sourceRoot, sourceFiles) {
+function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
     need(active === null, "bootstrap cannot reopen");
-    need(require.main === module && Object.keys(Module._cache).length === 1 && Module._cache[__filename] === module, "fresh fixed process entry required");
-    need(process.execArgv.length === 0 && !process.env.NODE_OPTIONS && !process.env.NODE_PATH, "preloaded Node execution refused");
+    const cacheNames = Object.keys(Module._cache);
+    if (phaseEntry === null) {
+        need(require.main === module && cacheNames.length === 1 && Module._cache[__filename] === module, "fresh fixed process entry required");
+    } else {
+        const fixedEntry = path.join(__dirname, "captureBusiness31PreparedInputs.cjs");
+        need(phaseEntry === require.main && phaseEntry.filename === fixedEntry && phaseEntry.loaded === true &&
+            cacheNames.length === 2 && Module._cache[fixedEntry] === phaseEntry && Module._cache[__filename] === module &&
+            module.parent === phaseEntry, "only exact fresh CAPTURE facade/bootstrap cache permitted");
+    }
+    need(same(process.execArgv, selectedOperation === null ? [] : ["--no-global-search-paths"]) &&
+        !process.env.NODE_OPTIONS && !process.env.NODE_PATH, "preloaded Node execution refused");
     const populations = [createPopulation(sourceRoot, sourceFiles)], known = new Map(), loading = new Map(), leases = [];
     need(module.loaded === true, "main module evaluation must finish before startup");
     known.set(__filename, { module, exportsDescriptor: Object.getOwnPropertyDescriptor(module, "exports") });
+    if (phaseEntry) known.set(phaseEntry.filename, {module:phaseEntry, exportsDescriptor:Object.getOwnPropertyDescriptor(phaseEntry,"exports")});
     const originalLoad = Object.getOwnPropertyDescriptor(Module, "_load"), originalResolve = Object.getOwnPropertyDescriptor(Module, "_resolveFilename"), originalRegister = Object.getOwnPropertyDescriptor(Module, "registerHooks"), cache = Module._cache;
     const extensions = Module._extensions, extensionDescriptors = Object.getOwnPropertyDescriptors(extensions), compile = Object.getOwnPropertyDescriptor(Module.prototype, "_compile");
     let failed = false, terminal = false, cli = null, hook = null;
@@ -265,7 +277,18 @@ function installFreshGuard(sourceRoot, sourceFiles) {
     });
     Object.defineProperty(Module, "registerHooks", ownedRegister);
     Object.defineProperty(Module, "_load", ownedLoad);
-    active = { assert() { core(); bad(!terminal, "CLI lifetime is terminal"); }, bind(runtime) {
+    active = { assert() { core(); bad(!terminal, "CLI lifetime is terminal"); },
+        admitIntentPopulation(root, bindings) {
+            try {
+                core();
+                bad(selectedOperation === "intent" && !cli && !terminal && leases.length === 0,
+                    "intent populations must precede the CLI lease");
+                const proposed = createPopulation(root, bindings);
+                bad(!populations.some(p => p.root === proposed.root || isInside(p.root, proposed.root) || isInside(proposed.root, p.root)), "overlapping intent population");
+                for (const file of Object.keys(cache)) bad(!isInside(proposed.root, file), "pre-existing intent cache refused");
+                populations.push(proposed);
+            } catch (error) { failed = true; terminal = true; throw error; }
+        }, bind(runtime) {
             try {
                 core();
                 bad(!terminal, "CLI lifetime cannot reopen");
@@ -349,8 +372,92 @@ function launchComponentSuite31({ suite, caseId = null, componentData = null, ou
         error: result.error?.code ?? (result.status === 0 && !summaryOkay ? "EMPTY_OR_INCOMPLETE_COMPONENT_TEST_RUN" : null),
         testCount: summary ? Number(summary[1]) : null, componentOnly: true, processAuthenticated: false, deploymentAuthorized: false };
 }
-function launchBusinessCapture31() { throw Error("Business capture operational entry unavailable: approved toolchain, externally selected source, fixed observer and three-child controller must be connected; component requests confer no authority"); }
+function assertOperational31() {
+    assertBootstrap31();
+    need(selectedSuite === null && ["controller", "phase"].includes(selectedOperation), "component entry cannot authorize operational dispatch");
+}
+function assertIntentWorker31(operation) {
+    assertBootstrap31();
+    need(selectedSuite === null && selectedOperation === "intent" && operation === selectedIntentOperation, "fixed intent worker entry required");
+}
+function launchBusinessCapture31() {
+    throw Error("Business capture requires the fixed --business-controller process entry; a shared-process call is unsupported");
+}
+function verifySelectedEnvironment31(configuration, extra = {}) {
+    const selected=configuration.execution.environment;
+    need(selected&&typeof selected==="object"&&!Array.isArray(selected)&&Object.values(selected).every(value=>typeof value==="string"),"explicit protected process environment required");
+    const normalized=Object.fromEntries(Object.entries({...selected,...extra}).map(([name,value])=>[name.toUpperCase(),value]));
+    need(Object.keys(normalized).length===Object.keys(selected).length+Object.keys(extra).length&&
+        same(normalized,Object.fromEntries(Object.entries(process.env).map(([name,value])=>[name.toUpperCase(),value]))),"actual fresh process environment differs from protected selection");
+}
+async function runOperationalPhaseMain31(entry) {
+    need(active === null && process.argv.length === 4 && process.argv[2] === "--config", "fixed CAPTURE --config entry required");
+    const digest = process.env.BUSINESS31_PHASE_CONTEXT_SHA256;
+    need(typeof digest === "string" && /^[A-F0-9]{64}$/.test(digest), "parent-bound context bytes required");
+    const context = readJson(process.argv[3], digest);
+    // Exact root is declared and bound by the retained context, not guessed from an arbitrary module path.
+    need(context.configuration && typeof context.evidenceDirectory === "string", "retained protected selection required");
+    const config = readJson(path.join(context.evidenceDirectory,context.configuration.file), context.configuration.sha256);
+    verifySelectedEnvironment31(config,{BUSINESS31_PHASE_CONTEXT_SHA256:digest});
+    need(config.execution.sourceRoot === __dirname && config.execution.helperFiles[SELF] === sha(fs.readFileSync(__filename)) &&
+        config.execution.nodeExecutable.path === regular(process.execPath) &&
+        config.execution.nodeExecutable.sha256 === sha(fs.readFileSync(process.execPath)), "selected phase source/interpreter differs");
+    selectedOperation = "phase";
+    const guard = installFreshGuard(__dirname, config.execution.helperFiles, entry);
+    try {
+        await require("./business31OperationalController.cjs").runPhaseChild31({contextFile:process.argv[3], contextSha256:digest, configuration:config});
+        process.once("exit",()=>{try{guard.finish();}catch{process.exitCode=1;}});
+    } catch (error) {
+        try { guard.finish(); } catch (cleanup) { throw new AggregateError([error,cleanup],"phase and cleanup failed"); }
+        throw error;
+    }
+}
+async function runOperationalControllerMain31(file, digest) {
+    need(active === null, "fresh controller required");
+    const config = readJson(file, digest);
+    verifySelectedEnvironment31(config);
+    need(config.execution.sourceRoot === __dirname && config.execution.helperFiles[SELF] === sha(fs.readFileSync(__filename)) &&
+        config.execution.nodeExecutable.path === regular(process.execPath) &&
+        config.execution.nodeExecutable.sha256 === sha(fs.readFileSync(process.execPath)), "selected controller source/interpreter differs");
+    selectedOperation = "controller";
+    const guard = installFreshGuard(__dirname, config.execution.helperFiles);
+    try { return await require("./business31OperationalController.cjs").runController31({configuration:config,configurationFile:file,configurationSha256:digest}); }
+    finally { guard.finish(); }
+}
+async function runIntentWorkerMain31(file, digest) {
+    need(active === null, "fresh intent worker required");
+    const request = readJson(file, digest);
+    exact(request, ["schemaVersion", "operation", "sourceRoot", "sourceFiles", "nodeExecutable", "runtime",
+        "functionsRoot", "functionsFiles", "emittedFiles", "configuration"], "intent worker request");
+    need(request.schemaVersion === 1 && ["manifest", "package"].includes(request.operation), "fixed intent operation required");
+    exact(request.nodeExecutable, ["path", "sha256"], "intent interpreter");
+    exact(request.runtime, ["cliEntrypoint", "cliFileBindings"], "intent CLI");
+    for (const pointer of [request.functionsFiles, request.emittedFiles, request.configuration]) exact(pointer, ["path", "sha256"], "intent pointer");
+    need(request.sourceRoot === __dirname && request.sourceFiles[SELF] === sha(fs.readFileSync(__filename)) &&
+        request.nodeExecutable.path === regular(process.execPath) && request.nodeExecutable.sha256 === sha(fs.readFileSync(process.execPath)), "selected intent source/interpreter differs");
+    selectedOperation = "intent";
+    selectedIntentOperation = request.operation;
+    const guard = installFreshGuard(__dirname, request.sourceFiles);
+    let lease;
+    try {
+        const root = regular(request.functionsRoot, true);
+        guard.admitIntentPopulation(root, readJson(request.functionsFiles.path, request.functionsFiles.sha256));
+        const emitted = readJson(request.emittedFiles.path, request.emittedFiles.sha256);
+        need(Object.keys(emitted).every(name => name.startsWith("lib/")), "only retained Functions emitted population may load");
+        for (const [name, hash] of Object.entries(emitted)) need(sha(fs.readFileSync(regular(path.join(root, name)))) === hash, "retained emitted bytes differ");
+        lease = guard.bind(request.runtime);
+        await require("./prepareBusinessIntent31.cjs").runIntentWorker31({operation:request.operation,
+            configurationFile:request.configuration.path, configurationSha256:request.configuration.sha256});
+        lease.assertHealthy();
+    } finally {
+        try { if (lease && !lease.isReleased()) lease.release(); } finally { guard.finish(); }
+    }
+}
 async function main() {
+    if (process.argv.length === 5 && process.argv[2] === "--intent-worker")
+        return runIntentWorkerMain31(process.argv[3],process.argv[4]);
+    if (process.argv.length === 5 && process.argv[2] === "--business-controller")
+        return runOperationalControllerMain31(process.argv[3],process.argv[4]);
     need(process.argv.length === 5 && process.argv[2] === "--component-child", "only fixed component child entry is available; operational capture is closed");
     const input = readJson(process.argv[3], process.argv[4]);
     exact(input, ["schemaVersion", "operation", "suite", "caseId", "componentData", "sourceRoot", "sourceFiles", "nodeExecutable", "nodeSha256", "gitExecutable", "nonOperational"], "component request");
@@ -415,6 +522,6 @@ function runComponentSuiteTest31(suite) {
         assert.equal(result.status, 0, stdout + "\n" + stderr);
     });
 }
-module.exports = { SELF, SUITES, sourceMap, isComponentChild31, runComponentSuiteTest31, launchComponentSuite31, launchBusinessCapture31, assertBootstrap31, installCliLoadBoundary31 };
+module.exports = { SELF, SUITES, sourceMap, isComponentChild31, runComponentSuiteTest31, launchComponentSuite31, launchBusinessCapture31, assertBootstrap31, assertOperational31, assertIntentWorker31, runOperationalPhaseMain31, installCliLoadBoundary31 };
 if (require.main === module)
     setImmediate(() => main().catch(error => { process.stderr.write(error.stack + "\n"); process.exitCode = 1; }));

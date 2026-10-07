@@ -5,7 +5,7 @@ const sourceFile = path.join(__dirname, "business31CaptureSession.cjs");
 const source = fs.readFileSync(sourceFile, "utf8");
 const map = source.match(/const PINS = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
 assert.ok(map, "capture session keeps its finite literal dependency map");
-const dependencies = [...map[1].matchAll(/"([^"\r\n]+\.cjs)": "[A-F0-9]{64}"/g)].map(row => row[1]);
+const dependencies = [...map[1].matchAll(/"([^"\r\n]+\.(?:cjs|py|json))": "[A-F0-9]{64}"/g)].map(row => row[1]);
 assert.ok(dependencies.length > 0);
 const helper = "business31NpmBinMaterialization.cjs";
 const scratch = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "business31-capture-pins-"));
@@ -25,7 +25,7 @@ test("capture verifies the new preparation dependency before importing or instal
     [require("node:net").Socket.prototype, "connect"], [require("node:tls"), "connect"],
     [require("node:module"), "_load"], [globalThis, "fetch"]];
   const before = slots.map(([object, key]) => Object.getOwnPropertyDescriptor(object, key));
-  for (const dependency of [helper, "business31ToolchainIdentity.cjs"]) {
+  for (const dependency of [helper, "business31ToolchainIdentity.cjs", "business31CaptureRecorder.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"]) {
     assert.ok(dependencies.includes(dependency), "new dependency is pinned before import");
     for (const label of ["modified", "missing"]) {
       const f = copy(dependency + "-" + label), target = path.join(f.root, dependency);

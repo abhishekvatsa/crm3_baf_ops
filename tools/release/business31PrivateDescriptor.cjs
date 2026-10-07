@@ -22,7 +22,8 @@ const CORE = Object.freeze([
   'captureBusiness31PreparedInputs.cjs','business31CaptureBootstrap.cjs','privateEvidenceBundle31.cjs',
   'backendRuntimeEvidenceAccess31.cjs','backendRuntimeControls31.cjs',
   'backendRuntimeReadbacks31.cjs','backendRuntimeExecutionAdmission31.cjs',
-  'runtimeDeploymentTransportGuard31.cjs'
+  'runtimeDeploymentTransportGuard31.cjs',
+  'business31CaptureRecorder.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json','business31HostedProtocol.cjs','business31HostedReplay.cjs','business31HostedResult.cjs','business31HostedLauncher.py'
 ].map(file=>'tools/release/'+file));
 const sha = bytes=>crypto.createHash('sha256').update(bytes).digest('hex').toUpperCase();
 function need(ok,label){if(!ok)throw Error('Business descriptor: '+label);}
@@ -41,8 +42,10 @@ function binding(value,label){
   exact(value,['commit','tree'],label);
   need(hex(value.commit,40)&&hex(value.tree,40),label+' identity invalid');
 }
+// Finite Python/data inputs are measured alongside executable release producers.
+const SUPPORT_PRODUCERS = Object.freeze(['tools/release/runtime_process_runner.py','tools/release/runtime_supervisor.py','tools/release/business31HostedLauncher.py','tools/release/runtime_contract_bindings.json','tools/release/business31ToolchainProfiles.json']);
 function producer(file){
-  return typeof file==='string' && (file==='tools/v4/v4_2_r1_canonical_audit.py' || /^tools\/release\/.+\.(?:js|cjs|ps1)$/.test(file));
+  return typeof file==='string' && (file==='tools/v4/v4_2_r1_canonical_audit.py' || SUPPORT_PRODUCERS.includes(file) || /^tools\/release\/.+\.(?:js|cjs|ps1)$/.test(file));
 }
 function safeProducer(file){
   return producer(file) && /^[A-Za-z0-9_+./-]+$/.test(file) &&

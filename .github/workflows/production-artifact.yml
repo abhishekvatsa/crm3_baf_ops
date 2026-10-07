@@ -26,7 +26,7 @@ on:
 
 permissions:
   contents: write
-  actions: read
+  actions: write
 
 concurrency:
   group: crm3-production-build-number-${{ inputs.build_number }}
@@ -37,7 +37,9 @@ jobs:
     name: Governed production-signed pre-release artifact
     runs-on: ubuntu-24.04
     environment: crm3-baf-ops-production-signing
-    timeout-minutes: 90
+    # Two independently bounded private replays (before construction and on the
+    # completed package), plus the existing compile/verification work.
+    timeout-minutes: 360
     env:
       CRM_DISPATCH_COMMIT_SHA: ${{ inputs.commit_sha }}
       CRM_DISPATCH_RELEASE_ID: ${{ inputs.release_id }}
@@ -72,6 +74,7 @@ jobs:
           ref: ${{ inputs.commit_sha }}
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Prove exact live remote main and policy inputs
         shell: pwsh
@@ -248,16 +251,6 @@ jobs:
             throw 'Exact run lacks approval by the governed environment reviewer.'
           }
 
-          pwsh -NoProfile -ExecutionPolicy Bypass `
-            -File tools/release/Test-ProductionReleasePolicy.ps1 `
-            -PolicyPath release/production-release-policy.json `
-            -AuthorityPath release/backend-authority.prod.json `
-            -RepositoryRoot $PWD `
-            -RequireArtifactConstructionAuthority
-          if ($LASTEXITCODE -ne 0) {
-            throw 'Pre-reservation production policy verification failed.'
-          }
-
           "CRM_RELEASE_ID=$($policy.release.releaseId)" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
           "CRM_RESERVATION_ID=$($policy.versionPolicy.reservationId)" |
@@ -340,6 +333,55 @@ jobs:
             throw "Java version mismatch: $javaText"
           }
 
+      - name: Prepare independently enrolled business verifier
+        shell: pwsh
+        env:
+          BUSINESS31_CONFIG_JSON: ${{ vars.BUSINESS31_CONTROLLER_CONFIG_JSON }}
+          BUSINESS31_CONFIG_SHA256: ${{ vars.BUSINESS31_CONTROLLER_CONFIG_SHA256 }}
+          BUSINESS31_REQUEST_JSON: ${{ vars.BUSINESS31_POLICY_REQUEST_JSON }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $policy = Get-Content release/production-release-policy.json -Raw | ConvertFrom-Json
+          $business = $null -ne $policy.PSObject.Properties['businessBackendPrivateReplay']
+          foreach ($name in @('clientBackendCompatibility', 'runtimeBackendPrivateReplay')) {
+            if ($null -ne $policy.PSObject.Properties[$name] -and $null -ne $policy.$name) {
+              foreach ($field in @('profile', 'file')) {
+                if ($null -ne $policy.$name.PSObject.Properties[$field] -and [string]$policy.$name.$field -match 'business') { $business = $true }
+              }
+            }
+          }
+          if (-not $business) { exit 0 }
+          $bytes = [Text.UTF8Encoding]::new($false).GetBytes($env:BUSINESS31_CONFIG_JSON)
+          if ($bytes.Length -eq 0 -or $bytes.Length -gt 2097152 -or
+              $env:BUSINESS31_CONFIG_SHA256 -cnotmatch '^[A-F0-9]{64}$' -or
+              [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)) -cne $env:BUSINESS31_CONFIG_SHA256) {
+            throw 'Independent business verifier enrollment is missing or changed.'
+          }
+          $config = $env:BUSINESS31_CONFIG_JSON | ConvertFrom-Json -AsHashtable -Depth 100
+          $entry = 'tools/release/Initialize-Business31Controller.ps1'
+          if ($config.controller.files[$entry] -cnotmatch '^[A-F0-9]{64}$' -or
+              (Get-FileHash -LiteralPath $entry -Algorithm SHA256).Hash -cne $config.controller.files[$entry]) {
+            throw 'Controller initializer differs from independent enrollment.'
+          }
+          & $entry -RepositoryRoot $PWD -ConfigJson $env:BUSINESS31_CONFIG_JSON `
+            -ConfigSha256 $env:BUSINESS31_CONFIG_SHA256 -PolicyRequestJson $env:BUSINESS31_REQUEST_JSON `
+            -ExportGitHubEnvironment | Out-Null
+
+      - name: Prove production policy before dependencies and reservation
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/Test-ProductionReleasePolicy.ps1 `
+            -PolicyPath release/production-release-policy.json `
+            -AuthorityPath release/backend-authority.prod.json `
+            -RepositoryRoot $PWD `
+            -RequireArtifactConstructionAuthority
+          if ($LASTEXITCODE -ne 0) { throw 'Pre-reservation production policy verification failed.' }
+
       - name: Restore locked dependencies and Firebase CLI
         shell: bash
         run: |
@@ -390,6 +432,41 @@ jobs:
             }
           }
 
+      - name: Fresh business replay before signing secrets and reservation
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $policy = Get-Content release/production-release-policy.json -Raw | ConvertFrom-Json
+          $business = $null -ne $policy.PSObject.Properties['businessBackendPrivateReplay']
+          foreach ($name in @('clientBackendCompatibility', 'runtimeBackendPrivateReplay')) {
+            if ($null -ne $policy.PSObject.Properties[$name] -and $null -ne $policy.$name) {
+              foreach ($field in @('profile', 'file')) {
+                if ($null -ne $policy.$name.PSObject.Properties[$field] -and [string]$policy.$name.$field -match 'business') { $business = $true }
+              }
+            }
+          }
+          if (-not $business) { exit 0 }
+          $configBytes = [IO.File]::ReadAllBytes($env:BUSINESS31_CONTROLLER_CONFIG)
+          if ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($configBytes)) -cne $env:BUSINESS31_CONTROLLER_CONFIG_SHA256) {
+            throw 'Business controller enrollment changed before construction.'
+          }
+          $config = [Text.Encoding]::UTF8.GetString($configBytes) | ConvertFrom-Json -AsHashtable -Depth 100
+          $entry = 'tools/release/Business-BackendPrivateReplay31.ps1'
+          $bridge = Join-Path $env:BUSINESS31_VERIFIER_ROOT $entry
+          if ($config.controller.files[$entry] -cnotmatch '^[A-F0-9]{64}$' -or
+              (Get-FileHash -LiteralPath $bridge -Algorithm SHA256).Hash -cne $config.controller.files[$entry]) {
+            throw 'Business construction bridge differs from independent enrollment.'
+          }
+          . $bridge
+          $request = Join-Path $env:RUNNER_TEMP ('business31-construction-' + [Guid]::NewGuid().ToString('N') + '.json')
+          $proof = Invoke-ProductionBusiness31PrerequisiteReplay -Purpose Construction -RepositoryRoot $PWD `
+            -Policy $policy -RequestOutputPath $request
+          if ($proof.replayMode -cne 'fresh-dispatch') { throw 'Construction requires its own new private replay.' }
+          "BUSINESS31_CONSTRUCTION_REQUEST=$request" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
       - name: Prove production environment secrets before reservation
         shell: pwsh
         env:
@@ -413,6 +490,8 @@ jobs:
 
       - name: Atomically consume the build number
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
 
@@ -450,7 +529,7 @@ jobs:
             "${CRM_DISPATCH_COMMIT_SHA}" \
             -F "$message_file"
 
-          git push origin \
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push origin \
             "refs/tags/${CRM_RESERVATION_TAG}:refs/tags/${CRM_RESERVATION_TAG}"
 
           remote_commit="$(
@@ -566,6 +645,8 @@ jobs:
       - name: Build once and independently verify
         shell: pwsh
         env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           CRM_ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_STORE_PASSWORD }}
           CRM_ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.CRM_ANDROID_RELEASE_KEY_ALIAS }}
           CRM_ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.CRM_ANDROID_RELEASE_KEY_PASSWORD }}
@@ -585,6 +666,7 @@ jobs:
             -IsarCorePath $env:CRM_ISAR_CORE_PATH `
             -ExpectedIsarCoreSha256 $env:CRM_ISAR_CORE_SHA256 `
             -OutputRoot $output
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact construction or independent package verification failed.' }
 
           "CRM_PRODUCTION_OUTPUT=$output" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8

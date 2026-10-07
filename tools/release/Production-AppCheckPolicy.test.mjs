@@ -55,11 +55,110 @@ function run(t, input, extra = '') {
 $ErrorActionPreference = 'Stop'
 . ${quote(helper)}
 $f = Get-Content -LiteralPath ${quote(data)} -Raw | ConvertFrom-Json
-$result = Get-ProductionAppCheckBuildEvidence -Policy $f.policy -Approval $f.approval -BackendReceipt $f.backend -ApprovalSha256 $f.hash -BackendReceiptSha256 $f.backendHash
+$businessProof = if ($null -ne $f.PSObject.Properties['businessProof']) { $f.businessProof } else { $null }
+$result = Get-ProductionAppCheckBuildEvidence -Policy $f.policy -Approval $f.approval -BackendReceipt $f.backend -ApprovalSha256 $f.hash -BackendReceiptSha256 $f.backendHash -Business31Proof $businessProof
 ${extra}
 $result | ConvertTo-Json -Depth 20 -Compress
 `);
   return spawnSync('pwsh', ['-NoProfile', '-File', script], {encoding: 'utf8', windowsHide: true, timeout: 30000});
+}
+
+// These fixtures exercise the pure compiler-choice join, not hosted authority.
+// Actual Git + platform-authenticated measurements are covered by the connected
+// PolicyResult/PolicyInvocation suites; a supplied object is never such proof.
+function business31Fixture() {
+  const f = client31Fixture(), source = {commit: '1'.repeat(40), tree: '2'.repeat(40), functionsTree: '3'.repeat(40)};
+  const descriptorPointer = {commit: '4'.repeat(40), file: 'release/evidence/build31-business-private-replay.json', sha256: 'D'.repeat(64)};
+  const clientPointer = {commit: '5'.repeat(40), file: 'release/approvals/build31-business-client-compatibility-approval.json', sha256: 'E'.repeat(64)};
+  const closurePointer = {commit: '6'.repeat(40), file: 'release/evidence/build31-business-backend-closure.json', sha256: 'F'.repeat(64)};
+  f.policy.versionPolicy.buildNumber = 31;
+  f.policy.businessBackendPrivateReplay = {...descriptorPointer, profile: 'build31-exact-business-backend-v1'};
+  f.policy.clientBackendCompatibility = {...clientPointer, profile: 'build31-business-client-compatibility-v1'};
+  f.policy.finalization.exactFunctionFleetDeploymentReceiptFile = closurePointer.file;
+  f.policy.finalization.exactFunctionFleetDeploymentReceiptSha256 = f.backendHash = closurePointer.sha256;
+  f.backend = {schemaVersion: 1, documentType: 'build31-business-private-record-custody', recordKind: 'closure', source};
+  f.approval.backendSourceCommit = source.commit;
+  f.approval.backendReceiptSha256 = closurePointer.sha256;
+  const noAuthority = Object.fromEntries(['independentlySelectedInputsAuthenticated', 'executingHostAuthenticated',
+    'humanIdentityAuthenticated', 'trustedClockAuthenticated', 'platformIdentityAuthenticated', 'credentialAccessAuthorized',
+    'backendDeploymentAuthorized', 'constructionAuthorized', 'signingAuthorized', 'distributionAuthorized'].map(k => [k, false]));
+  const appCheck = {clientEnabled: true, androidProvider: 'playIntegrity', dartDefine: 'true',
+    approvalFile: f.policy.appCheckBuild.approvalFile, approvalSha256: f.hash,
+    backendReceiptFile: closurePointer.file, backendReceiptSha256: closurePointer.sha256,
+    serverEnforcementAtBuild: false, enforcementChangedByBuild: false,
+    tokenValidationEvidence: 'not-proved-by-artifact-construction',
+    serverEnforcementScopesAtBuild: structuredClone(f.approval.serverEnforcementScopesAtBuild)};
+  const policy = {schemaVersion: 1, profile: 'build31-business-client-policy-v1', source,
+    release: {buildNumber: 31, releaseId: f.policy.release.releaseId, reservationId: f.policy.versionPolicy.reservationId},
+    appCheck, policySourceVerified: true, appCheckSourcePolicyVerified: true, privateReplayVerified: false, ...noAuthority};
+  const client = {schemaVersion: 2, profile: 'build31-business-client-compatibility-v1',
+    decisionPointer: clientPointer, policy, appCheckSourcePolicyVerified: true, ...noAuthority};
+  f.businessProof = {ok: true, route: 'business-backend31', businessBackend31: {source, descriptorPointer, closurePointer,
+    clientPointer, currentBackend: structuredClone(f.backend), policyResult: {schemaVersion: 1,
+      profile: 'build31-business-policy-result-v1', purpose: 'policy', source, descriptorPointer, closurePointer,
+      client, policyMeasurementVerified: true, originalProcessExecutionAuthenticated: false,
+      ...Object.fromEntries(Object.entries(noAuthority).filter(([name]) => name !== 'platformIdentityAuthenticated'))}}};
+  return f;
+}
+
+test('business31 compiler choice joins the measured source, public closure and full App Check choice', t => {
+  const f = business31Fixture();
+  // Property ordering is not evidence of a different JSON value.
+  f.businessProof.businessBackend31.policyResult.client.policy.appCheck = Object.fromEntries(
+    Object.entries(f.businessProof.businessBackend31.policyResult.client.policy.appCheck).reverse());
+  const result = run(t, f);
+  assert.equal(result.status, 0, result.stderr);
+  const value = JSON.parse(result.stdout);
+  assert.equal(value.serverEnforcementAtBuild, false);
+  assert.equal(value.serverEnforcementScopesAtBuild.identityCallableEnforced, true);
+  assert.equal(value.enforcementChangedByBuild, false);
+  assert.equal(value.tokenValidationEvidence, 'not-proved-by-artifact-construction');
+});
+
+for (const [label, mutate] of [
+  ['missing protected measurement', f => { delete f.businessProof; }],
+  ['mixed runtime route', f => { f.policy.runtimeBackendPrivateReplay = {}; }],
+  ['false measured policy', f => { f.businessProof.businessBackend31.policyResult.policyMeasurementVerified = false; }],
+  ['construction result substituted for policy', f => { f.businessProof.businessBackend31.policyResult.purpose = 'construction'; }],
+  ['old client shape', f => { f.businessProof.businessBackend31.policyResult.client.schemaVersion = 1; }],
+  ['different actual closure', f => { f.backend.source.commit = '9'.repeat(40); }],
+  ['different descriptor pointer', f => { f.policy.businessBackendPrivateReplay.sha256 = '9'.repeat(64); }],
+  ['different client pointer', f => { f.policy.clientBackendCompatibility.sha256 = '9'.repeat(64); }],
+  ['different closure pointer', f => { f.businessProof.businessBackend31.closurePointer.sha256 = '9'.repeat(64); }],
+  ['different release', f => { f.businessProof.businessBackend31.policyResult.client.policy.release.releaseId = 'other'; }],
+  ['different measured compiler choice', f => { f.businessProof.businessBackend31.policyResult.client.policy.appCheck.dartDefine = 'false'; }],
+  ['extra measured compiler field', f => { f.businessProof.businessBackend31.policyResult.client.policy.appCheck.token = 'unexpected'; }],
+  ['false identity scope', f => { f.businessProof.businessBackend31.policyResult.client.policy.appCheck.serverEnforcementScopesAtBuild.identityCallableEnforced = false; }],
+  ['operational grant in policy result', f => { f.businessProof.businessBackend31.policyResult.signingAuthorized = true; }],
+  ['operational grant in client', f => { f.businessProof.businessBackend31.policyResult.client.constructionAuthorized = true; }],
+  ['operational grant in measured policy', f => { f.businessProof.businessBackend31.policyResult.client.policy.credentialAccessAuthorized = true; }],
+]) {
+  test(`business31 App Check refuses ${label}`, t => {
+    const f = business31Fixture(); mutate(f);
+    assert.notEqual(run(t, f).status, 0);
+  });
+}
+
+test('malformed business signal cannot silently select the historical compiler-choice route', t => {
+  const f = client31Fixture();
+  f.policy.clientBackendCompatibility = {profile: 'unfinished-business-route', file: 'other'};
+  assert.notEqual(run(t, f).status, 0);
+});
+
+for (const purpose of ['construction', 'package-verification']) {
+  test(`business31 ${purpose} keeps its fresh prerequisite distinct from a public policy result`, t => {
+    const f = business31Fixture(), business = f.businessProof.businessBackend31;
+    const original = business.policyResult;
+    delete business.policyResult;
+    business.prerequisiteResult = {schemaVersion: 1, profile: 'build31-business-prerequisite-measurement-v1', purpose,
+      replayMode: purpose === 'construction' ? 'same-parent-reauthentication' : 'fresh-dispatch',
+      source: original.source, descriptorPointer: original.descriptorPointer, closurePointer: original.closurePointer,
+      client: original.client, freshHostedReplayVerified: true,
+      limits: {deploymentAuthorized: false, constructionAuthorized: false, signingAuthorized: false, distributionAuthorized: false}};
+    const result = run(t, f);
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).tokenValidationEvidence, 'not-proved-by-artifact-construction');
+  });
 }
 
 for (const enabled of [true, false]) {

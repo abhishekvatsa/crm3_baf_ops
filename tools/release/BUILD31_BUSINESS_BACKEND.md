@@ -28,7 +28,7 @@ manifest binds every allowed change and mode, the full populations and exact
 Functions/CLI dependency bytes. Changes to Rules, indexes, Firebase controls,
 Android configuration, protected fleet policies, held submission recovery,
 unlisted files or executable modes are refused. A caller-created manifest
-hash is only a local measurement: the future trusted controller must select
+hash is only a local measurement: the independently enrolled controller must select
 and authenticate the approved manifest independently. The source measurement
 cannot become a deployment decision by adding a success flag.
 
@@ -43,7 +43,7 @@ source rather than required to equal the historical deployed backend.
 This is a preparation measurement only. Retaining an original human message
 or CI response does not authenticate its origin, and caller-supplied time is
 not a trusted clock. The result explicitly withholds control-semantic replay,
-closed-chain verification and every operational authority. The future trusted
+closed-chain verification and every operational authority. The trusted
 controller must establish those separate prerequisites from original evidence
 before any deployment or private-credential access.
 
@@ -112,15 +112,21 @@ not reopen it. This clean-entry requirement excludes a registrar reference
 saved by earlier caller code; it does not revoke an already escaped reference
 or make an arbitrary shared process trustworthy.
 
-This is a component-test launcher, not the operational deployment launcher.
-`launchBusinessCapture31` explicitly refuses execution. The externally admitted
-Node/bootstrap/source launch, fixed authenticated observer, real CLI controller
-and existing three-child receipt integration remain unimplemented. The finite
-Windows toolchain profile is described below; its enrollment supplies byte
-identity, not operational qualification. A child consistency hash, caller flag
-or successful component measurement supplies none of that authority.
-The existing three-child closure contract and immutable historical verifiers
-are unchanged; component children cannot stand in for deployment receipts.
+The component-test entry remains separate from the operational controller.
+`launchBusinessCapture31` refuses shared-process execution. The fixed
+`--business-controller` entry now connects the externally selected Node/source
+bootstrap, observer, real CLI controller and three-child receipt contract.
+The admitted CLI dependency population is installed before endpoint-hash imports;
+its owned lease is retained through the operation and released on failure or
+completion. See [the connected release path](BUILD31_RELEASE_PATH.md) for the
+protected replay and caller boundaries.
+
+These implementations still require actual independent enrollment and exact-source
+qualification. The finite Windows toolchain profile described below supplies byte
+identity. A child consistency hash, caller flag or successful component test
+supplies no operational authority. The existing three-child closure contract and
+immutable historical verifiers are unchanged; component children cannot stand
+in for deployment receipts.
 
 The capture-session tests use the installed Firebase hash, API and upload
 modules with a fresh synthetic Git repository and source ZIP, while HTTPS
@@ -174,10 +180,11 @@ to that same group, with discovery failures treated as failures. Local source
 checks select the same new family. Tests distinguish synthetic inventories
 from actual Git-object fixtures and do not contact production or mint tokens.
 
-A usable release route still requires the separately reviewed business
-admission/controller and caller integration, actual exact-source owner and
-platform authority, replay of original runtime/control/execution/closure
-records, and a protected hosted verifier with narrow private-evidence access.
+The business admission/controller, client, policy, App Check, construction and
+package callers are connected in source. Operational use still requires actual
+exact-source owner and platform authority, replay of original
+runtime/control/execution/closure records, and independent enrollment of the
+protected hosted verifier with narrow private-evidence access.
 Public PR code must never receive that credential or raw private evidence.
 A successful preparation test or public hash attestation does not satisfy
 those requirements. The original immutable verifier family stays unchanged.
