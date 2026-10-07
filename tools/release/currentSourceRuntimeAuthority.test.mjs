@@ -186,13 +186,16 @@ proof = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
 branch = next(node for node in tree.body if isinstance(node, ast.If) and any(
     isinstance(child, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "current_backend_approval_scope_exact" for target in child.targets)
     for child in node.body))
-# Select the historical fixture route using the real production selector.
-# These cases exercise historical authority, not the private runtime31 replay.
+# Select the historical fixture route using both real production selectors.
+# These cases exercise historical authority, not either private replay route.
+business_selector = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "business_backend_route_selected")
+business_route = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
+    isinstance(target, ast.Name) and target.id == "business31_selected" for target in node.targets))
 selector = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "runtime_backend_route_selected")
 route = next(node for node in tree.body if isinstance(node, ast.Assign) and any(
     isinstance(target, ast.Name) and target.id == "runtime31_selected" for target in node.targets))
-definitions = compile(ast.Module(body=[helper, selector], type_ignores=[]), str(source), "exec")
-selection = compile(ast.Module(body=[route], type_ignores=[]), str(source), "exec")
+definitions = compile(ast.Module(body=[helper, business_selector, selector], type_ignores=[]), str(source), "exec")
+selection = compile(ast.Module(body=[business_route, route], type_ignores=[]), str(source), "exec")
 consumer = compile(ast.Module(body=[proof, branch], type_ignores=[]), str(source), "exec")
 original_approvals = {file: (root / file).read_bytes() for file in [
     "release/approvals/build27-backend-deployment-approval.json",
@@ -228,6 +231,7 @@ for case in json.loads((root / "cases.json").read_text(encoding="utf-8")):
         combined_policy=json.loads((root / "release/production-release-policy.json").read_bytes()))
     exec(definitions, scope)
     exec(selection, scope)
+    assert scope["business31_selected"] is False, "Historical fixtures must not select the business replay route"
     assert scope["runtime31_selected"] is False, "Historical fixtures must execute the original authority branch"
     exec(consumer, scope)
     rows.append(dict(label=case["label"], accepted=scope["current_backend_approval_scope_exact"], expected=case["accepted"]))

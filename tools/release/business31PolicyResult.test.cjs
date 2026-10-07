@@ -116,7 +116,7 @@ test('authenticates exact policy replay, real committed Git bindings and final h
     'https://api.github.com/repos/fixture/repository/actions/artifacts/71/zip',
     'https://fixture.blob.core.windows.net/result?sig=synthetic', ...round, ...round]);
   assert.ok(requests.every(row => row.method === 'GET'));
-  assert.deepEqual(requests.find(row => row.url.startsWith('https://fixture.blob')).headers, {});
+  assert.deepEqual(requests.find(row => row.url === 'https://fixture.blob.core.windows.net/result?sig=synthetic').headers, {});
   for (const name of ['independentlySelectedInputsAuthenticated', 'executingHostAuthenticated',
     'humanIdentityAuthenticated', 'trustedClockAuthenticated', 'originalProcessExecutionAuthenticated',
     'credentialAccessAuthorized', 'backendDeploymentAuthorized', 'constructionAuthorized',

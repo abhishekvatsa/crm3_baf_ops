@@ -17,7 +17,7 @@ test('actual consumer joins fake raw platform run/job/artifact and fresh head wi
     hostedRecordedReplayResultAuthenticated: true, ownerIdentityAuthenticated: false,
     originalProcessExecutionAuthenticated: false, deploymentAuthorized: false,
     constructionAuthorized: false, distributionAuthorized: false
-}); assert.equal(host.requests.length, 11); const storage = host.requests.find(r => r.url.startsWith('https://fixture.blob')); assert.deepEqual(storage.headers, {}); assert.equal(host.requests.filter(r => r.url.includes('/pulls/4')).length, 2); });
+}); assert.equal(host.requests.length, 11); const storage = host.requests.find(r => r.url === 'https://fixture.blob.core.windows.net/result?sig=synthetic'); assert.deepEqual(storage.headers, {}); assert.equal(host.requests.filter(r => r.url.includes('/pulls/4')).length, 2); });
 for (const [name, mutate, expected] of [
     ['same-name foreign workflow', (r, v) => {
             if (r.url.endsWith('/actions/runs/42'))
@@ -120,7 +120,7 @@ for (const [name, alter] of [
     const host = f.platform(x);
     await assert.rejects(host.runConsumer({trust: x.trust, request: x.request}),
         /No authenticated exact-head business replay result is available/);
-    assert.ok(host.requests.some(r => r.url.startsWith('https://fixture.blob')));
+    assert.ok(host.requests.some(r => r.url === 'https://fixture.blob.core.windows.net/result?sig=synthetic'));
 });
 
 test('actual fake-platform consumer projection passes the real Python sanitizer', async () => {
