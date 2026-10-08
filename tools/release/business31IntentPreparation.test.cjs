@@ -258,3 +258,115 @@ test("changed admitted Functions bytes refuse before manifest evaluation", owned
     assert(!fs.existsSync(path.join(r.out, "result.json")));
 });
 test.after(() => process.stdout.write("# Retained inert intent fixture: " + suiteRoot + "\n"));
+
+// These small real-Git fixtures exercise the actual runtime population function.
+// Their proof-shaped data is synthetic: no runtime proof, authority or deployment
+// is asserted, and their npm/dependency bytes are never imported or executed.
+const populationAuthority = require("./business31BackendAuthority.cjs");
+const populationTrusted = require("./business31TrustedInput.cjs");
+const populationGit = path.resolve(process.env.BUSINESS31_TEST_GIT || (process.platform === "win32" ? "C:/Program Files/Git/mingw64/bin/git.exe" : "/usr/bin/git"));
+const populationGitSha = sha(fs.readFileSync(populationGit));
+function populationFixture() {
+    const root = path.join(suiteRoot, "population"), repositoryRoot = path.join(root, "repository"), buildRoot = path.join(root, "build"), evidenceDirectory = path.join(root, "evidence"), npmPackageRoot = path.join(root, "npm");
+    for (const directory of [repositoryRoot, buildRoot, evidenceDirectory, npmPackageRoot]) fs.mkdirSync(directory, { recursive: true });
+    const environment = { GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null", GIT_TERMINAL_PROMPT: "0", GIT_NO_LAZY_FETCH: "1" };
+    for (const name of ["SystemRoot", "WINDIR", "PATH", "TEMP", "TMP"]) if (process.env[name] !== undefined) environment[name] = process.env[name];
+    const git = (args, input) => require("node:child_process").execFileSync(populationGit, ["-c", "core.autocrlf=false", "-c", "commit.gpgsign=false", "-c", "protocol.allow=never", "-c", "core.hooksPath=" + path.join(root, "absent-hooks"), "-C", repositoryRoot, ...args], { env: environment, input, timeout: 30000, windowsHide: true, stdio: ["pipe", "pipe", "pipe"] });
+    git(["init", "--initial-branch=main"]);
+    const rows = Array.from({ length: 15 }, (_, i) => ["functions/src/file-" + String(i).padStart(2, "0") + ".ts", i === 0 ? Buffer.alloc(0) : i === 1 ? Buffer.from([0, 255, 10, 13, 128]) : Buffer.from("synthetic source " + i + "\n"), i === 14 ? "100755" : "100644"]);
+    rows.push(["shared.bin", Buffer.from(rows[1][1]), "100644"]);
+    const message = "Synthetic intent population fixture only\n", parts = [Buffer.from("commit refs/heads/main\ncommitter Fixture <fixture@example.invalid> 1767225600 +0000\ndata " + Buffer.byteLength(message) + "\n" + message)];
+    for (const [name, bytes, mode] of rows) {
+        parts.push(Buffer.from(`M ${mode} inline ${name}\ndata ${bytes.length}\n`), bytes, Buffer.from("\n"));
+        write(path.join(buildRoot, ...name.split("/")), bytes);
+    }
+    parts.push(Buffer.from("\ndone\n")); git(["fast-import", "--quiet", "--done"], Buffer.concat(parts));
+    const commit = git(["rev-parse", "HEAD"]).toString("utf8").trim();
+    const repositoryOptions = { repositoryRoot, gitExecutable: populationGit, gitSha256: populationGitSha };
+    const repository = populationTrusted.openTrustedGitRepository31(repositoryOptions), snapshot = repository.snapshot(commit);
+    const source = { commit, tree: snapshot.tree, functionsTree: populationAuthority.subtreeOid31(snapshot.files, "functions") };
+    const retain = (name, bytes) => { const file = write(path.join(evidenceDirectory, name), bytes), raw = fs.readFileSync(file); return { file: name, sha256: sha(raw), bytes: raw.length }; };
+    const installedFiles = {};
+    for (const [name, prefix] of Object.entries({ root: "node_modules", functions: "functions/node_modules", cli: "tooling/firebase-cli/node_modules" })) {
+        write(path.join(buildRoot, prefix, "inert.txt"), "Never executed: " + name);
+        installedFiles[name] = retain(name + "-installed.json", map(path.join(buildRoot, prefix)));
+    }
+    const emitted = Buffer.from("// synthetic emitted bytes; never executed\n");
+    write(path.join(buildRoot, "functions/lib/index.js"), emitted);
+    const emittedFiles = { "lib/index.js": retain("emitted.js", emitted) };
+    const npmCliFile = binding(write(path.join(npmPackageRoot, "npm-cli.js"), "// inert npm; never executed\n"));
+    const proof = { buildRoot, installedFiles, emittedFiles, runtime: { nodeExecutable: binding(process.execPath), npmCliFile, npmPackageRoot } };
+    const ctx = { api: { authority: populationAuthority }, proof, snapshot, source, evidenceDirectory, repository };
+    return { root, rows, ctx, repositoryOptions };
+}
+let populationData;
+function population() { return populationData ??= populationFixture(); }
+test("runtime population preserves complete real-Git scalar bytes, binary/empty/shared blobs and both regular modes", () => {
+    const { ctx, rows } = population(), actual = subject.runtimePopulation31(ctx);
+    const scalar = Object.fromEntries(Object.keys(ctx.snapshot.files).sort().map(name => [name, sha(ctx.repository.readBlob(ctx.source.commit, name))]));
+    assert.deepEqual(actual.sourceFiles, scalar);
+    assert.deepEqual(actual.sourceFiles, Object.fromEntries(rows.map(([name, bytes]) => [name, sha(bytes)]).sort(([a], [b]) => a.localeCompare(b))));
+    assert.equal(ctx.snapshot.files[rows[0][0]].mode, "100644");
+    assert.equal(ctx.snapshot.files[rows[14][0]].mode, "100755");
+    assert.deepEqual(Object.keys(actual.sourceFiles), Object.keys(ctx.snapshot.files).sort());
+    assert.equal(actual.sourceFiles[rows[1][0]], actual.sourceFiles["shared.bin"]);
+    assert.deepEqual(actual.source, ctx.source);
+    for (const [name, pointer] of Object.entries(ctx.proof.installedFiles)) assert.deepEqual(actual.installedFiles[name], JSON.parse(populationAuthority.readPrivate(ctx.evidenceDirectory, pointer)));
+    assert.equal(actual.emittedFiles["lib/index.js"], sha(populationAuthority.readPrivate(ctx.evidenceDirectory, ctx.proof.emittedFiles["lib/index.js"])));
+    assert.deepEqual(actual.npmPackageFiles, map(ctx.proof.runtime.npmPackageRoot));
+    assert.deepEqual(actual.nodeExecutable, ctx.proof.runtime.nodeExecutable);
+    assert.deepEqual(actual.npmCliFile, ctx.proof.runtime.npmCliFile);
+});
+test("each of six runtime population invocations performs a fresh real batch read and no scalar retrieval", () => {
+    const { ctx } = population(); let batchCalls = 0, scalarCalls = 0;
+    const repository = { ...ctx.repository,
+        readSnapshotBlobs(snapshot) { ++batchCalls; return ctx.repository.readSnapshotBlobs(snapshot); },
+        readBlob(...args) { ++scalarCalls; return ctx.repository.readBlob(...args); }
+    };
+    // Observation wrappers call the unchanged real reader; they do not supply bytes.
+    const before = subject.runtimePopulation31({ ...ctx, repository });
+    for (let i = 1; i < 6; ++i) assert.deepEqual(subject.runtimePopulation31({ ...ctx, repository }), before);
+    assert.equal(batchCalls, 6); assert.equal(scalarCalls, 0);
+});
+for (const [label, relative, operation, pattern] of [
+    ["changed source", "functions/src/file-02.ts", "change", /materialized source bytes differ/],
+    ["missing source", "shared.bin", "remove", /complete materialized source population/],
+    ["extra source", "extra.txt", "add", /unlisted materialized source/],
+    ["installed bytes", "node_modules/inert.txt", "change", /installed population changed/],
+    ["emitted bytes", "functions/lib/index.js", "change", /emitted bytes changed/]
+]) test("runtime population rechecks " + label + " after a successful census", () => {
+    const { ctx } = population(), file = path.join(ctx.proof.buildRoot, relative);
+    subject.runtimePopulation31(ctx);
+    const before = operation === "add" ? null : fs.readFileSync(file);
+    try {
+        if (operation === "remove") fs.unlinkSync(file);
+        else fs.writeFileSync(file, "synthetic drift", { flag: operation === "add" ? "wx" : "w" });
+        assert.throws(() => subject.runtimePopulation31(ctx), pattern);
+    } finally { if (before === null) fs.unlinkSync(file); else fs.writeFileSync(file, before); }
+});
+test("runtime population refuses a copied or foreign snapshot at the real reader boundary", () => {
+    const { ctx, repositoryOptions } = population(), other = populationTrusted.openTrustedGitRepository31(repositoryOptions);
+    for (const snapshot of [structuredClone(ctx.snapshot), other.snapshot(ctx.source.commit)]) {
+        assert.throws(() => subject.runtimePopulation31({ ...ctx, snapshot }), /not issued/);
+    }
+});
+test("runtime population refuses repository config drift after a successful census", () => {
+    const { ctx, repositoryOptions } = population(), config = path.join(repositoryOptions.repositoryRoot, ".git/config"), before = fs.readFileSync(config);
+    subject.runtimePopulation31(ctx);
+    try { fs.appendFileSync(config, "\n[include]\n path = /untrusted\n"); assert.throws(() => subject.runtimePopulation31(ctx), /configuration/); }
+    finally { fs.writeFileSync(config, before); }
+});
+for (const [label, mutate, pattern] of [
+    ["missing member", map => { map.delete(map.keys().next().value); }, /complete source blob population/],
+    ["extra member", map => { map.set("unexpected", Buffer.alloc(0)); }, /complete source blob population/],
+    ["non-byte member", map => { map.set(map.keys().next().value, "not raw bytes"); }, /source blob bytes required/]
+]) test("runtime population refuses " + label + " in a corrupted real-reader return", () => {
+    const { ctx } = population();
+    const repository = { ...ctx.repository, readSnapshotBlobs(snapshot) {
+        const result = ctx.repository.readSnapshotBlobs(snapshot); mutate(result); return result;
+    } };
+    // Deliberate corruption is only in returned fixture data, never Git/runtime bytes.
+    let returned;
+    assert.throws(() => { returned = subject.runtimePopulation31({ ...ctx, repository }); }, pattern);
+    assert.equal(returned, undefined, "no partial population may escape");
+});
