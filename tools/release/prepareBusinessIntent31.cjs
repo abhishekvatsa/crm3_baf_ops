@@ -124,8 +124,11 @@ function runtimePopulation31(ctx) {
     const { api, proof, snapshot, source, evidenceDirectory, repository } = ctx;
     need(repository.snapshot(source.commit).tree === source.tree, "selected source changed");
     api.authority.verifyMaterializedSource31(proof.buildRoot, snapshot);
-    const sourceFiles = Object.fromEntries(Object.keys(snapshot.files).sort().map(name => {
-        const original = repository.readBlob(source.commit, name), file = path.join(proof.buildRoot, ...name.split("/"));
+    const names = Object.keys(snapshot.files).sort(), originals = repository.readSnapshotBlobs(snapshot);
+    need(originals instanceof Map && same([...originals.keys()].sort(), names), "complete source blob population differs");
+    const sourceFiles = Object.fromEntries(names.map(name => {
+        const original = originals.get(name), file = path.join(proof.buildRoot, ...name.split("/"));
+        need(Buffer.isBuffer(original), "source blob bytes required: " + name);
         need(read(file).equals(original), "materialized source changed: " + name);
         return [name, sha(original)];
     }));
@@ -487,7 +490,7 @@ function prepareBusinessIntent31(config) {
     }
 }
 module.exports = {
-    SELF, preflightBusinessIntent31, prepareBusinessIntent31, runIntentWorker31, runIntentPython31, validateInputOriginals31, validateManifest31, admittedFunctionsMap31, verifyOriginalProcess31, verifyWorkerResult31
+    SELF, preflightBusinessIntent31, prepareBusinessIntent31, runtimePopulation31, runIntentWorker31, runIntentPython31, validateInputOriginals31, validateManifest31, admittedFunctionsMap31, verifyOriginalProcess31, verifyWorkerResult31
 };
 if (require.main === module) {
     process.stderr.write("Use the reviewed credential-free preparation caller; worker entry is fixed in business31CaptureBootstrap.cjs.\n");
