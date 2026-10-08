@@ -21,6 +21,13 @@ function fixture(t,mode) {
   for(const file of ['firebase-tools/lib/bin/firebase.js','firebase-tools/lib/deploy/functions/cache/applyHash.js','firebase-tools/lib/functions/secrets.js']){fs.mkdirSync(path.dirname(path.join(cli,file)),{recursive:true});fs.writeFileSync(path.join(cli,file),'module.exports={};\n');}
   const cliMap={};function walk(dir,prefix=''){for(const row of fs.readdirSync(dir,{withFileTypes:true})){const name=prefix+row.name;if(row.isDirectory())walk(path.join(dir,row.name),name+'/');else cliMap[name]=sha(fs.readFileSync(path.join(dir,row.name)));}}walk(cli);
   const cliPointer=put('cli-map.json',cliMap),runtime={cliEntrypoint:path.join(cli,'firebase-tools/lib/bin/firebase.js'),cliFileBindings:{path:path.join(data,cliPointer.file),sha256:cliPointer.sha256},endpointHashProducerSha256:{apply:cliMap['firebase-tools/lib/deploy/functions/cache/applyHash.js'],hash:cliMap['firebase-tools/lib/deploy/functions/cache/hash.js'],secrets:cliMap['firebase-tools/lib/functions/secrets.js']}};
+  // This fixture still isolates context/cleanup order. The separate controls
+  // runtime suite exercises real TypeScript/SDK sourceOptions under both guards.
+  runtime.installedControlRuntime={};
+  for(const name of ['typescript/package.json','typescript/lib/typescript.js','firebase-functions/package.json','firebase-functions/lib/runtime/manifest.js']) {
+    const file=path.join(root,'functions/node_modules',name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'{}');
+    runtime.installedControlRuntime['functions/node_modules/'+name]=sha(fs.readFileSync(file));
+  }
   const intent={schemaVersion:1,documentType:'firebase-cli-approved-intended-hash-inputs',source,sourceBefore:source,sourceAfter:source,sourceArchiveHash:'4'.repeat(40),codebase:'default',startedAtUtc:'2026-10-01T00:00:01Z',completedAtUtc:'2026-10-01T00:00:02Z',environmentVariables:{GCLOUD_PROJECT:project,FIREBASE_CONFIG:JSON.stringify({projectId:project}),CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK:'false'},endpoints:{inert:{id:'inert',platform:'gcfv2',project,region:'asia-south1',secretEnvironmentVariables:[]}},archive};
   const intentP=put('intent.json',intent),proofP=put('proof.json',{completedAtUtc:'2026-10-01T00:00:00Z',buildRoot:root,emittedFiles:{'lib/index.js':output}});
   const preparation=put('preparation.json',{intendedHashInputs:intentP,runtimeProof:proofP,startedAtUtc:intent.startedAtUtc,completedAtUtc:intent.completedAtUtc,archiveExpectedFiles:put('inventory.json',inventory)});

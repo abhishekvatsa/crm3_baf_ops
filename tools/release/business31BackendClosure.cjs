@@ -260,6 +260,9 @@ function prepareBusinessOperationalCaptureContext31(authorityOptions) {
   // original hash helper then imports through the same owned CLI lifetime that
   // the operational controller/phase retains until its final cleanup.
   const common=prepareBusinessCaptureBase31(authorityOptions);
+  // The immutable controls comparator loads the independently measured Functions
+  // SDK/TypeScript through its own nested guard and this same outer lifetime.
+  bootstrap.admitInstalledControlsRuntime31(common.ctx.repoRoot,common.runtime.installedControlRuntime);
   const cliLoadLease=bootstrap.installCliLoadBoundary31(common.runtime);
   try {
     const result=finishBusinessCaptureContext31(common);
