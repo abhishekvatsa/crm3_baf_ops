@@ -133,7 +133,7 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
     if (phaseEntry) known.set(phaseEntry.filename, {module:phaseEntry, exportsDescriptor:Object.getOwnPropertyDescriptor(phaseEntry,"exports")});
     const originalLoad = Object.getOwnPropertyDescriptor(Module, "_load"), originalResolve = Object.getOwnPropertyDescriptor(Module, "_resolveFilename"), originalRegister = Object.getOwnPropertyDescriptor(Module, "registerHooks"), cache = Module._cache;
     const extensions = Module._extensions, extensionDescriptors = Object.getOwnPropertyDescriptors(extensions), compile = Object.getOwnPropertyDescriptor(Module.prototype, "_compile");
-    let failed = false, terminal = false, cli = null, hook = null;
+    let failed = false, terminal = false, cli = null, controls = null, hook = null;
     const bad = (ok, message) => { if (!ok) {
         failed = true;
         const error = Error("Business capture CLI load: " + message);
@@ -197,10 +197,11 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
         if (Module.isBuiltin(resolved))
             return originalLoad.value.apply(this, arguments);
         const p = typeof resolved === "string" && path.isAbsolute(resolved) ? population(resolved) : null;
-        bad(!from || p, "bound module dependency escaped population");
+        // createRequire can supply an unrelated parent; fixed entries admit destinations.
+        bad(p || (selectedOperation === null && !from), "bound module dependency escaped population");
         if (!p)
             return originalLoad.value.apply(this, arguments);
-        bad(!terminal || p !== cli, "CLI lifetime is terminal");
+        bad(!terminal || (p !== cli && p !== controls), "CLI lifetime is terminal");
         metadataAt(resolved);
         const { file } = verify(resolved), item = cache[resolved];
         if (item) {
@@ -246,11 +247,13 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
         }
         catch { }
         const p = file && population(file), from = parent && population(parent);
-        if (!p && !from)
+        if (!p && !from && selectedOperation === null)
             return null;
+        if (selectedOperation !== null)
+            bad(p, "bound module dependency escaped population");
         bad(p && pathToFileURL(file).href === url, "noncanonical module URL refused");
         core();
-        bad(!terminal || p !== cli, "CLI lifetime is terminal");
+        bad(!terminal || (p !== cli && p !== controls), "CLI lifetime is terminal");
         metadataAt(file);
         return verify(file).file;
     }
@@ -278,6 +281,28 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
     Object.defineProperty(Module, "registerHooks", ownedRegister);
     Object.defineProperty(Module, "_load", ownedLoad);
     active = { assert() { core(); bad(!terminal, "CLI lifetime is terminal"); },
+        admitInstalledControls(repoRoot, bindings) {
+            try {
+                core();
+                bad(selectedSuite === null && ["controller", "phase"].includes(selectedOperation) &&
+                    !controls && !cli && !terminal && leases.length === 0,
+                    "controls population must be admitted once before the operational CLI lease");
+                const prefix = "functions/node_modules/", files = {};
+                bad(bindings && typeof bindings === "object" && !Array.isArray(bindings), "controls population map required");
+                for (const [name, digest] of Object.entries(bindings)) {
+                    bad(name.startsWith(prefix), "controls population prefix differs");
+                    Object.defineProperty(files, name.slice(prefix.length), { value: digest, enumerable: true });
+                }
+                for (const name of ["typescript/package.json", "typescript/lib/typescript.js",
+                    "firebase-functions/package.json", "firebase-functions/lib/runtime/manifest.js"])
+                    bad(Object.hasOwn(files, name), "mandatory controls population member missing");
+                const proposed = createPopulation(path.join(regular(repoRoot, true), "functions/node_modules"), files);
+                bad(!populations.some(p => p.root === proposed.root || isInside(p.root, proposed.root) || isInside(proposed.root, p.root)), "overlapping controls population");
+                for (const file of Object.keys(cache)) bad(!isInside(proposed.root, file), "pre-existing controls module cache refused");
+                controls = proposed;
+                populations.push(controls);
+            } catch (error) { failed = true; terminal = true; throw error; }
+        },
         admitIntentPopulation(root, bindings) {
             try {
                 core();
@@ -301,6 +326,7 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
                 }
                 else {
                     const proposed = createPopulation(root, raw);
+                    bad(!populations.some(p => p.root === proposed.root || isInside(p.root, proposed.root) || isInside(proposed.root, p.root)), "overlapping CLI population");
                     for (const file of Object.keys(cache))
                         bad(!isInside(proposed.root, file), "pre-existing CLI module cache refused");
                     cli = proposed;
@@ -344,6 +370,7 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
     return active;
 }
 function assertBootstrap31() { need(active, "capture requires the fixed fresh bootstrap; caller flags are not accepted"); active.assert(); }
+function admitInstalledControlsRuntime31(repoRoot, bindings) { assertOperational31(); active.admitInstalledControls(repoRoot, bindings); }
 function installCliLoadBoundary31(runtime) { assertBootstrap31(); return active.bind(runtime); }
 function componentEnvironment(directory) { const env = {}; for (const key of ["SystemRoot", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "LANG", "LC_ALL"])
     if (process.env[key] !== undefined)
@@ -522,6 +549,6 @@ function runComponentSuiteTest31(suite) {
         assert.equal(result.status, 0, stdout + "\n" + stderr);
     });
 }
-module.exports = { SELF, SUITES, sourceMap, isComponentChild31, runComponentSuiteTest31, launchComponentSuite31, launchBusinessCapture31, assertBootstrap31, assertOperational31, assertIntentWorker31, runOperationalPhaseMain31, installCliLoadBoundary31 };
+module.exports = { SELF, SUITES, sourceMap, isComponentChild31, runComponentSuiteTest31, launchComponentSuite31, launchBusinessCapture31, assertBootstrap31, assertOperational31, assertIntentWorker31, runOperationalPhaseMain31, admitInstalledControlsRuntime31, installCliLoadBoundary31 };
 if (require.main === module)
     setImmediate(() => main().catch(error => { process.stderr.write(error.stack + "\n"); process.exitCode = 1; }));
