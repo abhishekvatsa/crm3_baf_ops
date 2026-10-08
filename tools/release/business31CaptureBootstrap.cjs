@@ -197,7 +197,8 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
         if (Module.isBuiltin(resolved))
             return originalLoad.value.apply(this, arguments);
         const p = typeof resolved === "string" && path.isAbsolute(resolved) ? population(resolved) : null;
-        bad(!from || p, "bound module dependency escaped population");
+        // createRequire can supply an unrelated parent; fixed entries admit destinations.
+        bad(p || (selectedOperation === null && !from), "bound module dependency escaped population");
         if (!p)
             return originalLoad.value.apply(this, arguments);
         bad(!terminal || (p !== cli && p !== controls), "CLI lifetime is terminal");
@@ -246,8 +247,10 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
         }
         catch { }
         const p = file && population(file), from = parent && population(parent);
-        if (!p && !from)
+        if (!p && !from && selectedOperation === null)
             return null;
+        if (selectedOperation !== null)
+            bad(p, "bound module dependency escaped population");
         bad(p && pathToFileURL(file).href === url, "noncanonical module URL refused");
         core();
         bad(!terminal || (p !== cli && p !== controls), "CLI lifetime is terminal");
