@@ -16,6 +16,26 @@ const utc = () => new Date().toISOString();
 const read = (root,pointer) => json(privateBytes(root,pointer));
 const phases = custody.PHASES;
 
+// Business collection uses the unchanged raw schema and comparators. The historical
+// collector remains frozen; live Run inventories now include two-digit region suffixes.
+async function collectCurrentBusinessControls31({sourceCommit,approvalSha256,read,unavailableRunRegion}){
+ const {PROJECT,REGION,SCHEDULER_URL}=controls;
+ const raw={schemaVersion:1,projectId:PROJECT,region:REGION,sourceCommit,approvalSha256,startedAtUtc:new Date().toISOString()};
+ async function list(url,field,optionalRegion){const rows=[],entries=[],seen=new Set();let token='';do{need(rows.length<1000,'Readback pagination exceeds bound');const response=await read(url+'?pageSize=100'+(token?'&pageToken='+encodeURIComponent(token):''));if(response.httpStatus!==200){if(optionalRegion&&rows.length===0&&response.httpStatus===403){unavailableRunRegion(response,optionalRegion,project.projectNumber);return {unavailable:response,entries:[]};}throw Error('Complete current controls readback unavailable');}const value=JSON.parse(response.bodyText);need(!value.error&&!(value.unreachable?.length),'Current controls response incomplete');rows.push(response);need(Array.isArray(value[field]??[]),'Current controls population invalid');entries.push(...(value[field]??[]));token=value.nextPageToken??'';need(typeof token==='string'&&(!token||!seen.has(token)),'Current controls repeated pagination token');if(token)seen.add(token);}while(token);return {rows,entries};}
+ async function map(rows,action){const output=new Array(rows.length);let next=0;await Promise.all(Array.from({length:Math.min(4,rows.length)},async()=>{while(next<rows.length){const i=next++;output[i]=await action(rows[i]);}}));return output;}
+ raw.project=await read(`https://cloudresourcemanager.googleapis.com/v1/projects/${PROJECT}`);need(raw.project.httpStatus===200,'Current project unavailable');const project=JSON.parse(raw.project.bodyText);need(project.projectId===PROJECT&&/^[1-9][0-9]*$/.test(String(project.projectNumber)),'Current project identity differs');const normal=n=>n.replace(`projects/${project.projectNumber}/`,`projects/${PROJECT}/`);
+ raw.functions=(await list(`https://cloudfunctions.googleapis.com/v2/projects/${PROJECT}/locations/-/functions`,'functions')).rows;
+ const locations=await list(`https://run.googleapis.com/v1/projects/${PROJECT}/locations`,'locations');raw.runLocations=locations.rows;
+ const inventories=await map(locations.entries,async location=>{const name=location.locationId;need(typeof name==='string'&&name.match(/^[a-z]+-[a-z]+[0-9]{1,2}$/)?.[0]===name,'Unexpected Run region');return {location:location.locationId,...await list(`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location.locationId}/services`,'services',location.locationId)};});
+ raw.runInventories=inventories.map(row=>row.unavailable?{location:row.location,unavailable:row.unavailable}:{location:row.location,pages:row.rows});
+ raw.runIam=await map(inventories.flatMap(row=>row.entries),async service=>{const resource=normal(service.name);need(resource.startsWith(`projects/${PROJECT}/locations/`),'Current Run resource outside project');return {resource,response:await read(`https://run.googleapis.com/v2/${resource}:getIamPolicy?options.requestedPolicyVersion=3`)};});
+ const accounts=await list(`https://iam.googleapis.com/v1/projects/${PROJECT}/serviceAccounts`,'accounts');raw.accounts=accounts.rows;
+ raw.accountIam=await map(accounts.entries,async account=>{need(typeof account.email==='string'&&/^[a-zA-Z0-9@._-]+$/.test(account.email),'Invalid account identity');return {email:account.email,response:await read(`https://iam.googleapis.com/v1/projects/${PROJECT}/serviceAccounts/${account.email}:getIamPolicy?options.requestedPolicyVersion=3`,'POST')};});
+ raw.projectIam=await read(`https://cloudresourcemanager.googleapis.com/v1/projects/${PROJECT}:getIamPolicy`,'POST',{options:{requestedPolicyVersion:3}});raw.absence=[];
+ const scheduler=await read(SCHEDULER_URL);need(scheduler.httpStatus===200,'Existing exact scheduler unavailable');raw.completedAtUtc=new Date().toISOString();
+ return {raw,scheduler};
+}
+
 function selectedFile(binding) {
   keys(binding,["path","sha256"],"selected executable");
   need(path.isAbsolute(binding.path)&&/^[A-F0-9]{64}$/.test(binding.sha256),"absolute selected executable/hash required");
@@ -255,7 +275,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
       nativeConfig=custody.bindNativeConfig31({ctx,phase,parameterConfig:measured.context.parameterConfig,
         options:args[1],sourceFunctions:sourceConfig.functions,Config});
       const fixed=require("./scopedCallableInvokerIam.js");
-      const raw=await controls.collectCurrentRawControls31({sourceCommit:ctx.source.commit,approvalSha256:ctx.approvalPointer.sha256,
+      const raw=await collectCurrentBusinessControls31({sourceCommit:ctx.source.commit,approvalSha256:ctx.approvalPointer.sha256,
         read:(url,method,body)=>recorder.readCurrentControlResponse31(api.Client,url,method,body),unavailableRunRegion:fixed.unavailableRunRegion});
       currentControls=write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"current-cohort-controls.json"),raw);
       controls.verifyCurrentCohortControls31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,evidenceDirectory:ctx.evidenceDirectory,
@@ -288,4 +308,4 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     require(ctx.runtime.cliEntrypoint);
   }catch(error){fail();finished=true;try{cleanup();}catch(cleanupError){throw new AggregateError([error,cleanupError],"phase initialization and cleanup failed");}throw error;}
 }
-module.exports={runController31,runPhaseChild31,installOwned,denyParameterWrites};
+module.exports={runController31,runPhaseChild31,installOwned,denyParameterWrites,collectCurrentBusinessControls31};

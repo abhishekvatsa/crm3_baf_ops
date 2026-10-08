@@ -4,7 +4,7 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
   bootstrap.runComponentSuiteTest31("controller-primitives");
 } else {
   const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),cp=require("node:child_process"),crypto=require("node:crypto");
-  const {installOwned,runController31,runPhaseChild31,denyParameterWrites}=require("./business31OperationalController.cjs");
+  const {installOwned,runController31,runPhaseChild31,denyParameterWrites,collectCurrentBusinessControls31}=require("./business31OperationalController.cjs");
   const custody=require("./business31CohortProcess.cjs");
   const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),"business31-controller-primitives-"));
   const sha=b=>crypto.createHash("sha256").update(b).digest("hex").toUpperCase();
@@ -249,5 +249,158 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
     const {Config}=installedConfig(),f=parameterFixture(t),options={project:PROJECT,config:new Config({functions:structuredClone(f.sourceFunctions)},{projectDir:f.ctx.repoRoot})};
     const binding=f.bind(options,Config);options.config.set("functions.0.configDir",f.owned);assert.throws(()=>binding.assertUnchanged(),/governed native Config changed/);
   });
+
+  // Exact public location IDs observed in the 2026-10-08 Run list response.
+  // Transport and all project resources below are synthetic; no cloud authority is claimed.
+  const RUN_LOCATIONS=["africa-south1","asia-east1","asia-east2","asia-northeast1","asia-northeast2","asia-northeast3","asia-south1","asia-south2","asia-southeast1","asia-southeast2","asia-southeast3","australia-southeast1","australia-southeast2","europe-central2","europe-north1","europe-north2","europe-southwest1","europe-west1","europe-west10","europe-west12","europe-west2","europe-west3","europe-west4","europe-west6","europe-west8","europe-west9","me-central1","me-central2","me-west1","northamerica-northeast1","northamerica-northeast2","northamerica-south1","southamerica-east1","southamerica-west1","us-central1","us-east1","us-east4","us-east5","us-south1","us-west1","us-west2","us-west3","us-west4"];
+  const controlModule=require("./backendRuntimeControls31.cjs"),iamGuard=require("./scopedCallableInvokerIam.js");
+  const LOCATION_URL=`https://run.googleapis.com/v1/projects/${PROJECT}/locations?pageSize=100`;
+  function controlFixture({locations=RUN_LOCATIONS,amend=()=>undefined}={}) {
+    const requests=[];
+    const read=async(url,method="GET",body)=>{
+      const call={url,method,body:body??null};requests.push(call);
+      const override=amend(call,requests);
+      if(override!==undefined)return {...call,httpStatus:200,...override};
+      let value;
+      if(url===`https://cloudresourcemanager.googleapis.com/v1/projects/${PROJECT}`)value={projectId:PROJECT,projectNumber:"894346496105"};
+      else if(url===`https://cloudfunctions.googleapis.com/v2/projects/${PROJECT}/locations/-/functions?pageSize=100`)value={functions:[]};
+      else if(url===LOCATION_URL)value={locations:locations.map(locationId=>({locationId}))};
+      else if(locations.some(name=>url===`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${name}/services?pageSize=100`))value={services:[]};
+      else if(url===`https://iam.googleapis.com/v1/projects/${PROJECT}/serviceAccounts?pageSize=100`)value={accounts:[]};
+      else if(url===`https://cloudresourcemanager.googleapis.com/v1/projects/${PROJECT}:getIamPolicy`&&method==="POST"){
+        assert.deepEqual(body,{options:{requestedPolicyVersion:3}});value={bindings:[]};
+      } else if(url===controlModule.SCHEDULER_URL)value={name:"synthetic existing scheduler"};
+      else throw Error("UNSELECTED_SYNTHETIC_TRANSPORT: "+url);
+      return {url,method,httpStatus:200,bodyText:JSON.stringify(value)};
+    };
+    const input={sourceCommit:"1".repeat(40),approvalSha256:"A".repeat(64),read,unavailableRunRegion:iamGuard.unavailableRunRegion};
+    return {requests,input};
+  }
+  const withoutTimes=value=>{const copy=structuredClone(value);delete copy.raw.startedAtUtc;delete copy.raw.completedAtUtc;return copy;};
+  test("business controls collect all 43 regions without dropping two-digit locations",async()=>{
+    const f=controlFixture(),value=await collectCurrentBusinessControls31(f.input);
+    assert.equal(RUN_LOCATIONS.length,43);assert.deepEqual(value.raw.runInventories.map(x=>x.location),RUN_LOCATIONS);
+    assert.equal(value.raw.runLocations.length,1);assert.deepEqual(value.raw.runIam,[]);
+    for(const name of RUN_LOCATIONS)assert.equal(f.requests.filter(x=>x.url===`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${name}/services?pageSize=100`).length,1);
+    assert.equal(value.raw.sourceCommit,f.input.sourceCommit);assert.equal(value.raw.approvalSha256,f.input.approvalSha256);
+  });
+  test("business controls preserve original collector behavior for prior one-digit inventories",async()=>{
+    const locations=RUN_LOCATIONS.filter(x=>!['europe-west10','europe-west12'].includes(x));
+    const old=controlFixture({locations}),current=controlFixture({locations});
+    assert.deepEqual(withoutTimes(await collectCurrentBusinessControls31(current.input)),withoutTimes(await controlModule.collectCurrentRawControls31(old.input)));
+    assert.deepEqual(current.requests,old.requests);
+  });
+  test("business controls original immutable collector still demonstrates the two-digit refusal",async()=>{
+    await assert.rejects(controlModule.collectCurrentRawControls31(controlFixture().input),/Unexpected Run region/);
+  });
+  for(const location of ["europe-west100","europe-west1/../../projects/other","europe-west1?project=other","europe-west1#fragment","https://evil.example","europe-west1@evil.example","//evil.example","europe-west1%2Fservices","europe-west1\\services","europe-west1\n","europe-west1\r\n","europe-west1\0","europe-west１２",["europe-west1"],null,12,{}]) {
+    test("business controls refuse malformed region "+JSON.stringify(location),async()=>{
+      const f=controlFixture({locations:[location]});
+      await assert.rejects(collectCurrentBusinessControls31(f.input),/Unexpected Run region/);
+      assert.equal(f.requests.length,3,"refused before any regional service request");
+    });
+  }
+  test("business controls preserve complete paginated location coverage and encode tokens",async()=>{
+    const token="synthetic token/+",second=LOCATION_URL+"&pageToken="+encodeURIComponent(token);
+    const f=controlFixture({amend:({url})=>url===LOCATION_URL?{bodyText:JSON.stringify({locations:RUN_LOCATIONS.slice(0,20).map(locationId=>({locationId})),nextPageToken:token})}:url===second?{bodyText:JSON.stringify({locations:RUN_LOCATIONS.slice(20).map(locationId=>({locationId}))})}:undefined});
+    const value=await collectCurrentBusinessControls31(f.input);
+    assert.deepEqual(value.raw.runInventories.map(x=>x.location),RUN_LOCATIONS);assert.equal(value.raw.runLocations.length,2);
+    assert.equal(f.requests.filter(x=>x.url===second).length,1);
+    assert.equal(iamGuard.pages(value.raw.runLocations,LOCATION_URL.split('?')[0],'locations').length,43);
+  });
+  for(const [label,body,pattern] of [
+    ["unreachable",{locations:[],unreachable:["europe-west10"]},/response incomplete/],
+    ["error",{error:{message:"synthetic error"}},/response incomplete/],
+    ["invalid population",{locations:{}},/population invalid/],
+    ["invalid token",{locations:[],nextPageToken:12},/pagination token/]
+  ])test("business controls preserve "+label+" refusal",async()=>{
+    const f=controlFixture({amend:({url})=>url===LOCATION_URL?{bodyText:JSON.stringify(body)}:undefined});
+    await assert.rejects(collectCurrentBusinessControls31(f.input),pattern);
+  });
+  test("business controls refuse repeated page tokens",async()=>{
+    const f=controlFixture({amend:({url})=>url.startsWith(LOCATION_URL)?{bodyText:JSON.stringify({locations:[],nextPageToken:"repeat"})}:undefined});
+    await assert.rejects(collectCurrentBusinessControls31(f.input),/repeated pagination token/);
+    assert.equal(f.requests.filter(x=>x.url.startsWith(LOCATION_URL)).length,2);
+  });
+  test("business controls retain the finite pagination bound",async()=>{
+    let count=0;const f=controlFixture({amend:({url})=>url.startsWith(LOCATION_URL)?{bodyText:JSON.stringify({locations:[],nextPageToken:String(++count)})}:undefined});
+    await assert.rejects(collectCurrentBusinessControls31(f.input),/pagination exceeds bound/);assert.equal(count,1000);
+  });
+  function locationDenial(location) {
+    return {httpStatus:403,bodyText:JSON.stringify({error:{code:403,status:"PERMISSION_DENIED",details:[{"@type":"type.googleapis.com/google.rpc.ErrorInfo",reason:"LOCATION_POLICY_VIOLATED",domain:"googleapis.com",metadata:{location,consumer:"projects/894346496105",service:""}}]}})};
+  }
+  test("business controls retain only the original measured me-central2 exclusion",async()=>{
+    const url=`https://run.googleapis.com/v2/projects/${PROJECT}/locations/me-central2/services?pageSize=100`;
+    const f=controlFixture({amend:call=>call.url===url?locationDenial("me-central2"):undefined}),value=await collectCurrentBusinessControls31(f.input);
+    assert.deepEqual(value.raw.runInventories.map(x=>x.location),RUN_LOCATIONS);
+    const row=value.raw.runInventories.find(x=>x.location==="me-central2");assert.equal(row.unavailable.httpStatus,403);assert.equal(row.pages,undefined);
+    assert.equal(iamGuard.unavailableRunRegion(row.unavailable,"me-central2","894346496105").location,"me-central2");
+  });
+  for(const location of ["asia-south1","europe-west10"])test("business controls cannot exclude "+location,async()=>{
+    const url=`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location}/services?pageSize=100`;
+    await assert.rejects(collectCurrentBusinessControls31(controlFixture({locations:[location],amend:call=>call.url===url?locationDenial(location):undefined}).input),/cannot be excluded/);
+  });
+  test("business controls reject an unproven me-central2 denial",async()=>{
+    const url=`https://run.googleapis.com/v2/projects/${PROJECT}/locations/me-central2/services?pageSize=100`;
+    await assert.rejects(collectCurrentBusinessControls31(controlFixture({locations:["me-central2"],amend:call=>call.url===url?{httpStatus:403,bodyText:'{"error":{"code":403,"status":"PERMISSION_DENIED","details":[]}}'}:undefined}).input),/unambiguous ErrorInfo/);
+  });
+  test("business controls propagate transport failure without retry or a partial result",async()=>{
+    const f=controlFixture({amend:({url})=>{if(url===LOCATION_URL)throw Error("SYNTHETIC_TRANSPORT_FAILURE");}});
+    await assert.rejects(collectCurrentBusinessControls31(f.input),/SYNTHETIC_TRANSPORT_FAILURE/);
+    assert.equal(f.requests.filter(x=>x.url===LOCATION_URL).length,1);
+  });
+
+  function populatedControlsFixture() {
+    const policy=JSON.parse(fs.readFileSync(path.join(__dirname,"../../release/function-fleet-runtime-identity-policy.json"))),names=Object.keys(policy.functionBindings);
+    const original=require("./business31RawControlsFixture.cjs").makeRawControls({policy,sourceCommit:"1".repeat(40),approvalSha256:"A".repeat(64),
+      startedAtUtc:"2026-10-08T00:00:00.000Z",completedAtUtc:"2026-10-08T00:00:01.000Z",endpointLabels:Object.fromEntries(names.map(name=>[name,"2".repeat(40)]))});
+    original.raw.runLocations[0].bodyText=JSON.stringify({locations:RUN_LOCATIONS.map(locationId=>({locationId}))});
+    const target=original.raw.runInventories[0];
+    original.raw.runInventories=RUN_LOCATIONS.map(location=>location===target.location?target:{location,pages:[{method:"GET",httpStatus:200,
+      url:`https://run.googleapis.com/v2/projects/${PROJECT}/locations/${location}/services?pageSize=100`,bodyText:'{"services":[]}'}]});
+    const responses=[original.raw.project,...original.raw.functions,...original.raw.runLocations,
+      ...original.raw.runInventories.flatMap(x=>x.pages),...original.raw.runIam.map(x=>x.response),
+      ...original.raw.accounts,...original.raw.accountIam.map(x=>x.response),original.raw.projectIam,original.scheduler];
+    const selected=new Map(responses.map(response=>[response.method+" "+response.url,response]));assert.equal(selected.size,responses.length);
+    const requests=[];const read=async(url,method="GET",body)=>{
+      const key=method+" "+url;requests.push(key);assert(selected.has(key),"exact fixture transport only: "+key);
+      if(url===original.raw.projectIam.url)assert.deepEqual(body,{options:{requestedPolicyVersion:3}});
+      return structuredClone(selected.get(key));
+    };
+    return {policy,original,requests,selected,input:{sourceCommit:"1".repeat(40),approvalSha256:"A".repeat(64),read,unavailableRunRegion:iamGuard.unavailableRunRegion}};
+  }
+  const summarizeControls=(f,raw)=>controlModule.summarizeRaw({raw,policy:f.policy,sourceCommit:f.input.sourceCommit,guard:iamGuard});
+  test("business controls real exported reader roundtrips 19 Functions, 15 identities and all 43 regions through unchanged comparators",async()=>{
+    const f=populatedControlsFixture(),actual=await collectCurrentBusinessControls31(f.input);
+    assert.deepEqual(f.requests.slice().sort(),[...f.selected.keys()].sort());
+    assert.deepEqual(withoutTimes(actual),withoutTimes(f.original));
+    const expected=summarizeControls(f,f.original.raw),measured=summarizeControls(f,actual.raw);
+    const result=controlModule.compareWithSupplement({before:expected,after:measured,policy:f.policy,runtime:"nodejs22",declaredMaxInstances:20});
+    assert.equal(result.functionCount,19);assert.equal(Object.keys(measured.accountPolicies).length,15);
+    assert.equal(actual.raw.runInventories.length,43);assert.equal(result.normalizedDeploymentOutputs.validatedFunctionPairs,38);
+    assert.deepEqual(result.normalizedDeploymentOutputs.changedFunctions,[]);
+    assert.deepEqual(controlModule.schedulerControl31(actual.scheduler),controlModule.schedulerControl31(f.original.scheduler));
+    assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);
+  });
+  test("business controls unchanged comparator refuses omission of a two-digit region",async()=>{
+    const f=populatedControlsFixture(),actual=await collectCurrentBusinessControls31(f.input);
+    actual.raw.runInventories=actual.raw.runInventories.filter(x=>x.location!=="europe-west10");
+    assert.throws(()=>summarizeControls(f,actual.raw),/Incomplete Run region coverage/);
+  });
+  test("business controls unchanged comparator still refuses App Check enforcement drift",async()=>{
+    const f=populatedControlsFixture(),actual=await collectCurrentBusinessControls31(f.input);
+    const page=JSON.parse(actual.raw.functions[0].bodyText);page.functions[0].serviceConfig.environmentVariables.CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK="true";
+    actual.raw.functions[0].bodyText=JSON.stringify(page);
+    assert.throws(()=>controlModule.compareWithSupplement({before:summarizeControls(f,f.original.raw),after:summarizeControls(f,actual.raw),policy:f.policy,runtime:"nodejs22",declaredMaxInstances:20}),/AppCheck/);
+  });
+
+  test("business controls run through the unchanged cohort verifier before Firebase prepare",()=>{
+    const source=fs.readFileSync(path.join(__dirname,"business31OperationalController.cjs"),"utf8");
+    const collect=source.indexOf("const raw=await collectCurrentBusinessControls31(");
+    const verify=source.indexOf("controls.verifyCurrentCohortControls31(",collect);
+    const prepare=source.indexOf("const result=await originalPrepare.apply(",verify);
+    assert(collect>0&&verify>collect&&prepare>verify);
+  });
+
   // Scratch originals are retained for diagnosing child startup and refusal results.
 }
