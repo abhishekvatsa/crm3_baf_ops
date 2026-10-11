@@ -76,6 +76,7 @@ test('all repository workflow action references are immutable', () => {
       path.relative(repositoryRoot, workflowPath)),
     [
       path.join('.github', 'workflows', 'business-private-replay.yml'),
+      path.join('.github', 'workflows', 'claude.yml'),
       path.join('.github', 'workflows', 'codeql.yml'),
       path.join('.github', 'workflows', 'production-artifact.yml'),
       path.join('.github', 'workflows', 'release-gate.yml'),
@@ -91,5 +92,5 @@ test('all repository workflow action references are immutable', () => {
     );
     return count + collectActionReferences(workflow, workflowPath).length;
   }, 0);
-  assert.equal(referenceCount, 38);
+  assert.equal(referenceCount, 40);
 });
