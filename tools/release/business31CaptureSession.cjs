@@ -26,7 +26,7 @@ const PINS = Object.freeze({
   "business31ToolchainProfiles.json": "F10A11D922FB378471728BB28623D33F64481C8E339950AF9416070A2D01A5B1",
   "business31TrustedInput.cjs": "9E0A4A0BB94DCD9B04BAA832104A1F083804DBBBF9349AE48618FB04B8DFF985",
   "captureBackendRuntimePreparedInputs31.cjs": "23C332B53A97DE7F5C328C9DE8EF63F160231B8ABBE1B99D7E76EB3F5C211387",
-  "captureBusiness31PreparedHook.cjs": "8E9CFA8F0FA51BB8B8E8B071AE8992BF2026804B364EAAD0C784B57D75DD6741",
+  "captureBusiness31PreparedHook.cjs": "5CF12047554327C8189D994ACF319A4AB0E4C26A5630D128EC36980196E21417",
   "captureBusiness31PreparedInputs.cjs": "E41E0CA63D2F03E4D46CC5A666C39A94045A1BEE25B6F830FF9F5DFE5057C73A",
   "clientBuildTooling31.historical-fixture.cjs": "4675CE35F06DB75334ABCD0841D1C7E07F65B4029CC0363D7FD279B539F829DB",
   "clientBuildToolingCompatibility31.cjs": "41A88310EF277B32056B58C779070B764FD6ACE27CA6C63A074C8B23BF08C7F2",
@@ -63,7 +63,7 @@ class BusinessCaptureSession31 {
     verifyCopies();
     require("./business31CaptureBootstrap.cjs").assertBootstrap31();
     need(typeof observeLive === "function", "measurement observer required; it confers no authority");
-    this.writerModule=require("./captureBusiness31PreparedInputs.cjs");
+    this.writerModule=require("./business31CaptureRecorder.cjs");
     this.cliLoadLease=this.writerModule.installCliLoadBoundary31(admission.runtime);
     try {
     const library=path.dirname(path.dirname(admission.runtime.cliEntrypoint)),apiFile=path.join(library,"apiv2.js");
