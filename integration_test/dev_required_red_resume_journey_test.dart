@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'support/required_red_journey.dart';
+import 'support/required_red_retry.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -72,26 +73,55 @@ void main() {
       expect(transportBefore['guardRejectCount'], 0);
       await relay('release', {'commandId': commandId});
 
-      // Wait out the production backoff without editing its journal/timestamps.
-      final retryAt = saved.nextRetryAt;
-      if (retryAt != null) {
-        expect(
-          retryAt.difference(DateTime.now()),
-          lessThan(const Duration(minutes: 3)),
-          reason:
-              'Unexpected backoff is evidence, not permission to rewrite the queue.',
-        );
-        while (DateTime.now().isBefore(retryAt)) {
-          await tester.pump(const Duration(milliseconds: 300));
-          await Future<void>.delayed(const Duration(milliseconds: 200));
+      Future<RequiredRedRetrySnapshot> readOriginalRetry() async {
+        if (await nativeWorkflow.getReceipt(commandId) != null) {
+          return const RequiredRedRetrySnapshot(hasReceipt: true);
         }
+        final current = await nativeWorkflow.getRetryCommand(commandId);
+        if (current == null) {
+          // Settlement can land between the receipt and journal reads.
+          return RequiredRedRetrySnapshot(
+            hasReceipt: await nativeWorkflow.getReceipt(commandId) != null,
+          );
+        }
+        expect(current.commandId, commandId);
+        expect(current.payloadJson, proof['payloadJson']);
+        expect(current.expectedVersion, proof['expectedVersion']);
+        expect(current.aggregateId, saved.aggregateId);
+        expect(current.commandTypeKey, saved.commandTypeKey);
+        return RequiredRedRetrySnapshot(
+          stateKey: current.stateKey,
+          attemptCount: current.attemptCount,
+          lastAttemptAt: current.lastAttemptAt,
+          nextRetryAt: current.nextRetryAt,
+          lastErrorCode: current.lastErrorCode,
+        );
       }
-      await syncThroughUi(tester);
-      final deadline = DateTime.now().add(const Duration(seconds: 120));
-      while (DateTime.now().isBefore(deadline)) {
-        if (await nativeWorkflow.getReceipt(commandId) != null) break;
-        await tester.pump(const Duration(milliseconds: 400));
-        await Future<void>.delayed(const Duration(milliseconds: 200));
+
+      try {
+        await waitForRequiredRedReceipt(
+          readCurrent: readOriginalRetry,
+          now: DateTime.now,
+          wait: () async {
+            await tester.pump(const Duration(milliseconds: 400));
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          },
+          syncThroughUi: (canTap) => syncThroughUi(tester, canTap: canTap),
+          onObservation: (observation) => debugPrint(
+            'DEV_REQUIRED_RED_RETRY_STATE ${jsonEncode(observation)}',
+          ),
+        );
+      } catch (error, stackTrace) {
+        try {
+          debugPrint(
+            'DEV_REQUIRED_RED_RETRY_RELAY ${jsonEncode(await relay('status'))}',
+          );
+        } catch (diagnosticError) {
+          debugPrint(
+            'DEV_REQUIRED_RED_RETRY_RELAY_UNAVAILABLE $diagnosticError',
+          );
+        }
+        Error.throwWithStackTrace(error, stackTrace);
       }
       final receipt = await nativeWorkflow.getReceipt(commandId);
       expect(

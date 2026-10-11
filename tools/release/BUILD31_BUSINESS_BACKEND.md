@@ -58,12 +58,27 @@ scope and cannot authorize the schema 2 execution path.
 The business review selector additionally supports
 `claude-issue-comment-no-findings-v1`, with reviewer `claude[bot]`. This is a
 requested output protocol, not evidence that Claude has reviewed any source.
-The genuine issue-comment response must have exactly two nonempty lines:
+The genuine issue-comment response must have exactly four nonempty lines,
+including the official action success envelope:
 
 ```text
+**Claude finished @<request user>'s task in 25s** —— [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/<run ID>)
+
+---
 No findings.
 **Reviewed commit:** `<full head or uniquely resolving 7–40 digit Git prefix>`
 ```
+
+The success header must name the original request account. Its duration may be
+omitted or use canonical `Ns` (0–59 seconds) or `Xm Ys` (positive integer minutes,
+0–59 seconds). The run ID must be a positive safe integer in the exact repository
+URL shown above. The mandatory `---` separator is followed by exactly the two
+payload lines; bare payloads, error headers, branch/PR link suffixes, additional
+sections and foreign job links are refused. This wrapper matches
+`anthropics/claude-code-action` at `1d6de8cb0c237e7c15e9e1bdf973826ebae490cc`.
+The run link supplies envelope context only: it does not establish which request
+triggered the run or which PR head was reviewed. An issue-comment workflow can
+run from the default branch while reviewing a different source head.
 
 The equivalent standalone verdicts `No major issues.` and
 `I didn't find any major issues.` are also accepted. Extra prose, quoted or

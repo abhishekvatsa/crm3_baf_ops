@@ -63,11 +63,11 @@ const change=(f,index,fn)=>{const row=j(f.records[index]);fn(row);f.records[inde
 test("synthetic three-cohort composition replays real ZIP, original live Git/CI/review and all25 pure transport mutations",()=>{const results=["callables","events","fleet"].map(phase=>replay(mutationFixture(phase)));assert.equal(results.reduce((n,r)=>n+r.mutationCount,0),25);assert.equal(results.flatMap(r=>r.events).filter(r=>r.kind==="function-update").length,19);assert.ok(results.every(r=>!Object.hasOwn(r,"deploymentAuthorized")&&!Object.hasOwn(r,"ok")));});
 test("Claude originals replay through all three business closure cohorts without Codex substitution",()=>{
  const count=["callables","events","fleet"].map(phase=>{
-  const f=mutationFixture(phase),claude={...response,body:"No findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
+  const f=mutationFixture(phase),claude={...response,body:"**Claude finished @synthetic-requester\'s task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/123)\n\n---\nNo findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
    user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:{id:1236702,slug:"claude",owner:{login:"anthropics",id:76263028}}};
   f.ctx.liveApproval=structuredClone(liveApproval);f.ctx.liveApproval.reviewPreparedAtUtc=T(70);
   Object.assign(f.ctx.liveApproval.settledSourceReview,{kind:x.CLAUDE_REVIEW_KIND,reviewer:"claude[bot]",summary:null,response:{id:claude.id,bodySha256:h(Buffer.from(claude.body))}});
-  f.records=f.records.map(p=>{const row=j(p),o=j(row.liveObservation);o.review=JSON.stringify(claude);o.reviewRequest=JSON.stringify({...request,updated_at:request.created_at});row.liveObservation=retain(o);return retain(row);});
+  f.records=f.records.map(p=>{const row=j(p),o=j(row.liveObservation);o.review=JSON.stringify(claude);o.reviewRequest=JSON.stringify({...request,user:{login:"synthetic-requester",type:"User"},updated_at:request.created_at});row.liveObservation=retain(o);return retain(row);});
   const result=replay(f);assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);
   const altered=j(f.records.at(-1)),o=j(altered.liveObservation),review=JSON.parse(o.review);review.performed_via_github_app.id=1;o.review=JSON.stringify(review);altered.liveObservation=retain(o);f.records[f.records.length-1]=retain(altered);
   assert.throws(()=>replay(f),/official Claude/);return result.mutationCount;
@@ -119,9 +119,9 @@ for(const [name,edit,pattern]of [
 test("Claude contract binds genuine-shaped originals and preserves the prepared-time cutoff",()=>{
  const f=contractFixture(),selected=f.contract.settledSourceReview;
  selected.kind=x.CLAUDE_REVIEW_KIND;selected.reviewer="claude[bot]";
- const reply={...response,body:"No findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
+ const reply={...response,body:"**Claude finished @synthetic-requester\'s task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/123)\n\n---\nNo findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
   user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:{id:1236702,slug:"claude",owner:{login:"anthropics",id:76263028}}};
- selected.request.original=retain({...request,updated_at:request.created_at});selected.response.original=retain(reply);selected.response.bodySha256=h(Buffer.from(reply.body));
+ selected.request.original=retain({...request,user:{login:"synthetic-requester",type:"User"},updated_at:request.created_at});selected.response.original=retain(reply);selected.response.bodySha256=h(Buffer.from(reply.body));
  const result=x.verifyExecutionContract31(f);assert.equal(result.approval.reviewPreparedAtUtc,f.contract.preparedAtUtc);assert.equal(result.reviewOriginals.response.user.login,"claude[bot]");assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);
  selected.response.original=retain({...reply,updated_at:T(71)});assert.throws(()=>x.verifyExecutionContract31(f),/chronology/);
 });

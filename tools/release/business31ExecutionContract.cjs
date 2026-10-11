@@ -60,12 +60,19 @@ function claudeIdentity31(value) {
   if (Object.hasOwn(app,"owner")) need(app.owner?.login === "anthropics" && app.owner.id === 76263028,
     "official Claude app owner differs");
 }
-function claudeReviewedPrefix31(value) {
+function claudeReviewedPrefix31(value, request) {
   need(typeof value?.body === "string", "original Claude response body required");
   const lines = value.body.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-  need(lines.length === 2 && /^(?:No findings\.?|No major issues\.?|I didn['\u2019]t find any major issues\.?)$/i.test(lines[0]),
+  need(lines.length === 4 && lines[1] === "---", "exact Claude success envelope required");
+  // Pinned official action success wrapper only; branch/PR links and error headers are refused.
+  const header = /^\*\*Claude finished @([A-Za-z0-9-]+)'s task(?: in (?:([1-9][0-9]*)m )?([0-9]|[1-5][0-9])s)?\*\* \u2014\u2014 \[View job\]\(https:\/\/github\.com\/([^/()]+\/[^/()]+)\/actions\/runs\/([1-9][0-9]*)\)$/.exec(lines[0]);
+  need(header && typeof request?.user?.login === "string" && header[1] === request.user.login &&
+    (!header[2] || Number.isSafeInteger(Number(header[2]))) && header[4] === REVIEW_REPOSITORY &&
+    Number.isSafeInteger(Number(header[5])), "Claude success header/request user or job URL differs");
+  // A same-repository run link is envelope context, not proof of the triggering comment or reviewed SHA.
+  need(/^(?:No findings\.?|No major issues\.?|I didn['\u2019]t find any major issues\.?)$/i.test(lines[2]),
     "standalone Claude no-findings result required");
-  const marker = /^\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`$/i.exec(lines[1]);
+  const marker = /^\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`$/i.exec(lines[3]);
   need(marker, "exact unique Claude reviewed-commit marker required");
   return marker[1].toLowerCase();
 }
@@ -90,7 +97,7 @@ function verifyClaudeChain31({selected,pr,review,reviewRequest,reviewSummary,lat
   need(time(reviewRequest.updated_at) <= time(review.created_at), "Claude response predates exact-head request");
   need(new RegExp("(^|[^0-9a-f])" + selected.headCommit + "([^0-9a-f]|$)","i").test(reviewRequest.body),
     "actual full-head Claude request required");
-  const prefix = claudeReviewedPrefix31(review);
+  const prefix = claudeReviewedPrefix31(review, reviewRequest);
   need(selected.headCommit.startsWith(prefix), "Claude reviewed marker differs from selected head");
   return prefix;
 }

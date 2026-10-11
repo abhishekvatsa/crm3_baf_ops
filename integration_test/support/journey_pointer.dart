@@ -79,7 +79,11 @@ Future<void> showControl(
   fail('Control or current-route viewport did not become ready: $target');
 }
 
-Future<void> tapControl(WidgetTester tester, Finder target) async {
+Future<bool> tapControl(
+  WidgetTester tester,
+  Finder target, {
+  Future<bool> Function()? canTap,
+}) async {
   for (var attempt = 0; attempt < 5; attempt++) {
     await showControl(tester, target);
     // The real, movable safety shortcut can overlap a form control. Reposition
@@ -116,9 +120,17 @@ Future<void> tapControl(WidgetTester tester, Finder target) async {
         tester.getRect(target) != rect) {
       continue;
     }
+    // A caller may need to re-read live eligibility after the reveal waits.
+    // A refusal returns without a gesture; the caller owns any bounded retry.
+    if (canTap != null && !await canTap()) return false;
+    if (tester.view.viewInsets.bottom != 0 ||
+        target.hitTestable().evaluate().isEmpty ||
+        tester.getRect(target) != rect) {
+      continue;
+    }
     await tester.tap(target);
     await tester.pump(const Duration(milliseconds: 500));
-    return;
+    return true;
   }
   fail('Control remained unreachable after five reveal attempts: $target');
 }

@@ -13,6 +13,44 @@ void main() {
     addTearDown(() => WidgetController.hitTestWarningShouldBeFatal = previous);
   });
 
+  testWidgets('final guard rechecks after reveal and false makes no gesture', (
+    tester,
+  ) async {
+    var eligible = true;
+    var presses = 0;
+    final observed = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: FilledButton(
+            onPressed: () => presses++,
+            child: const Text('Guarded sync'),
+          ),
+        ),
+      ),
+    );
+    final changeDuringReveal = Timer(
+      const Duration(milliseconds: 200),
+      () => eligible = false,
+    );
+    addTearDown(changeDuringReveal.cancel);
+    final control = find.widgetWithText(FilledButton, 'Guarded sync');
+    Future<bool> guard() async {
+      observed.add(eligible);
+      return eligible;
+    }
+
+    expect(await pointer.tapControl(tester, control, canTap: guard), isFalse);
+    expect(observed, [false]);
+    expect(presses, 0);
+
+    eligible = true;
+    expect(await pointer.tapControl(tester, control, canTap: guard), isTrue);
+    expect(observed, [false, true]);
+    expect(presses, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'popup selection waits for reachability and selects exactly once',
     (tester) async {

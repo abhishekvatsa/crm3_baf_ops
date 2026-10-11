@@ -40,10 +40,15 @@ const official={id:1236702,slug:"claude",owner:{login:"anthropics",id:76263028}}
 const ci=(kind,id,pr)=>({schemaVersion:1,evidenceType:kind==="release"?"github-exact-main-release-gate":"github-exact-main-codeql",repository:"abhishekvatsa/crm3_baf_ops",sourceCommit:M,sourceTree:tree,capturedAtUtc:T(50),pullRequest:pr,
   run:{id,run_attempt:1,repository:{full_name:"abhishekvatsa/crm3_baf_ops"},head_sha:M,head_branch:"main",event:"push",path:kind==="release"?".github/workflows/release-gate.yml":".github/workflows/codeql.yml",status:"completed",conclusion:"success",created_at:T(10),updated_at:T(40)},
   jobs:{total_count:(kind==="release"?a.RELEASE_JOBS:a.SECURITY_JOBS).length,jobs:(kind==="release"?a.RELEASE_JOBS:a.SECURITY_JOBS).map((name,i)=>({id:id*100+i,run_id:id,run_attempt:1,head_sha:M,name,status:"completed",conclusion:"success",completed_at:T(30)}))}});
+// Byte shape of pinned updateCommentBody with a synthetic two-line clean payload.
+// The genuine comment 6106214186 contains findings and is never a positive admission fixture.
+const wrappedReview=(prefix=head.slice(0,10),verdict="No findings.",duration=" in 25s")=>
+  "**Claude finished @abhishekvatsa's task"+duration+"** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/38117906501)\n\n---\n"+
+  verdict+"\n**Reviewed commit:** `"+prefix+"`";
 function fixture(){
   const issue_url="https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/issues/405";
-  const reviewRequest={id:1001,issue_url,body:"@claude review exact head "+head,created_at:T(-20),updated_at:T(-20)};
-  const review={id:1002,issue_url,body:"No findings.\n\n**Reviewed commit:** `"+head.slice(0,10)+"`",created_at:T(-10),updated_at:T(-10),user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:structuredClone(official)};
+  const reviewRequest={id:1001,issue_url,user:{login:"abhishekvatsa",type:"User"},body:"@claude review exact head "+head,created_at:T(-20),updated_at:T(-20)};
+  const review={id:1002,issue_url,body:wrappedReview(),created_at:T(-10),updated_at:T(-10),user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:structuredClone(official)};
   const pr={number:405,merged:true,merge_commit_sha:M,head:{sha:head},base:{ref:"main",repo:{full_name:"abhishekvatsa/crm3_baf_ops"}},merged_at:T(0)};
   return {source,pr,review,reviewRequest,reviewSummary:null,reviewedHeadCommit:head,
     approval:{reviewPreparedAtUtc:T(70),decidedAtUtc:T(100),normalMergeParents:[left,head],mainCiRun:{id:11,runAttempt:1},securityCiRun:{id:12,runAttempt:1},settledSourceReview:{kind:x.CLAUDE_REVIEW_KIND,reviewer:"claude[bot]",headCommit:head,request:{id:1001,bodySha256:h(Buffer.from(reviewRequest.body))},response:{id:1002,bodySha256:h(Buffer.from(review.body))},summary:null}},
@@ -56,7 +61,47 @@ test.after(()=>{assert.equal(path.dirname(fs.realpathSync(root)),fs.realpathSync
 test("synthetic Claude records pass real live predicate and preserved replay with actual Git prefix resolution",()=>{const f=fixture(),raw=observation(f),before=JSON.stringify(raw);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);assert.equal(x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval),true);assert.equal(JSON.stringify(raw),before);assert.equal(JSON.parse(raw.review).user.login,"claude[bot]");});
 test("official app owner may be omitted by endpoint; supplied owner must match",()=>{const f=fixture();delete f.review.performed_via_github_app.owner;assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);});
 test("Claude v1 refuses richer summaries even from the official app",()=>{const f=fixture();f.reviewSummary={...structuredClone(f.review),id:1003,body:"Synthetic summary",created_at:T(-5),updated_at:T(-4)};rebind(f);assert.throws(()=>x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/summary:null/);});
-for(const verdict of ["No findings","No major issues.","I didn't find any major issues.","I didn’t find any major issues."])test("closed standalone verdict: "+verdict,()=>{const f=fixture();f.review.body=verdict+"\r\n**Reviewed commit:** `"+head+"`\r\n";rebind(f);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);});
+for(const verdict of ["No findings","No major issues.","I didn't find any major issues.","I didn’t find any major issues."])test("closed standalone verdict: "+verdict,()=>{const f=fixture();f.review.body=wrappedReview(head,verdict).replace(/\n/g,"\r\n")+"\r\n";rebind(f);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);});
+// Require the action's closed success envelope in both direct and retained admission.
+for(const duration of [""," in 0s"," in 59s"," in 1m 0s"," in 25m 59s"])
+  test("official duration shape on both paths: "+(duration||"omitted"),()=>{const f=fixture();f.review.body=wrappedReview(head,"No findings.",duration);rebind(f);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);assert.equal(x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),true);});
+const envelopeNegatives=[
+ ["bare old synthetic payload",f=>f.review.body="No findings.\n**Reviewed commit:** `"+head+"`"],
+ ["missing request actor",f=>delete f.reviewRequest.user],
+ ["missing request login",f=>delete f.reviewRequest.user.login],
+ ["different request login",f=>f.reviewRequest.user.login="another-user"],
+ ["error header",f=>f.review.body=f.review.body.replace("Claude finished @abhishekvatsa's task in 25s","Claude encountered an error after 25s")],
+ ["working header",f=>f.review.body=f.review.body.replace("Claude finished @abhishekvatsa's task in 25s","Claude Code is working...")],
+ ["quoted header",f=>f.review.body="> "+f.review.body],
+ ["missing separator",f=>f.review.body=f.review.body.replace("---\n","")],
+ ["duplicate separator",f=>f.review.body=f.review.body.replace("---\n","---\n---\n")],
+ ["different separator",f=>f.review.body=f.review.body.replace("---\n","***\n")],
+ ["extra header",f=>f.review.body=f.review.body.split("\n")[0]+"\n"+f.review.body],
+ ["branch suffix",f=>f.review.body=f.review.body.replace(")\n\n---",") \u2022 [`main`](https://github.com/abhishekvatsa/crm3_baf_ops/tree/main)\n\n---")],
+ ["PR suffix",f=>f.review.body=f.review.body.replace(")\n\n---",") \u2022 [Create PR \u2794](https://github.com/abhishekvatsa/crm3_baf_ops/pull/405)\n\n---")],
+ ["foreign repository",f=>f.review.body=f.review.body.replace("/abhishekvatsa/crm3_baf_ops/","/another/repository/")],
+ ["foreign hostname",f=>f.review.body=f.review.body.replace("https://github.com/","https://github.example/")],
+ ["HTTP job link",f=>f.review.body=f.review.body.replace("https://","http://")],
+ ["job URL query",f=>f.review.body=f.review.body.replace("38117906501)","38117906501?x=1)")],
+ ["job URL fragment",f=>f.review.body=f.review.body.replace("38117906501)","38117906501#step:1:1)")],
+ ["zero run ID",f=>f.review.body=f.review.body.replace("38117906501)","0)")],
+ ["padded run ID",f=>f.review.body=f.review.body.replace("38117906501)","038117906501)")],
+ ["unsafe run ID",f=>f.review.body=f.review.body.replace("38117906501)","9007199254740992)")],
+ ["noncanonical seconds",f=>f.review.body=wrappedReview(head,"No findings."," in 60s")],
+ ["padded seconds",f=>f.review.body=wrappedReview(head,"No findings."," in 05s")],
+ ["zero minutes",f=>f.review.body=wrappedReview(head,"No findings."," in 0m 25s")],
+ ["unsafe minutes",f=>f.review.body=wrappedReview(head,"No findings."," in 9007199254740992m 0s")],
+ ["duration footer",f=>f.review.body+="\n---\nDuration: 25s"],
+ ["extra run-link footer",f=>f.review.body+="\n[View job run](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/38117906501)"],
+ ["extra section",f=>f.review.body+="\n### Findings\nA finding"],
+ ["second marker",f=>f.review.body+="\n**Reviewed commit:** `"+head+"`"],
+ ["wrapped findings payload",f=>f.review.body=wrappedReview(head,"Found a correctness issue.")],
+];
+for(const [label,change]of envelopeNegatives)for(const route of ["live","preserved"])
+  test("Claude envelope refuses "+label+" ("+route+")",()=>{const f=fixture();change(f);rebind(f);assert.throws(()=>route==="live"?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval));});
+// Genuine finding body only; the surrounding chain is synthetic and must refuse it.
+const genuineFindingBody="**Claude finished @abhishekvatsa's task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/38117906501)\n\n---\n### Review of `cbe9f1a7d2be6b1d1939755722bdb5ed0b2e575a`\n\nI inspected exactly this commit (`git rev-parse HEAD` returned `cbe9f1a7d2be6b1d1939755722bdb5ed0b2e575a`) in a read-only review. I made no edits, commits, pushes or settings changes. I did not run the test suites.\n\n### Finding 1: the strict parser rejects the envelope claude-code-action actually posts\n\n**Where:** `tools/release/business31ExecutionContract.cjs`, `claudeReviewedPrefix31` (about lines 71\u201379 of the file).\n\nThe parser splits `review.body` on newlines, trims each line and drops blank lines. It then requires exactly two lines: a no-findings sentence, then `**Reviewed commit:** \\`<sha>\\``.\n\nThe action, pinned at `1d6de8cb\u2026`, does not post the agent's text as-is. `src/github/operations/comment-logic.ts` (lines 114\u2013206, `updateCommentBody`) builds the final body as:\n\n```\n**Claude finished @<user>'s task in <dur>** \u2014\u2014 [View job](<url>) \u2022 [`branch`](...)\n\n---\n<agent body>\n```\n\nThe agent body is also required by its prompt to end with a `` link. The action strips that link at line 197, but the header and the `---` separator are always added.\n\nFor the exact two-line text you asked for, the real posted comment has four non-empty lines:\n\n1. `**Claude finished @abhishekvatsa's task in \u2026** \u2014\u2014 [View job](\u2026)`\n2. `---`\n3. `No findings.`\n4. ``**Reviewed commit:** `cbe9f1a7d2` ``\n\n`lines.length === 2` fails with `standalone Claude no-findings result required`. Even without that length check, `lines[0]` is the header, so the no-findings regex would fail.\n\n**Effect:** no genuine comment from the official app at this pinned action version can pass `verifyClaudeChain31`. This applies at preparation, in the live observer and in retained replay. The Claude path is therefore unusable with the real action. The synthetic tests pass only because they feed a bare two-line body. `tools/release/business31SourceReview.test.cjs` and the 121 focused tests do not cover the real envelope.\n\n**Suggested fix (the repo owner's decision):**\n- Either have the parser accept the action's fixed envelope: a header line matching `^\\*\\*Claude finished @[\\w-]+'s task( in \\d+m? ?\\d*s)?\\*\\* \u2014\u2014 \\[View job\\]\\(https://github\\.com/abhishekvatsa/crm3_baf_ops/actions/runs/\\d+\\)\u2026$`, then `---`, then the two content lines.\n- Or have the workflow post the result through a path that does not decorate the body.\n\nWhichever you pick, add a regression that uses the byte-exact output of `updateCommentBody` for the `No findings.` / `**Reviewed commit:**` case. Also confirm whether the \"View job run\" link or any duration footer can end up in the stored body.\n\n### Other observations (no action required)\n\n- The provider selection, the full-head request check, the app identity check (id 1236702, `claude`) and the chronology checks look internally consistent.\n- Codex dispatch is unchanged.\n- I did not re-verify the binding digests or the pin refresh.\n\nThis does not approve any release or production action.";
+for(const route of ["live","preserved"])test("actual wrapped finding comment6106214186 is refused ("+route+")",()=>{const f=fixture();f.review.body=genuineFindingBody;rebind(f);assert.throws(()=>route==="live"?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/exact Claude success envelope/);});
 const negatives=[
  ["unknown kind",f=>f.approval.settledSourceReview.kind="arbitrary-bot"],
  ["Claude masquerading as Codex",f=>f.approval.settledSourceReview.kind="bot-issue-comment-no-findings"],
@@ -73,12 +118,12 @@ const negatives=[
  ["request abbreviation only",f=>{f.reviewRequest.body=head.slice(0,10);rebind(f);}],
  ["full head only inside longer hex",f=>{f.reviewRequest.body="a"+head+"b";rebind(f);}],
  ["two markers",f=>{f.review.body+="\n**Reviewed commit:** `"+head+"`";rebind(f);}],
- ["wrong marker",f=>{f.review.body="No findings.\n**Reviewed commit:** `"+left+"`";rebind(f);}],
+ ["wrong marker",f=>{f.review.body=wrappedReview(left);rebind(f);}],
  ["quoted verdict",f=>{f.review.body=f.review.body.replace("No findings.","> No findings.");rebind(f);}],
  ["negated verdict",f=>{f.review.body=f.review.body.replace("No findings.","Not no findings.");rebind(f);}],
  ["malformed Unicode apostrophe",f=>{f.review.body=f.review.body.replace("No findings.","I didn\u00e2t find any major issues.");rebind(f);}],
  ["quota appended to verdict",f=>{f.review.body+="\nQuota exhausted";rebind(f);}],
- ["error instead of review",f=>{f.review.body="Review not performed.\n**Reviewed commit:** `"+head+"`";rebind(f);}],
+ ["error instead of review",f=>{f.review.body=wrappedReview(head,"Review not performed.");rebind(f);}],
  ["native PR review shape",f=>{f.review.commit_id=head;f.review.state="APPROVED";delete f.review.issue_url;}],
  ["body digest mismatch",f=>f.review.body=f.review.body.replace("findings","major issues")],
  ["wrong comment ID",f=>f.review.id++],
@@ -116,9 +161,9 @@ test("retained replay refuses observer substitution and start-main drift",()=>{c
 test("retained replay refuses a genuinely ambiguous commit prefix and accepts the full SHA",()=>{
   const f=fixture(),prefix=head.slice(0,7);assert.equal(prefix,collision.second.slice(0,7));assert.notEqual(head,collision.second);
   assert.throws(()=>git(["rev-parse","--verify",prefix+"^{commit}"]),/ambiguous|Needed a single revision/);
-  f.review.body="No findings.\n**Reviewed commit:** `"+prefix+"`";rebind(f);
+  f.review.body=wrappedReview(prefix);rebind(f);
   assert.throws(()=>x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/ambiguous|Needed a single revision/);
-  f.review.body="No findings.\n**Reviewed commit:** `"+head+"`";rebind(f);
+  f.review.body=wrappedReview(head);rebind(f);
   assert.equal(git(["rev-parse","--verify",head+"^{commit}"]),head);
   assert.equal(x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),true);
 });
