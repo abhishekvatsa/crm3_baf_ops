@@ -713,7 +713,10 @@ Future<File> evidenceFile() async {
   return File('${directory.path}/required-red-prepared.json');
 }
 
-Future<void> syncThroughUi(WidgetTester tester) async {
+Future<bool> syncThroughUi(
+  WidgetTester tester, {
+  required Future<bool> Function() canTap,
+}) async {
   await home(tester);
   await openMore(tester, 'Sync health');
   final sync = find.widgetWithText(FilledButton, 'Sync now');
@@ -725,7 +728,16 @@ Future<void> syncThroughUi(WidgetTester tester) async {
         tester.widget<FilledButton>(sync).onPressed != null,
     'Normal manual sync becomes available',
   );
-  await tapControl(tester, sync);
+  final tapped = await tapControl(
+    tester,
+    sync,
+    canTap: () async {
+      // Eligibility may change while the ordinary control becomes reachable.
+      return await canTap() &&
+          tester.widget<FilledButton>(sync).onPressed != null;
+    },
+  );
   await tester.binding.handlePopRoute();
   await tester.pump(const Duration(milliseconds: 300));
+  return tapped;
 }

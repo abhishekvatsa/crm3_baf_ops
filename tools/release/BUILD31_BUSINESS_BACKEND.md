@@ -55,6 +55,53 @@ owner decision. Schema 2 decision/owner records additionally bind this exact
 contract. Schema 1 decision/owner records remain readable for their original
 scope and cannot authorize the schema 2 execution path.
 
+The business review selector additionally supports
+`claude-issue-comment-no-findings-v1`, with reviewer `claude[bot]`. This is a
+requested output protocol, not evidence that Claude has reviewed any source.
+The genuine issue-comment response must have exactly four nonempty lines,
+including the official action success envelope:
+
+```text
+**Claude finished @<request user>'s task in 25s** —— [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/<run ID>)
+
+---
+No findings.
+**Reviewed commit:** `<full head or uniquely resolving 7–40 digit Git prefix>`
+```
+
+The success header must name the original request account. Its duration may be
+omitted or use canonical `Ns` (0–59 seconds) or `Xm Ys` (positive integer minutes,
+0–59 seconds). The run ID must be a positive safe integer in the exact repository
+URL shown above. The mandatory `---` separator is followed by exactly the two
+payload lines; bare payloads, error headers, branch/PR link suffixes, additional
+sections and foreign job links are refused. This wrapper matches
+`anthropics/claude-code-action` at `1d6de8cb0c237e7c15e9e1bdf973826ebae490cc`.
+The run link supplies envelope context only: it does not establish which request
+triggered the run or which PR head was reviewed. An issue-comment workflow can
+run from the default branch while reviewing a different source head.
+
+The equivalent standalone verdicts `No major issues.` and
+`I didn't find any major issues.` are also accepted. Extra prose, quoted or
+negated verdicts, findings, quota messages and native PR reviews are not this
+protocol. The selected genuine request must contain the full PR head. The
+response must come from a Bot account named `claude[bot]` through official
+GitHub app `claude` (ID 1236702); an included app owner must be `anthropics`
+(ID 76263028). Original IDs, PR URLs, body hashes and creation/update times
+remain bound, with the request preceding the response and every selected
+comment last updated before the prepared contract. This closed Claude protocol
+requires `summary: null`; richer summary semantics remain unsupported. The live
+and retained paths resolve the
+single marker in actual Git and retain all exact-main, normal-merge, CI,
+review-population and resolved-thread checks. A requested review, local JSON
+or arbitrary `COMMENTED` status cannot pass those checks.
+
+The existing Codex kind delegates to its unchanged historical verifier. No
+provider is relabelled and no original response is rewritten. Contract,
+decision and intent schema versions stay unchanged; the new review kind is a
+closed discriminator. Preparation and recorded replay still grant no authority.
+Changing these source helpers requires new exact-source CI and qualification;
+prior source-specific proof, intent or consent cannot be promoted to that source.
+
 `business31BackendClosure.cjs` replays the recorded 13 callable, five event and
 one scheduler cohorts. It checks original command records, mutation requests
 and responses, actual uploaded ZIPs, controls and final readbacks using the

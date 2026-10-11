@@ -61,6 +61,18 @@ function mutationFixture(phase="callables",endpointLabels=labels) {
 const replay=f=>closure.replayMutationTranscript31(f);
 const change=(f,index,fn)=>{const row=j(f.records[index]);fn(row);f.records[index]=retain(row);};
 test("synthetic three-cohort composition replays real ZIP, original live Git/CI/review and all25 pure transport mutations",()=>{const results=["callables","events","fleet"].map(phase=>replay(mutationFixture(phase)));assert.equal(results.reduce((n,r)=>n+r.mutationCount,0),25);assert.equal(results.flatMap(r=>r.events).filter(r=>r.kind==="function-update").length,19);assert.ok(results.every(r=>!Object.hasOwn(r,"deploymentAuthorized")&&!Object.hasOwn(r,"ok")));});
+test("Claude originals replay through all three business closure cohorts without Codex substitution",()=>{
+ const count=["callables","events","fleet"].map(phase=>{
+  const f=mutationFixture(phase),claude={...response,body:"**Claude finished @synthetic-requester\'s task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/123)\n\n---\nNo findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
+   user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:{id:1236702,slug:"claude",owner:{login:"anthropics",id:76263028}}};
+  f.ctx.liveApproval=structuredClone(liveApproval);f.ctx.liveApproval.reviewPreparedAtUtc=T(70);
+  Object.assign(f.ctx.liveApproval.settledSourceReview,{kind:x.CLAUDE_REVIEW_KIND,reviewer:"claude[bot]",summary:null,response:{id:claude.id,bodySha256:h(Buffer.from(claude.body))}});
+  f.records=f.records.map(p=>{const row=j(p),o=j(row.liveObservation);o.review=JSON.stringify(claude);o.reviewRequest=JSON.stringify({...request,user:{login:"synthetic-requester",type:"User"},updated_at:request.created_at});row.liveObservation=retain(o);return retain(row);});
+  const result=replay(f);assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);
+  const altered=j(f.records.at(-1)),o=j(altered.liveObservation),review=JSON.parse(o.review);review.performed_via_github_app.id=1;o.review=JSON.stringify(review);altered.liveObservation=retain(o);f.records[f.records.length-1]=retain(altered);
+  assert.throws(()=>replay(f),/official Claude/);return result.mutationCount;
+ });assert.equal(count.reduce((a,b)=>a+b,0),25);
+});
 for(const [name,pattern,mutate]of [
  ["missing mutation",/complete generate/,f=>f.records.pop()], ["extra mutation",/complete generate/,f=>f.records.push(f.records[0])], ["reordered mutations",/mutation order/,f=>[f.records[0],f.records[1]]=[f.records[1],f.records[0]]],
  ["retry sequence",/mutation order/,f=>change(f,2,r=>r.sequence=2)], ["failed completion",/mutation order/,f=>change(f,2,r=>r.error="failure")],
@@ -104,6 +116,15 @@ for(const [name,edit,pattern]of [
  ["altered original review",f=>f.contract.settledSourceReview.response.original=retain({...response,body:"Issues found"}),/review original/],
  ["wrong observer bytes",f=>f.contract.githubObserver.sha256="0".repeat(64),/observer bytes/],
 ])test("execution contract refuses "+name,()=>{const f=contractFixture();edit(f);assert.throws(()=>x.verifyExecutionContract31(f),pattern);});
+test("Claude contract binds genuine-shaped originals and preserves the prepared-time cutoff",()=>{
+ const f=contractFixture(),selected=f.contract.settledSourceReview;
+ selected.kind=x.CLAUDE_REVIEW_KIND;selected.reviewer="claude[bot]";
+ const reply={...response,body:"**Claude finished @synthetic-requester\'s task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/123)\n\n---\nNo findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
+  user:{login:"claude[bot]",type:"Bot"},performed_via_github_app:{id:1236702,slug:"claude",owner:{login:"anthropics",id:76263028}}};
+ selected.request.original=retain({...request,user:{login:"synthetic-requester",type:"User"},updated_at:request.created_at});selected.response.original=retain(reply);selected.response.bodySha256=h(Buffer.from(reply.body));
+ const result=x.verifyExecutionContract31(f);assert.equal(result.approval.reviewPreparedAtUtc,f.contract.preparedAtUtc);assert.equal(result.reviewOriginals.response.user.login,"claude[bot]");assert.equal(Object.hasOwn(result,"deploymentAuthorized"),false);
+ selected.response.original=retain({...reply,updated_at:T(71)});assert.throws(()=>x.verifyExecutionContract31(f),/chronology/);
+});
 function ownerFixture(version=2){const executionContract=version===2?retain(contractFixture().contract):undefined,extra=version===2?{executionContractSha256:executionContract.sha256}:{};
  const original={schemaVersion:version,documentType:"retained-direct-human-production-deployment-instruction",source,question:a.ownerQuestion31(source,executionContract?.sha256),answer:"Approve exact-source production backend deployment",messageId:"synthetic-no-human",conversationId:"synthetic-local-test",receivedAtUtc:T(80),provenance:"operator-retained-direct-human-message",humanIdentityMachineAuthenticated:false,...extra};
  const owner={schemaVersion:version,documentType:"build31-business-source-specific-owner-record",source,scope:a.SCOPE,authorizedAtUtc:T(80),recordedAtUtc:T(85),originalMessage:retain(original),...extra};

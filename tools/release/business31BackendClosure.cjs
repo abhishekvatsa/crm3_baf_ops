@@ -6,7 +6,7 @@ const x = require("./business31ExecutionContract.cjs"), access = require("./back
 const path = access.path, {need,keys,sha,json,pointer,privateBytes,pointerView} = x;
 const a = require("./business31BackendAuthority.cjs"), neutral = require("./backendRuntimeClosure31.cjs");
 const controls = require("./backendRuntimeControls31.cjs"), readbacks = require("./backendRuntimeReadbacks31.cjs");
-const live = require("./backendRuntimeExecutionAdmission31.cjs"), {RuntimeDeploymentTransportGuard31,bodyBinding31} = require("./runtimeDeploymentTransportGuard31.cjs");
+const {RuntimeDeploymentTransportGuard31,bodyBinding31} = require("./runtimeDeploymentTransportGuard31.cjs");
 const PHASES = Object.freeze(["callables","events","fleet"]);
 const CLOSURE_FILE = "release/evidence/build31-business-backend-deployment-closure.json";
 const t = a.instant;
@@ -117,7 +117,7 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
     if(index>=2) need(uploadedAt<=t(r.startedAtUtc),"function update preceded completed ZIP upload");
     const observed=read(ctx.evidenceDirectory,r.liveObservation);
     need(t(capture.completedAtUtc)<=t(observed.observedAtUtc) && t(observed.completedAtUtc)<=t(r.startedAtUtc),"fresh per-write observation missing");
-    live.verifyPreservedLiveGitHub31(observed,ctx,ctx.liveApproval);
+    x.verifyPreservedBusinessLiveGitHub31(observed,ctx,ctx.liveApproval);
     const request=read(ctx.evidenceDirectory,r.request), response=verifyMutationResponse31(ctx.evidenceDirectory,r.response,r.responseBinding), wire=privateBytes(ctx.evidenceDirectory,r.wireBody);
     keys(request,["client","request"],"original request"); keys(request.client,["urlPrefix","apiVersion"],"original client");
     keys(request.request,["method","path","queryParams","body"],"original request options");
