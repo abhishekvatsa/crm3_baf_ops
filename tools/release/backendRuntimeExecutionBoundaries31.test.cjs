@@ -42,6 +42,79 @@ for(const[name,mutate]of [['removed preserved label',x=>delete x.request.body.la
 test('a second Function update cannot silently retry',()=>{const x=patchCase();x.guard.before(cf,x.request);assert.throws(()=>x.guard.before(cf,x.request),/retry/);});
 for(const [host,method,url]of [['serviceusage.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638/services/x:enable'],['cloudresourcemanager.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638:setIamPolicy'],['cloudscheduler.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638/locations/asia-south1/jobs/x:run'],['secretmanager.googleapis.com','GET','/v1/projects/crm3-baf-ops-b8638/secrets/x/versions/1:access'],['cloudfunctions.googleapis.com','DELETE','/v2/'+project+'fn0']])test('forbidden operation '+host+url,()=>{const{guard}=transport();prepared(guard);assert.throws(()=>guard.before({opts:{urlPrefix:'https://'+host}},{method,path:url}));});
 test('URL effective hostname/path/method overrides are inspected',()=>{const r=t.effectiveRequest31(new URL('https://cloudfunctions.googleapis.com/safe'),{hostname:'evil.invalid',path:'/changed?q=1',method:'DELETE'},'https:');assert.equal(r.url.href,'https://evil.invalid/changed?q=1');assert.equal(r.method,'DELETE');});
+
+const firestoreLocation='https://firestore.googleapis.com/v1/projects/crm3-baf-ops-b8638/databases/(default)';
+const firestore={opts:{urlPrefix:'https://firestore.googleapis.com',apiVersion:'v1'}};
+const defaultDatabase='projects/crm3-baf-ops-b8638/databases/(default)';
+test('only the exact default Firestore database location GET is an unprepared read',()=>{
+  const{guard}=transport();
+  assert.deepEqual(guard.before(firestore,{method:'GET',path:defaultDatabase}),{kind:'read',url:firestoreLocation,method:'GET'});
+  assert.deepEqual(guard.read(new URL(firestoreLocation),'GET'),{kind:'read'});
+  const effective=t.effectiveRequest31(firestoreLocation,undefined,'https:');
+  assert.deepEqual(guard.read(effective.url,effective.method),{kind:'read'});
+  assert.equal(guard.prepared,false);assert.equal(guard.mutations.size,0);
+});
+test('Firestore location read never invokes the mutation callback',async()=>{
+  class Client{constructor(){this.opts=firestore.opts;}async request(request){assert.equal(request.retries,0);assert.deepEqual(request.retryCodes,[]);return {body:{locationId:'asia-south1'}};}}
+  const{guard}=transport();let writes=0;
+  t.installApiBoundary31(Client,guard,()=>{writes++;throw Error('unexpected mutation callback');});
+  assert.deepEqual(await new Client().request({method:'GET',path:defaultDatabase}),{body:{locationId:'asia-south1'}});
+  assert.equal(writes,0);assert.equal(guard.prepared,false);assert.deepEqual(guard.events,[{kind:'read'}]);
+});
+for(const method of ['HEAD','POST','PUT','PATCH','DELETE','OPTIONS'])test('Firestore location refuses '+method+' before and after preparation',()=>{
+  for(const isPrepared of [false,true]){const{guard}=transport();if(isPrepared)prepared(guard);
+    assert.throws(()=>guard.before(firestore,{method,path:defaultDatabase}));
+    assert.throws(()=>guard.read(new URL(firestoreLocation),method));
+    assert.throws(()=>t.effectiveRequest31(firestoreLocation,{method},'https:'));
+    assert.equal(guard.mutations.size,0);
+  }
+});
+for(const [label,request]of [
+  ['other project',{path:'projects/other-project/databases/(default)'}],
+  ['named database',{path:'projects/crm3-baf-ops-b8638/databases/other'}],
+  ['database listing',{path:'projects/crm3-baf-ops-b8638/databases'}],
+  ['document path',{path:defaultDatabase+'/documents/x/y'}],
+  ['trailing slash',{path:defaultDatabase+'/'}],
+  ['dot segment',{path:'projects/crm3-baf-ops-b8638/databases/other/../(default)'}],
+  ['encoded dot segment',{path:'projects/crm3-baf-ops-b8638/databases/other/%2e%2e/(default)'}],
+  ['encoded database',{path:'projects/crm3-baf-ops-b8638/databases/%28default%29'}],
+  ['backslash path',{path:defaultDatabase.replace('/databases/','\\databases\\')}],
+  ['query',{path:defaultDatabase+'?x=1'}],
+  ['empty query',{path:defaultDatabase+'?'}],
+  ['fragment',{path:defaultDatabase+'#location'}],
+  ['empty fragment',{path:defaultDatabase+'#'}],
+  ['query object',{path:defaultDatabase,queryParams:{fields:'locationId'}}],
+  ['query parameters',{path:defaultDatabase,queryParams:new URLSearchParams('fields=locationId')}],
+  ['body',{path:defaultDatabase,body:{fields:'locationId'}}],
+])test('Firestore location refuses '+label+' without widening the host policy',()=>{
+  for(const isPrepared of [false,true]){const{guard}=transport();if(isPrepared)prepared(guard);assert.throws(()=>guard.before(firestore,{method:'GET',...request}));}
+});
+for(const [label,url]of [
+  ['HTTP',firestoreLocation.replace('https:','http:')],
+  ['credentials',firestoreLocation.replace('https://','https://user:password@')],
+  ['explicit default port',firestoreLocation.replace('.com/','.com:443/')],
+  ['other port',firestoreLocation.replace('.com/','.com:444/')],
+  ['uppercase host',firestoreLocation.replace('firestore.googleapis.com','FIRESTORE.GOOGLEAPIS.COM')],
+  ['host suffix',firestoreLocation.replace('.com/','.com.evil.invalid/')],
+  ['API version',firestoreLocation.replace('/v1/','/v1beta1/')],
+  ['dot segment',firestoreLocation.replace('/databases/','/other/../databases/')],
+  ['encoded dot segment',firestoreLocation.replace('/databases/','/other/%2e%2e/databases/')],
+  ['backslash',firestoreLocation.replace('/databases/','\\databases\\')],
+  ['query',firestoreLocation+'?fields=locationId'],
+  ['empty query',firestoreLocation+'?'],
+  ['fragment',firestoreLocation+'#location'],
+  ['empty fragment',firestoreLocation+'#'],
+])test('effective Firestore request refuses '+label+' spelling',()=>{
+  const{guard}=transport();
+  assert.throws(()=>{const effective=t.effectiveRequest31(url,undefined,'https:');guard.read(effective.url,effective.method);});
+});
+test('effective Firestore option overrides cannot broaden the resource or method',()=>{
+  const{guard}=transport();
+  for(const options of [{path:'/v1/'+defaultDatabase+'/documents/x/y'},{path:'/v1/'+defaultDatabase+'?'},{path:'/v1/projects/crm3-baf-ops-b8638/other/../databases/(default)'},{method:'POST'},{port:443},{hostname:'firestore.googleapis.com.evil.invalid'}]){
+    assert.throws(()=>{const effective=t.effectiveRequest31(new URL(firestoreLocation),options,'https:');guard.read(effective.url,effective.method);});
+  }
+});
+
 test('signed upload query is retained exactly in effective URI',()=>{const u=t.urlOf({opts:{urlPrefix:'https://storage.googleapis.com'}},{path:'/bucket/object',queryParams:new URLSearchParams('GoogleAccessId=x&Signature=y')});assert.equal(u.search,'?GoogleAccessId=x&Signature=y');});
 test('wire JSON body binding changes with controls',()=>assert.notEqual(t.bodyBinding31({body:{max:20}}),t.bodyBinding31({body:{max:21}})));
 

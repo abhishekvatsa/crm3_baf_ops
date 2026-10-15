@@ -94,7 +94,7 @@ function runSample(run, phase) {
   const root = path.join(run.root, phase);
   fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
-  for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs",
+  for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs",
     "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }

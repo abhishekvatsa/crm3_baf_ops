@@ -8,6 +8,14 @@ const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toU
 const PROJECT = "crm3-baf-ops-b8638", NUMBER = "123456789";
 const PERMISSIONS = ["firebase.projects.get", "cloudfunctions.functions.list", "cloudfunctions.functions.create",
   "cloudfunctions.functions.get", "cloudfunctions.functions.update", "cloudfunctions.functions.delete", "cloudfunctions.operations.get"].sort();
+// Synthetic observed-shaped baseline only; never production IAM authority.
+const identityBaseline = {
+  project: { method: "GET", url: "https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT, httpStatus: 200,
+    bodyText: JSON.stringify({ projectId: PROJECT, projectNumber: NUMBER }) },
+  projectIam: { method: "POST", url: "https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":getIamPolicy", httpStatus: 200,
+    bodyText: JSON.stringify({ bindings: ["pubsub", "eventarc"].map(name => ({ role: "roles/" + name + ".serviceAgent",
+      members: ["serviceAccount:service-" + NUMBER + "@gcp-sa-" + name + ".iam.gserviceaccount.com"] })) }) }
+};
 const STOP_PREPARE = "BUSINESS31_OFFLINE_PREPARE_ENTRY_STOP";
 const STOP_RELEASE = "BUSINESS31_OFFLINE_RELEASE_ENTRY_STOP";
 async function runCase(caseId, componentData) {
@@ -135,6 +143,13 @@ async function runCase(caseId, componentData) {
           && isDeepStrictEqual(request.body, { permissions: ["iam.serviceAccounts.actAs"] }) && Object.keys(query).length === 0
           && isDeepStrictEqual(request.headers, {})) {
         body = { permissions: ["iam.serviceAccounts.actAs"] };
+      } else if (selection.mode === "pre-release" && method === "POST"
+          && ["pubsub.googleapis.com", "eventarc.googleapis.com"].some(service => url.href === "https://serviceusage.googleapis.com/v1beta1/projects/" + NUMBER + "/services/" + service + ":generateServiceIdentity")
+          && isDeepStrictEqual(request.body, {}) && Object.keys(query).length === 0
+          && isDeepStrictEqual(request.headers, { "x-goog-user-project": NUMBER })) {
+        const service = url.pathname.split("/").at(-1).split(":")[0];
+        const bound = require("./runtimeDeploymentTransportGuard31.cjs").existingServiceIdentityBindings31(identityBaseline);
+        body = { done: true, response: { "@type": "type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity", email: bound.emails[service] } };
       } else if (selection.mode === "pre-release" && method === "GET" && request.body === undefined) {
         // Finite synthetic control reads. The real guard runs outside this fixture first.
         const enabledServices = [
@@ -149,6 +164,9 @@ async function runCase(caseId, componentData) {
           body = { projectId: PROJECT, projectNumber: NUMBER, lifecycleState: "ACTIVE" };
         } else if (url.href === "https://firebase.googleapis.com/v1beta1/projects/" + PROJECT + "/adminSdkConfig" && Object.keys(query).length === 0) {
           body = { projectId: PROJECT, storageBucket: PROJECT + ".appspot.com", locationId: "asia-south1" };
+        } else if (url.href === "https://firestore.googleapis.com/v1/projects/" + PROJECT + "/databases/(default)"
+            && Object.keys(query).length === 0) {
+          body = { locationId: "asia-south1" };
         } else if (url.href === "https://cloudfunctions.googleapis.com/v1/projects/" + PROJECT + "/locations/-/functions"
             && Object.keys(query).length === 0) {
           body = { functions: [], unreachable: [] };
@@ -215,7 +233,7 @@ async function runCase(caseId, componentData) {
       const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
       const guard = new neutral.RuntimeDeploymentTransportGuard31({
         names: selection.names, allNames: selection.cohorts.fleet, phase: selection.phase,
-        baselineFunctions: {}, projectNumber: NUMBER
+        baselineFunctions: {}, projectNumber: NUMBER, serviceIdentityBaseline: identityBaseline
       });
       // Diagnostic wrapper retains the original predicate and never converts a refusal to a response.
       const originalBefore = guard.before;
@@ -233,7 +251,13 @@ async function runCase(caseId, componentData) {
       neutral.installNetworkBoundary31(guard);
       networkSlots.forEach(([object, key], i) => ownedSlots.push({ object, key, before: previous[i], owned: Object.getOwnPropertyDescriptor(object, key) }));
       retainOwned(api.Client.prototype, "request", () => neutral.installApiBoundary31(api.Client, guard,
-        () => { throw Error("OFFLINE_WRITE_BEFORE_PREPARED_COMPARISON"); }));
+        operation => require("./business31ServiceIdentityCapture.cjs").admitServiceIdentity31(operation, {
+          currentControls: { fixtureOnly: true },
+          verifyControls: () => { assert.deepEqual(neutral.existingServiceIdentityBindings31(identityBaseline).projectNumber, NUMBER); },
+          assertClean: () => verifyProjectFixtures(),
+          assertWindow: () => { event({ kind: "SYNTHETIC_EXISTING_IDENTITY_ADMISSION", service: operation.service,
+            fixtureOnly: true, productionControllerControlsOrWindowVerified: false }); }
+        })));
       event({ kind: "REAL_UNPREPARED_TRANSPORT_GUARD_INSTALLED", preparedComparisonFabricated: false });
     }
     lease.assertHealthy();

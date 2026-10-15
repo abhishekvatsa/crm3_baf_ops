@@ -19,7 +19,7 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
   "business31BackendAuthority.cjs", "business31CaptureBootstrap.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
   ...execution.CONTROL_PRODUCERS, execution.CAPTURE,
-  "business31CaptureRecorder.cjs", "business31CohortProcess.cjs", "business31IntentPreparation.cjs", "business31OperationalController.cjs", "captureBusiness31PreparedHook.cjs", "prepareBusinessIntent31.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
+  "business31CaptureRecorder.cjs", "business31ServiceIdentityCapture.cjs", "business31CohortProcess.cjs", "business31IntentPreparation.cjs", "business31OperationalController.cjs", "captureBusiness31PreparedHook.cjs", "prepareBusinessIntent31.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
   firestoreIndexesDeployment: false, iamMutation: false, enforcementMutation: false,

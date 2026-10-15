@@ -160,7 +160,7 @@ function fixture(variant) {
   assert.deepEqual(sourceAfterCopy, sourceBefore, "start from the exact selected helper population");
   let session = fs.readFileSync(path.join(sourceRoot, SESSION), "utf8");
   const pins = [...session.matchAll(/^  "([^"]+)": "([A-F0-9]{64})"/gm)];
-  assert.equal(pins.length, 46);
+  assert.equal(pins.length, 47);
   for (const [, name, sha256] of pins) assert.equal(sourceBefore[name], sha256, "original pin: " + name);
   const originalFacadeImport = 'require("./captureBusiness31PreparedInputs.cjs")';
   const recorderImport = 'require("./business31CaptureRecorder.cjs")';
