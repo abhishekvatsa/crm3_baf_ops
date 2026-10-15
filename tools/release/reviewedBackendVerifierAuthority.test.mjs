@@ -30,15 +30,42 @@ function fixture(t) {
     assert.ok(path.basename(resolved).startsWith("crm3-verifier-authority-test-"));
     fs.rmSync(resolved, {recursive: true});
   });
-  const git = (args, input, env = {}) => execFileSync("git", ["--no-replace-objects", "-C", repoRoot, ...args],
-    {input, env: {...process.env, ...env}, windowsHide: true, stdio: ["pipe", "pipe", "pipe"]}).toString("utf8").trim();
+  const hashObjectCalls = [];
+  const git = (args, input, env = {}) => {
+    if (args[0] === "hash-object") hashObjectCalls.push([...args]);
+    return execFileSync("git", ["--no-replace-objects", "-C", repoRoot, ...args],
+      {input, env: {...process.env, ...env}, windowsHide: true, stdio: ["pipe", "pipe", "pipe"]}).toString("utf8").trim();
+  };
   execFileSync("git", ["init", "--bare", repoRoot], {windowsHide: true, stdio: "pipe"});
-  const blob = (bytes) => git(["hash-object", "-w", "--stdin"], bytes);
+  const blobScratchDirectories = [];
+  const batchBlobs = (entries) => {
+    const selected = Object.entries(entries);
+    assert.ok(selected.length > 0);
+    const scratch = fs.mkdtempSync(path.join(repoRoot, "fixture-blobs-"));
+    blobScratchDirectories.push(scratch);
+    const bodies = selected.map(([, item]) => Buffer.from(item.bytes));
+    const files = bodies.map((bytes, index) => {
+      const file = path.join(scratch, `${index}.bin`);
+      fs.writeFileSync(file, bytes, {flag: "wx"});
+      const relative = path.relative(repoRoot, file).split(path.sep).join("/");
+      assert.match(relative, /^fixture-blobs-[A-Za-z0-9]+\/[0-9]+\.bin$/);
+      return relative;
+    });
+    const oids = git(["hash-object", "-w", "--stdin-paths", "--no-filters"], files.join("\n") + "\n").split(/\r?\n/);
+    assert.equal(oids.length, selected.length);
+    return Object.fromEntries(selected.map(([file, item], index) => {
+      assert.match(oids[index], /^[0-9a-f]{40}$/);
+      const bytes = bodies[index];
+      const expected = crypto.createHash("sha1").update(`blob ${bytes.length}\0`).update(bytes).digest("hex");
+      assert.equal(oids[index], expected);
+      return [file, {...item, oid: oids[index]}];
+    }));
+  };
   const tree = (entries) => {
     const dirs = new Map(), rows = [];
     for (const [file, item] of Object.entries(entries)) {
       const slash = file.indexOf("/");
-      if (slash < 0) rows.push(`${item.mode ?? "100644"} blob ${blob(item.bytes)}\t${file}`);
+      if (slash < 0) rows.push(`${item.mode ?? "100644"} blob ${item.oid}\t${file}`);
       else {
         const name = file.slice(0, slash);
         if (!dirs.has(name)) dirs.set(name, {});
@@ -48,7 +75,7 @@ function fixture(t) {
     for (const [name, children] of dirs) rows.push(`040000 tree ${tree(children)}\t${name}`);
     return git(["mktree"], rows.sort().join("\n") + "\n");
   };
-  const commit = (entries, parent, time) => git(["commit-tree", tree(entries), ...(parent ? ["-p", parent] : [])],
+  const commit = (entries, parent, time) => git(["commit-tree", tree(batchBlobs(entries)), ...(parent ? ["-p", parent] : [])],
     "Synthetic verifier-authority fixture only\n", {
       GIT_AUTHOR_NAME: "Synthetic test", GIT_AUTHOR_EMAIL: "fixture@example.invalid", GIT_AUTHOR_DATE: time,
       GIT_COMMITTER_NAME: "Synthetic test", GIT_COMMITTER_EMAIL: "fixture@example.invalid", GIT_COMMITTER_DATE: time,
@@ -73,7 +100,7 @@ function fixture(t) {
       verificationAuthority: {schemaVersion: 1, profile: PROFILE, verifierCommit: selectedCommit,
         verifierFiles: copy(selectedFiles), decision: {commit: decisionCommit, file: decisionFile, sha256: sha(bytes)}}};
   };
-  return {root, repoRoot, git, make, commit, entries, moduleEntries, sourceCommit, verifierCommit, verifierFiles};
+  return {root, repoRoot, git, make, commit, entries, moduleEntries, sourceCommit, verifierCommit, verifierFiles, batchBlobs, hashObjectCalls, blobScratchDirectories};
 }
 
 function refused(input, pattern = /^Backend verifier authority:/) {
@@ -83,6 +110,44 @@ function refused(input, pattern = /^Backend verifier authority:/) {
     return true;
   });
 }
+
+test("fixture bulk blob writes match scalar Git bytes and retain one batch per commit", (t) => {
+  const f = fixture(t);
+  f.make();
+  const batchArgs = ["hash-object", "-w", "--stdin-paths", "--no-filters"];
+  assert.deepEqual(f.hashObjectCalls, [batchArgs, batchArgs, batchArgs]);
+  assert.equal(f.blobScratchDirectories.length, 3);
+  assert.equal(new Set(f.blobScratchDirectories).size, 3);
+  const entries = {
+    "empty.bin": {bytes: Buffer.alloc(0)},
+    "binary.bin": {bytes: Buffer.from([0, 255, 13, 10, 128])},
+    "nested/crlf.txt": {bytes: Buffer.from("a\r\nb\n")},
+    "duplicate.bin": {bytes: Buffer.from([0, 255, 13, 10, 128])},
+    "executable.sh": {bytes: Buffer.from("echo synthetic\n"), mode: "100755"},
+    "link": {bytes: Buffer.from("nested/crlf.txt"), mode: "120000"},
+  };
+  const prepared = f.batchBlobs(entries);
+  assert.equal(f.hashObjectCalls.length, 4);
+  assert.deepEqual(f.hashObjectCalls[3], batchArgs);
+  assert.deepEqual(Object.keys(prepared), Object.keys(entries));
+  for (const [file, item] of Object.entries(entries)) {
+    const scalar = f.git(["hash-object", "-w", "--stdin"], item.bytes);
+    assert.equal(prepared[file].oid, scalar);
+    const actual = execFileSync("git", ["--no-replace-objects", "-C", f.repoRoot, "cat-file", "blob", scalar],
+      {windowsHide: true, stdio: ["pipe", "pipe", "pipe"]});
+    assert.deepEqual(actual, item.bytes);
+  }
+  const count = f.hashObjectCalls.length;
+  const committed = f.commit(entries, f.verifierCommit, times.custody);
+  assert.equal(f.hashObjectCalls.length, count + 1);
+  assert.deepEqual(f.hashObjectCalls.at(-1), batchArgs);
+  const rows = f.git(["ls-tree", "-r", committed]).split("\n");
+  assert.equal(rows.length, Object.keys(entries).length);
+  for (const [file, item] of Object.entries(entries)) {
+    assert.ok(rows.includes(`${item.mode ?? "100644"} blob ${prepared[file].oid}\t${file}`));
+  }
+  assert.equal(new Set(f.blobScratchDirectories).size, f.blobScratchDirectories.length);
+});
 
 test("offline authority uses exact immutable Git blobs without a current checkout or installed dependencies", (t) => {
   const f = fixture(t), input = f.make();

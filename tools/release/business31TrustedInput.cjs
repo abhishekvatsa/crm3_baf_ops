@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const {execFileSync} = require('node:child_process');
-const {isDeepStrictEqual} = require('node:util');
+const {isDeepStrictEqual, types: utilTypes} = require('node:util');
 const {TextDecoder} = require('node:util');
 const PROFILE = 'build31-business-trusted-input-v1';
 const BOOTSTRAP_PATH = 'tools/release/business31TrustedInput.cjs';
@@ -84,11 +84,25 @@ function configBytes(gitDirectory) {
   }
   return bytes;
 }
-function parseBlobBatch31(output, expectedOids) {
-  need(Buffer.isBuffer(output) && output.length <= MAX_OUTPUT, 'Batch output exceeds bound');
-  need(Array.isArray(expectedOids) && expectedOids.length > 0 && expectedOids.length <= BATCH_OBJECTS &&
-    expectedOids.every(value => typeof value === 'string' && /^[0-9a-f]{40}$/.test(value)) &&
-    new Set(expectedOids).size === expectedOids.length, 'Exact bounded batch OIDs required');
+function parseBlobBatch31(output, expectedOids, maxBytes = MAX_BLOB, outputLimit = MAX_OUTPUT) {
+  need(Number.isSafeInteger(maxBytes) && maxBytes > 0 && maxBytes <= MAX_BLOB, 'Blob limit outside fixed bound');
+  need(Number.isSafeInteger(outputLimit) && outputLimit > 0 && outputLimit <= MAX_OUTPUT, 'Batch output limit outside fixed bound');
+  need(!utilTypes.isProxy(output) && Buffer.isBuffer(output) && output.length <= outputLimit, 'Batch output exceeds bound');
+  need(!utilTypes.isProxy(expectedOids) && Array.isArray(expectedOids) &&
+    Object.getPrototypeOf(expectedOids) === Array.prototype, 'Exact bounded batch OIDs required');
+  const descriptors = Object.getOwnPropertyDescriptors(expectedOids), length = descriptors.length;
+  need(length && Object.hasOwn(length, 'value') && Number.isSafeInteger(length.value) &&
+    length.value > 0 && length.value <= BATCH_OBJECTS && Reflect.ownKeys(descriptors).length === length.value + 1,
+    'Exact bounded batch OIDs required');
+  const selectedOids = [], seen = new Set();
+  for (let index = 0; index < length.value; index++) {
+    const row = descriptors[index];
+    need(row && Object.hasOwn(row, 'value') && !Object.hasOwn(row, 'get') && !Object.hasOwn(row, 'set') &&
+      typeof row.value === 'string' && /^[0-9a-f]{40}$/.test(row.value) && !seen.has(row.value),
+      'Exact bounded batch OIDs required');
+    selectedOids.push(row.value); seen.add(row.value);
+  }
+  expectedOids = selectedOids;
   const blobs = new Map();
   let offset = 0;
   for (const expected of expectedOids) {
@@ -99,7 +113,7 @@ function parseBlobBatch31(output, expectedOids) {
     const match = /^([0-9a-f]{40}) blob (0|[1-9][0-9]*)$/.exec(header.toString('ascii'));
     need(match && match[1] === expected, 'Batch object identity/type/order differs');
     const size = Number(match[2]);
-    need(Number.isSafeInteger(size) && size <= MAX_BLOB, 'Git blob exceeds bound');
+    need(Number.isSafeInteger(size) && size <= maxBytes, 'Git blob exceeds bound');
     const start = end + 1, finish = start + size;
     need(finish < output.length && output[finish] === 10, 'Batch object body or separator truncated');
     const bytes = Buffer.from(output.subarray(start, finish));
@@ -145,7 +159,8 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
     GIT_TERMINAL_PROMPT: '0', GIT_PAGER: 'cat', GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1'});
   function git(args, maxBuffer = MAX_OUTPUT, batchInput) {
     if (batchInput !== undefined) {
-      need(isDeepStrictEqual(args, ['cat-file', '--batch']) && maxBuffer === MAX_OUTPUT &&
+      need(isDeepStrictEqual(args, ['cat-file', '--batch']) && (maxBuffer === MAX_OUTPUT || (Buffer.isBuffer(batchInput) && batchInput.length === 41 &&
+          Number.isSafeInteger(maxBuffer) && maxBuffer > 1024 && maxBuffer <= MAX_BLOB + 1024)) &&
         Buffer.isBuffer(batchInput) && batchInput.length > 0 && batchInput.length <= BATCH_OBJECTS * 41 &&
         /^(?:[0-9a-f]{40}\n){1,7}$/.test(batchInput.toString('ascii')) &&
         batchInput.every(byte => byte === 10 || (byte >= 48 && byte <= 57) || (byte >= 97 && byte <= 102)),
@@ -202,20 +217,42 @@ function openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256}) 
   function readBlob(commit, file, maxBytes = MAX_BLOB) {
     const expression = `${oid(commit)}:${safePath(file)}`;
     need(Number.isSafeInteger(maxBytes) && maxBytes > 0 && maxBytes <= MAX_BLOB, 'Blob limit outside fixed bound');
-    need(text(['cat-file', '-t', expression]) === 'blob', 'Blob object required');
-    const size = Number(text(['cat-file', '-s', expression]));
-    need(Number.isSafeInteger(size) && size >= 0 && size <= maxBytes, 'Git blob exceeds bound');
-    const bytes = git(['cat-file', 'blob', expression], maxBytes + 1024);
-    need(bytes.length === size, 'Git blob size differs');
     const expected = oid(text(['rev-parse', '--verify', expression]));
-    const actual = crypto.createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex');
-    need(actual === expected, 'Git blob content hash differs');
-    return bytes;
+    const outputLimit = maxBytes + 1024;
+    const input = Buffer.from(expected + '\n', 'ascii');
+    const bytes = git(['cat-file', '--batch'], outputLimit, input);
+    return parseBlobBatch31(bytes, [expected], maxBytes, outputLimit).get(expected);
   }
-  function readSnapshotBlobs(snapshot) {
+  function readSnapshotBlobs(snapshot, selectedFiles) {
     need(issuedSnapshots.has(snapshot), 'Snapshot was not issued by this repository');
     need(layout() === configHash && hash(fs.readFileSync(executable)) === gitSha256.toUpperCase(), 'Git runtime/configuration changed');
-    const names = Object.keys(snapshot.files).sort();
+    let names;
+    if (selectedFiles === undefined) {
+      names = Object.keys(snapshot.files).sort();
+    } else {
+      // Only explicit regular verifier members are selected. Inspect descriptors
+      // before values so inherited maps/getters, holes and symbol fields cannot
+      // replace the closed selected population or execute during cloning.
+      need(!utilTypes.isProxy(selectedFiles) && Array.isArray(selectedFiles) && Object.getPrototypeOf(selectedFiles) === Array.prototype,
+        'Selected blob paths require a plain dense array');
+      const descriptors = Object.getOwnPropertyDescriptors(selectedFiles);
+      const length = descriptors.length;
+      need(length && Object.hasOwn(length, 'value') && Number.isSafeInteger(length.value) &&
+        length.value > 0 && length.value <= 256 && Reflect.ownKeys(descriptors).length === length.value + 1,
+      'Selected blob path population differs');
+      names = [];
+      const seen = new Set();
+      for (let index = 0; index < length.value; index++) {
+        const row = descriptors[index];
+        need(row && Object.hasOwn(row, 'value') && !Object.hasOwn(row, 'get') && !Object.hasOwn(row, 'set'),
+          'Selected blob paths require dense data members');
+        const name = safePath(row.value);
+        need(!seen.has(name) && Object.hasOwn(snapshot.files, name) && snapshot.files[name].mode === '100644',
+          'Selected blob path duplicate, absent or nonregular');
+        seen.add(name); names.push(name);
+      }
+      names.sort();
+    }
     const unique = [...new Set(names.map(name => snapshot.files[name].oid))];
     const blobs = new Map();
     for (let index = 0; index < unique.length; index += BATCH_OBJECTS) {
@@ -281,12 +318,16 @@ function verifyBusiness31TrustedInput({repositoryRoot, gitExecutable, gitSha256,
   need(bindings && typeof bindings === 'object' && !Array.isArray(bindings) &&
     Object.keys(bindings).length > 0 && Object.keys(bindings).length <= 256 &&
     Object.hasOwn(bindings, BOOTSTRAP_PATH), 'Finite trusted verifier binding required');
-  for (const [file, digest] of Object.entries(bindings)) {
+  const selectedBindings = Object.entries(bindings);
+  for (const [file, digest] of selectedBindings) {
     safePath(file); need(hex(digest, 64), 'Verifier digest required');
     const expected = verifier.files[file];
     need(expected && expected.mode === '100644' && isDeepStrictEqual(expected, source.files[file]) &&
       isDeepStrictEqual(expected, candidate.files[file]), 'Trusted verifier source changed');
-    need(hash(repository.readBlob(verifier.commit, file)) === digest.toUpperCase(), 'Trusted verifier digest differs');
+  }
+  const verifierBytes = repository.readSnapshotBlobs(verifier, selectedBindings.map(([file]) => file));
+  for (const [file, digest] of selectedBindings) {
+    need(hash(verifierBytes.get(file)) === digest.toUpperCase(), 'Trusted verifier digest differs');
   }
   need(hash(fs.readFileSync(__filename)) === bindings[BOOTSTRAP_PATH].toUpperCase(), 'Executing bootstrap differs from V');
   const changed = [];

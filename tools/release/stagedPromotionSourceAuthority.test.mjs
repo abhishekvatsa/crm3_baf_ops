@@ -573,7 +573,10 @@ test('Build29 generation admits explicit29 deployment from predecessor28 F and f
       approvalAuthority: f.currentReceipt.approvalAuthority, sourceAuthority: f.currentReceipt.sourceAuthority,
       expectedBuildNumber: 29});
     assert.equal(proof.buildNumber, 29);
-    assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+    {
+      const result = f.verify();
+      assert.equal(result.ok, true, result.reasons.join('; '));
+    }
   }
 });
 
@@ -608,7 +611,10 @@ test('Build29 generation requires intended29 in actual committed approval bytes'
   }
   f.currentApproval.intendedBuildNumber = 29;
   f.commitCustody();
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
 });
 
 for (const [label, sourceGeneration] of [
@@ -734,7 +740,10 @@ function successorRulesFixture(t, options = {}) {
 
 test('new successor Rules-only proof passes actual shared Git/CI/receipt verification while historical receipts remain unchanged', (t) => {
   const f = successorRulesFixture(t);
-  assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+  {
+    const result = f.verify();
+    assert.equal(result.ok,true,JSON.stringify(result));
+  }
   assert.equal(f.receipt.controlBoundary.securityRulesMutated,false);
   assert.equal(f.receipt.firestoreDeployment.rulesDeploymentPerformed,false);
 });
@@ -829,7 +838,10 @@ test('Rules reconciliation admits separately committed method and fresh strict s
   assert.equal(f.git('rev-parse','HEAD'),f.toolingCommit,'read-only preparation runs at exact T before artifact N');
   assert.deepEqual(f.currentReceipt.approvalAuthority,f.originalA,'original A is unchanged');
   assert.equal(f.receipt.firestoreDeployment.rulesDeploymentPerformed,false,'historical receipt unchanged');
-  assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+  {
+    const result = f.verify();
+    assert.equal(result.ok,true,JSON.stringify(result));
+  }
   const baseline=structuredClone({failed:f.failed,method:f.method,reconciliation:f.reconciliation,
     before:f.before,final:f.final,cli:f.cliResult,receipt:f.currentReceipt,projected:f.projected,processResult:f.processResult});
   const restore=()=>{
@@ -911,7 +923,10 @@ test('Rules reconciliation admits separately committed method and fresh strict s
   await t.test('public staged authority accepts artifact descendant with tooling T and deployed backend F separate',()=>{
     f.retainArtifact();f.version.sourceBaseline.commit=f.toolingCommit;f.persistCandidate();
     assert.equal(f.validate().ok,true);
-    assert.equal(f.verify().ok,true,JSON.stringify(f.verify()));
+    {
+      const result = f.verify();
+      assert.equal(result.ok,true,JSON.stringify(result));
+    }
     assert.notEqual(f.version.sourceBaseline.commit,f.currentReceipt.sourceAuthority.commit);
   });
 });
@@ -1081,7 +1096,10 @@ for (const [label, options, expected, stagedExpected = expected] of [
 for (const delegationBuild of [28, 29]) {
 test(`Build${delegationBuild} delegated custody rejects altered approval bytes and invalid CI even when coherently recommitted`, (t)=>{
   const f=successorDelegatedFixture(t, {delegationBuild});
-  assert.equal(f.verify().ok,true,f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok,true,result.reasons.join('; '));
+  }
   const approval=structuredClone(f.currentApproval),ci=structuredClone(f.ci),receipt=structuredClone(f.currentReceipt);
   const cases=[
     ['changed owner basis',()=>{f.currentApproval.approvalEvidence.instructionExcerpts=['Deploy anything.'];}],
@@ -1535,7 +1553,10 @@ test('admits the fixed delegated c00 backend alongside unchanged historical Buil
 
 test('delegated backend approval custody rejects coherent changes to the entire decision', (t) => {
   const f = delegatedCurrentFixture(t);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   const original = structuredClone(f.currentApproval);
   for (const [field, value] of [
     ['approverName', 'A different decision maker'],
@@ -1662,7 +1683,10 @@ test('a different current source requires its own admitted immutable approval cu
 
 test('deployment approval binds its entire source, authorization and deployment scope', (t) => {
   const f = fixture(t);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   const original = structuredClone(f.approval);
   const fields = [
     'schemaVersion', 'documentType', 'region', 'sourceAuthority.tree', 'sourceAuthority.functionTree',
@@ -1693,7 +1717,10 @@ test('deployment approval binds its entire source, authorization and deployment 
 
 test('coherently rebound owner evidence cannot replace the admitted deployment instruction', (t) => {
   const f = fixture(t);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   const original = structuredClone(f.approval);
   for (const [field, value] of [
     ['approverName', 'Different owner'],
@@ -1718,7 +1745,10 @@ test('coherently rebound owner evidence cannot replace the admitted deployment i
 
 test('coherently resealed fleet and IAM children must still contain passing source-bound evidence', (t) => {
   const f = fixture(t);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   for (const key of ['functionFleet', 'iamDependencies']) {
     const original = structuredClone(f.children[key]);
     const cases = [
@@ -1762,7 +1792,10 @@ test('coherently resealed fleet and IAM children must still contain passing sour
 
 test('a separate current backend must satisfy each child decision after coherent resealing', (t) => {
   const f = fixture(t);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   const original = structuredClone(f.receipt);
   f.deployed.functionFleetEvidenceFile = 'release/current-backend.json';
   for (const key of ['functionFleet', 'iamDependencies', 'firestoreRulesAndIndexes']) {
@@ -1836,7 +1869,10 @@ test('promotion governance remains bound to the recorded Git tree and complete C
     {encoding: 'utf8'}).trim();
   fs.mkdirSync(path.join(f.root, '.git/objects/info'), {recursive: true});
   fs.writeFileSync(path.join(f.root, '.git/objects/info/alternates'), `${objects.replace(/\\/g, '/')}\n`);
-  assert.equal(f.verify().ok, true, f.verify().reasons.join('; '));
+  {
+    const result = f.verify();
+    assert.equal(result.ok, true, result.reasons.join('; '));
+  }
   const policyFile = 'release/test-policy.json';
   f.write(policyFile, f.policy);
   const script = path.join(repositoryRoot, 'tools/release/stagedPromotionSourceAuthority.js');

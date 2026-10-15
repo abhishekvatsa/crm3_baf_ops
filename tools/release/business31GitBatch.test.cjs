@@ -66,6 +66,183 @@ function instrument({afterGit, readFile} = {}) {
 const isBatch = args => args.slice(-2).join(' ') === 'cat-file --batch';
 function framed(bytes, oid = blobOid(bytes)) {return Buffer.concat([Buffer.from(`${oid} blob ${bytes.length}\n`), bytes, Buffer.from('\n')]);}
 
+
+// Each individual read remains fresh and keeps maxBytes + 1024 transport allocation.
+test('individual blob reads preserve independent real Git bytes with two guarded commands', () => {
+  const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(small);
+  for (const [name, expected] of rows) {
+    tracked.calls.length = 0;
+    const actual = repository.readBlob(small.commit, name);
+    assert.deepEqual(actual, expected);
+    assert.deepEqual(actual, git(small.repositoryRoot, ['cat-file', 'blob', small.commit + ':' + name]));
+    assert.equal(tracked.calls.length, 2);
+    assert.deepEqual(tracked.calls[0].args.slice(-3), ['rev-parse', '--verify', small.commit + ':' + name]);
+    const call = tracked.calls[1]; assert.ok(isBatch(call.args));
+    assert.equal(call.options.input.toString('ascii'), blobOid(expected) + '\n');
+    assert.equal(call.options.maxBuffer, 2 * 1024 * 1024 + 1024);
+    assert.equal(call.options.timeout, 30000); assert.deepEqual(call.options.stdio, ['pipe', 'pipe', 'pipe']);
+  }
+  repository.readBlob(small.commit, 'file-01').fill(42);
+  assert.deepEqual(repository.readBlob(small.commit, 'same-bytes'), rows[1][1], 'fresh aliases are detached');
+});
+test('individual maxBytes remains a hard body limit and preserves its transport allocation cap', () => {
+  const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(small), expected = rows[1][1];
+  tracked.calls.length = 0;
+  assert.deepEqual(repository.readBlob(small.commit, 'file-01', expected.length), expected);
+  assert.equal(tracked.calls.length, 2); assert.equal(tracked.calls[1].options.maxBuffer, expected.length + 1024);
+  let returned; assert.throws(() => { returned = repository.readBlob(small.commit, 'file-01', expected.length - 1); }, /exceeds bound/);
+  assert.equal(returned, undefined);
+  const f = fixture('individual-small-cap', [['large-for-caller', Buffer.alloc(2048, 1)]]);
+  const limited = instrument(), reader = limited.api.openTrustedGitRepository31(f); limited.calls.length = 0;
+  assert.throws(() => reader.readBlob(f.commit, 'large-for-caller', 64), error => error.code === 'ENOBUFS');
+  assert.equal(limited.calls.length, 2); assert.equal(limited.calls[1].options.maxBuffer, 1088);
+  for (const value of [0, -1, 2 * 1024 * 1024 + 1, NaN, Infinity, '6', null, {}]) {
+    tracked.calls.length = 0; assert.throws(() => repository.readBlob(small.commit, 'file-01', value), /limit outside fixed bound/);
+    assert.equal(tracked.calls.length, 0, 'invalid limits launch no child');
+  }
+});
+test('individual transport rejects malformed type size OID hash and output without returned bytes', () => {
+  const source = rows[1][1], oid = blobOid(source);
+  const corruptions = [output => Buffer.from(oid + ' missing\n'), output => Buffer.from(oid + ' tree 6\n'),
+    output => framed(source, '0'.repeat(40)), output => framed(Buffer.from(source).fill(42), oid),
+    output => Buffer.from(oid + ' blob 7\n'), output => Buffer.from(oid + ' blob 06\n'),
+    output => Buffer.from(oid + ' blob 9007199254740993\n'), output => Buffer.concat([output, Buffer.from('trailing')]),
+    output => output.subarray(0, output.length - 1), output => Buffer.alloc(source.length + 1025)];
+  for (const corrupt of corruptions) {
+    const tracked = instrument({afterGit(output, args) { return isBatch(args) ? corrupt(output) : output; }});
+    const repository = tracked.api.openTrustedGitRepository31(small); tracked.calls.length = 0; let returned;
+    assert.throws(() => { returned = repository.readBlob(small.commit, 'file-01', source.length); },
+      /identity\/type\/order|content hash|exceeds bound|Trailing|truncated/);
+    assert.equal(returned, undefined); assert.equal(tracked.calls.length, 2);
+  }
+});
+test('explicit parser bounds and foreign accessor Proxy or sparse OID arrays refuse without traps', () => {
+  const source = rows[1][1], oid = blobOid(source), output = framed(source);
+  assert.deepEqual(subject.parseBlobBatch31(output, [oid], source.length, source.length + 1024).get(oid), source);
+  assert.throws(() => subject.parseBlobBatch31(output, [oid], source.length - 1, source.length + 1024), /exceeds bound/);
+  for (const limit of [0, -1, NaN, Infinity, '6', null, {}, 2 * 1024 * 1024 + 1])
+    assert.throws(() => subject.parseBlobBatch31(output, [oid], limit), /limit outside fixed bound/);
+  for (const limit of [0, -1, NaN, Infinity, '64', null, {}, 16 * 1024 * 1024 + 1])
+    assert.throws(() => subject.parseBlobBatch31(output, [oid], source.length, limit), /output limit outside fixed bound/);
+  let touched = 0;
+  const accessor = [oid]; Object.defineProperty(accessor, '0', {get() { touched++; return oid; }});
+  const symbol = [oid]; symbol[Symbol('extra')] = true;
+  const inherited = [oid]; Object.setPrototypeOf(inherited, {get every() { touched++; throw Error('inherited callback'); }});
+  const proxy = new Proxy([oid], {get() { touched++; throw Error('get trap'); }, ownKeys() { touched++; throw Error('keys trap'); },
+    getPrototypeOf() { touched++; throw Error('prototype trap'); }, getOwnPropertyDescriptor() { touched++; throw Error('descriptor trap'); }});
+  const revoked = Proxy.revocable([oid], {}); revoked.revoke();
+  for (const list of [accessor, symbol, inherited, proxy, revoked.proxy, vm.runInNewContext('["' + oid + '"]'), new Array(1), [oid, oid]])
+    assert.throws(() => subject.parseBlobBatch31(output, list), /bounded batch OIDs/);
+  assert.throws(() => subject.parseBlobBatch31(new Proxy(output, {get() { touched++; throw Error('buffer trap'); }}), [oid]), /output exceeds bound/);
+  assert.equal(touched, 0);
+});
+test('individual read keeps post-batch configuration and selected executable drift checks', () => {
+  const config = path.join(small.repositoryRoot, '.git/config'), original = fs.readFileSync(config);
+  const changed = instrument({afterGit(output, args) { if (isBatch(args)) fs.appendFileSync(config, '\n[include]\n path = /untrusted\n'); return output; }});
+  const repository = changed.api.openTrustedGitRepository31(small);
+  try { assert.throws(() => repository.readBlob(small.commit, 'file-01'), /configuration/); }
+  finally { fs.writeFileSync(config, original); }
+  let drift = false;
+  const executable = instrument({afterGit(output, args) { if (isBatch(args)) drift = true; return output; },
+    readFile(args, actual) { const b = actual(); return drift && path.resolve(args[0]) === path.resolve(gitExecutable) ? Buffer.concat([b, Buffer.from('changed')]) : b; }});
+  const fresh = executable.api.openTrustedGitRepository31(small);
+  assert.throws(() => fresh.readBlob(small.commit, 'file-01'), /runtime changed during batch/);
+});
+
+// Fresh selected verifier populations use the same real guarded batch transport.
+// All existing full-snapshot/scalar/parser tests below remain unchanged.
+const selectedPaths31 = ['file-00', 'file-01', 'same-bytes', 'file-02', 'file-03',
+  'file-04', 'file-05', 'file-06', 'file-07'];
+test('selected real Git batches return exactly scalar subset bytes with bounded fewer commands', () => {
+  const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(small);
+  const snapshot = repository.snapshot(small.commit);
+  tracked.calls.length = 0;
+  const scalar = new Map([...selectedPaths31].sort().map(name => [name, repository.readBlob(small.commit, name)]));
+  assert.equal(tracked.calls.length, selectedPaths31.length * 2);
+  tracked.calls.length = 0;
+  const selected = repository.readSnapshotBlobs(snapshot, selectedPaths31);
+  assert.deepEqual(selected, scalar);
+  assert.deepEqual([...selected.keys()], [...selectedPaths31].sort());
+  assert.equal(tracked.calls.length, 2);
+  assert.deepEqual(tracked.calls.map(c => c.options.input.length / 41), [7, 1]);
+  for (const c of tracked.calls) {
+    assert.ok(isBatch(c.args)); assert.equal(c.options.timeout, 30000);
+    assert.equal(c.options.maxBuffer, 16 * 1024 * 1024);
+    assert.deepEqual(c.options.stdio, ['pipe', 'pipe', 'pipe']);
+  }
+  selected.get('same-bytes')[0] = 42;
+  assert.equal(selected.get('file-01')[0], 0, 'selected alias paths must have detached buffers');
+});
+
+test('selected path data refuses malformed populations and Proxy traps before any batch child', () => {
+  const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(small);
+  const snapshot = repository.snapshot(small.commit);
+  const other = subject.openTrustedGitRepository31(small), foreign = other.snapshot(small.commit);
+  let touched = 0;
+  const accessor = ['file-00']; Object.defineProperty(accessor, '0', {get() { touched++; return 'file-00'; }});
+  const symbol = ['file-00']; symbol[Symbol('extra')] = true;
+  const inherited = ['file-00']; Object.setPrototypeOf(inherited, {get map() { touched++; return () => []; }});
+  const proxy = new Proxy(['file-00'], {
+    getPrototypeOf() { touched++; throw Error('prototype trap ran'); },
+    ownKeys() { touched++; throw Error('keys trap ran'); },
+    getOwnPropertyDescriptor() { touched++; throw Error('descriptor trap ran'); },
+    get() { touched++; throw Error('value trap ran'); }
+  });
+  const revoked = Proxy.revocable(['file-00'], {}); revoked.revoke();
+  tracked.calls.length = 0;
+  for (const value of [null, 'file-00', [], new Array(1), Array(257).fill('file-00'),
+    ['file-00', 'file-00'], ['absent'], ['file-14'], ['../escape'], ['/absolute'],
+    ['file-00\n'], [() => 'file-00'], accessor, symbol, inherited, proxy, revoked.proxy]) {
+    assert.throws(() => repository.readSnapshotBlobs(snapshot, value), /Selected blob|Unsafe Git path/);
+  }
+  for (const value of [foreign, structuredClone(snapshot), {}]) {
+    assert.throws(() => repository.readSnapshotBlobs(value, ['file-00']), /not issued/);
+  }
+  assert.equal(touched, 0, 'Proxy reflection/getter/inherited callbacks must not execute');
+  assert.equal(tracked.calls.length, 0, 'malformed selection must not launch a batch child');
+});
+
+test('selected scope never reads an unrelated oversized member and default full scope still refuses it', () => {
+  const f = fixture('selected-oversize-scope', [['in-scope', Buffer.from('selected\n')],
+    ['out-of-scope', Buffer.alloc(2 * 1024 * 1024 + 1, 1)]]);
+  const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(f);
+  const snapshot = repository.snapshot(f.commit);
+  tracked.calls.length = 0;
+  assert.deepEqual(repository.readSnapshotBlobs(snapshot, ['in-scope']), new Map([['in-scope', Buffer.from('selected\n')]]));
+  assert.equal(tracked.calls.length, 1);
+  assert.equal(tracked.calls[0].options.input.toString('ascii'), snapshot.files['in-scope'].oid + '\n');
+  assert.throws(() => repository.readSnapshotBlobs(snapshot), /exceeds bound/);
+});
+
+test('selected transport preserves malformed binary output refusals with no returned map', () => {
+  const source = Buffer.from(rows[1][1]);
+  const corruptions = [
+    output => Buffer.from(`${blobOid(source)} missing\n`),
+    output => Buffer.from(output.toString('latin1').replace(' blob ', ' tree '), 'latin1'),
+    output => framed(source, '0'.repeat(40)),
+    output => framed(Buffer.from(source).fill(42), blobOid(source)),
+    output => Buffer.concat([output, Buffer.from('trailing')]),
+    output => output.subarray(0, output.length - 1)
+  ];
+  for (const corrupt of corruptions) {
+    const tracked = instrument({afterGit(output, args) { return isBatch(args) ? corrupt(output) : output; }});
+    const repository = tracked.api.openTrustedGitRepository31(small), snapshot = repository.snapshot(small.commit);
+    tracked.calls.length = 0; let returned;
+    assert.throws(() => { returned = repository.readSnapshotBlobs(snapshot, ['file-01']); },
+      /identity\/type\/order|content hash|Trailing|truncated/);
+    assert.equal(returned, undefined); assert.equal(tracked.calls.length, 1);
+  }
+});
+
+test('selected second-chunk failure does not expose the valid first chunk', () => {
+  let count = 0;
+  const tracked = instrument({afterGit(output, args) { return isBatch(args) && ++count === 2 ? Buffer.from('missing\n') : output; }});
+  const repository = tracked.api.openTrustedGitRepository31(small), snapshot = repository.snapshot(small.commit);
+  let returned;
+  assert.throws(() => { returned = repository.readSnapshotBlobs(snapshot, selectedPaths31); }, /identity\/type\/order/);
+  assert.equal(returned, undefined); assert.equal(count, 2);
+});
+
 test('actual Git batch matches unchanged scalar bytes, modes and complete population with fewer commands', () => {
   const tracked = instrument(), repository = tracked.api.openTrustedGitRepository31(small);
   const snapshot = repository.snapshot(small.commit);
@@ -80,7 +257,7 @@ test('actual Git batch matches unchanged scalar bytes, modes and complete popula
   const batch = repository.readSnapshotBlobs(snapshot);
   const batchMs = Number(process.hrtime.bigint() - batchStart) / 1e6, batchCommands = tracked.calls.length;
   assert.deepEqual(batch, scalar);
-  assert.equal(scalarCommands, 16 * 4); assert.equal(batchCommands, 3);
+  assert.equal(scalarCommands, 16 * 2); assert.equal(batchCommands, 3);
   assert.deepEqual(tracked.calls.map(c => c.options.input.length / 41), [7, 7, 1]);
   for (const call of tracked.calls) {
     assert.equal(call.executable, path.resolve(gitExecutable)); assert.ok(isBatch(call.args));
