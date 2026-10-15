@@ -4,6 +4,7 @@ const fs = require("node:fs"), path = require("node:path"), os = require("node:o
 const crypto = require("node:crypto"), cp = require("node:child_process"), assert = require("node:assert/strict");
 const bootstrap = require("../business31CaptureBootstrap.cjs");
 const execution = require("../backendRuntimeExecution31.cjs");
+const kernel = require("./business31CliSyntheticKernel.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const PROJECT = "crm3-baf-ops-b8638";
 const STOP_PREPARE = "BUSINESS31_OFFLINE_PREPARE_ENTRY_STOP";
@@ -28,6 +29,14 @@ function createRun(mode) {
   assert(["prepare-entry", "pre-release"].includes(mode));
   const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "b31-cli-" + mode + "-"));
   const repo = path.resolve(__dirname, "../../..");
+  const firebaseConfigurationPath = path.join(repo, "firebase.json");
+  const firebaseConfigurationBytes = fs.readFileSync(firebaseConfigurationPath);
+  const functionsConfiguration = JSON.parse(firebaseConfigurationBytes).functions;
+  assert(Array.isArray(functionsConfiguration) && functionsConfiguration.length === 1);
+  assert.equal(functionsConfiguration[0].source, "functions");
+  assert.equal(functionsConfiguration[0].disallowLegacyRuntimeConfig, true);
+  assert.equal(Object.hasOwn(functionsConfiguration[0], "runtime"), false);
+  const sourceFirebaseConfiguration = { path: firebaseConfigurationPath, sha256: sha(firebaseConfigurationBytes), bytes: firebaseConfigurationBytes.length };
   const installed = path.join(repo, "tooling/firebase-cli/node_modules");
   let cliRoot = installed, files;
   // Reuse a complete regular tree read-only. POSIX npm .bin aliases are materialized only
@@ -53,13 +62,14 @@ function createRun(mode) {
   assert.equal(JSON.parse(fs.readFileSync(path.join(cliRoot, "firebase-tools/package.json"), "utf8")).version, "15.22.4");
   const cohorts = structuredClone(execution.EXPECTED_COHORTS);
   write(path.join(root, "RUN.json"), { mode, runtime, node: { path: process.execPath, sha256: nodeSha256 },
-    cohorts, childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: 3,
+    cohorts, sourceFirebaseConfiguration, functionsConfiguration,
+    childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: 3,
     controllerInvoked: false, fullControllerRehearsalClaimed: false, noProductionAuthority: true });
-  return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts };
+  return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts, sourceFirebaseConfiguration, functionsConfiguration };
 }
-function syntheticProject(source, cohorts) {
+function syntheticProject(source, cohorts, functionsConfiguration) {
   const project = path.join(source, "project");
-  write(path.join(project, "firebase.json"), { functions: { source: "functions", runtime: "nodejs22", codebase: "default" } });
+  write(path.join(project, "firebase.json"), { functions: structuredClone(functionsConfiguration) });
   write(path.join(project, ".firebaserc"), { projects: {} });
   write(path.join(project, "functions/package.json"), {
     name: "business31-offline-fixture", private: true, main: "index.js", engines: { node: "22" }, dependencies: { "firebase-functions": "7.0.0" }
@@ -82,25 +92,28 @@ function syntheticProject(source, cohorts) {
 function runSample(run, phase) {
   assert(execution.PHASES.includes(phase));
   const root = path.join(run.root, phase);
-  fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(root, "scratch");
+  fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
   for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs",
     "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
-  for (const name of ["business31CliDeployFixture.cjs", "business31CliOfflineFence.cjs"]) {
+  for (const name of ["business31CliDeployFixture.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs"]) {
     fs.copyFileSync(path.join(__dirname, name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   assert.equal(sha(fs.readFileSync(path.join(source, "business31CaptureBootstrap.cjs"))),
     sha(fs.readFileSync(path.resolve(__dirname, "../business31CaptureBootstrap.cjs"))));
   write(path.join(source, "business31CaptureBootstrap.test.cjs"), '"use strict";\nmodule.exports = require("./business31CliDeployFixture.cjs");\n');
-  const project = syntheticProject(scratch, run.cohorts), projectFiles = bootstrap.sourceMap(project);
+  const project = syntheticProject(scratch, run.cohorts, run.functionsConfiguration), projectFiles = bootstrap.sourceMap(project);
+  const kernelMetadata = write(path.join(scratch, kernel.KERNEL_RELATIVE), kernel.KERNEL_TEXT);
   const plan = execution.fixedCohortPlan({ ok: true, proposalOnly: true, deploymentAuthorized: false,
     cohorts: run.cohorts, projectId: PROJECT, region: "asia-south1",
     runtime: { nodeExecutable: process.execPath, cliEntrypoint: run.runtime.cliEntrypoint } }, phase);
   // The fixed bootstrap requires empty execArgv. The real CLI receives exactly the planner's deploy arguments.
   const cliArguments = plan.arguments.slice(2);
-  const selection = { mode: run.mode, phase, scratch, project, projectFiles, names: plan.functionNames, cohorts: run.cohorts, cliArguments,
+  const selection = { mode: run.mode, phase, scratch, project, projectFiles, kernelMetadata,
+    functionsConfiguration: run.functionsConfiguration, sourceFirebaseConfiguration: run.sourceFirebaseConfiguration,
+    names: plan.functionNames, cohorts: run.cohorts, cliArguments,
     permissionRoutes: [
       "POST https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":testIamPermissions",
       "POST https://iam.googleapis.com/v1/projects/" + PROJECT + "/serviceAccounts/" + PROJECT + "@appspot.gserviceaccount.com:testIamPermissions"
@@ -134,7 +147,8 @@ function runSample(run, phase) {
   return report;
 }
 function assertPrepareSample(report) {
-  const message = "Retained CLI sample: " + report.root;
+  const message = "Retained CLI sample: " + report.root + "\nDenied boundary observations: "
+    + JSON.stringify(report.events.filter(event => ["DENIED", "DENIED_FILESYSTEM_READ"].includes(event.kind)), null, 2);
   assert.equal(report.error, null, message); assert.equal(report.signal, null, message); assert.equal(report.status, 1, message);
   assert.equal(report.parseError, null, message); assert.equal(report.validEventSequence, true, message); assert.equal(report.finalRecordIsLast, true, message);
   const final = report.final; assert(final, message);
@@ -153,5 +167,9 @@ function assertPrepareSample(report) {
   assert.match(combined, new RegExp(STOP_PREPARE), message);
   assert(!/BUSINESS_CLI_LOAD_INTEGRITY|OFFLINE_BOUNDARY_DENIED|OFFLINE_UNMATCHED_FIXTURE_REQUEST|An unexpected error has occurred/.test(combined), message);
 }
-function assertPopulationUnchanged(run) { assert.deepEqual(bootstrap.sourceMap(run.cliRoot), run.files, "Installed CLI bytes changed; retained run " + run.root); }
+function assertPopulationUnchanged(run) {
+  assert.deepEqual(bootstrap.sourceMap(run.cliRoot), run.files, "Installed CLI bytes changed; retained run " + run.root);
+  assert.equal(sha(fs.readFileSync(run.sourceFirebaseConfiguration.path)), run.sourceFirebaseConfiguration.sha256,
+    "Source Firebase configuration changed; retained run " + run.root);
+}
 module.exports = { createRun, runSample, assertPrepareSample, assertPopulationUnchanged, write, PHASES: execution.PHASES };

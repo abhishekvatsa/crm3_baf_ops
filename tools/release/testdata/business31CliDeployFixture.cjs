@@ -3,6 +3,7 @@
 const fs = require("node:fs"), path = require("node:path"), assert = require("node:assert/strict");
 const crypto = require("node:crypto");
 const { isDeepStrictEqual } = require("node:util");
+const kernel = require("./business31CliSyntheticKernel.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const PROJECT = "crm3-baf-ops-b8638", NUMBER = "123456789";
 const PERMISSIONS = ["firebase.projects.get", "cloudfunctions.functions.list", "cloudfunctions.functions.create",
@@ -40,8 +41,28 @@ async function runCase(caseId, componentData) {
     action();
     ownedSlots.push({ object, key, before, owned: Object.getOwnPropertyDescriptor(object, key) });
   }
+  // Substitute one declared synthetic metadata request; every other read still reaches the fence.
+  // Observe and rethrow the identical error for delegated denials; no host read root is added.
+  const fencedReadFileSync = fs.readFileSync;
+  const metadataReader = kernel.createSyntheticKernelReader({ readFileSync: fencedReadFileSync,
+    fixture: selection.kernelMetadata, scratch, event });
+  retainOwned(fs, "readFileSync", () => {
+    fs.readFileSync = function (file, ...args) {
+      try { return metadataReader.apply(this, arguments); }
+      catch (caught) {
+        if (caught.code === "OFFLINE_BOUNDARY_DENIED") {
+          event({ kind: "DENIED_FILESYSTEM_READ", api: "fs.readFileSync",
+            suppliedPath: typeof file === "string" ? file : Buffer.isBuffer(file) ? file.toString() : file instanceof URL ? file.href : null,
+            resolvedPath: typeof file === "string" ? path.resolve(file) : null,
+            pathValueType: typeof file, message: caught.message, stack: caught.stack });
+        }
+        throw caught;
+      }
+    };
+  });
   let cleanupDone = false;
   function verifyProjectFixtures() {
+    kernel.verifySyntheticKernelFixture({ readFileSync: fencedReadFileSync, fixture: selection.kernelMetadata, scratch });
     assert(selection.projectFiles && Object.keys(selection.projectFiles).length > 0);
     for (const [name, digest] of Object.entries(selection.projectFiles)) {
       assert(name && !path.isAbsolute(name) && !name.split(/[\\/]/).includes(".."));
@@ -156,7 +177,10 @@ async function runCase(caseId, componentData) {
       assert.equal(options.only, selection.names.map(name => "functions:" + name).join(","));
       assert.deepEqual(options.filteredTargets, ["functions"]);
       assert.equal(options.config.projectDir, selection.project);
-      assert.deepEqual(options.config.src.functions, { source: "functions", runtime: "nodejs22", codebase: "default" });
+      assert.deepEqual(options.config.src.functions, selection.functionsConfiguration);
+      assert(Array.isArray(options.config.src.functions) && options.config.src.functions.length === 1);
+      assert.equal(options.config.src.functions[0].disallowLegacyRuntimeConfig, true);
+      assert.equal(Object.hasOwn(options.config.src.functions[0], "runtime"), false);
       assert.equal(options.config.src.hosting, undefined);
       assert.equal(options.user.email, "offline-fixture@example.invalid");
       assert.equal(options.tokens.access_token, "NON_SECRET_OFFLINE_FIXTURE");

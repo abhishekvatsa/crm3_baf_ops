@@ -7,7 +7,7 @@ const driver = require("./testdata/business31CliDeployDriver.cjs");
 const bootstrap = require("./business31CaptureBootstrap.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const STOP_RELEASE = "BUSINESS31_OFFLINE_RELEASE_ENTRY_STOP";
-const CONTROLLER_REFUSAL = "component entry cannot authorize operational dispatch";
+const CONTROLLER_REFUSAL = "Business capture bootstrap: component entry cannot authorize operational dispatch";
 const FAILURE_KINDS = new Set(["DENIED", "UNMATCHED_FIXTURE_REQUEST", "TRANSPORT_GUARD_REJECTION",
   "FIXTURE_OR_ENTRY_ERROR", "CLEANUP_ERROR", "UNCAUGHT_ERROR", "ORIGINAL_PREPARE_ERROR"]);
 
@@ -45,7 +45,7 @@ async function controllerAdmissionCase(caseId, data) {
     await controller.runController31({});
     throw Error("UNEXPECTED_CONTROLLER_DISPATCH_RETURNED");
   } catch (error) {
-    expectedRefusal = error.message === "component entry cannot authorize operational dispatch";
+    expectedRefusal = error.message === "Business capture bootstrap: component entry cannot authorize operational dispatch";
     if (!expectedRefusal) errors.push({ message: error.message, stack: error.stack });
     event({ kind: expectedRefusal ? "CONTROLLER_ADMISSION_REFUSED" : "CONTROLLER_ERROR",
       message: error.message, stack: error.stack });
