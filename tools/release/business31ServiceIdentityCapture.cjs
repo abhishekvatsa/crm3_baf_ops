@@ -4,7 +4,7 @@ const {AsyncLocalStorage}=require("node:async_hooks");
 const {isDeepStrictEqual:same,TextDecoder}=require("node:util");
 const zlib=require("node:zlib");
 const neutral=require("./runtimeDeploymentTransportGuard31.cjs");
-const {need,hash}=require("./backendRuntimeAdmission31.cjs").helpers;
+const {need,hash,time}=require("./backendRuntimeAdmission31.cjs").helpers;
 const RESPONSE_LIMIT=16*1024*1024;
 const instant=value=>{need(typeof value==="string"&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)&&new Date(value).toISOString()===value,"Exact identity observation time required");return value;};
 function admitServiceIdentity31(operation,{currentControls,verifyControls,assertClean,assertWindow}) {
@@ -103,12 +103,13 @@ function replayServiceIdentityCapture31({pointer,read,readBytes,verifyResponse,g
   need(same(completion.source,source)&&same(completion.approvalPointer,approvalPointer)&&same(completion.baselinePointer,baselinePointer),"Identity authority/baseline differs");
   need(Array.isArray(completion.records)&&completion.records.length===2,"Two identity originals required");
   const guard=new neutral.RuntimeDeploymentTransportGuard31({...guardInputs,phase});let previous=instant(earliestUtc),last=previous;
+  const windowStart=time(executionWindow.notBeforeUtc),windowEnd=time(executionWindow.notAfterUtc);
   for(const [index,p] of completion.records.entries()) {
     const row=read(p),keys=["schemaVersion","documentType","phase","sequence","service","startedAtUtc","requestAdmittedAtUtc","firstOutboundAtUtc","completedAtUtc","currentControls","request","wireBody","response","responseBinding","error"];
     need(same(Object.keys(row).sort(),keys.sort())&&row.schemaVersion===1&&row.documentType==="build31-existing-service-identity"&&row.phase===phase&&row.sequence===index+1&&row.error===null,"Identity original shape/order differs");
     need(same(row.currentControls,currentControls),"Identity current control evidence differs");
     const start=instant(row.startedAtUtc),admitted=instant(row.requestAdmittedAtUtc),outbound=instant(row.firstOutboundAtUtc),ended=instant(row.completedAtUtc);
-    need(previous<=start&&executionWindow.notBeforeUtc<=start&&start<=admitted&&admitted<=outbound&&outbound<=executionWindow.notAfterUtc&&outbound<=ended&&ended<=latestUtc,"Identity initiation/settlement chronology differs");previous=start;if(last<ended)last=ended;
+    need(previous<=start&&windowStart<=time(start)&&start<=admitted&&admitted<=outbound&&time(outbound)<=windowEnd&&outbound<=ended&&ended<=latestUtc,"Identity initiation/settlement chronology differs");previous=start;if(last<ended)last=ended;
     const saved=read(row.request);
     need(same(Object.keys(saved).sort(),["client","request"])&&same(Object.keys(saved.client).sort(),["apiVersion","urlPrefix"])&&same(Object.keys(saved.request).sort(),["body","headers","method","path","queryParams"]),"Identity request shape differs");
     const operation=guard.before({opts:saved.client},saved.request);

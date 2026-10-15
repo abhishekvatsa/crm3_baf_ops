@@ -401,3 +401,62 @@ test("replay rechecks existing email even when altered raw bytes and projection 
   });
   assert.throws(() => f.replay(altered), /existing IAM member|identity/i);
 }));
+
+// Rehashed local receipt clocks isolate replay boundaries; native fixtures remain offline.
+function retimedIdentityCompletion31(f, pointer, tag, startMs, outboundMs) {
+  const completion = structuredClone(f.read(pointer));
+  const start = new Date(EPOCH + startMs).toISOString(), outbound = new Date(EPOCH + outboundMs).toISOString();
+  completion.records = completion.records.map((p, index) => {
+    const row = structuredClone(f.read(p));
+    row.startedAtUtc = row.requestAdmittedAtUtc = start;
+    row.firstOutboundAtUtc = row.completedAtUtc = outbound;
+    return f.save(tag + "-row-" + index + ".json", row);
+  });
+  completion.completedAtUtc = outbound;
+  return f.save(tag + "-completion.json", completion);
+}
+
+test("identity replay compares whole-second and fractional window bounds numerically", async () => withCapture({}, async f => {
+  const p = await completeCapture(f), start = "2026-10-01T12:00:00Z", end = "2026-10-01T12:00:01Z";
+  const cases = [
+    ["whole-second start equality", 0, 0, start, end, true],
+    ["whole-second end equality", 0, 1000, start, end, true],
+    ["one millisecond late", 0, 1001, start, end, false],
+    ["five hundred milliseconds late", 0, 1500, start, end, false],
+    ["one millisecond early", -1, 0, start, end, false],
+    ["nanosecond lower bound", 0, 0, "2026-10-01T12:00:00.000000001Z", end, false],
+    ["nanosecond upper bound before outbound", 0, 1000, start, "2026-10-01T12:00:00.999999999Z", false],
+    ["nanosecond upper bound after outbound", 0, 1000, start, "2026-10-01T12:00:01.000000001Z", true]
+  ];
+  for (const [index, [label, startMs, outboundMs, notBeforeUtc, notAfterUtc, accepted]] of cases.entries()) {
+    const changed = retimedIdentityCompletion31(f, p, "window-" + index, startMs, outboundMs);
+    const replay = () => f.replay(changed, { executionWindow: { notBeforeUtc, notAfterUtc },
+      latestUtc: new Date(EPOCH + 2000).toISOString() });
+    if (accepted) assert.equal(replay().error, null, label);
+    else assert.throws(replay, /Identity initiation\/settlement chronology differs/, label);
+  }
+}));
+
+test("identity replay rejects invalid window endpoints with the existing UTC contract", async () => withCapture({}, async f => {
+  const p = await completeCapture(f);
+  const invalid = [
+    ["missing", undefined], ["null", null], ["nonfinite number", Infinity], ["empty", ""], ["malformed", "not-an-instant"],
+    ["missing UTC marker", "2026-10-01T12:00:00"], ["offset", "2026-10-01T12:00:00+00:00"],
+    ["invalid calendar", "2026-02-30T12:00:00Z"], ["year zero", "0000-10-01T12:00:00Z"],
+    ["excess fractional precision", "2026-10-01T12:00:00.0000000000Z"]
+  ];
+  for (const field of ["notBeforeUtc", "notAfterUtc"]) for (const [label, value] of invalid) {
+    assert.throws(() => f.replay(p, { executionWindow: { ...f.window, [field]: value } }),
+      /Explicit UTC instant required|Invalid calendar instant/, field + ": " + label);
+  }
+}));
+
+test("identity replay retains the exact millisecond observation timestamp schema", async () => withCapture({}, async f => {
+  const p = await completeCapture(f);
+  for (const field of ["startedAtUtc", "requestAdmittedAtUtc", "firstOutboundAtUtc", "completedAtUtc"]) {
+    const changed = changedCompletion(f, p, "observation-" + field, null, row => {
+      row[field] = row[field].replace(/\.\d{3}Z$/, "Z");
+    });
+    assert.throws(() => f.replay(changed), /Exact identity observation time required/, field);
+  }
+}));
