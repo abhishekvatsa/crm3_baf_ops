@@ -18,7 +18,7 @@ const HISTORICAL = Object.freeze({commit:'2aa30de56cfdb960da3eeefd8956d8cbbae57b
 const CORE = Object.freeze([
   'business31PrivateDescriptor.cjs','business31TrustedInput.cjs',
   'business31SourceAdmission.cjs','business31BackendAuthority.cjs','business31NpmBinMaterialization.cjs','business31ToolchainIdentity.cjs',
-  'business31ExecutionContract.cjs','business31BackendClosure.cjs',
+  'business31ExecutionContract.cjs','business31BackendClosure.cjs','business31ScopedCallableInvokerIam.cjs','business31BackendControls.cjs',
   'captureBusiness31PreparedInputs.cjs','business31CaptureBootstrap.cjs','privateEvidenceBundle31.cjs',
   'backendRuntimeEvidenceAccess31.cjs','backendRuntimeControls31.cjs',
   'backendRuntimeReadbacks31.cjs','backendRuntimeExecutionAdmission31.cjs',
@@ -142,8 +142,11 @@ function verifyBusiness31DescriptorPreparation({repositoryRoot,gitExecutable,git
   same(Object.keys(envelope.verifier.files).sort(),files,'external verifier binding must cover complete release producer population');
   for(const file of files){
     need(M.files[file].mode==='100644'&&isDeepStrictEqual(V.files[file],M.files[file])&&isDeepStrictEqual(M.files[file],S.files[file]),'producer changed between V/M/S');
+  }
+  const producerBytes=repository.readSnapshotBlobs(V,files);
+  for(const file of files){
     const digest=d.producerBindings[file];
-    need(sha(repository.readBlob(V.commit,file))===digest&&envelope.verifier.files[file]===digest,'producer digest differs');
+    need(sha(producerBytes.get(file))===digest&&envelope.verifier.files[file]===digest,'producer digest differs');
   }
   for(const file of [SELF,'tools/release/business31TrustedInput.cjs','tools/release/privateEvidenceBundle31.cjs']){
     const local=path.join(__dirname,path.basename(file)),stat=fs.lstatSync(local);

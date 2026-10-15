@@ -6,7 +6,7 @@ const bootstrap = require("./business31CaptureBootstrap.cjs");
 bootstrap.assertBootstrap31();
 const x = require("./business31ExecutionContract.cjs"), a = require("./business31BackendAuthority.cjs");
 const replay = require("./business31BackendClosure.cjs"), custody = require("./business31CohortProcess.cjs");
-const old = require("./backendRuntimeAdmission31.cjs"), controls = require("./backendRuntimeControls31.cjs");
+const old = require("./backendRuntimeAdmission31.cjs"), controls = require("./business31BackendControls.cjs");
 const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
 const recorder = require("./business31CaptureRecorder.cjs");
 const pythonRuntime = require("./collectBusinessRuntime31.cjs");
@@ -274,7 +274,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
       const {Config}=require(path.join(library,"config.js"));
       nativeConfig=custody.bindNativeConfig31({ctx,phase,parameterConfig:measured.context.parameterConfig,
         options:args[1],sourceFunctions:sourceConfig.functions,Config});
-      const fixed=require("./scopedCallableInvokerIam.js");
+      const fixed=require("./business31ScopedCallableInvokerIam.cjs");
       const raw=await collectCurrentBusinessControls31({sourceCommit:ctx.source.commit,approvalSha256:ctx.approvalPointer.sha256,
         read:(url,method,body)=>recorder.readCurrentControlResponse31(api.Client,url,method,body),unavailableRunRegion:fixed.unavailableRunRegion});
       currentControls=write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"current-cohort-controls.json"),raw);

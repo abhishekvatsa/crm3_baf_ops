@@ -43,7 +43,7 @@ function fixture(t,mode) {
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const bootstrap=require('./business31CaptureBootstrap.cjs');bootstrap.assertOperational31();
 const f=JSON.parse(fs.readFileSync(${JSON.stringify(path.join(data,'facts.json'))}));
-const a=require('./business31BackendAuthority.cjs'),x=require('./business31ExecutionContract.cjs'),neutral=require('./backendRuntimeClosure31.cjs'),controls=require('./backendRuntimeControls31.cjs');
+const a=require('./business31BackendAuthority.cjs'),x=require('./business31ExecutionContract.cjs'),neutral=require('./backendRuntimeClosure31.cjs'),controls=require('./business31BackendControls.cjs');
 a.verifyBusiness31BackendAuthority=()=>({source:f.source,originalDecision:f.decision,executionInputs:{approval:{}},decisionPointer:{commit:f.source.commit,file:'synthetic',sha256:'A'.repeat(64)}});
 a.expectedEmittedFiles31=()=>['lib/index.js'];
 x.cohortsFromPolicy=()=>({callables:['inert'],events:[],schedulers:[],fleet:['inert']});x.deriveRuntime31=()=>f.runtime;

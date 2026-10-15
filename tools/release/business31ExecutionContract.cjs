@@ -7,7 +7,7 @@ const PROFILE = "build31-exact-business-backend-v1";
 const BASELINE = "2aa30de56cfdb960da3eeefd8956d8cbbae57b46";
 const CAPTURE = "tools/release/captureBusiness31PreparedInputs.cjs";
 const CONTROL_PRODUCERS = Object.freeze(["collectFunctionFleetRuntimeIdentityReadback.js", "collectFunctionsIamDependenciesReadback.js",
-  "collectFirestoreRulesIndexesReadback.js", "reviewedBackendControls.js", "collectProductionGlobalPullBackend.js", "scopedCallableInvokerIam.js", "deploymentFleetContract.js"].map(n => "tools/release/" + n));
+  "collectFirestoreRulesIndexesReadback.js", "reviewedBackendControls.js", "collectProductionGlobalPullBackend.js", "scopedCallableInvokerIam.js", "deploymentFleetContract.js", "business31ScopedCallableInvokerIam.cjs", "business31BackendControls.cjs"].map(n => "tools/release/" + n));
 function need(v, message) { if (!v) throw Error("Business31 execution contract: " + message); }
 function keys(v, expected, label) { need(v && typeof v === "object" && !Array.isArray(v) && same(Object.keys(v).sort(), [...expected].sort()), label + " fields differ"); }
 const sha = b => crypto.createHash("sha256").update(b).digest("hex").toUpperCase();
