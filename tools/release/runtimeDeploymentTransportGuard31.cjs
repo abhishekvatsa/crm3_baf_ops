@@ -17,6 +17,21 @@ function firestoreLocationRead31(url,method,rawUrl=url.href){
   return true;
 }
 
+function firestoreLocationHeaders31(headers){
+  if(headers===undefined||headers===null)return;
+  need(typeof headers==='object','Firestore location headers must be explicit');
+  let entries;
+  if(Array.isArray(headers)){
+    need(headers.length%2===0,'Firestore location raw headers must be pairs');
+    entries=[];for(let i=0;i<headers.length;i+=2)entries.push([headers[i],headers[i+1]]);
+  }else entries=Object.entries(headers);
+  for(const[name,value]of entries){
+    need(typeof name==='string','Firestore location header name must be a string');
+    const key=name.toLowerCase();
+    need(key!=='transfer-encoding'&&key!=='trailer','Firestore location GET cannot use body framing or trailers');
+    if(key==='content-length')need(value===0||value==='0','Firestore location GET content length must be zero');
+  }
+}
 const IDENTITY_SERVICES=Object.freeze(['pubsub.googleapis.com','eventarc.googleapis.com']);
 const IDENTITY_TYPE='type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity';
 function existingServiceIdentityBindings31({project,projectIam}) {
@@ -160,6 +175,8 @@ function installNetworkBoundary31(guard){
       else if(AUTH_HOSTS.has(u.hostname)&&method==='POST')guard.read(u,method);
       else if(!admitted)guard.read(u,method);
       else need(u.href===admitted.url&&method===admitted.method,'Cloud request method/query/redirect changed');
+      const bodylessFirestore=u.href===FIRESTORE_LOCATION_URL&&method==='GET';
+      if(bodylessFirestore)firestoreLocationHeaders31({...((input instanceof URL||typeof input==='string')?{}:input),...(options&&typeof options==='object'?options:{})}.headers);
       const write=admitted&&!['read','credential-refresh'].includes(admitted.kind)&&!(AUTH_HOSTS.has(u.hostname)&&method==='POST');
       if(write){need(!admitted.transportUsed,'Automatic cloud mutation transport retry refused');admitted.transportUsed=true;}
       const args=arguments,receiver=this;const request=context.run({...admitted,networkVerified:true},()=>original.apply(receiver,args));
@@ -167,6 +184,19 @@ function installNetworkBoundary31(guard){
         request.flushHeaders=()=>{throw Error('Unverified mutation body cannot flush headers');};
         request.write=function(chunk,encoding,cb){const bytes=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk,typeof encoding==='string'?encoding:undefined);total+=bytes.length;need(total<=128*1024*1024,'Mutation body exceeds bound');chunks.push(bytes);const callback=typeof encoding==='function'?encoding:cb;if(callback)queueMicrotask(callback);return true;};
         request.end=function(chunk,encoding,cb){if(chunk!==undefined&&chunk!==null)this.write(chunk,encoding);const bytes=Buffer.concat(chunks);try{need(hash(bytes)===admitted.bodySha256,'Effective mutation body differs from admitted source/control bytes');}catch(error){request.destroy(error);throw error;}if(bytes.length)originalWrite.call(request,bytes);return originalEnd.call(request,undefined,undefined,typeof encoding==='function'?encoding:cb);};
+      }
+      if(bodylessFirestore){
+        let refused=false;
+        const headers=()=>{firestoreLocationHeaders31(request.getHeaders());need(request.useChunkedEncodingByDefault!==true&&request.chunkedEncoding!==true,'Firestore location GET cannot use chunked body framing');};
+        const checked=action=>{try{need(!refused,'Firestore location GET was already refused');headers();return action();}catch(error){refused=true;request.destroy();throw error;}};
+        const empty=chunk=>typeof chunk==='string'?chunk.length===0:chunk instanceof Uint8Array&&chunk.byteLength===0;
+        const originalWrite=request.write,originalEnd=request.end,originalFlush=request.flushHeaders;
+        request.write=function(chunk){const args=arguments,receiver=this;return checked(()=>{need(empty(chunk),'Firestore location GET cannot carry a wire body');return originalWrite.apply(receiver,args);});};
+        request.end=function(chunk){const args=arguments,receiver=this;return checked(()=>{need(chunk===undefined||chunk===null||typeof chunk==='function'||empty(chunk),'Firestore location GET cannot carry a wire body');return originalEnd.apply(receiver,args);});};
+        request.flushHeaders=function(){const args=arguments,receiver=this;return checked(()=>originalFlush.apply(receiver,args));};
+        for(const name of ['setHeader','appendHeader']){const originalHeader=request[name];request[name]=function(key,value){const args=arguments,receiver=this;return checked(()=>{firestoreLocationHeaders31({[key]:value});const result=originalHeader.apply(receiver,args);headers();return result;});};}
+        request.addTrailers=()=>checked(()=>{throw Error('Firestore location GET cannot carry trailers');});
+        checked(()=>{});
       }
       return request;
     };
