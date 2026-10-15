@@ -1,4 +1,5 @@
 import './firebase_mcp_compat.test.mjs';
+import './firebase_json_guard_compat.test.mjs';
 import './firebase_ftp_compat.test.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
