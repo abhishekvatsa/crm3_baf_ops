@@ -248,6 +248,7 @@ function captureFixture(options = {}) {
     get nativeClientCalls() { return nativeClientCalls; },
     get nativeWrites() { return nativeWrites; }, get nativeEnds() { return nativeEnds; },
     call(service = SERVICES[0], request = identityRequest(service)) { return new Client(client().opts).request(request); },
+    request(options, request) { return new Client(options).request(request); },
     replay(p, overrides = {}) {
       assert(this.preparedCapture, "actual synthetic prepared-capture completion required");
       return identityCapture.replayServiceIdentityCapture31({ pointer: p, read, readBytes,
@@ -459,4 +460,19 @@ test("identity replay retains the exact millisecond observation timestamp schema
     });
     assert.throws(() => f.replay(changed), /Exact identity observation time required/, field);
   }
+}));
+
+// A CLI caller may catch either read error; the production capture must still refuse completion.
+for (const [name, options, request, message] of [
+  ["Compute default account", { urlPrefix: "https://compute.googleapis.com", apiVersion: "compute/v1" },
+    { method: "GET", path: "projects/" + NUMBER }, /Unreviewed API host/],
+  ["numeric-project IAM", { urlPrefix: "https://cloudresourcemanager.googleapis.com", apiVersion: "v1" },
+    { method: "POST", path: "projects/" + NUMBER + ":getIamPolicy" }, /Read-only method required/]
+]) test("caught " + name + " refusal is sticky after two otherwise complete identity responses", async () => withCapture({}, async f => {
+  await Promise.all(SERVICES.map(service => f.call(service)));
+  assert.equal(f.calls.length, 2); const before = { clients: f.nativeClientCalls, writes: f.nativeWrites, ends: f.nativeEnds };
+  await assert.rejects(f.request(options, request), message);
+  assert.deepEqual({ clients: f.nativeClientCalls, writes: f.nativeWrites, ends: f.nativeEnds }, before);
+  assert.throws(() => f.capture.finish(), /Two complete original identity requests required/);
+  assert(fs.readdirSync(f.dir).some(name => name.startsWith("service-identity-refusal-")));
 }));

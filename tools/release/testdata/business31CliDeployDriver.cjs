@@ -5,6 +5,7 @@ const crypto = require("node:crypto"), cp = require("node:child_process"), asser
 const bootstrap = require("../business31CaptureBootstrap.cjs");
 const execution = require("../backendRuntimeExecution31.cjs");
 const kernel = require("./business31CliSyntheticKernel.cjs");
+const fleetFixture = require("./business31CliFleetFixture.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const PROJECT = "crm3-baf-ops-b8638";
 const STOP_PREPARE = "BUSINESS31_OFFLINE_PREPARE_ENTRY_STOP";
@@ -37,6 +38,11 @@ function createRun(mode) {
   assert.equal(functionsConfiguration[0].disallowLegacyRuntimeConfig, true);
   assert.equal(Object.hasOwn(functionsConfiguration[0], "runtime"), false);
   const sourceFirebaseConfiguration = { path: firebaseConfigurationPath, sha256: sha(firebaseConfigurationBytes), bytes: firebaseConfigurationBytes.length };
+  const runtimeIdentityPolicyPath = path.join(repo, "release/function-fleet-runtime-identity-policy.json");
+  const runtimeIdentityPolicyBytes = fs.readFileSync(runtimeIdentityPolicyPath);
+  const runtimeIdentityPolicy = JSON.parse(runtimeIdentityPolicyBytes);
+  const sourceRuntimeIdentityPolicy = { path: runtimeIdentityPolicyPath,
+    sha256: sha(runtimeIdentityPolicyBytes), bytes: runtimeIdentityPolicyBytes.length };
   const installed = path.join(repo, "tooling/firebase-cli/node_modules");
   let cliRoot = installed, files;
   // Reuse a complete regular tree read-only. POSIX npm .bin aliases are materialized only
@@ -62,12 +68,13 @@ function createRun(mode) {
   assert.equal(JSON.parse(fs.readFileSync(path.join(cliRoot, "firebase-tools/package.json"), "utf8")).version, "15.22.4");
   const cohorts = structuredClone(execution.EXPECTED_COHORTS);
   write(path.join(root, "RUN.json"), { mode, runtime, node: { path: process.execPath, sha256: nodeSha256 },
-    cohorts, sourceFirebaseConfiguration, functionsConfiguration,
+    cohorts, sourceFirebaseConfiguration, functionsConfiguration, sourceRuntimeIdentityPolicy,
     childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: 3,
     controllerInvoked: false, fullControllerRehearsalClaimed: false, noProductionAuthority: true });
-  return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts, sourceFirebaseConfiguration, functionsConfiguration };
+  return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts, sourceFirebaseConfiguration, functionsConfiguration,
+    sourceRuntimeIdentityPolicy, runtimeIdentityPolicy };
 }
-function syntheticProject(source, cohorts, functionsConfiguration) {
+function syntheticProject(source, fleet, functionsConfiguration) {
   const project = path.join(source, "project");
   write(path.join(project, "firebase.json"), { functions: structuredClone(functionsConfiguration) });
   write(path.join(project, ".firebaserc"), { projects: {} });
@@ -78,33 +85,28 @@ function syntheticProject(source, cohorts, functionsConfiguration) {
   // Discovery is a declared synthetic YAML fixture, not an SDK execution proof.
   write(path.join(project, "functions/node_modules/firebase-functions/package.json"), { name: "firebase-functions", version: "7.0.0", main: "index.js" });
   write(path.join(project, "functions/node_modules/firebase-functions/index.js"), 'throw Error("OFFLINE_SYNTHETIC_SDK_MUST_NOT_EXECUTE");\n');
-  const endpoints = {};
-  for (const name of cohorts.fleet) {
-    const trigger = cohorts.callables.includes(name) ? { callableTrigger: {} } : cohorts.events.includes(name)
-      ? { eventTrigger: { eventType: "google.cloud.firestore.document.v1.created", eventFilters: { database: "(default)" },
-        eventFilterPathPatterns: { document: "offline/{id}" }, retry: false, region: "asia-south1" } }
-      : { scheduleTrigger: { schedule: "every 24 hours", timeZone: "Etc/UTC" } };
-    endpoints[name] = { platform: "gcfv2", region: ["asia-south1"], entryPoint: name, ...trigger };
-  }
-  write(path.join(project, "functions/functions.yaml"), { specVersion: "v1alpha1", endpoints, params: [], requiredAPIs: [] });
+  write(path.join(project, "functions/functions.yaml"), fleet.manifest);
   return project;
 }
-function runSample(run, phase) {
+function runSample(run, phase, fleetVariant = "existing-fleet") {
   assert(execution.PHASES.includes(phase));
-  const root = path.join(run.root, phase);
+  assert(fleetFixture.VARIANTS.includes(fleetVariant));
+  assert(run.mode === "pre-release" || fleetVariant === "existing-fleet");
+  const fleet = fleetFixture.createFleetFixture(run.cohorts, run.runtimeIdentityPolicy, fleetVariant);
+  const root = path.join(run.root, phase + (fleetVariant === "existing-fleet" ? "" : "-" + fleetVariant));
   fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
   for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs",
     "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
-  for (const name of ["business31CliDeployFixture.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs"]) {
+  for (const name of ["business31CliDeployFixture.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
     fs.copyFileSync(path.join(__dirname, name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   assert.equal(sha(fs.readFileSync(path.join(source, "business31CaptureBootstrap.cjs"))),
     sha(fs.readFileSync(path.resolve(__dirname, "../business31CaptureBootstrap.cjs"))));
   write(path.join(source, "business31CaptureBootstrap.test.cjs"), '"use strict";\nmodule.exports = require("./business31CliDeployFixture.cjs");\n');
-  const project = syntheticProject(scratch, run.cohorts, run.functionsConfiguration), projectFiles = bootstrap.sourceMap(project);
+  const project = syntheticProject(scratch, fleet, run.functionsConfiguration), projectFiles = bootstrap.sourceMap(project);
   const kernelMetadata = write(path.join(scratch, kernel.KERNEL_RELATIVE), kernel.KERNEL_TEXT);
   const plan = execution.fixedCohortPlan({ ok: true, proposalOnly: true, deploymentAuthorized: false,
     cohorts: run.cohorts, projectId: PROJECT, region: "asia-south1",
@@ -112,6 +114,7 @@ function runSample(run, phase) {
   // The fixed bootstrap requires empty execArgv. The real CLI receives exactly the planner's deploy arguments.
   const cliArguments = plan.arguments.slice(2);
   const selection = { mode: run.mode, phase, scratch, project, projectFiles, kernelMetadata,
+    fleet, sourceRuntimeIdentityPolicy: run.sourceRuntimeIdentityPolicy,
     functionsConfiguration: run.functionsConfiguration, sourceFirebaseConfiguration: run.sourceFirebaseConfiguration,
     names: plan.functionNames, cohorts: run.cohorts, cliArguments,
     permissionRoutes: [
@@ -168,6 +171,8 @@ function assertPrepareSample(report) {
   assert(!/BUSINESS_CLI_LOAD_INTEGRITY|OFFLINE_BOUNDARY_DENIED|OFFLINE_UNMATCHED_FIXTURE_REQUEST|An unexpected error has occurred/.test(combined), message);
 }
 function assertPopulationUnchanged(run) {
+  assert.equal(sha(fs.readFileSync(run.sourceRuntimeIdentityPolicy.path)), run.sourceRuntimeIdentityPolicy.sha256,
+    "Source runtime identity policy changed; retained run " + run.root);
   assert.deepEqual(bootstrap.sourceMap(run.cliRoot), run.files, "Installed CLI bytes changed; retained run " + run.root);
   assert.equal(sha(fs.readFileSync(run.sourceFirebaseConfiguration.path)), run.sourceFirebaseConfiguration.sha256,
     "Source Firebase configuration changed; retained run " + run.root);

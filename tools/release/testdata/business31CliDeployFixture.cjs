@@ -24,6 +24,9 @@ async function runCase(caseId, componentData) {
   const selection = JSON.parse(fs.readFileSync(path.join(__dirname, "CASE.json"), "utf8"));
   assert(["prepare-entry", "pre-release"].includes(selection.mode));
   assert(["callables", "events", "fleet"].includes(selection.phase));
+  assert.equal(selection.fleet.synthetic, true);
+  assert.equal(selection.fleet.currentProductionStateClaimed, false);
+  assert(require("./business31CliFleetFixture.cjs").VARIANTS.includes(selection.fleet.variant));
   const runtime = componentData.runtime, scratch = selection.scratch;
   const rawWrite = fs.writeSync, fd = fs.openSync(path.join(scratch, "events.jsonl"), "wx");
   let sequence = 0;
@@ -172,7 +175,7 @@ async function runCase(caseId, componentData) {
           body = { functions: [], unreachable: [] };
         } else if (url.href === "https://cloudfunctions.googleapis.com/v2/projects/" + PROJECT + "/locations/-/functions"
             && isDeepStrictEqual(query, { filter: 'environment="GEN_2"' })) {
-          body = { functions: [], unreachable: [] };
+          body = { functions: structuredClone(selection.fleet.existingFunctions), unreachable: [] };
         }
       }
       if (body === undefined) {
@@ -214,7 +217,13 @@ async function runCase(caseId, componentData) {
       try {
         const result = await prepareDescriptor.value.apply(this, arguments);
         state.originalPrepareCompleted++;
-        event({ kind: "ORIGINAL_PREPARE_COMPLETED" });
+        const endpoints = backend => Object.values(backend.endpoints).flatMap(region => Object.values(region))
+          .map(endpoint => ({ id: endpoint.id, serviceAccount: endpoint.serviceAccount ?? null,
+            eventType: endpoint.eventTrigger?.eventType ?? null, secretEnvironmentVariables: endpoint.secretEnvironmentVariables ?? [] }))
+          .sort((a, b) => a.id.localeCompare(b.id));
+        event({ kind: "ORIGINAL_PREPARE_COMPLETED", fleetVariant: selection.fleet.variant,
+          backends: Object.entries(payload.functions).map(([codebase, value]) => ({
+            codebase, want: endpoints(value.wantBackend), have: endpoints(value.haveBackend) })) });
         return result;
       } catch (caught) { error("ORIGINAL_PREPARE_ERROR", caught); throw caught; }
     };
@@ -233,14 +242,18 @@ async function runCase(caseId, componentData) {
       const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
       const guard = new neutral.RuntimeDeploymentTransportGuard31({
         names: selection.names, allNames: selection.cohorts.fleet, phase: selection.phase,
-        baselineFunctions: {}, projectNumber: NUMBER, serviceIdentityBaseline: identityBaseline
+        baselineFunctions: Object.fromEntries(selection.fleet.existingFunctions.map(fn => [fn.name.split("/").at(-1), fn])),
+        projectNumber: NUMBER, serviceIdentityBaseline: identityBaseline
       });
       // Diagnostic wrapper retains the original predicate and never converts a refusal to a response.
       const originalBefore = guard.before;
       guard.before = function (...args) {
+        const request = { method: args[1].method ?? "GET", path: args[1].path,
+          urlPrefix: args[0].opts.urlPrefix, apiVersion: args[0].opts.apiVersion ?? "" };
+        event({ kind: "GUARDED_API_REQUEST_ATTEMPT", request });
         try { return originalBefore.apply(this, args); }
         catch (caught) {
-          const row = { ...errorView(caught), request: { method: args[1].method ?? "GET", path: args[1].path } };
+          const row = { ...errorView(caught), request };
           state.guardRejections.push(row); event({ kind: "TRANSPORT_GUARD_REJECTION", ...row }); throw caught;
         }
       };
