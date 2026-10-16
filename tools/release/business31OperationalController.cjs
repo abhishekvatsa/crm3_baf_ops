@@ -173,7 +173,7 @@ async function runControllerWithContext31(configuration,common) {
         cwd:ctx.repoRoot,arguments:custody.commandArguments31(ctx,phase),sourceBefore,producerBindings:ctx.producerBindings,parameterConfig};
       const start=write(ctx.evidenceDirectory,path.join(dir,"attempt-start.json"),startValue);
       const measured=supervise(configuration,common,phase,context),child=read(ctx.evidenceDirectory,custody.pointer31(ctx.evidenceDirectory,path.join(dir,"phase-capture-result.json")));
-      keys(child,["schemaVersion","documentType","phase","source","approvalPointer","context","start","capture","archive","mutations","completion","currentControls"],"phase output");
+      keys(child,["schemaVersion","documentType","phase","source","approvalPointer","context","start","capture","archive","mutations","completion","currentControls","serviceIdentities"],"phase output");
       need(child.schemaVersion===1&&child.documentType==="build31-business-phase-capture-result"&&child.phase===phase&&same(child.source,ctx.source)&&
         same(child.approvalPointer,ctx.approvalPointer)&&same(child.context,context)&&same(child.start,start),"actual child output identity differs");
       const names=phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase];
@@ -182,7 +182,7 @@ async function runControllerWithContext31(configuration,common) {
         completedAtUtc:measured.actual.completedAtUtc,exitCode:0,signal:null,error:null,executable:ctx.runtime.nodeExecutable,nodeSha256:ctx.runtime.nodeSha256,
         cwd:ctx.repoRoot,arguments:startValue.arguments,cliArguments:["deploy","--only",names.map(n=>"functions:"+n).join(","),"--project","crm3-baf-ops-b8638","--non-interactive"],
         sourceBefore,sourceAfter:cleanPoint(ctx),producerBindings:ctx.producerBindings,stdout:measured.stdout,stderr:measured.stderr,
-        capture:child.capture,archive:child.archive,currentControls:child.currentControls,mutations:child.mutations,completion:child.completion,
+        capture:child.capture,archive:child.archive,currentControls:child.currentControls,serviceIdentities:child.serviceIdentities,mutations:child.mutations,completion:child.completion,
         context,start,process:measured.processPointer};
       const commandPointer=write(ctx.evidenceDirectory,path.join(dir,"attempt-result.json"),record);
       replay.replayRecordedCohort31({ctx,phase,commandPointer,earliestUtc:predecessors.length?read(ctx.evidenceDirectory,predecessors.at(-1).pointer).completedAtUtc:startedAtUtc,
@@ -236,6 +236,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
   const {writer,common,guardInputs}=measured,ctx=common.ctx;
   const admission={...ctx,projectId:"crm3-baf-ops-b8638",region:"asia-south1"};
   const lease=common.cliLoadLease,library=path.dirname(path.dirname(ctx.runtime.cliEntrypoint));
+  let identityCapture=null,serviceIdentities=null;
   let hook=null,boundary=null,parameterWrites=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
   const fail=()=>{writer.failed=true;if(writer.active)writer.active.failed=true;};
   const cleanup=()=>{const errors=[];if(boundary){try{boundary.restore();}catch(e){errors.push(e);}boundary=null;}
@@ -257,7 +258,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     const preparedTransition=function(...args){
       need(!active&&currentControls!==null,"fresh controls must precede actual hash invocation");
       need(nativeConfig,"governed native Config required before hash invocation");nativeConfig.assertUnchanged();
-      boundary.assertOwned();boundary.restore();boundary=null;
+      boundary.assertOwned();serviceIdentities=identityCapture.finish();boundary.restore();boundary=null;
       try{const value=actualHashWrapper.apply(this,args);hook.module.applyBackendHashToBackends=actualHashWrapper;hook.restore();hook=null;
         boundary=installOwned(slots,()=>recorder.installBusinessCapture31({Client:api.Client,writer,observeLive:()=>observe(common)}));
         active=true;return value;
@@ -288,7 +289,26 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     };
     preparation.prepare=prepareWrapper;
     parameterWrites=denyParameterWrites();
-    boundary=installOwned(slots,()=>{neutral.installNetworkBoundary31(unprepared);neutral.installApiBoundary31(api.Client,unprepared,()=>{throw Error("write before prepared comparison");});});
+    const identity=require("./business31ServiceIdentityCapture.cjs");
+    boundary=installOwned(slots,()=>identity.installServiceIdentityCapture31({Client:api.Client,guard:unprepared,phase,
+      source:ctx.source,approvalPointer:ctx.approvalPointer,baselinePointer:common.baseline.controlsPointer,
+      assertWindow:()=>windowNow(ctx),save:(name,value)=>{
+        need(path.basename(name)===name&&name.startsWith("service-identit"),"Fixed service identity evidence path required");
+        const file=path.join(custody.phaseDirectory31(ctx,phase),name);
+        if(!Buffer.isBuffer(value))return write(ctx.evidenceDirectory,file,value);
+        need(value.length<=16*1024*1024,"Identity raw evidence bound exceeded");
+        x.physical(path.dirname(file),true);fs.writeFileSync(file,value,{flag:"wx",mode:0o600});
+        return custody.pointer31(ctx.evidenceDirectory,file);
+      },
+      assertAdmission:operation=>identity.admitServiceIdentity31(operation,{currentControls,
+        verifyControls:()=>{need(nativeConfig,"Native Config required before existing identity");nativeConfig.assertUnchanged();
+          controls.verifyCurrentCohortControls31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,evidenceDirectory:ctx.evidenceDirectory,
+            beforePointer:x.pointerView(ctx.evidenceDirectory,common.baseline.controlsPointer),currentPointer:x.pointerView(ctx.evidenceDirectory,currentControls),
+            schedulerBaseline:x.pointerView(ctx.evidenceDirectory,common.baseline.schedulerPointer),approvalSha256:ctx.approvalPointer.sha256,
+            decisionAtUtc:ctx.decision.decidedAtUtc,phase,cohorts:ctx.cohorts,endpointRuntimeHashes:common.intentResult.labels,
+            requiredProducerBindings:ctx.runtime.requiredProducerBindings,installedControlRuntime:ctx.runtime.installedControlRuntime});},
+        assertClean:()=>cleanPoint(ctx),assertWindow:()=>windowNow(ctx)})}));
+    identityCapture=boundary.result;
     process.once("exit",code=>{
       if(finished)return;finished=true;
       try{
@@ -297,7 +317,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
         cleanPoint(ctx);cleanup();
         write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"phase-capture-result.json"),{schemaVersion:1,documentType:"build31-business-phase-capture-result",
           phase,source:ctx.source,approvalPointer:ctx.approvalPointer,context:measured.contextPointer,start:measured.startPointer,
-          capture:result.capture,archive:result.archive,mutations:result.mutations,completion:result.completion,currentControls});
+          capture:result.capture,archive:result.archive,mutations:result.mutations,completion:result.completion,currentControls,serviceIdentities});
       }catch(error){fail();try{cleanup();}catch{}process.exitCode=1;
         try{write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"phase-failed.json"),{schemaVersion:1,phase,failedAtUtc:utc(),automaticRetryAllowed:false,rawErrorRetained:false});}catch{}
       }

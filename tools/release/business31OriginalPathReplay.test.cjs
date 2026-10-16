@@ -31,8 +31,8 @@ test('required npm-bin materializer has exact executing bytes before any closure
  assert.equal(require.cache[modulePath],undefined);
 });
 
-test('closure population is precisely the complete composed44 subset, with unchanged digests',()=>{
-  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,44);
+test('closure population is precisely the complete composed45 subset, with unchanged digests',()=>{
+  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,45);
   const full={...bindings,'tools/release/another-controller.cjs':'F'.repeat(64)},subset=subject.deriveClosureProducerBindings31(full);
   assert.deepEqual(Object.keys(subset),actual);for(const file of actual)assert.equal(subset[file],full[file]);assert.equal(full['tools/release/another-controller.cjs'],'F'.repeat(64));
 });

@@ -1,5 +1,10 @@
 'use strict';
-const {parser} = require('stream-json-modern');
-module.exports = Object.assign(options => parser.asStream(options), {
-  parser: options => parser.asStream(options),
+module.exports = Object.assign(options => {
+    const {parser} = require('stream-json-modern');
+    return parser.asStream(options);
+  }, {
+  parser: options => {
+    const {parser} = require('stream-json-modern');
+    return parser.asStream(options);
+  },
 });

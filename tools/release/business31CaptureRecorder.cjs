@@ -252,7 +252,8 @@ function createBusinessPhaseCapture31({authorityOptions,phase,contextFile,contex
   const projectNumber=JSON.parse(common.baseline.raw.controls.project.bodyText).projectNumber;
   need(typeof projectNumber==="string"&&/^[1-9][0-9]*$/.test(projectNumber),"original project number required");
   const guardInputs={baselineFunctions:common.baseline.baselineFunctions,baselineScheduler:common.baseline.scheduler,
-    sourceArchiveHash:common.intent.sourceArchiveHash,endpointRuntimeHashes:common.intentResult.labels,projectNumber};
+    sourceArchiveHash:common.intent.sourceArchiveHash,endpointRuntimeHashes:common.intentResult.labels,projectNumber,
+    serviceIdentityBaseline:{project:common.baseline.raw.controls.project,projectIam:common.baseline.raw.controls.projectIam}};
   phaseAdmissions.set(writer,{phase,common,guardInputs,recheck});writer.bindExecutionWindow(ctx.decision.executionWindow);
   return {writer,common,guardInputs,context,start,contextPointer,startPointer};
   } catch(error) {

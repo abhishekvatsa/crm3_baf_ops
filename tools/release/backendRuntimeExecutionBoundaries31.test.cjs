@@ -42,6 +42,177 @@ for(const[name,mutate]of [['removed preserved label',x=>delete x.request.body.la
 test('a second Function update cannot silently retry',()=>{const x=patchCase();x.guard.before(cf,x.request);assert.throws(()=>x.guard.before(cf,x.request),/retry/);});
 for(const [host,method,url]of [['serviceusage.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638/services/x:enable'],['cloudresourcemanager.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638:setIamPolicy'],['cloudscheduler.googleapis.com','POST','/v1/projects/crm3-baf-ops-b8638/locations/asia-south1/jobs/x:run'],['secretmanager.googleapis.com','GET','/v1/projects/crm3-baf-ops-b8638/secrets/x/versions/1:access'],['cloudfunctions.googleapis.com','DELETE','/v2/'+project+'fn0']])test('forbidden operation '+host+url,()=>{const{guard}=transport();prepared(guard);assert.throws(()=>guard.before({opts:{urlPrefix:'https://'+host}},{method,path:url}));});
 test('URL effective hostname/path/method overrides are inspected',()=>{const r=t.effectiveRequest31(new URL('https://cloudfunctions.googleapis.com/safe'),{hostname:'evil.invalid',path:'/changed?q=1',method:'DELETE'},'https:');assert.equal(r.url.href,'https://evil.invalid/changed?q=1');assert.equal(r.method,'DELETE');});
+
+const firestoreLocation='https://firestore.googleapis.com/v1/projects/crm3-baf-ops-b8638/databases/(default)';
+const firestore={opts:{urlPrefix:'https://firestore.googleapis.com',apiVersion:'v1'}};
+const defaultDatabase='projects/crm3-baf-ops-b8638/databases/(default)';
+test('only the exact default Firestore database location GET is an unprepared read',()=>{
+  const{guard}=transport();
+  assert.deepEqual(guard.before(firestore,{method:'GET',path:defaultDatabase}),{kind:'read',url:firestoreLocation,method:'GET'});
+  assert.deepEqual(guard.read(new URL(firestoreLocation),'GET'),{kind:'read'});
+  const effective=t.effectiveRequest31(firestoreLocation,undefined,'https:');
+  assert.deepEqual(guard.read(effective.url,effective.method),{kind:'read'});
+  assert.equal(guard.prepared,false);assert.equal(guard.mutations.size,0);
+});
+test('Firestore location read never invokes the mutation callback',async()=>{
+  class Client{constructor(){this.opts=firestore.opts;}async request(request){assert.equal(request.retries,0);assert.deepEqual(request.retryCodes,[]);return {body:{locationId:'asia-south1'}};}}
+  const{guard}=transport();let writes=0;
+  t.installApiBoundary31(Client,guard,()=>{writes++;throw Error('unexpected mutation callback');});
+  assert.deepEqual(await new Client().request({method:'GET',path:defaultDatabase}),{body:{locationId:'asia-south1'}});
+  assert.equal(writes,0);assert.equal(guard.prepared,false);assert.deepEqual(guard.events,[{kind:'read'}]);
+});
+for(const method of ['HEAD','POST','PUT','PATCH','DELETE','OPTIONS'])test('Firestore location refuses '+method+' before and after preparation',()=>{
+  for(const isPrepared of [false,true]){const{guard}=transport();if(isPrepared)prepared(guard);
+    assert.throws(()=>guard.before(firestore,{method,path:defaultDatabase}));
+    assert.throws(()=>guard.read(new URL(firestoreLocation),method));
+    assert.throws(()=>t.effectiveRequest31(firestoreLocation,{method},'https:'));
+    assert.equal(guard.mutations.size,0);
+  }
+});
+for(const [label,request]of [
+  ['other project',{path:'projects/other-project/databases/(default)'}],
+  ['named database',{path:'projects/crm3-baf-ops-b8638/databases/other'}],
+  ['database listing',{path:'projects/crm3-baf-ops-b8638/databases'}],
+  ['document path',{path:defaultDatabase+'/documents/x/y'}],
+  ['trailing slash',{path:defaultDatabase+'/'}],
+  ['dot segment',{path:'projects/crm3-baf-ops-b8638/databases/other/../(default)'}],
+  ['encoded dot segment',{path:'projects/crm3-baf-ops-b8638/databases/other/%2e%2e/(default)'}],
+  ['encoded database',{path:'projects/crm3-baf-ops-b8638/databases/%28default%29'}],
+  ['backslash path',{path:defaultDatabase.replace('/databases/','\\databases\\')}],
+  ['query',{path:defaultDatabase+'?x=1'}],
+  ['empty query',{path:defaultDatabase+'?'}],
+  ['fragment',{path:defaultDatabase+'#location'}],
+  ['empty fragment',{path:defaultDatabase+'#'}],
+  ['query object',{path:defaultDatabase,queryParams:{fields:'locationId'}}],
+  ['query parameters',{path:defaultDatabase,queryParams:new URLSearchParams('fields=locationId')}],
+  ['body',{path:defaultDatabase,body:{fields:'locationId'}}],
+])test('Firestore location refuses '+label+' without widening the host policy',()=>{
+  for(const isPrepared of [false,true]){const{guard}=transport();if(isPrepared)prepared(guard);assert.throws(()=>guard.before(firestore,{method:'GET',...request}));}
+});
+for(const [label,url]of [
+  ['HTTP',firestoreLocation.replace('https:','http:')],
+  ['credentials',firestoreLocation.replace('https://','https://user:password@')],
+  ['explicit default port',firestoreLocation.replace('.com/','.com:443/')],
+  ['other port',firestoreLocation.replace('.com/','.com:444/')],
+  ['uppercase host',firestoreLocation.replace('firestore.googleapis.com','FIRESTORE.GOOGLEAPIS.COM')],
+  ['host suffix',firestoreLocation.replace('.com/','.com.evil.invalid/')],
+  ['API version',firestoreLocation.replace('/v1/','/v1beta1/')],
+  ['dot segment',firestoreLocation.replace('/databases/','/other/../databases/')],
+  ['encoded dot segment',firestoreLocation.replace('/databases/','/other/%2e%2e/databases/')],
+  ['backslash',firestoreLocation.replace('/databases/','\\databases\\')],
+  ['query',firestoreLocation+'?fields=locationId'],
+  ['empty query',firestoreLocation+'?'],
+  ['fragment',firestoreLocation+'#location'],
+  ['empty fragment',firestoreLocation+'#'],
+])test('effective Firestore request refuses '+label+' spelling',()=>{
+  const{guard}=transport();
+  assert.throws(()=>{const effective=t.effectiveRequest31(url,undefined,'https:');guard.read(effective.url,effective.method);});
+});
+test('effective Firestore option overrides cannot broaden the resource or method',()=>{
+  const{guard}=transport();
+  for(const options of [{path:'/v1/'+defaultDatabase+'/documents/x/y'},{path:'/v1/'+defaultDatabase+'?'},{path:'/v1/projects/crm3-baf-ops-b8638/other/../databases/(default)'},{method:'POST'},{port:443},{hostname:'firestore.googleapis.com.evil.invalid'}]){
+    assert.throws(()=>{const effective=t.effectiveRequest31(new URL(firestoreLocation),options,'https:');guard.read(effective.url,effective.method);});
+  }
+});
+
+// Every request here is a fake native transport. No socket or credential path runs.
+async function withFirestoreWire31(isPrepared,run){
+  const https=require('node:https'),http=require('node:http'),net=require('node:net'),tls=require('node:tls'),Module=require('node:module');
+  const slots=[[https,'request'],[https,'get'],[http,'request'],[http,'get'],[net.Socket.prototype,'connect'],[tls,'connect'],[Module,'_load'],[globalThis,'fetch']];
+  const saved=slots.map(([object,key])=>[object,key,Object.getOwnPropertyDescriptor(object,key)]);
+  const calls={created:0,writes:0,ends:0,flushes:0,trailers:0,destroyed:0,bytes:0,callbacks:0,mutationCallbacks:0};
+  const byteLength=chunk=>chunk===undefined||chunk===null||typeof chunk==='function'?0:typeof chunk==='string'?Buffer.byteLength(chunk):chunk.byteLength;
+  const callbackOf=args=>[...args].findLast(value=>typeof value==='function');
+  let last;
+  try{
+    https.request=function(input,options){
+      calls.created++;
+      const selected={...(typeof input==='object'&&!(input instanceof URL)?input:{}),...(options&&typeof options==='object'?options:{})},headers={};
+      const initial=selected.headers??{};
+      if(Array.isArray(initial)){for(let i=0;i<initial.length;i+=2)headers[initial[i].toLowerCase()]=initial[i+1];}
+      else for(const[key,value]of Object.entries(initial))headers[key.toLowerCase()]=value;
+      const callback=args=>{const cb=callbackOf(args);if(cb)queueMicrotask(()=>{calls.callbacks++;cb();});};
+      last={useChunkedEncodingByDefault:false,chunkedEncoding:false,
+        getHeaders(){return {...headers};},
+        setHeader(key,value){headers[key.toLowerCase()]=value;return this;},
+        appendHeader(key,value){const name=key.toLowerCase();headers[name]=headers[name]===undefined?value:[headers[name],value];return this;},
+        write(chunk){calls.writes++;calls.bytes+=byteLength(chunk);callback(arguments);return true;},
+        end(chunk){calls.ends++;calls.bytes+=byteLength(chunk);callback(arguments);return this;},
+        flushHeaders(){calls.flushes++;},
+        addTrailers(){calls.trailers++;},
+        destroy(){calls.destroyed++;return this;}
+      };
+      return last;
+    };
+    http.request=()=>{throw Error('Unexpected fake HTTP transport');};
+    const{guard}=transport();if(isPrepared)prepared(guard);
+    t.installNetworkBoundary31(guard);
+    const invoke=async(mode,action,headers)=>{
+      const forward=()=>action(https.request(firestoreLocation,{method:'GET',...(headers===undefined?{}:{headers})}));
+      if(mode==='direct')return forward();
+      class Client{constructor(){this.opts=firestore.opts;}async request(request){assert.equal(request.retries,0);assert.deepEqual(request.retryCodes,[]);forward();return {body:{locationId:'asia-south1'}};}}
+      t.installApiBoundary31(Client,guard,()=>{calls.mutationCallbacks++;throw Error('Unexpected mutation callback');});
+      return new Client().request({method:'GET',path:defaultDatabase});
+    };
+    await run({invoke,calls,guard,last:()=>last,https});
+    await Promise.resolve();
+    assert.equal(calls.mutationCallbacks,0);
+  }finally{for(const[object,key,descriptor]of saved.reverse()){if(descriptor)Object.defineProperty(object,key,descriptor);else delete object[key];}}
+}
+
+for(const mode of ['direct','Client'])for(const isPrepared of [false,true]){
+  test('bodyless Firestore '+mode+' keeps empty native overloads, prepared='+isPrepared,async()=>{
+    for(const [label,headers,action,expected]of [
+      ['end',undefined,request=>assert.equal(request.end(),request),{writes:0,ends:1,callbacks:0}],
+      ['end callback',undefined,request=>assert.equal(request.end(()=>{}),request),{writes:0,ends:1,callbacks:1}],
+      ['empty text and null end',undefined,request=>{assert.equal(request.write('',()=>{}),true);assert.equal(request.end(null,()=>{}),request);},{writes:1,ends:1,callbacks:2}],
+      ['empty binary',{'Content-Length':'0'},request=>{assert.equal(request.write(Buffer.alloc(0)),true);assert.equal(request.end(new Uint8Array(0)),request);},{writes:1,ends:1,callbacks:0}],
+      ['raw zero length',['Content-Length','0'],request=>assert.equal(request.end('','utf8',()=>{}),request),{writes:0,ends:1,callbacks:1}],
+      ['late zero length',undefined,request=>{request.setHeader('Content-Length',0);request.flushHeaders();request.end();},{writes:0,ends:1,callbacks:0,flushes:1}],
+      ['append zero length',undefined,request=>{request.appendHeader('Content-Length','0');request.end();},{writes:0,ends:1,callbacks:0}],
+    ])await withFirestoreWire31(isPrepared,async({invoke,calls,guard})=>{
+      await invoke(mode,action,headers);await Promise.resolve();
+      assert.equal(calls.created,1,label);assert.equal(calls.bytes,0,label);assert.equal(calls.destroyed,0,label);assert.equal(calls.trailers,0,label);
+      for(const[key,value]of Object.entries(expected))assert.equal(calls[key],value,label);
+      assert.equal(guard.mutations.size,0);assert.equal(guard.prepared,isPrepared);
+    });
+  });
+  test('bodyless Firestore '+mode+' refuses bytes and latches the request, prepared='+isPrepared,async()=>{
+    for(const[label,action]of [
+      ['write text',request=>request.write('x')],['write Buffer',request=>request.write(Buffer.from('x'))],['write Uint8Array',request=>request.write(new Uint8Array([1]))],
+      ['write encoded text',request=>request.write('eA==','base64')],['end text',request=>request.end('x')],['end Buffer',request=>request.end(Buffer.from('x'))],
+      ['end Uint8Array',request=>request.end(new Uint8Array([1]))],['end encoded text',request=>request.end('78','hex')],['invalid end chunk',request=>request.end(0)],
+      ['set transfer encoding',request=>request.setHeader('Transfer-Encoding','chunked')],['append transfer encoding',request=>request.appendHeader('transfer-encoding','chunked')],
+      ['set positive length',request=>request.setHeader('Content-Length',1)],['append positive length',request=>request.appendHeader('Content-Length','1')],
+      ['set trailers',request=>request.setHeader('Trailer','x-check')],['add trailers',request=>request.addTrailers({'x-check':'x'})],
+      ['implicit chunked framing',request=>{request.useChunkedEncodingByDefault=true;request.end();}],
+    ])await withFirestoreWire31(isPrepared,async({invoke,calls})=>{
+      await assert.rejects(()=>invoke(mode,request=>{
+        let refusal;try{action(request);}catch(error){refusal=error;}
+        assert.ok(refusal,label);assert.match(refusal.message,/Firestore location/);
+        for(const later of [()=>request.write(''),()=>request.end(),()=>request.flushHeaders()])assert.throws(later,/already refused/,label);
+        throw refusal;
+      }),/Firestore location/,label);
+      assert.equal(calls.created,1,label);assert.equal(calls.bytes,0,label);assert.equal(calls.writes,0,label);assert.equal(calls.ends,0,label);assert.equal(calls.flushes,0,label);assert.equal(calls.trailers,0,label);assert.ok(calls.destroyed>=1,label);
+    });
+  });
+  test('bodyless Firestore '+mode+' rejects initial framing before native construction, prepared='+isPrepared,async()=>{
+    for(const headers of [{'Content-Length':'1'},{'Content-Length':['0','0']},{'Transfer-Encoding':'chunked'},{Trailer:'x-check'},['cOnTeNt-LeNgTh','2'],['Transfer-Encoding','chunked']]){
+      await withFirestoreWire31(isPrepared,async({invoke,calls})=>{
+        await assert.rejects(()=>invoke(mode,request=>request.end(),headers),/Firestore location/);
+        assert.equal(calls.created,0);assert.equal(calls.bytes,0);assert.equal(calls.ends,0);
+      });
+    }
+  });
+}
+test('Firestore bodyless enforcement leaves another admitted read route unchanged',async()=>{
+  await withFirestoreWire31(false,async({https,calls})=>{
+    const request=https.request('https://cloudfunctions.googleapis.com/v2/'+project,{method:'GET'});
+    request.write('existing read behavior');request.end();
+    assert.equal(calls.writes,1);assert.equal(calls.ends,1);assert.equal(calls.bytes,Buffer.byteLength('existing read behavior'));assert.equal(calls.destroyed,0);
+  });
+});
+
 test('signed upload query is retained exactly in effective URI',()=>{const u=t.urlOf({opts:{urlPrefix:'https://storage.googleapis.com'}},{path:'/bucket/object',queryParams:new URLSearchParams('GoogleAccessId=x&Signature=y')});assert.equal(u.search,'?GoogleAccessId=x&Signature=y');});
 test('wire JSON body binding changes with controls',()=>assert.notEqual(t.bodyBinding31({body:{max:20}}),t.bodyBinding31({body:{max:21}})));
 
