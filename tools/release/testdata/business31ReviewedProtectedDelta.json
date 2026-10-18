@@ -1,0 +1,358 @@
+{
+  "description": "Exact reviewed delta records for compact structural tests; not complete Git snapshots or deployment evidence.",
+  "baselineCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
+  "reviewedSourceCommit": "78067042453b7f39346e3ff1026147cd3824f7d5",
+  "protectedDelta": [
+    {
+      "path": "functions/package-lock.json",
+      "before": {
+        "mode": "100644",
+        "oid": "9498dbffa942c28a54f531d7b4753882bca95de9"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "ae032c46cd384d97e255522c17c2d4da9e5c6b86"
+      }
+    },
+    {
+      "path": "functions/package.json",
+      "before": {
+        "mode": "100644",
+        "oid": "1516d9938f23a8b8991e2333a3077bde17d75e28"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "3c92cd363c5604827383c886436f05f636f71b4c"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/commandAuthority.ts",
+      "before": {
+        "mode": "100644",
+        "oid": "fc4eb8ceef0d36e1305626229510c358b9c8d74d"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "7a94dd9d6694eabea785e91f5ad09c5a58ae4f4e"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/dispatcher.ts",
+      "before": {
+        "mode": "100644",
+        "oid": "b34dde3fefa69db00a9234acdca7f4bd290ee0bf"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "b25fec0bbf5384e75c2b0eb457ae072e5d224262"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/innerCoverConcernDisposition.ts",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "7548f520678c01602286f15b3cc46a628b66adcb"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/inspectionAuthoringPolicy.ts",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "ce9f8cf21d05eb0bf26e931dd0124efd8f4a43b9"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/inspectionCampaignHandlers.ts",
+      "before": {
+        "mode": "100644",
+        "oid": "a40383ee64176f438ae43c49d737566d74252fb7"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "75019288d672f7dcc79fa9de2b635316a5168697"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/inspectionReadingContract.ts",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "ab8d1e523537a8ca346c6c52b947b4ae19373d91"
+      }
+    },
+    {
+      "path": "functions/src/maintenanceWorkflow/types.ts",
+      "before": {
+        "mode": "100644",
+        "oid": "490572364ec856516342df7976966053a1d36521"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "e632b2230033e2d7cbb6f1b14388a5e1b1ba78b6"
+      }
+    },
+    {
+      "path": "functions/src/originBoundCallableProtocol.ts",
+      "before": {
+        "mode": "100644",
+        "oid": "08f0e1d8d9f40c362237f4acea4dd1c17628b607"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "68ddbb498507056b60611441e0d93204cc402510"
+      }
+    },
+    {
+      "path": "functions/test/innerCoverConcernDisposition.test.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "afedc1608d7c7cb49e7b5bb40eede5b307fceb3c"
+      }
+    },
+    {
+      "path": "functions/test/inspectionAuthoringPolicy.test.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "3b60b665ea332cec5321be9fdc5809015c689436"
+      }
+    },
+    {
+      "path": "functions/test/inspectionFindingIntegrity.firestoreEmulator.test.js",
+      "before": {
+        "mode": "100644",
+        "oid": "f22063d2e52b5afd062ba88433a1291600ebcacc"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "10f9b83254f495ffba0b3dcd75cd5b5d19984fbd"
+      }
+    },
+    {
+      "path": "functions/test/inspectionReadingContract.test.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "b226918bdcbfb37adcb0e379a01e0d8aff4c94a3"
+      }
+    },
+    {
+      "path": "tooling/brace-expansion-compat/README.md",
+      "before": {
+        "mode": "100644",
+        "oid": "c57a625d017d47f49312b3cb5eeadc0091b9dde7"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "b0cb0aec932dde9d6a88b6735d29e80a716d17bf"
+      }
+    },
+    {
+      "path": "tooling/brace-expansion-compat/package.json",
+      "before": {
+        "mode": "100644",
+        "oid": "9686c47affac7f74f3e11c6887e704295f69ba79"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "e750281a087f45c95ec908694a4382cdd2454d71"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/LICENSE",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "9af4a67d206f24ecdbb5fdff2839041ca0bbd346"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/README.md",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "aca3b42a0dc2251704f229c3ec1a3a27d6d9dd63"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/UPSTREAM_PROVENANCE.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "d47dcac5be2f7a101609c351b6008a90a4245b9d"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/index.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "d222c13b579d2d476dc26d692219dbaee1665b88"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/compile.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "8b14d3ac9d8862103198766cd3915a14a39609c4"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/constants.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "c23709951666ff6bb0d726084d89e62948446bd7"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/expand.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "3d907d630587ff0896a444dcff29261bfbee8eba"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/parse.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "796237ec3705a4e5969cc036303139fbc45313b4"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/stringify.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "f2606bd78f21a4c9a0305708096791459da8f2e1"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/lib/utils.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "d19311fe044ad5157624077670dc297e8b53da49"
+      }
+    },
+    {
+      "path": "tooling/braces-depth-guard/package.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "948ee5a567def5df48ade3fa3647d35e6bf5751a"
+      }
+    },
+    {
+      "path": "tooling/firebase-cli/package-lock.json",
+      "before": {
+        "mode": "100644",
+        "oid": "ca26c82e6b126c45a455df04329b81f87266308e"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "6aa359c53725eded7661c7f36825fc3fb0acfb21"
+      }
+    },
+    {
+      "path": "tooling/firebase-cli/package.json",
+      "before": {
+        "mode": "100644",
+        "oid": "809abd2fc0085f7521dabda8bc8169f05c61c302"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "3897b14e0d82e7bd451cb72c4ed0721f121ebd94"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/README.md",
+      "before": {
+        "mode": "100644",
+        "oid": "9f9c2cc6faba1fee96e2ad316e0a7d3e987f0ff5"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "1bbd829816c9c0bc5f19aa564405c476b176c7ad"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/filters/Filter.cjs",
+      "before": {
+        "mode": "100644",
+        "oid": "d3a88f37602bad35c7e7f91506e821a972ff5b7e"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "5bd2bdb22e39fa107f77841458492d34847917f4"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/filters/Pick.cjs",
+      "before": {
+        "mode": "100644",
+        "oid": "caf5e911dbfd32ac670fc1d217752ae012c98c71"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "0eb8343a767ccc94d728d00b7ffeb2928f6decea"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/index.cjs",
+      "before": {
+        "mode": "100644",
+        "oid": "e2494f6c1bc2dbe42380534a6d04ec2ea7182366"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "d30b62e25ef051ca5c18304337645e7f8897c679"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/package.json",
+      "before": {
+        "mode": "100644",
+        "oid": "e86fc9a6f654c7b0464adeec076611311ec180f4"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "85cc1a108c44c24a68155d1c347435940032b0b0"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/streamers/StreamArray.cjs",
+      "before": {
+        "mode": "100644",
+        "oid": "21b0ce158534cf727b8501271c291ec76d1640e7"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "36ff56624915f9dfabaae59a3aef89baea7485d4"
+      }
+    },
+    {
+      "path": "tooling/stream-json-compat/streamers/StreamObject.cjs",
+      "before": {
+        "mode": "100644",
+        "oid": "6da5f55a4334fab0665920c9d91a76cdae621b22"
+      },
+      "after": {
+        "mode": "100644",
+        "oid": "8952b4f3df13211e98f2fe23ead4d244dfb3b934"
+      }
+    }
+  ],
+  "dependencySha256": {
+    "functions/package.json": "B38757086C702A612A0434D31D8B3BB552487C88A72D0C7623FBB17144E5AADC",
+    "functions/package-lock.json": "8844A15AB4E6AD3ECA88E86910505675864B5FB406E64FB56BA352E5971E3734",
+    "tooling/firebase-cli/package.json": "B5FD93F89785A3332302863798194FD891911A84CF21347A03596BAA3B573318",
+    "tooling/firebase-cli/package-lock.json": "0E72C573D3EECBCA915A5B70AED03BA3AD550F017CE56A8CF10EE843566C151A"
+  }
+}

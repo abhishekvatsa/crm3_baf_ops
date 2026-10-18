@@ -106,6 +106,64 @@ for (const file of ["tooling/stream-json-compat/README.md", "tooling/stream-json
     assert.throws(() => validateSourceInventory31(a), /complete source population/);
   });
 }
-test("JSON adapter metadata admission does not allow unreviewed executable changes", () => fails(a => {
-  a.sourceSnapshot.files["tooling/stream-json-compat/index.cjs"] = id("4");
+test("JSON adapter admission does not allow an unreviewed neighboring runtime file", () => fails(a => {
+  a.sourceSnapshot.files["tooling/stream-json-compat/filters/Replace.cjs"] = id("4");
 }, /unadmitted source delta/, {remeasure: true}));
+
+// Exact reviewed delta records exercise the complete finite scope. These compact
+// structural snapshots omit unchanged files and are not full Git/deployment proof.
+const reviewedDelta = require("./testdata/business31ReviewedProtectedDelta.json");
+const reviewedJsonRuntimePaths = Object.freeze([
+  "tooling/stream-json-compat/index.cjs",
+  "tooling/stream-json-compat/filters/Filter.cjs",
+  "tooling/stream-json-compat/filters/Pick.cjs",
+  "tooling/stream-json-compat/streamers/StreamArray.cjs",
+  "tooling/stream-json-compat/streamers/StreamObject.cjs",
+]);
+function reviewedDeltaFixture() {
+  const args = fixture(), before = {}, after = {};
+  for (const entry of reviewedDelta.protectedDelta) {
+    if (entry.before) before[entry.path] = {...entry.before};
+    if (entry.after) after[entry.path] = {...entry.after};
+  }
+  args.baselineSnapshot.files = before;
+  args.sourceSnapshot.files = after;
+  args.sourceSnapshot.commit = reviewedDelta.reviewedSourceCommit;
+  args.dependencySha256 = {...reviewedDelta.dependencySha256};
+  args.manifest.dependencySha256 = {...reviewedDelta.dependencySha256};
+  refreshMeasurement(args);
+  return args;
+}
+
+test("all 36 reviewed protected changes, including the five JSON runtime files, are admitted exactly", () => {
+  const args = reviewedDeltaFixture(), original = structuredClone(args);
+  assert.equal(args.baselineSnapshot.commit, reviewedDelta.baselineCommit);
+  assert.equal(reviewedDelta.protectedDelta.length, 36);
+  assert.deepEqual(args.manifest.protectedDelta, reviewedDelta.protectedDelta);
+  const proof = validateSourceInventory31(args);
+  assert.deepEqual(proof.changedPaths, reviewedDelta.protectedDelta.map(entry => entry.path));
+  assert.equal(proof.changedPaths.filter(p => !reviewedJsonRuntimePaths.includes(p)).length, 31);
+  for (const name of reviewedJsonRuntimePaths) assert.ok(proof.changedPaths.includes(name), name);
+  assert.equal(proof.deploymentAuthority, false);
+  assert.equal(proof.credentialAccessAuthorized, false);
+  assert.deepEqual(args, original);
+});
+
+for (const name of reviewedJsonRuntimePaths) test(`reviewed JSON runtime ${name} remains blob-bound`, () => {
+  const args = reviewedDeltaFixture();
+  args.sourceSnapshot.files[name].oid = "0".repeat(40);
+  assert.throws(() => validateSourceInventory31(args), /complete source population/);
+  const declared = reviewedDeltaFixture();
+  declared.manifest.protectedDelta.find(entry => entry.path === name).after.oid = "0".repeat(40);
+  signFixture(declared);
+  assert.throws(() => validateSourceInventory31(declared), /Actual protected delta/);
+});
+
+test("the complete reviewed delta cannot substitute an unreviewed sibling with a coherent digest", () => {
+  const args = reviewedDeltaFixture(), path = reviewedJsonRuntimePaths[0];
+  args.sourceSnapshot.files[path] = {...args.baselineSnapshot.files[path]};
+  args.sourceSnapshot.files["tooling/stream-json-compat/filters/Replace.cjs"] = id("4");
+  refreshMeasurement(args);
+  assert.equal(args.manifest.protectedDelta.length, 36);
+  assert.throws(() => validateSourceInventory31(args), /unadmitted source delta/);
+});
