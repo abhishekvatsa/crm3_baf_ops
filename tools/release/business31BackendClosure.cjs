@@ -157,7 +157,7 @@ function verifyOrderedIntent31(capture,intent,names) {
 function replayRecordedCohort31({ctx,phase,commandPointer,earliestUtc,latestUtc,endpointRuntimeHashes,baseline,intent,archiveExpectedFiles,predecessors}) {
   need(PHASES.includes(phase),"exact cohort required");
   const r=read(ctx.evidenceDirectory,commandPointer), names=phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase];
-  keys(r,["schemaVersion","documentType","source","approvalPointer","executionContractSha256","phase","functions","attempt","startedAtUtc","completedAtUtc","exitCode","signal","error","executable","nodeSha256","cwd","arguments","cliArguments","sourceBefore","sourceAfter","producerBindings","stdout","stderr","capture","archive","currentControls","mutations","completion",...(r.schemaVersion===2?["context","start","process"]:[])],"cohort receipt");
+  keys(r,["schemaVersion","documentType","source","approvalPointer","executionContractSha256","phase","functions","attempt","startedAtUtc","completedAtUtc","exitCode","signal","error","executable","nodeSha256","cwd","arguments","cliArguments","sourceBefore","sourceAfter","producerBindings","stdout","stderr","capture","archive","currentControls","mutations","completion",...(r.schemaVersion===2?["context","start","process","serviceIdentities"]:[])],"cohort receipt");
   need([1,2].includes(r.schemaVersion) && r.documentType==="build31-business-original-cohort" && r.phase===phase && r.attempt===1 && r.exitCode===0 && r.signal===null && r.error===null,"single successful cohort required");
   need([1,2].includes(ctx.contract?.schemaVersion) && r.schemaVersion===ctx.contract.schemaVersion,
     "cohort schema differs from execution contract");
@@ -189,6 +189,14 @@ function replayRecordedCohort31({ctx,phase,commandPointer,earliestUtc,latestUtc,
   neutral.verifyCohortControlChronology31(r,capture,current);
   need(t(capture.startedAtUtc)>=t(r.startedAtUtc) && t(capture.completedAtUtc)<=t(r.completedAtUtc),"capture interval differs");
   need(t(ctx.decision.executionWindow.notBeforeUtc)<=t(capture.startedAtUtc) && t(capture.startedAtUtc)<=t(ctx.decision.executionWindow.notAfterUtc),"preparation initiation outside execution window");
+  if(r.schemaVersion===2)require("./business31ServiceIdentityCapture.cjs").replayServiceIdentityCapture31({
+    pointer:r.serviceIdentities,read:p=>read(ctx.evidenceDirectory,p),readBytes:p=>privateBytes(ctx.evidenceDirectory,p),
+    verifyResponse:(response,binding)=>verifyMutationResponse31(ctx.evidenceDirectory,response,binding),
+    guardInputs:{names,allNames:ctx.cohorts.fleet,baselineFunctions:baseline.baselineFunctions,baselineScheduler:baseline.scheduler,
+      projectNumber:JSON.parse(baseline.raw.controls.project.bodyText).projectNumber,
+      serviceIdentityBaseline:{project:baseline.raw.controls.project,projectIam:baseline.raw.controls.projectIam}},
+    phase,source:ctx.source,approvalPointer:ctx.approvalPointer,baselinePointer:baseline.controlsPointer,currentControls:r.currentControls,
+    executionWindow:ctx.decision.executionWindow,earliestUtc:current.completedAtUtc,latestUtc:capture.completedAtUtc});
   const replay=replayMutationTranscript31({ctx,phase,command:r,capture,baseline,records:r.mutations,archivePointer:r.archive});
   keys(completion,["schemaVersion","documentType","phase","source","approvalPointer","capture","archive","mutations","events","completedAtUtc","exitCode","error"],"completion");
   need(completion.schemaVersion===1 && completion.documentType==="build31-business-instrumented-completion" && completion.phase===phase && completion.exitCode===0 && completion.error===null,"instrumented completion missing");

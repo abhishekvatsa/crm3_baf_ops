@@ -22,7 +22,7 @@ const CLOSURE_PRODUCERS = Object.freeze([
   'closure-preflight31.cjs','collectFirestoreRulesIndexesReadback.js','collectFunctionFleetRuntimeIdentityReadback.js',
   'collectFunctionsIamDependenciesReadback.js','collectProductionGlobalPullBackend.js','deploymentFleetContract.js',
   'executeBackendRuntime31.cjs','reviewedBackendControls.js','runtimeDeploymentTransportGuard31.cjs','scopedCallableInvokerIam.js',
-  'business31CaptureRecorder.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json'
+  'business31CaptureRecorder.cjs','business31ServiceIdentityCapture.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json'
 ].map(file=>'tools/release/'+file).sort());
 const REQUIRED_EXECUTING = Object.freeze([...CLOSURE_PRODUCERS, SELF,
   'tools/release/business31PrivateDescriptor.cjs','tools/release/privateEvidenceBundle31.cjs',

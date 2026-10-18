@@ -20,7 +20,7 @@ function fixture(t,contractVersion,cohortVersion) {
     arguments:["--no-global-search-paths",path.join(root,x.CAPTURE),"--config",path.join(root,"deployment-attempts",approvalPointer.sha256,"callables","context.json")],
     cliArguments:["deploy","--only","functions:fixtureCallable","--project","crm3-baf-ops-b8638","--non-interactive"],
     sourceBefore:null,sourceAfter:null,producerBindings:{},stdout:null,stderr:null,capture:null,archive:null,currentControls:null,mutations:[],completion:null};
-  if(cohortVersion===2)Object.assign(record,{context:retain({intentionallyIncomplete:true}),start:retain({}),process:retain({})});
+  if(cohortVersion===2)Object.assign(record,{context:retain({intentionallyIncomplete:true}),start:retain({}),process:retain({}),serviceIdentities:null});
   return {ctx,record,run(){return closure.replayRecordedCohort31({ctx,phase:"callables",commandPointer:retain(record),
     earliestUtc:start,latestUtc:end,endpointRuntimeHashes:{},baseline:{},intent:{},archiveExpectedFiles:{},predecessors:[]});}};
 }

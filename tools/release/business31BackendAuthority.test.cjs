@@ -157,11 +157,31 @@ test("entrypoint refuses caller substitutes before any evidence or operational a
   assert.equal(subject.IMMUTABLE.length, 14);
 });
 
-// This is a complete parser/composition fixture, never a real approval, npm
-// process, CI run, control observation or deployment. Real historical F/406
-// objects are imported locally because the production entrypoint pins them.
-test("complete entry composes real Git V/M/C and synthetic originals without operational authority", {timeout: 360000}, () => {
-  const repositoryRoot = path.join(temporary, "whole-entry"), fixtureSource = "6a0bd1a6b3b8de85a92187e84d621ae9bbf222b5";
+// This complete parser/composition fixture never supplies real approval, npm,
+// CI, controls or deployment evidence. Enumerate the security boundary independently:
+// accidentally removing a production IMMUTABLE member must not remove its negative.
+const fixedImmutableFiles = Object.freeze([
+  "backendRuntimeExecutionAdmission31.cjs", "executeBackendRuntime31.cjs",
+  "captureBackendRuntimePreparedInputs31.cjs", "runtimeDeploymentTransportGuard31.cjs",
+  "backendRuntimeClosedReplay31.cjs", "backendRuntimeEvidenceAccess31.cjs",
+  "backendRuntimeAdmission31.cjs", "backendRuntimeProof31.cjs",
+  "backendRuntimeReadbacks31.cjs", "backendRuntimeClosure31.cjs",
+  "backendRuntimeControls31.cjs", "backendRuntimeExecution31.cjs",
+  "closure-preflight31.cjs", "clientRuntimeCompatibility31.cjs"
+].map(name => "tools/release/" + name));
+test("immutable enrollment keeps the independently enumerated fourteen-file boundary", () => {
+  assert.deepEqual([...subject.IMMUTABLE].sort(), [...fixedImmutableFiles].sort());
+});
+const completeEntryCases = [
+  ["synthetic-current-anchor", null],
+  ["real-current-anchor", null],
+  ["real-historical-anchor-refusal", null],
+  ...fixedImmutableFiles.map(file => ["real-current-anchor-byte-mismatch", file])
+];
+for (const [caseIndex, [fixtureKind, mutationFile]] of completeEntryCases.entries())
+test("complete entry composes real Git V/M/C and synthetic originals without operational authority: " + fixtureKind +
+  (mutationFile ? ": " + mutationFile : ""), {timeout: 360000}, () => {
+  const repositoryRoot = path.join(temporary, "whole-entry-" + caseIndex), fixtureSource = "6a0bd1a6b3b8de85a92187e84d621ae9bbf222b5";
   const gitExecutable = process.env.BUSINESS31_TEST_GIT || (process.platform === "win32" ? "C:/Program Files/Git/mingw64/bin/git.exe" : "/usr/bin/git");
   const env = {...process.env}; for (const key of Object.keys(env)) if (/^GIT_/i.test(key)) delete env[key];
   Object.assign(env, {GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: process.platform === "win32" ? "NUL" : "/dev/null", GIT_TERMINAL_PROMPT: "0",
@@ -179,8 +199,72 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const put = (name, bytes) => { const oid = git(["hash-object", "-w", "--stdin"], bytes); git(["update-index", "--add", "--cacheinfo", `100644,${oid},${name}`]); };
   const commit = parents => git(["commit-tree", git(["write-tree"]), ...parents.flatMap(p => ["-p", p]), "-m", "Synthetic local preparation fixture only"]);
   git(["read-tree", fixtureSource]);
+  const authorityName = "tools/release/business31BackendAuthority.cjs", guardName = "tools/release/runtimeDeploymentTransportGuard31.cjs";
+  const currentCommit = "0319de391d38fc59279d5d63953b2104034a2f3e";
+  const historicalCommit = "406d7407aa2d2ee6d8e6008e5cd3964df000ea85";
+  const originalAnchorDeclaration = `const IMMUTABLE_COMMIT = "${currentCommit}";`;
+  const producerBytes = Object.fromEntries(subject.PRODUCERS.map(name => [name, fs.readFileSync(path.join(__dirname, path.basename(name)))]));
+  const productionAuthority = Buffer.from(producerBytes[authorityName]);
+  const originalProducerHashes = Object.fromEntries(Object.entries(producerBytes).map(([name, bytes]) => [name, sha(bytes)]));
+  assert.equal(subject.IMMUTABLE.includes(authorityName), false, "anchor must not contain a self-referential authority binding");
+  assert.equal(subject.IMMUTABLE.includes(guardName), true);
+  assert.equal(productionAuthority.toString("utf8").split(originalAnchorDeclaration).length, 2);
+  // The production anchor is real and independently named, not selected from
+  // candidate evidence. Its thirteen unchanged files and reviewed guard all match.
+  for (const name of fixedImmutableFiles)
+    assert.equal(git(["rev-parse", `${currentCommit}:${name}`]), blob(producerBytes[name]), "reviewed current anchor byte identity: " + name);
+  let verifierParent = fixtureSource;
+  if (fixtureKind === "synthetic-current-anchor") {
+    // Preserve the existing synthetic composition case without claiming approval.
+    for (const name of fixedImmutableFiles) put(name, producerBytes[name]);
+    const syntheticAnchor = commit([fixtureSource]);
+    assert.notEqual(syntheticAnchor, historicalCommit);
+    for (const name of fixedImmutableFiles)
+      assert.equal(git(["rev-parse", `${syntheticAnchor}:${name}`]), blob(producerBytes[name]), "synthetic anchor byte identity: " + name);
+    const fixtureAnchorDeclaration = `const IMMUTABLE_COMMIT = "${syntheticAnchor}";`;
+    const fixtureAuthority = productionAuthority.toString("utf8").replace(originalAnchorDeclaration, fixtureAnchorDeclaration);
+    assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private fixture anchor literal may change");
+    producerBytes[authorityName] = Buffer.from(fixtureAuthority);
+    verifierParent = syntheticAnchor;
+  } else if (fixtureKind === "real-historical-anchor-refusal") {
+    // The genuine old refusal remains reproducible in an isolated private fixture.
+    // Production retains the reviewed current anchor; no historical bytes change.
+    const fixtureAnchorDeclaration = `const IMMUTABLE_COMMIT = "${historicalCommit}";`;
+    const fixtureAuthority = productionAuthority.toString("utf8").replace(originalAnchorDeclaration, fixtureAnchorDeclaration);
+    assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private historical fixture anchor literal may change");
+    producerBytes[authorityName] = Buffer.from(fixtureAuthority);
+    assert.notEqual(git(["rev-parse", `${historicalCommit}:${guardName}`]), blob(producerBytes[guardName]), "reviewed guard really differs from the historical production anchor");
+  } else {
+    assert.ok(["real-current-anchor", "real-current-anchor-byte-mismatch"].includes(fixtureKind));
+    assert.deepEqual(producerBytes[authorityName], productionAuthority, "real-anchor cases execute unchanged production authority");
+  }
+  if (mutationFile) {
+    assert.equal(fixtureKind, "real-current-anchor-byte-mismatch");
+    assert.ok(fixedImmutableFiles.includes(mutationFile));
+    // Rebind the altered byte consistently in V, M, C, executing files and the
+    // runtime table. Only the real immutable anchor should reject each mutation.
+    producerBytes[mutationFile] = Buffer.concat([producerBytes[mutationFile], Buffer.from("\n// Synthetic immutable byte mismatch; no operational authority.\n")]);
+    assert.notEqual(git(["rev-parse", `${currentCommit}:${mutationFile}`]), blob(producerBytes[mutationFile]));
+  }
+  const runtimeBindingsName = "tools/release/runtime_contract_bindings.json";
+  const originalRuntimeBindings = producerBytes[runtimeBindingsName].toString("utf8");
+  let fixtureRuntimeBindings = originalRuntimeBindings;
+  const bindingChanges = [];
+  for (const [file, digest] of Object.entries(JSON.parse(originalRuntimeBindings))) {
+    const name = "tools/release/" + file;
+    assert.equal(digest, originalProducerHashes[name], "original runtime binding: " + name);
+    const before = `"${file}": "${digest}"`, after = `"${file}": "${sha(producerBytes[name])}"`;
+    assert.equal(fixtureRuntimeBindings.split(before).length, 2);
+    fixtureRuntimeBindings = fixtureRuntimeBindings.replace(before, after);
+    bindingChanges.push([before, after]);
+  }
+  let restoredRuntimeBindings = fixtureRuntimeBindings;
+  for (const [before, after] of [...bindingChanges].reverse())
+    restoredRuntimeBindings = restoredRuntimeBindings.replace(after, before);
+  assert.equal(restoredRuntimeBindings, originalRuntimeBindings, "only exact fixture producer digest substitutions may change runtime bindings");
+  producerBytes[runtimeBindingsName] = Buffer.from(fixtureRuntimeBindings);
   const producerBindings = {};
-  for (const name of subject.PRODUCERS) { const bytes = fs.readFileSync(path.join(__dirname, path.basename(name))); put(name, bytes); producerBindings[name] = sha(bytes); }
+  for (const name of subject.PRODUCERS) { const bytes = producerBytes[name]; put(name, bytes); producerBindings[name] = sha(bytes); }
   const toolchain = require("./business31ToolchainIdentity.cjs"), npmVersion = "10.9.8";
   const npmPackageRoot = path.join(temporary, "synthetic-npm-package"), npmFile = path.join(npmPackageRoot, "bin/npm-cli.js");
   fs.mkdirSync(path.dirname(npmFile), {recursive:true}); fs.writeFileSync(npmFile, "// synthetic inert file; never executed\n");
@@ -194,13 +278,14 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   // is claimed by this test.
   const syntheticProfiles = Buffer.from(JSON.stringify({schemaVersion:1,documentType:"build31-approved-toolchain-profiles",profiles:{"synthetic-host-case":syntheticProfile}}));
   put(toolchain.PROFILES, syntheticProfiles); producerBindings[toolchain.PROFILES] = sha(syntheticProfiles);
-  const V = commit([fixtureSource]);
+  const V = commit([verifierParent]);
   put("fixture-main.txt", "synthetic main parent\n"); const main = commit([V]);
   git(["read-tree", V]); put("fixture-branch.txt", "synthetic reviewed parent\n"); const branch = commit([V]);
   git(["read-tree", main]); put("fixture-branch.txt", "synthetic reviewed parent\n"); const M = commit([main, branch]);
   git(["checkout", "--force", "--detach", M]);
-  // Execute the unchanged authority and its helpers from this same isolated V/M
-  // population, including the deliberately synthetic source-owned profile table.
+  // Execute the exactly bound fixture authority and helpers from this isolated
+  // V/M population. The real-historical case uses unmodified authority bytes;
+  // synthetic cases change only its anchor literal before V is created.
   const fixtureSubject = require(path.join(repositoryRoot, "tools/release/business31BackendAuthority.cjs"));
   const options = {repositoryRoot, gitExecutable, gitSha256: sha(fs.readFileSync(gitExecutable))};
   const repository = require("./business31TrustedInput.cjs").openTrustedGitRepository31(options);
@@ -296,6 +381,13 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   put(subject.DECISION_FILE, envelope); const C = commit([M]);
   const input = {...options, trustedVerifier: {commit: V, tree: git(["rev-parse", V + "^{tree}"]), files: producerBindings}, sourceCommit: M, sourceManifest,
     trustedManifestSha256, evidenceDirectory, decisionPointer: {commit: C, file: subject.DECISION_FILE, sha256: sha(envelope)}, nowUtc: "2026-01-02T05:00:00Z"};
+  assert.deepEqual(fs.readFileSync(path.join(__dirname, path.basename(authorityName))), productionAuthority, "production authority remains unchanged");
+  if (fixtureKind === "real-current-anchor-byte-mismatch" || fixtureKind === "real-historical-anchor-refusal") {
+    assert.throws(() => fixtureSubject.verifyBusiness31BackendAuthority(input), {
+      message: "Business31 preparation: original immutable verifier changed"
+    });
+    return;
+  }
   const result = fixtureSubject.verifyBusiness31BackendAuthority(input);
   assert.equal(result.preparationOnly, true); assert.equal(result.sourceAndRecordBindingsVerified, true); assert.deepEqual(result.source, source);
   assert.equal(result.runtime.emittedFileCount, 252); assert.ok(result.runtime.installedRuntimePathCount > 100);
