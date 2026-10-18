@@ -47,6 +47,11 @@ const ADMITTED_DELTA_PATHS = Object.freeze([
   "tooling/braces-depth-guard/package.json",
   "tooling/stream-json-compat/README.md",
   "tooling/stream-json-compat/package.json",
+  "tooling/stream-json-compat/index.cjs",
+  "tooling/stream-json-compat/filters/Filter.cjs",
+  "tooling/stream-json-compat/filters/Pick.cjs",
+  "tooling/stream-json-compat/streamers/StreamArray.cjs",
+  "tooling/stream-json-compat/streamers/StreamObject.cjs",
 ]);
 const admitted = new Set(ADMITTED_DELTA_PATHS);
 function requireValue(ok, message) { if (!ok) throw new Error(message); }
