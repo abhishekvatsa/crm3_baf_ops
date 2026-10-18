@@ -173,6 +173,7 @@ function structuredFixture31(){
  const f=fixture();f.approval.settledSourceReview.kind='bot-issue-comment-no-findings';f.approval.settledSourceReview.reviewer='chatgpt-codex-connector[bot]';
  f.review.body=fs.readFileSync(path.join(__dirname,'testdata/codex-review-summary-6251814428.body.txt'),'utf8').replaceAll('ea9a28c8266d80b63fbbb3daf260ad0f4d576e06',head);
  f.review.user={login:'chatgpt-codex-connector[bot]',id:199175422,type:'Bot'};f.review.performed_via_github_app={id:1144995,slug:'chatgpt-codex-connector',owner:{login:'openai',id:14957082}};
+ f.reviewRequest.body='@codex review\n\nReview exact head '+head;f.reviewRequest.user={login:'abhishekvatsa',id:213690022,type:'User'};f.reviewRequest.author_association='OWNER';
  f.review.created_at=T(-30);f.review.updated_at=T(-10);return rebind(f);
 }
 test('structured Codex native full head passes direct and preserved Git replay',()=>{const f=structuredFixture31(),raw=observation(f),before=JSON.stringify(raw);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);assert.equal(x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval),true);assert.equal(JSON.stringify(raw),before);});
@@ -193,6 +194,20 @@ for(const [provider,makeFixture]of [["Claude",fixture],["structured Codex",struc
   const calls=fs.readFileSync(path.join(dir,"calls.jsonl"),"utf8").trim().split("\n").map(JSON.parse);assert.equal(calls.length,10);assert.deepEqual(calls.map(c=>c[3]),["GET","GET","GET","GET","GET","GET","GET","GET","POST","GET"]);assert.equal(calls[0][4],calls.at(-1)[4]);assert.equal(calls[8][4],"graphql");
 });
 
+
+for(const route of ['live','preserved']){
+ test('selected identical structured summary passes ('+route+')',()=>{const f=structuredFixture31();f.reviewSummary=structuredClone(f.review);rebind(f);assert.equal(route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),true);});
+ for(const [label,mutate]of [
+  ['unrelated full-head comment',f=>f.reviewRequest.body='Discuss '+head],
+  ['security-only trigger',f=>f.reviewRequest.body='@codex security review\n'+head],
+  ['other native account',f=>f.reviewRequest.user.id++],
+  ['malformed security state',f=>f.review.body=f.review.body.replace(/"security_review":\{[^}]*\}/,'"security_review":true')],
+ ])test('structured Codex refuses '+label+' ('+route+')',()=>{const f=structuredFixture31();mutate(f);rebind(f);assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval));});
+ test('structured summary cannot appear without a selected pointer ('+route+')',()=>{const f=structuredFixture31();const raw=observation(f);f.reviewSummary=structuredClone(f.review);raw.reviewSummary=raw.review;assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval),/population differs/);});
+ test('selected structured summary cannot be missing ('+route+')',()=>{const f=structuredFixture31();f.approval.settledSourceReview.summary={...f.approval.settledSourceReview.response};assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval));});
+}
+for(const value of ['',false,0,'null'])test('structured replay refuses non-null unselected raw summary '+JSON.stringify(value),()=>{const f=structuredFixture31(),raw=observation(f);raw.reviewSummary=value;assert.throws(()=>x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval));});
+
 // Pure contract-format regression uses this suite's existing local Git fixture;
 // it needs no installed Firebase CLI or operational controller traversal.
 test('structured Codex contract retains native originals and prepared-time cutoff',()=>{
@@ -206,6 +221,16 @@ test('structured Codex contract retains native originals and prepared-time cutof
  for(const edited of [{...f.review,updated_at:T(71)},{...f.review,body:f.review.body.replace('"status":"completed"','"status":"in_progress"')},{...f.review,body:f.review.body.replace('codex-review-state:v1','codex-review-state:v2')+'\nNo findings. **Reviewed commit:** `'+head+'`'}]){
   selected.response.original=retain(edited);selected.response.bodySha256=h(Buffer.from(edited.body));assert.throws(()=>x.verifyExecutionContract31(input));
  }
+ selected.response.original=retain(f.review);selected.response.bodySha256=h(Buffer.from(f.review.body));
+ for(const req of [{...f.reviewRequest,body:'Unrelated '+head},{...f.reviewRequest,body:'@codex security review\n'+head},{...f.reviewRequest,user:{...f.reviewRequest.user,id:1}}]){
+  selected.request={id:req.id,bodySha256:h(Buffer.from(req.body)),original:retain(req)};assert.throws(()=>x.verifyExecutionContract31(input),/trigger/);
+ }
+ selected.request={...f.approval.settledSourceReview.request,original:retain(f.reviewRequest)};
+ selected.summary={...selected.response};assert.equal(x.verifyExecutionContract31(input).reviewOriginals.summary.body,f.review.body);
+ selected.summary={...selected.response,original:retain({...f.review,id:f.review.id+1})};assert.throws(()=>x.verifyExecutionContract31(input),/review original/);
+ selected.summary=null;const malformedSecurity={...f.review,body:f.review.body.replace(/"security_review":\{[^}]*\}/,'"security_review":true')};
+ selected.response.original=retain(malformedSecurity);selected.response.bodySha256=h(Buffer.from(malformedSecurity.body));
+ assert.throws(()=>x.verifyExecutionContract31(input),/security-review state object/);
  selected.response.original=retain(f.review);selected.response.bodySha256=h(Buffer.from(f.review.body));selected.request={id:f.review.id,bodySha256:selected.response.bodySha256,original:retain(f.review)};
  assert.throws(()=>x.verifyExecutionContract31(input),/Distinct/);
 });

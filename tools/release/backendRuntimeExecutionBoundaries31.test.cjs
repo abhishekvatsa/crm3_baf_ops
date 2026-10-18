@@ -230,7 +230,8 @@ function structuredLive31(){
  f.review.user={login:'chatgpt-codex-connector[bot]',id:199175422,type:'Bot'};
  f.review.performed_via_github_app={id:1144995,slug:'chatgpt-codex-connector',owner:{login:'openai',id:14957082}};
  f.review.created_at='2026-10-01T19:00:00Z';f.review.updated_at='2026-10-01T19:21:00Z';
- f.reviewRequest.updated_at=f.reviewRequest.created_at;
+ f.reviewRequest.updated_at=f.reviewRequest.created_at;f.reviewRequest.body='@codex review\n\nReview exact head '+head;
+ f.reviewRequest.user={login:'abhishekvatsa',id:213690022,type:'User'};f.reviewRequest.author_association='OWNER';
  return rebindStructured31(f);
 }
 function rebindStructured31(f){f.approval.settledSourceReview.response.bodySha256=h(Buffer.from(f.review.body));f.approval.settledSourceReview.request.bodySha256=h(Buffer.from(f.reviewRequest.body));if(f.reviewSummary)f.approval.settledSourceReview.summary={id:f.reviewSummary.id,bodySha256:h(Buffer.from(f.reviewSummary.body))};return f;}
@@ -239,7 +240,7 @@ test('exact official Codex body supports completed full-head state without a leg
  assert.equal(codexBody31.length,1165);assert.equal(h(codexBody31),'41EFDA44B131E3E5CFA26A8899F004ED37A085ADFECCE3353C43DFDBB69EBC98');
  assert.doesNotMatch(codexBody31.toString('utf8'),/\*\*Reviewed commit:/);
  const f=structuredLive31();assert.equal(gate.verifyLiveGitHubRecords31(f),true);
- const review={...f.review,body:codexBody31.toString('utf8')},request={...f.reviewRequest,body:'@codex review '+actualCodexHead31};
+ const review={...f.review,body:codexBody31.toString('utf8')},request={...f.reviewRequest,body:'@codex review\n\n'+actualCodexHead31};
  assert.equal(gate.codexStructuredReview31({review,request,headCommit:actualCodexHead31,pullRequestNumber:f.pr.number,latestUtc:f.approval.reviewPreparedAtUtc}),actualCodexHead31);
 });
 test('structured Codex state is independent of security-review state and visible abbreviated table',()=>{const f=structuredLive31();changeCodeState31(f,s=>s.security_review={commit_sha:'0'.repeat(40),status:'in_progress',has_any_findings:true,has_unresolved_findings:true});rebindStructured31(f);assert.equal(gate.verifyLiveGitHubRecords31(f),true);});
@@ -247,6 +248,16 @@ test('structured optional summary can only repeat the identical selected native 
 const structuredNegatives31=[
  ['same request and response',f=>{f.reviewRequest=structuredClone(f.review);f.approval.settledSourceReview.request.id=f.review.id;}],
  ['noninteger PR number',f=>f.pr.number=String(f.pr.number)],
+ ['unrelated owner comment',f=>f.reviewRequest.body='Please inspect '+f.pr.head.sha],
+ ['security review trigger',f=>f.reviewRequest.body='@codex security review\n'+f.pr.head.sha],
+ ['quoted trigger',f=>f.reviewRequest.body='> @codex review\n'+f.pr.head.sha],
+ ['non-owner actor',f=>f.reviewRequest.user.id++],
+ ['bot request actor',f=>f.reviewRequest.user.type='Bot'],
+ ['non-owner association',f=>f.reviewRequest.author_association='COLLABORATOR'],
+ ['security boolean',f=>changeCodeState31(f,s=>s.security_review=true)],
+ ['security array',f=>changeCodeState31(f,s=>s.security_review=[])],
+ ['security missing field',f=>changeCodeState31(f,s=>delete s.security_review.status)],
+ ['security extra field',f=>changeCodeState31(f,s=>s.security_review.approved=true)],
  ['pending',f=>changeCodeState31(f,s=>s.code_review.status='in_progress')],
  ['missing status',f=>changeCodeState31(f,s=>delete s.code_review.status)],
  ['findings',f=>changeCodeState31(f,s=>s.code_review.has_any_findings=true)],
