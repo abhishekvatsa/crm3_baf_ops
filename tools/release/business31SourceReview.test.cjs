@@ -168,8 +168,19 @@ test("retained replay refuses a genuinely ambiguous commit prefix and accepts th
   assert.equal(x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),true);
 });
 test("Codex live and preserved behavior remains delegated unchanged",()=>{const f=fixture();f.approval.settledSourceReview.kind="bot-issue-comment-no-findings";f.approval.settledSourceReview.reviewer="chatgpt-codex-connector[bot]";delete f.approval.reviewPreparedAtUtc;f.review.user={login:"chatgpt-codex-connector[bot]"};f.review.performed_via_github_app={slug:"chatgpt-codex-connector"};f.review.body="No major issues. **Reviewed commit:** `"+head.slice(0,10)+"`";delete f.review.updated_at;delete f.reviewRequest.updated_at;rebind(f);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),legacy.verifyLiveGitHubRecords31(f));assert.equal(x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),legacy.verifyPreservedLiveGitHub31(observation(f),admission(f),f.approval));assert.throws(()=>legacy.verifyLiveGitHubRecords31(fixture()),/Exact settled bot/);});
-test("fixed live observer retains original synthetic responses through actual bound child calls and replays them",()=>{
-  const f=fixture(),dir=path.join(root,"observer");fs.mkdirSync(dir);const raw=observation(f),records={};const prefix="repos/abhishekvatsa/crm3_baf_ops/";
+
+function structuredFixture31(){
+ const f=fixture();f.approval.settledSourceReview.kind='bot-issue-comment-no-findings';f.approval.settledSourceReview.reviewer='chatgpt-codex-connector[bot]';
+ f.review.body=fs.readFileSync(path.join(__dirname,'testdata/codex-review-summary-6251814428.body.txt'),'utf8').replaceAll('ea9a28c8266d80b63fbbb3daf260ad0f4d576e06',head);
+ f.review.user={login:'chatgpt-codex-connector[bot]',id:199175422,type:'Bot'};f.review.performed_via_github_app={id:1144995,slug:'chatgpt-codex-connector',owner:{login:'openai',id:14957082}};
+ f.review.created_at=T(-30);f.review.updated_at=T(-10);return rebind(f);
+}
+test('structured Codex native full head passes direct and preserved Git replay',()=>{const f=structuredFixture31(),raw=observation(f),before=JSON.stringify(raw);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);assert.equal(x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval),true);assert.equal(JSON.stringify(raw),before);});
+for(const route of ['live','preserved'])test('structured Codex cannot use its own summary as the request ('+route+')',()=>{const f=structuredFixture31();f.reviewRequest=structuredClone(f.review);rebind(f);assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/Distinct/);});
+for(const route of ['live','preserved'])test('structured Codex malformed state cannot downgrade to a footer ('+route+')',()=>{const f=structuredFixture31();f.review.body=f.review.body.replace('codex-review-state:v1','codex-review-state:v2')+'\nNo findings. **Reviewed commit:** `'+head+'`';rebind(f);assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval));});
+
+for(const [provider,makeFixture]of [["Claude",fixture],["structured Codex",structuredFixture31]])test("fixed "+provider+" observer retains original synthetic responses through actual bound child calls and replays them",()=>{
+  const f=makeFixture(),dir=path.join(root,"observer-"+provider.replaceAll(" ","-"));fs.mkdirSync(dir);const raw=observation(f),records={};const prefix="repos/abhishekvatsa/crm3_baf_ops/";
   records[prefix+"git/ref/heads/main"]=raw.main;records[prefix+"pulls/405"]=raw.pr;
   for(const [kind,id]of [["release",11],["security",12]]){records[prefix+"actions/runs/"+id]=raw[kind].run;records[prefix+"actions/runs/"+id+"/attempts/1/jobs?per_page=100"]=raw[kind].jobs;}
   records[prefix+"issues/comments/1001"]=raw.reviewRequest;records[prefix+"issues/comments/1002"]=raw.review;records.graphql=raw.threads;
@@ -178,6 +189,23 @@ test("fixed live observer retains original synthetic responses through actual bo
   fs.writeFileSync(path.join(dir,"input.json"),JSON.stringify({admission:admission(f),approval:f.approval}));
   fs.writeFileSync(path.join(dir,"observe.cjs"),`const fs=require('node:fs'),x=require(${JSON.stringify(path.join(__dirname,"business31ExecutionContract.cjs"))});const i=JSON.parse(fs.readFileSync('input.json'));const r=x.observeBusinessLiveGitHub31(i.admission,i.approval,new Date().toISOString());fs.writeFileSync('observed.json',JSON.stringify(r));if(!x.verifyPreservedBusinessLiveGitHub31(r,i.admission,i.approval))throw Error('Replay refused');`);
   const result=cp.spawnSync(process.execPath,["--no-global-search-paths",path.join(dir,"observe.cjs")],{cwd:dir,env,encoding:"utf8",windowsHide:true,timeout:60000,maxBuffer:1024*1024});assert.equal(result.error,undefined);assert.equal(result.signal,null);assert.equal(result.status,0,result.stderr);
-  const observed=JSON.parse(fs.readFileSync(path.join(dir,"observed.json")));assert.equal(observed.review,raw.review);assert.equal(observed.reviewRequest,raw.reviewRequest);assert.equal(JSON.parse(observed.review).user.login,"claude[bot]");
+  const observed=JSON.parse(fs.readFileSync(path.join(dir,"observed.json")));assert.equal(observed.review,raw.review);assert.equal(observed.reviewRequest,raw.reviewRequest);assert.equal(JSON.parse(observed.review).user.login,f.review.user.login);
   const calls=fs.readFileSync(path.join(dir,"calls.jsonl"),"utf8").trim().split("\n").map(JSON.parse);assert.equal(calls.length,10);assert.deepEqual(calls.map(c=>c[3]),["GET","GET","GET","GET","GET","GET","GET","GET","POST","GET"]);assert.equal(calls[0][4],calls.at(-1)[4]);assert.equal(calls[8][4],"graphql");
+});
+
+// Pure contract-format regression uses this suite's existing local Git fixture;
+// it needs no installed Firebase CLI or operational controller traversal.
+test('structured Codex contract retains native originals and prepared-time cutoff',()=>{
+ const f=structuredFixture31(),directory=path.join(root,'contract-originals');fs.mkdirSync(directory);let serial=0;
+ const retain=value=>{const bytes=Buffer.from(JSON.stringify(value)),file='original-'+(++serial)+'.json';fs.writeFileSync(path.join(directory,file),bytes);return {file,sha256:h(bytes),bytes:bytes.length};};
+ const read=p=>x.privateBytes(directory,p),runtimeProof=retain({synthetic:true}),intended=retain({synthetic:true});
+ const selected={...f.approval.settledSourceReview,request:{...f.approval.settledSourceReview.request,original:retain(f.reviewRequest)},response:{...f.approval.settledSourceReview.response,original:retain(f.review)},summary:null};
+ const baseline={commit:x.BASELINE,tree:'4'.repeat(40),functionsTree:'5'.repeat(40)};
+ const input={contract:{schemaVersion:1,documentType:'build31-business-execution-contract',profile:x.PROFILE,source,baseline,sourceManifestSha256:'A'.repeat(64),runtimeProof,preparedAtUtc:T(70),intendedHashInputs:intended,githubObserver:{path:process.execPath,sha256:h(fs.readFileSync(process.execPath))},settledSourceReview:selected},decision:{runtimeProof,decidedAtUtc:T(100)},proof:{completedAtUtc:T(60)},source,baseline,manifestSha256:'A'.repeat(64),ownerReceivedAtUtc:T(80),read,instant:a.helpers.time,mergeParents:[left,head],release:f.release,security:f.security};
+ const result=x.verifyExecutionContract31(input);assert.equal(result.approval.reviewPreparedAtUtc,input.contract.preparedAtUtc);assert.equal(result.reviewOriginals.response.body,f.review.body);assert.equal(Object.hasOwn(result,'deploymentAuthorized'),false);
+ for(const edited of [{...f.review,updated_at:T(71)},{...f.review,body:f.review.body.replace('"status":"completed"','"status":"in_progress"')},{...f.review,body:f.review.body.replace('codex-review-state:v1','codex-review-state:v2')+'\nNo findings. **Reviewed commit:** `'+head+'`'}]){
+  selected.response.original=retain(edited);selected.response.bodySha256=h(Buffer.from(edited.body));assert.throws(()=>x.verifyExecutionContract31(input));
+ }
+ selected.response.original=retain(f.review);selected.response.bodySha256=h(Buffer.from(f.review.body));selected.request={id:f.review.id,bodySha256:selected.response.bodySha256,original:retain(f.review)};
+ assert.throws(()=>x.verifyExecutionContract31(input),/Distinct/);
 });

@@ -61,6 +61,43 @@ function githubRead31(runtime, endpoint, method = 'GET', fields = []) {
   return {raw, value:object(raw)};
 }
 
+// The official summary is updated in place. Its structured code-review state,
+// not the explanatory footer or visible abbreviated table, supplies the result.
+function codexStructuredReview31({review, request, summary, headCommit, pullRequestNumber, latestUtc}) {
+  const body = review?.body;
+  need(typeof body === 'string', 'Original Codex review body required');
+  if (!/codex-(?:pull-request-review-summary|review-state:)/i.test(body)) return null;
+  const envelope = /^<!-- codex-pull-request-review-summary -->\r?\n<!-- codex-review-state:v1 ([^\r\n]+) -->\r?\n/.exec(body);
+  need(envelope && (body.match(/codex-review-state:/gi) ?? []).length === 1 &&
+    (body.match(/codex-pull-request-review-summary/gi) ?? []).length === 1, 'Single official Codex summary state required');
+  let state; try { state = JSON.parse(envelope[1]); } catch { need(false, 'Invalid Codex summary JSON'); }
+  // The supported v1 state is compact JSON; round-trip equality also rejects
+  // duplicate keys instead of allowing JSON.parse's last-value-wins behavior.
+  need(state && typeof state === 'object' && !Array.isArray(state) && JSON.stringify(state) === envelope[1], 'Unambiguous compact Codex state required');
+  eq(Object.keys(state).sort(), ['code_review','security_review'], 'Codex state fields differ');
+  const code = state.code_review;
+  need(code && typeof code === 'object' && !Array.isArray(code), 'Codex code-review state required');
+  eq(Object.keys(code).sort(), ['commit_sha','has_any_findings','has_unresolved_findings','status'], 'Codex code-review fields differ');
+  need(/^[0-9a-f]{40}$/.test(code.commit_sha ?? '') && code.commit_sha === headCommit &&
+    code.status === 'completed' && code.has_any_findings === false && code.has_unresolved_findings === false,
+    'Completed exact-head Codex code review without findings required');
+  need(review.user?.login === REVIEWER && review.user?.id === 199175422 && review.user?.type === 'Bot' &&
+    review.performed_via_github_app?.id === 1144995 && review.performed_via_github_app?.slug === 'chatgpt-codex-connector', 'Official Codex summary actor/app required');
+  const app = review.performed_via_github_app;
+  if (Object.hasOwn(app, 'owner')) need(app.owner?.login === 'openai' && app.owner?.id === 14957082, 'Codex app owner differs');
+  need(summary == null || require('node:util').isDeepStrictEqual(summary, review), 'Structured summary must be the selected native response');
+  need(Number.isSafeInteger(pullRequestNumber) && pullRequestNumber > 0, 'Positive structured Codex PR number required');
+  need(request?.id !== review.id, 'Distinct structured Codex request/response IDs required');
+  for (const original of [request, review, ...(summary == null ? [] : [summary])]) {
+    need(Number.isSafeInteger(original?.id) && original.id > 0 && typeof original.body === 'string' &&
+      original.issue_url === `https://api.github.com/repos/${REPOSITORY}/issues/${pullRequestNumber}`, 'Structured Codex original/PR differs');
+    need(time(original.created_at) <= time(original.updated_at) && time(original.updated_at) <= time(latestUtc), 'Codex original update postdates contract cutoff');
+  }
+  need(new RegExp('(^|[^0-9a-f])' + headCommit + '([^0-9a-f]|$)', 'i').test(request.body) &&
+    time(request.updated_at) <= time(review.updated_at), 'Structured Codex result predates exact full-head request');
+  return code.commit_sha;
+}
+
 function verifyLiveGitHubRecords31({source, approval, release, security, mainRef, pr, review, reviewRequest, reviewSummary, reviewedHeadCommit, reviews, threads, nowUtc}) {
   need(mainRef.object?.sha === source.commit && mainRef.ref === 'refs/heads/main', 'Live main advanced or differs');
   const parents = approval.normalMergeParents;
@@ -78,9 +115,15 @@ function verifyLiveGitHubRecords31({source, approval, release, security, mainRef
     need(time(value.created_at)<=time(approval.decidedAtUtc),'Review chain postdates decision');
   }
   need(review.user?.login===REVIEWER&&review.performed_via_github_app?.slug==='chatgpt-codex-connector'&&(!selected.summary||reviewSummary.user?.login===REVIEWER),'Expected actual bot identity required');
-  need(reviewRequest.body.includes(pr.head.sha)&&reviewedHeadCommit===pr.head.sha,'Actual full request and uniquely resolved reviewed commit must bind exact head');
-  need(time(reviewRequest.created_at)<=time(review.created_at)&&(!selected.summary||time(reviewRequest.created_at)<=time(reviewSummary.updated_at)&&time(reviewSummary.updated_at)<=time(approval.decidedAtUtc)),'Bot response predates exact-head request');
-  need(/no major issues|didn['’]t find any major issues|no findings/i.test(review.body)&&!/usage.{0,40}(limit|allowance)|credits|quota|review.{0,30}not.{0,10}(performed|complete)/i.test(review.body),'Positive no-findings result required, not arbitrary COMMENTED');
+  const structuredHead = codexStructuredReview31({review,request:reviewRequest,summary:reviewSummary,headCommit:pr.head.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc});
+  if (structuredHead === null) {
+    need(reviewRequest.body.includes(pr.head.sha)&&reviewedHeadCommit===pr.head.sha,'Actual full request and uniquely resolved reviewed commit must bind exact head');
+    need(time(reviewRequest.created_at)<=time(review.created_at)&&(!selected.summary||time(reviewRequest.created_at)<=time(reviewSummary.updated_at)&&time(reviewSummary.updated_at)<=time(approval.decidedAtUtc)),'Bot response predates exact-head request');
+    need(/no major issues|didn['’]t find any major issues|no findings/i.test(review.body)&&!/usage.{0,40}(limit|allowance)|credits|quota|review.{0,30}not.{0,10}(performed|complete)/i.test(review.body),'Positive no-findings result required, not arbitrary COMMENTED');
+  } else {
+    need(reviewedHeadCommit === structuredHead && time(approval.reviewPreparedAtUtc) <= time(approval.decidedAtUtc) &&
+      time(approval.decidedAtUtc) <= time(nowUtc), 'Structured Codex source/contract/decision chronology differs');
+  }
   need(reviews?.pageInfo?.hasNextPage===false&&Array.isArray(reviews.nodes),'Complete review-state population required');
   const latest=new Map();for(const r of reviews.nodes){need(r.author?.login&&r.submittedAt,'Review identity/time absent');const old=latest.get(r.author.login);if(!old||time(old.submittedAt)<time(r.submittedAt))latest.set(r.author.login,r);}
   need([...latest.values()].every(r=>r.state!=='CHANGES_REQUESTED'),'Outstanding latest changes-requested review');
@@ -100,7 +143,7 @@ function observeLiveGitHub31(admission, approval, nowUtc) {
     return {raw:{run:run.raw,jobs:jobs.raw}, value:{schemaVersion:1,evidenceType:kind === 'release'?'github-exact-main-release-gate':'github-exact-main-codeql',repository:REPOSITORY,sourceCommit:admission.source.commit,sourceTree:admission.source.tree,capturedAtUtc:nowUtc,pullRequest:pr.value,run:run.value,jobs:jobs.value}};
   };
   const release=capture('release'),security=capture('security');
-  const chain=approval.settledSourceReview;const readComment=pointer=>{need(Number.isSafeInteger(pointer?.id)&&pointer.id>0,'Exact review comment pointer required');return githubRead31(r,`repos/${REPOSITORY}/issues/comments/${pointer.id}`);};const review=readComment(chain.response),reviewRequest=readComment(chain.request),reviewSummary=chain.summary?readComment(chain.summary):null;const abbreviated=/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.value.body??'')?.[1];need(abbreviated,'Actual bot reviewed-commit marker required');const reviewedHeadCommit=gtext(admission.repoRoot,['rev-parse','--verify',abbreviated+'^{commit}']);
+  const chain=approval.settledSourceReview;const readComment=pointer=>{need(Number.isSafeInteger(pointer?.id)&&pointer.id>0,'Exact review comment pointer required');return githubRead31(r,`repos/${REPOSITORY}/issues/comments/${pointer.id}`);};const review=readComment(chain.response),reviewRequest=readComment(chain.request),reviewSummary=chain.summary?readComment(chain.summary):null;const abbreviated=codexStructuredReview31({review:review.value,request:reviewRequest.value,summary:reviewSummary?.value,headCommit:pr.value.head?.sha,pullRequestNumber:n,latestUtc:approval.reviewPreparedAtUtc})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.value.body??'')?.[1];need(abbreviated,'Actual bot reviewed-commit marker required');const reviewedHeadCommit=gtext(admission.repoRoot,['rev-parse','--verify',abbreviated+'^{commit}']);
   const query=`query { repository(owner:"abhishekvatsa", name:"crm3_baf_ops") { pullRequest(number:${n}) { reviews(first:100) { nodes { state submittedAt author { login } commit { oid } } pageInfo { hasNextPage } } reviewThreads(first:100) { nodes { isResolved } pageInfo { hasNextPage } } } } }`;
   const threads=githubRead31(r,'graphql','POST',['-f','query='+query]);
   const finalMain=githubRead31(r,`repos/${REPOSITORY}/git/ref/heads/main`),completedAtUtc=new Date().toISOString();release.value.capturedAtUtc=completedAtUtc;security.value.capturedAtUtc=completedAtUtc;verifyLiveGitHubRecords31({source:admission.source,approval,release:release.value,security:security.value,mainRef:finalMain.value,pr:pr.value,review:review.value,reviewRequest:reviewRequest.value,reviewSummary:reviewSummary?.value,reviewedHeadCommit,reviews:threads.value.data?.repository?.pullRequest?.reviews,threads:threads.value.data?.repository?.pullRequest?.reviewThreads,nowUtc:completedAtUtc});
@@ -114,7 +157,7 @@ function verifyPreservedLiveGitHub31(record,admission,approval){
   const parse=x=>{need(typeof x==='string','Original GitHub response text required');return JSON.parse(x);};
   need(time(record.observedAtUtc)<=time(record.completedAtUtc),'Live observation interval differs');
   const pr=parse(record.pr),review=parse(record.review),request=parse(record.reviewRequest),summary=record.reviewSummary?parse(record.reviewSummary):null,threads=parse(record.threads);
-  const prefix=/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.body??'')?.[1];need(prefix,'Actual reviewed-commit marker absent');
+  const prefix=codexStructuredReview31({review,request,summary,headCommit:pr.head?.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.body??'')?.[1];need(prefix,'Actual reviewed-commit marker absent');
   const capture=kind=>({schemaVersion:1,evidenceType:kind==='release'?'github-exact-main-release-gate':'github-exact-main-codeql',repository:REPOSITORY,sourceCommit:admission.source.commit,sourceTree:admission.source.tree,capturedAtUtc:record.completedAtUtc,pullRequest:pr,run:parse(record[kind].run),jobs:parse(record[kind].jobs)});
   need(parse(record.main).object?.sha===admission.source.commit,'Original live main changed during admission');
   return verifyLiveGitHubRecords31({source:admission.source,approval,release:capture('release'),security:capture('security'),mainRef:parse(record.finalMain),pr,review,reviewRequest:request,reviewSummary:summary,reviewedHeadCommit:gtext(admission.repoRoot,['rev-parse','--verify',prefix+'^{commit}']),reviews:threads.data?.repository?.pullRequest?.reviews,threads:threads.data?.repository?.pullRequest?.reviewThreads,nowUtc:record.completedAtUtc});
@@ -146,4 +189,4 @@ function verifyBackendRuntimeExecutionAdmission31Inner(config) {
   return {...admission,proposalOnly:false,deploymentAuthorized:true,executionAdmissionAtUtc:new Date().toISOString(),live,approval};
 }
 function verifyBackendRuntimeExecutionAdmission31(config){return require('./backendRuntimeEvidenceAccess31.cjs').runEvidence31(config,()=>verifyBackendRuntimeExecutionAdmission31Inner(config));}
-module.exports={verifyPreservedLiveGitHub31,rejectConsumedEvidence31,verifyBackendRuntimeExecutionAdmission31,verifyExplicitDeploymentOwner31,verifyLiveGitHubRecords31,ownerInstruction,cleanEnvironment31,githubRead31,observeLiveGitHub31,rejectSynthetic,OWNER_ACTION,TRUSTED_MESSAGE_TYPE};
+module.exports={codexStructuredReview31,verifyPreservedLiveGitHub31,rejectConsumedEvidence31,verifyBackendRuntimeExecutionAdmission31,verifyExplicitDeploymentOwner31,verifyLiveGitHubRecords31,ownerInstruction,cleanEnvironment31,githubRead31,observeLiveGitHub31,rejectSynthetic,OWNER_ACTION,TRUSTED_MESSAGE_TYPE};
