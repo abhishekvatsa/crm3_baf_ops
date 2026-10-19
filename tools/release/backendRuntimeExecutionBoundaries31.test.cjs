@@ -218,3 +218,75 @@ test('wire JSON body binding changes with controls',()=>assert.notEqual(t.bodyBi
 
 test('observer binary binding is checked without executing the measured file',()=>{const file=process.execPath,digest=h(fs.readFileSync(file)),runtime={githubExecutable:file,githubExecutableSha256:digest};assert.deepEqual(a.verifyGithubObserverRuntime31(runtime),{executable:file,sha256:digest});assert.throws(()=>a.verifyGithubObserverRuntime31({}),/GitHub observer/);assert.throws(()=>a.verifyGithubObserverRuntime31({...runtime,githubExecutableSha256:'0'.repeat(64)}),/GitHub observer/);});
 test('historical observation cannot omit or substitute the declared observer identity',()=>{const runtime={githubExecutable:process.execPath,githubExecutableSha256:h(fs.readFileSync(process.execPath))};for(const observer of [undefined,{executable:'unreviewed',sha256:runtime.githubExecutableSha256},{executable:runtime.githubExecutable,sha256:'0'.repeat(64)}])assert.throws(()=>gate.verifyPreservedLiveGitHub31({observer},{runtime},{}),/observer/);});
+
+// The body fixture is the exact retained official comment6251814428 UTF-8 body.
+// It proves format support only; synthetic chains below confer no authority.
+const codexBody31=fs.readFileSync(path.join(__dirname,'testdata/codex-review-summary-6251814428.body.txt'));
+const actualCodexHead31='ea9a28c8266d80b63fbbb3daf260ad0f4d576e06';
+function structuredLive31(){
+ const f=live(),head=f.pr.head.sha;
+ f.approval.reviewPreparedAtUtc='2026-10-01T19:59:00Z';
+ f.review.body=codexBody31.toString('utf8').replaceAll(actualCodexHead31,head);
+ f.review.user={login:'chatgpt-codex-connector[bot]',id:199175422,type:'Bot'};
+ f.review.performed_via_github_app={id:1144995,slug:'chatgpt-codex-connector',owner:{login:'openai',id:14957082}};
+ f.review.created_at='2026-10-01T19:00:00Z';f.review.updated_at='2026-10-01T19:21:00Z';
+ f.reviewRequest.updated_at=f.reviewRequest.created_at;f.reviewRequest.body='@codex review\n\nReview exact head '+head;
+ f.reviewRequest.user={login:'abhishekvatsa',id:213690022,type:'User'};f.reviewRequest.author_association='OWNER';
+ return rebindStructured31(f);
+}
+function rebindStructured31(f){f.approval.settledSourceReview.response.bodySha256=h(Buffer.from(f.review.body));f.approval.settledSourceReview.request.bodySha256=h(Buffer.from(f.reviewRequest.body));if(f.reviewSummary)f.approval.settledSourceReview.summary={id:f.reviewSummary.id,bodySha256:h(Buffer.from(f.reviewSummary.body))};return f;}
+function changeCodeState31(f,change){const match=/<!-- codex-review-state:v1 ([^\r\n]+) -->/.exec(f.review.body),state=JSON.parse(match[1]);change(state);f.review.body=f.review.body.replace(match[1],JSON.stringify(state));}
+test('exact official Codex body supports completed full-head state without a legacy marker',()=>{
+ assert.equal(codexBody31.length,1165);assert.equal(h(codexBody31),'41EFDA44B131E3E5CFA26A8899F004ED37A085ADFECCE3353C43DFDBB69EBC98');
+ assert.doesNotMatch(codexBody31.toString('utf8'),/\*\*Reviewed commit:/);
+ const f=structuredLive31();assert.equal(gate.verifyLiveGitHubRecords31(f),true);
+ const review={...f.review,body:codexBody31.toString('utf8')},request={...f.reviewRequest,body:'@codex review\n\n'+actualCodexHead31};
+ assert.equal(gate.codexStructuredReview31({review,request,headCommit:actualCodexHead31,pullRequestNumber:f.pr.number,latestUtc:f.approval.reviewPreparedAtUtc}),actualCodexHead31);
+});
+test('structured Codex state is independent of security-review state and visible abbreviated table',()=>{const f=structuredLive31();changeCodeState31(f,s=>s.security_review={commit_sha:'0'.repeat(40),status:'in_progress',has_any_findings:true,has_unresolved_findings:true});rebindStructured31(f);assert.equal(gate.verifyLiveGitHubRecords31(f),true);});
+test('structured optional summary can only repeat the identical selected native response',()=>{const f=structuredLive31();f.reviewSummary=structuredClone(f.review);rebindStructured31(f);assert.equal(gate.verifyLiveGitHubRecords31(f),true);f.reviewSummary.updated_at='2026-10-01T19:22:00Z';assert.throws(()=>gate.verifyLiveGitHubRecords31(f),/selected native response/);});
+const structuredNegatives31=[
+ ['same request and response',f=>{f.reviewRequest=structuredClone(f.review);f.approval.settledSourceReview.request.id=f.review.id;}],
+ ['noninteger PR number',f=>f.pr.number=String(f.pr.number)],
+ ['unrelated owner comment',f=>f.reviewRequest.body='Please inspect '+f.pr.head.sha],
+ ['security review trigger',f=>f.reviewRequest.body='@codex security review\n'+f.pr.head.sha],
+ ['quoted trigger',f=>f.reviewRequest.body='> @codex review\n'+f.pr.head.sha],
+ ['non-owner actor',f=>f.reviewRequest.user.id++],
+ ['bot request actor',f=>f.reviewRequest.user.type='Bot'],
+ ['non-owner association',f=>f.reviewRequest.author_association='COLLABORATOR'],
+ ['security boolean',f=>changeCodeState31(f,s=>s.security_review=true)],
+ ['security array',f=>changeCodeState31(f,s=>s.security_review=[])],
+ ['security missing field',f=>changeCodeState31(f,s=>delete s.security_review.status)],
+ ['security extra field',f=>changeCodeState31(f,s=>s.security_review.approved=true)],
+ ['pending',f=>changeCodeState31(f,s=>s.code_review.status='in_progress')],
+ ['missing status',f=>changeCodeState31(f,s=>delete s.code_review.status)],
+ ['findings',f=>changeCodeState31(f,s=>s.code_review.has_any_findings=true)],
+ ['unresolved findings',f=>changeCodeState31(f,s=>s.code_review.has_unresolved_findings=true)],
+ ['string false',f=>changeCodeState31(f,s=>s.code_review.has_any_findings='false')],
+ ['missing flag',f=>changeCodeState31(f,s=>delete s.code_review.has_any_findings)],
+ ['wrong full head',f=>changeCodeState31(f,s=>s.code_review.commit_sha='0'.repeat(40))],
+ ['abbreviated head',f=>changeCodeState31(f,s=>s.code_review.commit_sha=s.code_review.commit_sha.slice(0,7))],
+ ['security only',f=>changeCodeState31(f,s=>{s.security_review=s.code_review;delete s.code_review;})],
+ ['null code review',f=>changeCodeState31(f,s=>s.code_review=null)],
+ ['extra code field',f=>changeCodeState31(f,s=>s.code_review.approved=true)],
+ ['duplicate state',f=>f.review.body+=f.review.body],
+ ['duplicate JSON key',f=>f.review.body=f.review.body.replace('"status":"completed"','"status":"in_progress","status":"completed"')],
+ ['malformed JSON',f=>f.review.body=f.review.body.replace('"code_review":','"code_review":,')],
+ ['unknown state version',f=>f.review.body=f.review.body.replace('codex-review-state:v1','codex-review-state:v2')],
+ ['quoted metadata',f=>f.review.body='> '+f.review.body],
+ ['downgrade to footer and legacy marker',f=>{f.review.body=f.review.body.replace('codex-review-state:v1','codex-review-state:v2')+'\nNo findings. **Reviewed commit:** `'+f.pr.head.sha+'`';}],
+ ['wrong actor ID',f=>f.review.user.id++],['human actor',f=>f.review.user.type='User'],
+ ['wrong app ID',f=>f.review.performed_via_github_app.id++],['wrong app slug',f=>f.review.performed_via_github_app.slug='lookalike'],
+ ['wrong app owner',f=>f.review.performed_via_github_app.owner.id++],['null supplied owner',f=>f.review.performed_via_github_app.owner=null],
+ ['missing update',f=>delete f.review.updated_at],['update before creation',f=>f.review.updated_at='2026-10-01T18:00:00Z'],
+ ['update after contract',f=>f.review.updated_at='2026-10-01T19:59:01Z'],
+ ['request edited after result',f=>f.reviewRequest.updated_at='2026-10-01T19:22:00Z'],
+ ['head only inside longer hex',f=>f.reviewRequest.body='a'+f.pr.head.sha+'b'],
+ ['missing contract cutoff',f=>delete f.approval.reviewPreparedAtUtc],
+ ['contract after decision',f=>f.approval.reviewPreparedAtUtc='2026-10-01T20:00:01Z'],
+ ['decision after observation',f=>f.nowUtc='2026-10-01T19:59:59Z'],
+ ['wrong native PR',f=>f.review.issue_url+='0'],
+];
+for(const [name,change]of structuredNegatives31)test('structured Codex refuses '+name,()=>{const f=structuredLive31();change(f);rebindStructured31(f);assert.throws(()=>gate.verifyLiveGitHubRecords31(f));});
+test('structured native body digest remains mandatory',()=>{const f=structuredLive31();f.review.body+='\n';assert.throws(()=>gate.verifyLiveGitHubRecords31(f),/chain differs/);});
+test('generic Codex footer is not a structured result',()=>{const f=structuredLive31();f.review.body=f.review.body.slice(f.review.body.indexOf('<details>'));assert.equal(gate.codexStructuredReview31({review:f.review}),null);assert.throws(()=>gate.verifyPreservedLiveGitHub31({observer:{executable:process.execPath,sha256:h(fs.readFileSync(process.execPath))},observedAtUtc:f.nowUtc,completedAtUtc:f.nowUtc,pr:JSON.stringify(f.pr),review:JSON.stringify(f.review),reviewRequest:JSON.stringify(f.reviewRequest),reviewSummary:null,threads:'{}'},{runtime:{githubExecutable:process.execPath,githubExecutableSha256:h(fs.readFileSync(process.execPath))}},f.approval),/marker absent/);});

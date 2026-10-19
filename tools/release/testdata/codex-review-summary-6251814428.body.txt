@@ -1,0 +1,24 @@
+<!-- codex-pull-request-review-summary -->
+<!-- codex-review-state:v1 {"code_review":{"commit_sha":"ea9a28c8266d80b63fbbb3daf260ad0f4d576e06","has_any_findings":false,"has_unresolved_findings":false,"status":"completed"},"security_review":{"commit_sha":null,"has_any_findings":null,"has_unresolved_findings":null,"status":null}} -->
+
+## Codex Review Summary
+
+This comment shows the latest Codex review activity on this pull request.
+
+| Review | Status | Commit | Review trigger |
+| --- | --- | --- | --- |
+| 📝 **Code Review** | ✅ **Completed** <relative-time datetime="2026-10-18T15:43:37.860063Z">2026-10-18T15:43:37.860063Z</relative-time> | `ea9a28c` | Manual request |
+
+
+
+<details> <summary>ℹ️ About Codex in GitHub</summary>
+<br/>
+
+[Your team has set up Codex to review pull requests in this repo](https://chatgpt.com/codex/cloud/settings/general). Reviews are triggered when you
+- Open a pull request for review
+- Mark a draft as ready
+- Comment "@codex review" or "@codex security review".
+
+Codex reacts with 👀 while any review is running, comments if it has suggestions, and reacts with 👍 once all reviews finish with no findings.
+
+</details>

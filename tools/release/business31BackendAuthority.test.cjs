@@ -176,6 +176,7 @@ const completeEntryCases = [
   ["synthetic-current-anchor", null],
   ["real-current-anchor", null],
   ["real-historical-anchor-refusal", null],
+  ["real-retired-anchor-refusal", null],
   ...fixedImmutableFiles.map(file => ["real-current-anchor-byte-mismatch", file])
 ];
 for (const [caseIndex, [fixtureKind, mutationFile]] of completeEntryCases.entries())
@@ -200,7 +201,8 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const commit = parents => git(["commit-tree", git(["write-tree"]), ...parents.flatMap(p => ["-p", p]), "-m", "Synthetic local preparation fixture only"]);
   git(["read-tree", fixtureSource]);
   const authorityName = "tools/release/business31BackendAuthority.cjs", guardName = "tools/release/runtimeDeploymentTransportGuard31.cjs";
-  const currentCommit = "0319de391d38fc59279d5d63953b2104034a2f3e";
+  const currentCommit = "93c36a958de6c6115c4da2b6846c87e9f22d74f1";
+  const retiredCommit = "0319de391d38fc59279d5d63953b2104034a2f3e";
   const historicalCommit = "406d7407aa2d2ee6d8e6008e5cd3964df000ea85";
   const originalAnchorDeclaration = `const IMMUTABLE_COMMIT = "${currentCommit}";`;
   const producerBytes = Object.fromEntries(subject.PRODUCERS.map(name => [name, fs.readFileSync(path.join(__dirname, path.basename(name)))]));
@@ -210,7 +212,7 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   assert.equal(subject.IMMUTABLE.includes(guardName), true);
   assert.equal(productionAuthority.toString("utf8").split(originalAnchorDeclaration).length, 2);
   // The production anchor is real and independently named, not selected from
-  // candidate evidence. Its thirteen unchanged files and reviewed guard all match.
+  // candidate evidence. Its corrected admission and thirteen unchanged members all match.
   for (const name of fixedImmutableFiles)
     assert.equal(git(["rev-parse", `${currentCommit}:${name}`]), blob(producerBytes[name]), "reviewed current anchor byte identity: " + name);
   let verifierParent = fixtureSource;
@@ -234,6 +236,14 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
     assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private historical fixture anchor literal may change");
     producerBytes[authorityName] = Buffer.from(fixtureAuthority);
     assert.notEqual(git(["rev-parse", `${historicalCommit}:${guardName}`]), blob(producerBytes[guardName]), "reviewed guard really differs from the historical production anchor");
+  } else if (fixtureKind === "real-retired-anchor-refusal") {
+    // The retired ancestor stays in history and cannot substitute for the corrected anchor.
+    const fixtureAnchorDeclaration = `const IMMUTABLE_COMMIT = "${retiredCommit}";`;
+    const fixtureAuthority = productionAuthority.toString("utf8").replace(originalAnchorDeclaration, fixtureAnchorDeclaration);
+    assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private retired fixture anchor literal may change");
+    producerBytes[authorityName] = Buffer.from(fixtureAuthority);
+    const admissionName = "tools/release/backendRuntimeExecutionAdmission31.cjs";
+    assert.notEqual(git(["rev-parse", `${retiredCommit}:${admissionName}`]), blob(producerBytes[admissionName]), "corrected admission really differs from the retired production anchor");
   } else {
     assert.ok(["real-current-anchor", "real-current-anchor-byte-mismatch"].includes(fixtureKind));
     assert.deepEqual(producerBytes[authorityName], productionAuthority, "real-anchor cases execute unchanged production authority");
@@ -382,7 +392,7 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const input = {...options, trustedVerifier: {commit: V, tree: git(["rev-parse", V + "^{tree}"]), files: producerBindings}, sourceCommit: M, sourceManifest,
     trustedManifestSha256, evidenceDirectory, decisionPointer: {commit: C, file: subject.DECISION_FILE, sha256: sha(envelope)}, nowUtc: "2026-01-02T05:00:00Z"};
   assert.deepEqual(fs.readFileSync(path.join(__dirname, path.basename(authorityName))), productionAuthority, "production authority remains unchanged");
-  if (fixtureKind === "real-current-anchor-byte-mismatch" || fixtureKind === "real-historical-anchor-refusal") {
+  if (fixtureKind === "real-current-anchor-byte-mismatch" || fixtureKind === "real-historical-anchor-refusal" || fixtureKind === "real-retired-anchor-refusal") {
     assert.throws(() => fixtureSubject.verifyBusiness31BackendAuthority(input), {
       message: "Business31 preparation: original immutable verifier changed"
     });

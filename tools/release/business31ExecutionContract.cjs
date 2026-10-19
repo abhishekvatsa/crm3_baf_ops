@@ -211,6 +211,10 @@ function verifyExecutionContract31({contract, decision, proof, source, baseline,
     approval.reviewPreparedAtUtc = contract.preparedAtUtc;
     verifyClaudeChain31({selected:legacy,pr:release.pullRequest,review:originals.response,reviewRequest:originals.request,
       reviewSummary:originals.summary,latestUtc:contract.preparedAtUtc});
+  } else {
+    const structuredHead = require("./backendRuntimeExecutionAdmission31.cjs").codexStructuredReview31({review:originals.response,
+      request:originals.request,summary:originals.summary,selectedSummary:selected.summary,headCommit:selected.headCommit,pullRequestNumber:release.pullRequest.number,latestUtc:contract.preparedAtUtc});
+    if (structuredHead !== null) approval.reviewPreparedAtUtc = contract.preparedAtUtc;
   }
   return {approval,reviewOriginals:originals,intendedHashInputs:contract.intendedHashInputs,githubObserver:contract.githubObserver};
 }
