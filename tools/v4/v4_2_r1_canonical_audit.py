@@ -3430,7 +3430,7 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.6.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
-    and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.7"
+    and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.11"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.1"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
     and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.1"
@@ -3446,9 +3446,9 @@ check(
     and fast_uri.get("version") == "3.1.8"
     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz"
     and fast_uri.get("integrity") == "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg=="
-    and hono_runtime.get("version") == "4.13.7"
-    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.7.tgz"
-    and hono_runtime.get("integrity") == "sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ=="
+    and hono_runtime.get("version") == "4.13.11"
+    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.11.tgz"
+    and hono_runtime.get("integrity") == "sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg=="
     and ip_address.get("version") == "10.7.1"
     and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz"
     and ip_address.get("integrity") == "sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA=="
@@ -3550,7 +3550,7 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
         "3.1.8",
-        "4.13.7",
+        "4.13.11",
         "10.7.1",
         "4.3.2",
         "1.12.1",

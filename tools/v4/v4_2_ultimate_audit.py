@@ -341,7 +341,7 @@ check(
     and tooling_versions["brace-expansion"] == "5.0.12"
     and tooling_versions["@hono/node-server"] == "2.0.10"
     and tooling_versions["fast-uri"] == "3.1.8"
-    and tooling_versions["hono"] == "4.13.7"
+    and tooling_versions["hono"] == "4.13.11"
     and tooling_versions["ip-address"] == "10.7.1"
     and tooling_versions["js-yaml"] == "4.3.2"
     and tooling_versions["re2"] == "1.26.1"
