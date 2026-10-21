@@ -19,10 +19,10 @@ const {auth, fetchToken} = require('@modelcontextprotocol/sdk/client/auth.js');
 const tool = {name: 'fixture_echo', inputSchema: {type: 'object'}, _meta: {fixture: true}};
 const result = {content: [{type: 'text', text: 'fixture-only'}], isError: false};
 
-test('Firebase resolves SDK 1.31.0 and retains its server and OneMCP schema APIs', () => {
+test('Firebase resolves SDK 1.32.0 and retains its server and OneMCP schema APIs', () => {
   const serverFile = require.resolve('@modelcontextprotocol/sdk/server/index.js');
   const sdkRoot = path.resolve(path.dirname(serverFile), '../../..');
-  assert.equal(JSON.parse(fs.readFileSync(path.join(sdkRoot, 'package.json'), 'utf8')).version, '1.31.0');
+  assert.equal(JSON.parse(fs.readFileSync(path.join(sdkRoot, 'package.json'), 'utf8')).version, '1.32.0');
   assert.equal(require('firebase-tools/package.json').version, '15.22.4');
   for (const member of ['server/index.js', 'server/stdio.js', 'server/sse.js', 'types.js']) {
     assert.equal(require.resolve(`@modelcontextprotocol/sdk/${member}`), path.join(sdkRoot, 'dist/cjs', member));
