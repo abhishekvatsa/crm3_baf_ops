@@ -46,7 +46,7 @@ $expected = [ordered]@{
   mcpSdk = '1.31.0'
   honoNodeServer = '2.0.10'
   fastUri = '3.1.8'
-  honoRuntime = '4.13.7'
+  honoRuntime = '4.13.11'
   ipAddress = '10.7.1'
   jsYaml = '4.3.2'
   morgan = '1.12.1'
@@ -322,8 +322,8 @@ function Assert-FirebaseCliLockPolicy {
     fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==')
     honoRuntimeOverride = ($honoRuntimeOverride -eq $expected.honoRuntime)
     honoRuntimeLocked = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version') -eq $expected.honoRuntime)
-    honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.13.7.tgz')
-    honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-c8/gF9ac8Y78/agExVocyLevgR+JlpNB444Py0FSX8pJoPdYUfUzRcXtYEYGwt6l19qIlVZPN5Mfsw9jFShmQQ==')
+    honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.13.11.tgz')
+    honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==')
     ipAddressOverride = ($ipAddressOverride -eq $expected.ipAddress)
     ipAddressLocked = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'version') -eq $expected.ipAddress)
     ipAddressResolved = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'resolved') -eq 'https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz')
