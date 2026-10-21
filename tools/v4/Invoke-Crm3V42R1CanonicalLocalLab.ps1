@@ -43,7 +43,7 @@ $expected = [ordered]@{
   firebaseTools = '15.22.4'
   basicFtp = '6.2.1'
   grpcJs = '1.14.5'
-  mcpSdk = '1.31.0'
+  mcpSdk = '1.32.0'
   honoNodeServer = '2.0.10'
   fastUri = '3.1.8'
   honoRuntime = '4.13.11'
@@ -313,8 +313,8 @@ function Assert-FirebaseCliLockPolicy {
     honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA==')
     mcpSdkOverride = ($mcpSdkOverride -eq $expected.mcpSdk)
     mcpSdkLocked = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'version') -eq $expected.mcpSdk)
-    mcpSdkResolved = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz')
-    mcpSdkIntegrity = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'integrity') -eq 'sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw==')
+    mcpSdkResolved = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.0.tgz')
+    mcpSdkIntegrity = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'integrity') -eq 'sha512-8BviX/hK4Gd2eL1KdTwm0gfl4d3wdoErW0Jd00h6nomUAtk6IJk5vwQJc6kfWtJTzN5OEV/lgIiJKI8fiDGAlA==')
     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9 || ^2.0.5')
     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
@@ -379,8 +379,8 @@ function Assert-FirebaseCliLockPolicy {
     $entry = $lockPackages[$key]
     $checks["mcpSdkCopy:$key"] = (
       [string](Get-JsonPropertyValue -Object $entry -Name 'version') -eq $expected.mcpSdk -and
-      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.31.0.tgz' -and
-      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-UvTMgnNlnIBO/22ob2RcVGDlcvOslQs8T59+FTGdA0L27a39fdGF/EDETNtDVK4DZGpwomlsYpRdA8UXcVL/pw=='
+      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.0.tgz' -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-8BviX/hK4Gd2eL1KdTwm0gfl4d3wdoErW0Jd00h6nomUAtk6IJk5vwQJc6kfWtJTzN5OEV/lgIiJKI8fiDGAlA=='
     )
   }
   $failed = @($checks.GetEnumerator() | Where-Object {-not $_.Value} | ForEach-Object {$_.Key})
