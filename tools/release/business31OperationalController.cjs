@@ -237,18 +237,20 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
   const admission={...ctx,projectId:"crm3-baf-ops-b8638",region:"asia-south1"};
   const lease=common.cliLoadLease,library=path.dirname(path.dirname(ctx.runtime.cliEntrypoint));
   let identityCapture=null,serviceIdentities=null;
-  let hook=null,boundary=null,parameterWrites=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
+  let hook=null,boundary=null,parameterWrites=null,credentialDebug=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
   const fail=()=>{writer.failed=true;if(writer.active)writer.active.failed=true;};
   const cleanup=()=>{const errors=[];if(boundary){try{boundary.restore();}catch(e){errors.push(e);}boundary=null;}
     if(parameterWrites){try{parameterWrites.restore();}catch(e){errors.push(e);}parameterWrites=null;}
     if(preparation&&preparation.prepare===prepareWrapper)preparation.prepare=originalPrepare;
     else if(preparation&&preparation.prepare!==originalPrepare)errors.push(Error("foreign prepare wrapper retained"));
     if(hook){try{hook.restore();}catch(e){errors.push(e);}hook=null;}
+    if(credentialDebug){try{credentialDebug.restore();}catch(e){errors.push(e);}credentialDebug=null;}
     if(!lease.isReleased())try{lease.release();}catch(e){errors.push(e);}
     if(errors.length)throw new AggregateError(errors,"phase cleanup incomplete");};
   try {
     verifySelection(configuration,common);lease.assertHealthy();
     const api=require(path.join(library,"apiv2.js")),slots=hookSlots(api.Client);
+    credentialDebug=neutral.installCredentialRefreshDebugBoundary31(require(path.join(library,"logger.js")).logger);
     preparation=require(path.join(library,"deploy/functions/prepare.js"));originalPrepare=preparation.prepare;
     const unprepared=new neutral.RuntimeDeploymentTransportGuard31({...guardInputs,names:phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase],allNames:ctx.cohorts.fleet,phase});
     const envelopeBytes=common.repository.readBlob(ctx.approvalPointer.commit,ctx.approvalPointer.file);
@@ -313,7 +315,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
       if(finished)return;finished=true;
       try{
         need(code===0&&active&&currentControls&&!writer.failed&&(writer.active?.pending??-1)===0,"actual CLI did not settle one complete phase");
-        nativeConfig.assertUnchanged();boundary.assertOwned();const result=writer.finishCohort();need(result.complete,"phase capture incomplete");writer.finishPhase();
+        nativeConfig.assertUnchanged();boundary.assertOwned();credentialDebug.assertOwned();const result=writer.finishCohort();need(result.complete,"phase capture incomplete");writer.finishPhase();
         cleanPoint(ctx);cleanup();
         write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"phase-capture-result.json"),{schemaVersion:1,documentType:"build31-business-phase-capture-result",
           phase,source:ctx.source,approvalPointer:ctx.approvalPointer,context:measured.contextPointer,start:measured.startPointer,

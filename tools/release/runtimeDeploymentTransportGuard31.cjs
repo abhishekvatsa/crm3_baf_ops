@@ -5,6 +5,30 @@ const {urlToHttpOptions}=require('node:url');
 const {AsyncLocalStorage}=require('node:async_hooks');
 const {need,eq,hash}=require('./backendRuntimeAdmission31.cjs').helpers;
 const context=new AsyncLocalStorage();
+let credentialDebugLease=null,credentialRefreshInFlight=0;
+function installCredentialRefreshDebugBoundary31(logger){
+  need(!credentialDebugLease&&credentialRefreshInFlight===0,'Credential-refresh debug boundary must be installed once before requests');
+  const original=Object.getOwnPropertyDescriptor(logger,'debug');
+  need(original&&Object.hasOwn(original,'value')&&typeof original.value==='function'&&original.writable&&original.configurable,'Owned writable CLI debug logger required');
+  let restored=false;
+  const wrapped=function(...args){
+    lease.assertOwned();
+    // The pinned CLI can stringify a token FormData Buffer when fetch rejects.
+    // Drop the entire debug call in this async context; do not inspect secrets.
+    if(context.getStore()?.kind==='credential-refresh')return this;
+    return original.value.apply(this,args);
+  };
+  const installed={...original,value:wrapped};
+  const lease={
+    assertOwned(){need(!restored&&credentialDebugLease===lease,'Credential-refresh debug boundary is not active');eq(Object.getOwnPropertyDescriptor(logger,'debug'),installed,'Foreign credential-refresh debug logger preserved');},
+    restore(){
+      if(restored)return;
+      need(credentialRefreshInFlight===0,'Credential-refresh debug boundary cannot restore during a pending request');
+      lease.assertOwned();Object.defineProperty(logger,'debug',original);restored=true;credentialDebugLease=null;
+    }
+  };
+  Object.defineProperty(logger,'debug',installed);credentialDebugLease=lease;return lease;
+}
 const PROJECT='crm3-baf-ops-b8638',REGION='asia-south1';
 const resource=`projects/${PROJECT}/locations/${REGION}/functions/`;
 const READ_HOSTS=new Set(['cloudfunctions.googleapis.com','cloudresourcemanager.googleapis.com','firebase.googleapis.com','serviceusage.googleapis.com','run.googleapis.com','artifactregistry.googleapis.com','secretmanager.googleapis.com','iam.googleapis.com','cloudscheduler.googleapis.com','eventarc.googleapis.com','storage.googleapis.com','firebaseextensions.googleapis.com','cloudbilling.googleapis.com']);
@@ -213,12 +237,14 @@ function installNetworkBoundary31(guard){
       const effective=effectiveRequest31(input,options,mod==='node:https'?'https:':'http:'),u=effective.url,method=effective.method,admitted=context.getStore();
       let networkOperation=admitted;
       if(admitted?.kind==='credential-refresh'){
+        credentialDebugLease?.assertOwned();
         need(u.href===admitted.url&&method===admitted.method,'Credential-refresh method or redirect changed');
         need(!admitted.transportUsed,'Credential-refresh transport retry or redirect refused');
         admitted.transportUsed=true;
       }
       if(u.protocol==='http:')need(['127.0.0.1','localhost','[::1]'].includes(u.hostname)&&method==='GET'&&['/__/functions.yaml','/__/health'].includes(u.pathname),'Only local Functions discovery is allowed over HTTP');
       else if(AUTH_HOSTS.has(u.hostname)&&method==='POST'){
+        credentialDebugLease?.assertOwned();
         const operation=guard.read(u,method);
         if(admitted?.kind!=='credential-refresh')networkOperation={...operation,url:u.href,method,transportUsed:true};
       }
@@ -269,6 +295,10 @@ function installNetworkBoundary31(guard){
 function installApiBoundary31(Client,guard,beforeWrite){
   const original=Client.prototype.request;
   Client.prototype.request=async function(request){const operation=guard.before(this,request);if(!['read','credential-refresh'].includes(operation.kind)){operation.sequence=++guard.sequence;operation.bodySha256=operation.kind==='existing-service-identity'?hash(Buffer.from('{}')):bodyBinding31(request);await beforeWrite(operation);}
-    const result=await context.run(operation,()=>original.call(this,{...request,retryCodes:[],retries:0}));guard.after(operation,result);return result;};
+    const credential=operation.kind==='credential-refresh';
+    if(credential){credentialDebugLease?.assertOwned();credentialRefreshInFlight++;}
+    try{const result=await context.run(operation,()=>original.call(this,{...request,retryCodes:[],retries:0}));guard.after(operation,result);return result;}
+    finally{if(credential)credentialRefreshInFlight--;}
+  };
 }
-module.exports={existingServiceIdentityBindings31,verifyServiceIdentityResponse31,RuntimeDeploymentTransportGuard31,installApiBoundary31,installNetworkBoundary31,urlOf,leaves,effectiveRequest31,bodyBinding31};
+module.exports={existingServiceIdentityBindings31,verifyServiceIdentityResponse31,RuntimeDeploymentTransportGuard31,installApiBoundary31,installNetworkBoundary31,installCredentialRefreshDebugBoundary31,urlOf,leaves,effectiveRequest31,bodyBinding31};

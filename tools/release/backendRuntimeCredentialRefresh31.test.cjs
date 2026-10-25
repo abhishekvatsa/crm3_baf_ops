@@ -137,3 +137,57 @@ test('nested refresh is distinct from the parent ordinary API request',async()=>
   await new Client('https://cloudfunctions.googleapis.com').request({method:'GET',path:new URL(resource).pathname});
   assert.deepEqual(calls,[{method:'POST',url:TOKEN},{method:'GET',url:resource}]);assert.deepEqual(g.events.map(e=>e.kind),['credential-refresh','read']);
 }));
+
+test('credential debug suppression excludes complete third-party calls and preserves concurrent ordinary logging',async()=>{
+  const calls=[],logger={debug(...args){calls.push({receiver:this,args});return 'original-result';}},original=Object.getOwnPropertyDescriptor(logger,'debug');
+  let settle;
+  const pending=new Promise(resolve=>{settle=resolve;}),lease=t.installCredentialRefreshDebugBoundary31(logger),g=guard();
+  class Client{
+    constructor(){this.opts=client.opts;}
+    async request(){
+      logger.debug('fake-token-buffer',Buffer.from('FAKE_REFRESH_TOKEN'),{client_secret:'FAKE_CLIENT_SECRET'});
+      await pending;
+      logger.debug('fake-token-response',{access_token:'FAKE_ACCESS_TOKEN'});
+      return {status:200};
+    }
+  }
+  t.installApiBoundary31(Client,g,()=>{throw Error('No mutation expected');});
+  const request=new Client().request({method:'POST',path:'/oauth2/v3/token'});
+  try{
+    assert.throws(()=>lease.restore(),/pending request/);
+    assert.throws(()=>t.installCredentialRefreshDebugBoundary31(logger),/installed once/);
+    const marker={ordinary:true};assert.equal(logger.debug('ordinary',marker),'original-result');
+    assert.deepEqual(calls,[{receiver:logger,args:['ordinary',marker]}]);
+    settle();await request;lease.assertOwned();
+    assert.equal(calls.length,1);lease.restore();lease.restore();
+    assert.deepEqual(Object.getOwnPropertyDescriptor(logger,'debug'),original);
+  }finally{settle();await request.catch(()=>{});lease.restore();}
+});
+
+test('failed refresh keeps its logger filter through settlement after an early restore refusal',async()=>{
+  const calls=[],logger={debug(...args){calls.push(args);}},lease=t.installCredentialRefreshDebugBoundary31(logger);
+  let fail;
+  const pending=new Promise((_resolve,reject)=>{fail=reject;});
+  class Client{
+    constructor(){this.opts=client.opts;}
+    async request(){try{await pending;}catch(error){logger.debug(JSON.stringify({body:Buffer.from('FAKE_REFRESH_TOKEN'),secret:'FAKE_CLIENT_SECRET'}));throw error;}}
+  }
+  t.installApiBoundary31(Client,guard(),()=>{throw Error('No mutation expected');});
+  const request=new Client().request({method:'POST',path:'/oauth2/v3/token'});
+  try{
+    assert.throws(()=>lease.restore(),/pending request/);
+    fail(Error('offline physical failure'));await assert.rejects(request,/offline physical failure/);
+    assert.deepEqual(calls,[]);lease.assertOwned();
+  }finally{fail(Error('offline fixture cleanup'));await request.catch(()=>{});lease.restore();}
+});
+
+test('foreign debug replacement refuses refresh and is preserved by cleanup',async()=>{
+  const logger={debug(){}},lease=t.installCredentialRefreshDebugBoundary31(logger),installed=Object.getOwnPropertyDescriptor(logger,'debug');let called=false;
+  class Client{constructor(){this.opts=client.opts;}async request(){called=true;return {status:200};}}
+  t.installApiBoundary31(Client,guard(),()=>{});
+  const foreign=function(){};logger.debug=foreign;
+  try{
+    await assert.rejects(()=>new Client().request({method:'POST',path:'/oauth2/v3/token'}),/Foreign credential-refresh debug logger/);
+    assert.equal(called,false);assert.throws(()=>lease.restore(),/Foreign credential-refresh debug logger/);assert.equal(logger.debug,foreign);
+  }finally{Object.defineProperty(logger,'debug',installed);lease.restore();}
+});
