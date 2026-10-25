@@ -405,7 +405,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="19C340775A56AFCAC0E40C2424E2E7AF01F1BF8013A83218C0A3BD0AAEC4CEBC"
+          expected_lock_sha="92DC4F641352FCFB4C4C8622179225CA3EC262A007CC99AF68926F190D5EFECF"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha"
           npm --prefix functions ci
@@ -478,7 +478,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          expected_lock_sha="19C340775A56AFCAC0E40C2424E2E7AF01F1BF8013A83218C0A3BD0AAEC4CEBC"
+          expected_lock_sha="92DC4F641352FCFB4C4C8622179225CA3EC262A007CC99AF68926F190D5EFECF"
           actual_lock_sha="$(sha256sum tooling/firebase-cli/package-lock.json | awk '{print toupper($1)}')"
           test "$actual_lock_sha" = "$expected_lock_sha" || {
             echo "::error::Governed Firebase CLI lockfile hash mismatch. Expected $expected_lock_sha, got $actual_lock_sha"
@@ -512,8 +512,9 @@ jobs:
           shopt -s failglob
           test -f tools/release/privateEvidenceBundle31.test.cjs
           test -f tools/release/Initialize-Business31Controller.test.cjs
+          # Includes business31CliCredentialRefresh.test.cjs through the business31 wildcard.
           business31_tests=(tools/release/business31*.test.cjs tools/release/privateEvidenceBundle31.test.cjs tools/release/Initialize-Business31Controller.test.cjs)
-          node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs "${business31_tests[@]}"
+          node --test --test-concurrency=2 tools/release/runtimeBackendPrivateReplay31.test.cjs tools/release/runtime31-git-bootstrap.test.cjs tools/release/runtime31-callers.test.cjs tools/release/runtimePilotAuthority31.test.cjs tools/release/backendRuntimeExecutionBoundaries31.test.cjs tools/release/backendRuntimeReplayGitBoundaries31.test.cjs tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs tools/release/backendRuntimePinnedCliWire31.test.cjs tools/release/backendRuntimeCredentialRefresh31.test.cjs "${business31_tests[@]}"
           npm run test:workflow-input-custody
           npm run test:workflow-action-custody
 

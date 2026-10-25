@@ -76,6 +76,38 @@ def http_and_json_dependency_pins_match() -> bool:
             and entry.get("integrity") == integrity for entry in copies
         )
 
+    # Keep Express 4 and Express 5 on their compatible, patched parser majors.
+    body_parser_pins = {
+        "1.20.9": "sha512-FISIQxV5u91Y9gvuFq3q/tA/qTqLJn3AhRcEvyozyhJTh5OBFFtv827AdHU7Rbyct4r+Ba1/99oFa1Y3yuFsdw==",
+        "2.4.0": "sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==",
+    }
+    if not registry_copies("functions/package.json", "body-parser", "1.20.9", body_parser_pins["1.20.9"]):
+        return False
+    cli_package = data("tooling/firebase-cli/package.json")
+    cli_overrides = cli_package.get("overrides", {})
+    cli_packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
+    if (not isinstance(cli_packages, dict) or "body-parser" in cli_overrides
+            or cli_overrides.get("body-parser@^1") != "1.20.9"
+            or cli_overrides.get("body-parser@^2") != "2.4.0"):
+        return False
+    body_copies = [entry for key, entry in cli_packages.items()
+                   if key == "node_modules/body-parser" or key.endswith("/node_modules/body-parser")]
+    if (not all(isinstance(entry, dict) for entry in body_copies)
+            or {entry.get("version") for entry in body_copies} != set(body_parser_pins)
+            or not all(entry.get("integrity") == body_parser_pins[entry["version"]]
+                       and entry.get("resolved") == f"https://registry.npmjs.org/body-parser/-/body-parser-{entry['version']}.tgz"
+                       for entry in body_copies)):
+        return False
+    cli_registry_pins = (
+        ("fast-uri", "3.1.9", "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="),
+        ("ip-address", "10.7.4", "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="),
+        ("undici", "8.12.2", "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="),
+        ("zod", "4.6.6", "sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA=="),
+        ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg=="),
+    )
+    if not all(registry_copies("tooling/firebase-cli/package.json", *pin) for pin in cli_registry_pins):
+        return False
+
     yaml_integrity = "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
     if (data("package.json").get("devDependencies", {}).get("js-yaml") != "4.3.2"
             or not all(registry_copies(manifest, "js-yaml", "4.3.2", yaml_integrity)
@@ -101,22 +133,22 @@ def http_and_json_dependency_pins_match() -> bool:
     if (not isinstance(packages, dict)
             or package.get("dependencies", {}).get("stream-json") != "file:../stream-json-compat"
             or package.get("overrides", {}).get("stream-json") != "$stream-json"
-            or adapter.get("name") != "stream-json" or adapter.get("version") != "3.6.0"
-            or adapter.get("dependencies", {}).get("stream-json-modern") != "npm:stream-json@3.6.0"):
+            or adapter.get("name") != "stream-json" or adapter.get("version") != "3.7.0"
+            or adapter.get("dependencies", {}).get("stream-json-modern") != "npm:stream-json@3.7.0"):
         return False
     local = [entry for key, entry in packages.items()
              if key == "node_modules/stream-json" or key.endswith("/node_modules/stream-json")]
     upstream = [entry for key, entry in packages.items()
                 if key == "node_modules/stream-json-modern" or key.endswith("/node_modules/stream-json-modern")]
     return bool(local) and bool(upstream) and all(
-        isinstance(entry, dict) and entry.get("version") == "3.6.0"
+        isinstance(entry, dict) and entry.get("version") == "3.7.0"
         and entry.get("resolved") == "file:../stream-json-compat"
-        and entry.get("dependencies", {}).get("stream-json-modern") == "npm:stream-json@3.6.0"
+        and entry.get("dependencies", {}).get("stream-json-modern") == "npm:stream-json@3.7.0"
         for entry in local
     ) and all(
-        isinstance(entry, dict) and entry.get("name") == "stream-json" and entry.get("version") == "3.6.0"
-        and entry.get("resolved") == "https://registry.npmjs.org/stream-json/-/stream-json-3.6.0.tgz"
-        and entry.get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
+        isinstance(entry, dict) and entry.get("name") == "stream-json" and entry.get("version") == "3.7.0"
+        and entry.get("resolved") == "https://registry.npmjs.org/stream-json/-/stream-json-3.7.0.tgz"
+        and entry.get("integrity") == "sha512-rCSBdcBP/bPk6T8QFcxAj1MSzAuc5i49cYW6IE7sYObNEPccBJIUiL6fU9c9BWt40aJK0siVynLX7lWaW8alXw=="
         for entry in upstream
     )
 
@@ -3422,36 +3454,36 @@ check(
         if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")
     )
     and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
-    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.8"
-    and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.0"
+    and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.9"
+    and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.1"
     and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
     and firebase_cli_package.get("overrides", {}).get("stream-json") == "$stream-json"
-    and firebase_cli_packages.get("node_modules/stream-json", {}).get("version") == "3.6.0"
+    and firebase_cli_packages.get("node_modules/stream-json", {}).get("version") == "3.7.0"
     and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
-    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.6.0"
-    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.7.0"
+    and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-rCSBdcBP/bPk6T8QFcxAj1MSzAuc5i49cYW6IE7sYObNEPccBJIUiL6fU9c9BWt40aJK0siVynLX7lWaW8alXw=="
     and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.11"
-    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.1"
+    and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.4"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
     and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.1"
     and firebase_cli_package.get("dependencies", {}).get("brace-expansion") == "file:../brace-expansion-compat"
     and firebase_cli_package.get("overrides", {}).get("brace-expansion") == "$brace-expansion"
     and firebase_cli_package.get("overrides", {}).get("tar") == "7.5.21"
     and firebase_cli_package.get("overrides", {}).get("re2") == "1.26.1"
-    and firebase_cli_package.get("overrides", {}).get("undici") == "8.10.2"
+    and firebase_cli_package.get("overrides", {}).get("undici") == "8.12.2"
     and firebase_tools.get("version") == "15.22.4"
     and hono.get("version") == "2.0.10"
     and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
     and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
-    and fast_uri.get("version") == "3.1.8"
-    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz"
-    and fast_uri.get("integrity") == "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg=="
+    and fast_uri.get("version") == "3.1.9"
+    and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz"
+    and fast_uri.get("integrity") == "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="
     and hono_runtime.get("version") == "4.13.11"
     and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.11.tgz"
     and hono_runtime.get("integrity") == "sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg=="
-    and ip_address.get("version") == "10.7.1"
-    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz"
-    and ip_address.get("integrity") == "sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA=="
+    and ip_address.get("version") == "10.7.4"
+    and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.7.4.tgz"
+    and ip_address.get("integrity") == "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="
     and js_yaml.get("version") == "4.3.2"
     and js_yaml.get("resolved") == "https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz"
     and js_yaml.get("integrity") == "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
@@ -3471,9 +3503,9 @@ check(
     and re2.get("version") == "1.26.1"
     and re2.get("resolved") == "https://registry.npmjs.org/re2/-/re2-1.26.1.tgz"
     and re2.get("integrity") == "sha512-oi79a4h6EO3PAwNsDMWgeCcsRGQEUa52DIgOiFTZGDEZocEXG9h+oXy0qZqndo47huUeJuVWSoOJIEhOupqOcg=="
-    and undici.get("version") == "8.10.2"
-    and undici.get("resolved") == "https://registry.npmjs.org/undici/-/undici-8.10.2.tgz"
-    and undici.get("integrity") == "sha512-/y4/bH9YNU5hi9NIrpOuvGXFcxrj3CMrV+/AYpowAYTpHn8gX/XPFjNy766FPoYY0miQhdW977JFWKGNhBdwyQ=="
+    and undici.get("version") == "8.12.2"
+    and undici.get("resolved") == "https://registry.npmjs.org/undici/-/undici-8.12.2.tgz"
+    and undici.get("integrity") == "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="
     and firebase_cli_package.get("overrides", {}).get("@modelcontextprotocol/sdk") == "1.32.0"
     and mcp_sdk.get("version") == "1.32.0"
     and mcp_sdk.get("resolved") == "https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.0.tgz"
@@ -3549,12 +3581,12 @@ check(
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
         "2.0.10",
-        "3.1.8",
+        "3.1.9",
         "4.13.11",
-        "10.7.1",
+        "10.7.4",
         "4.3.2",
         "1.12.1",
-        "8.10.2",
+        "8.12.2",
         "morganIntegrity",
         "undiciIntegrity",
         "5.0.12",

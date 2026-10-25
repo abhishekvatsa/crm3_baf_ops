@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "dependencies": {
     "brace-expansion": "file:../brace-expansion-compat",
+    "braces": "file:../braces-depth-guard",
     "crm3_baf_ops": "file:../..",
     "firebase-tools": "15.22.4",
-    "stream-json": "file:../stream-json-compat",
-    "braces": "file:../braces-depth-guard"
+    "stream-json": "file:../stream-json-compat"
   },
   "overrides": {
     "@google-cloud/pubsub@5.3.1": {
@@ -16,24 +16,26 @@
     "@grpc/grpc-js": "1.14.5",
     "@hono/node-server": "2.0.10",
     "basic-ftp": "6.2.1",
-    "body-parser": "1.20.6",
+    "body-parser@^1": "1.20.9",
+    "body-parser@^2": "2.4.0",
     "brace-expansion": "$brace-expansion",
     "csv-parse": "7.0.2",
-    "fast-uri": "3.1.8",
+    "fast-uri": "3.1.9",
     "gaxios": "7.1.5",
     "hono": "4.13.11",
-    "ip-address": "10.7.1",
+    "ip-address": "10.7.4",
     "js-yaml": "4.3.2",
     "morgan": "1.12.1",
     "protobufjs": "7.6.5",
-    "qs": "6.16.0",
+    "qs": "6.16.1",
     "re2": "1.26.1",
     "stream-json": "$stream-json",
     "tar": "7.5.21",
-    "undici": "8.10.2",
+    "undici": "8.12.2",
     "braces": "$braces",
     "proxy-addr": "2.0.8",
     "compression": "1.8.2",
-    "@modelcontextprotocol/sdk": "1.32.0"
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "zod": "4.6.6"
   }
 }

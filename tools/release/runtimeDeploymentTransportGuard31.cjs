@@ -5,10 +5,48 @@ const {urlToHttpOptions}=require('node:url');
 const {AsyncLocalStorage}=require('node:async_hooks');
 const {need,eq,hash}=require('./backendRuntimeAdmission31.cjs').helpers;
 const context=new AsyncLocalStorage();
+let credentialDebugLease=null,credentialRefreshInFlight=0;
+function installCredentialRefreshDebugBoundary31(logger){
+  need(!credentialDebugLease&&credentialRefreshInFlight===0,'Credential-refresh debug boundary must be installed once before requests');
+  const original=Object.getOwnPropertyDescriptor(logger,'debug');
+  need(original&&Object.hasOwn(original,'value')&&typeof original.value==='function'&&original.writable&&original.configurable,'Owned writable CLI debug logger required');
+  let restored=false;
+  const wrapped=function(...args){
+    lease.assertOwned();
+    // The pinned CLI can stringify a token FormData Buffer when fetch rejects.
+    // Drop the entire debug call in this async context; do not inspect secrets.
+    if(context.getStore()?.kind==='credential-refresh')return this;
+    return original.value.apply(this,args);
+  };
+  const installed={...original,value:wrapped};
+  const lease={
+    assertOwned(){need(!restored&&credentialDebugLease===lease,'Credential-refresh debug boundary is not active');eq(Object.getOwnPropertyDescriptor(logger,'debug'),installed,'Foreign credential-refresh debug logger preserved');},
+    restore(){
+      if(restored)return;
+      need(credentialRefreshInFlight===0,'Credential-refresh debug boundary cannot restore during a pending request');
+      lease.assertOwned();Object.defineProperty(logger,'debug',original);restored=true;credentialDebugLease=null;
+    }
+  };
+  Object.defineProperty(logger,'debug',installed);credentialDebugLease=lease;return lease;
+}
 const PROJECT='crm3-baf-ops-b8638',REGION='asia-south1';
 const resource=`projects/${PROJECT}/locations/${REGION}/functions/`;
 const READ_HOSTS=new Set(['cloudfunctions.googleapis.com','cloudresourcemanager.googleapis.com','firebase.googleapis.com','serviceusage.googleapis.com','run.googleapis.com','artifactregistry.googleapis.com','secretmanager.googleapis.com','iam.googleapis.com','cloudscheduler.googleapis.com','eventarc.googleapis.com','storage.googleapis.com','firebaseextensions.googleapis.com','cloudbilling.googleapis.com']);
 const AUTH_HOSTS=new Set(['oauth2.googleapis.com','www.googleapis.com']);
+const CLI_TOKEN_URL='https://www.googleapis.com/oauth2/v3/token';
+function cliTokenRequest31(url,method,rawUrl=url.href){
+  if(url.hostname!=='www.googleapis.com')return false;
+  need(method==='POST'&&url.href===CLI_TOKEN_URL&&rawUrl===CLI_TOKEN_URL,'Only the exact pinned CLI credential-refresh endpoint is admitted');
+  return true;
+}
+function cliTokenHostHeader31(headers){
+  if(headers===undefined||headers===null)return;
+  need(typeof headers==='object','Credential-refresh headers must be explicit');
+  const entries=Array.isArray(headers)?Array.from({length:headers.length/2},(_,i)=>[headers[i*2],headers[i*2+1]]):Object.entries(headers);
+  need(!Array.isArray(headers)||headers.length%2===0,'Credential-refresh raw headers must be pairs');
+  let hosts=0;
+  for(const[name,value]of entries)if(String(name).toLowerCase()==='host')need(++hosts===1&&value==='www.googleapis.com','Credential-refresh Host header differs');
+}
 // Only the default database location lookup is reviewed; Firestore is not a general read host.
 const FIRESTORE_LOCATION_URL='https://firestore.googleapis.com/v1/projects/'+PROJECT+'/databases/(default)';
 function firestoreLocationRead31(url,method,rawUrl=url.href){
@@ -70,10 +108,31 @@ function verifyServiceIdentityResponse31(operation,result) {
   // No numeric continuity claim: the original IAM response proves email membership only.
 }
 
-function urlOf(client, request){const v=client.opts.apiVersion?'/'+client.opts.apiVersion:'';const raw=client.opts.urlPrefix+v+'/'+request.path.replace(/^\//,'');const u=new URL(raw);if(request.queryParams){const q=request.queryParams instanceof URLSearchParams?request.queryParams:new URLSearchParams(Object.entries(request.queryParams).map(([k,v])=>[k,String(v)]));u.search=q.toString();}identityUrl31(u,raw);if(u.hostname==='firestore.googleapis.com'){firestoreLocationRead31(u,(request.method??'GET').toUpperCase(),raw);need(request.body===undefined||request.body===null,'Firestore location GET cannot carry a body');}return u;}
+function urlOf(client, request){const v=client.opts.apiVersion?'/'+client.opts.apiVersion:'';const raw=client.opts.urlPrefix+v+'/'+request.path.replace(/^\//,'');const u=new URL(raw);if(request.queryParams){const q=request.queryParams instanceof URLSearchParams?request.queryParams:new URLSearchParams(Object.entries(request.queryParams).map(([k,v])=>[k,String(v)]));u.search=q.toString();}identityUrl31(u,raw);if(cliTokenRequest31(u,request.method??'GET',raw))cliTokenHostHeader31(request.headers);if(u.hostname==='firestore.googleapis.com'){firestoreLocationRead31(u,(request.method??'GET').toUpperCase(),raw);need(request.body===undefined||request.body===null,'Firestore location GET cannot carry a body');}return u;}
 function leaves(value,prefix='',out={}){for(const[k,v]of Object.entries(value)){const p=prefix?prefix+'.'+k:k;if(v&&typeof v==='object'&&!Array.isArray(v))leaves(v,p,out);else out[p]=v;}return out;}
 function at(value,p){return p.split('.').reduce((x,k)=>x?.[k],value);}
-function effectiveRequest31(input,options,defaultProtocol){const base=input instanceof URL||typeof input==='string'?urlToHttpOptions(new URL(input)):{...input};const merged={...base,...(options&&typeof options==='object'?options:{})};need(!merged.auth,'URL authentication is not admitted');const protocol=merged.protocol??defaultProtocol,hostname=merged.hostname??merged.host;need(typeof hostname==='string'&&!hostname.includes('@'),'Exact network hostname required');const authority=hostname+(merged.port?':'+merged.port:'');const raw=protocol+'//'+authority+(merged.path??'/'),url=new URL(raw),method=(merged.method??'GET').toUpperCase();identityUrl31(url,raw);if(identityAttempt31(url)&&typeof input==='string')identityUrl31(new URL(input),input);if(firestoreLocationRead31(url,method,raw)&&typeof input==='string'&&new URL(input).hostname==='firestore.googleapis.com')need(input===FIRESTORE_LOCATION_URL,'Noncanonical Firestore location URL refused');return {url,method};}
+function effectiveRequest31(input,options,defaultProtocol){
+  const fromUrl=input instanceof URL||typeof input==='string',base=fromUrl?urlToHttpOptions(new URL(input)):{...input};
+  const overrides=options&&typeof options==='object'?options:{},merged={...base,...overrides};
+  need(!merged.auth,'URL authentication is not admitted');
+  const protocol=merged.protocol??defaultProtocol,hostname=merged.hostname??merged.host;
+  need(typeof hostname==='string'&&!hostname.includes('@'),'Exact network hostname required');
+  const authority=hostname+(merged.port?':'+merged.port:''),raw=protocol+'//'+authority+(merged.path??'/'),url=new URL(raw),method=(merged.method??'GET').toUpperCase();
+  if(url.hostname==='www.googleapis.com'||base.hostname==='www.googleapis.com'||base.host==='www.googleapis.com'){
+    need(url.hostname==='www.googleapis.com','Credential-refresh destination override refused');
+    need(merged.port===undefined||merged.port===null||merged.port==='','Credential-refresh explicit port refused');
+    cliTokenRequest31(url,merged.method??'GET',raw);
+    if(fromUrl)cliTokenRequest31(new URL(input),merged.method??'GET',typeof input==='string'?input:input.href);
+    for(const key of ['protocol','hostname','host','port','path','method'])if(Object.hasOwn(base,key)&&Object.hasOwn(overrides,key))need(base[key]===overrides[key],'Credential-refresh request option differs: '+key);
+    need(!merged.host||merged.host==='www.googleapis.com','Credential-refresh host option differs');
+    need(!merged.search&&!merged.hash,'Credential-refresh query or fragment refused');
+    cliTokenHostHeader31(merged.headers);
+  }
+  identityUrl31(url,raw);
+  if(identityAttempt31(url)&&typeof input==='string')identityUrl31(new URL(input),input);
+  if(firestoreLocationRead31(url,method,raw)&&typeof input==='string'&&new URL(input).hostname==='firestore.googleapis.com')need(input===FIRESTORE_LOCATION_URL,'Noncanonical Firestore location URL refused');
+  return {url,method};
+}
 function bodyBinding31(request){if(request.body===undefined||request.body===null)return hash(Buffer.alloc(0));if(request.body&&typeof request.body.path==='string')return hash(fs.readFileSync(request.body.path));need(typeof request.body==='object'&&!Buffer.isBuffer(request.body),'Only pinned JSON or file-stream API bodies admitted');return hash(Buffer.from(JSON.stringify(request.body)));}
 
 class RuntimeDeploymentTransportGuard31 {
@@ -90,7 +149,7 @@ class RuntimeDeploymentTransportGuard31 {
   read(url,method){
     need(url.protocol==='https:'&&!url.username&&!url.password&&!url.port,'HTTPS Google API origin required');
     need(!identityAttempt31(url),'Service identity requires its exact guarded write path');
-    if(AUTH_HOSTS.has(url.hostname)&&method==='POST'&&['/token','/oauth2/v4/token'].includes(url.pathname))return {kind:'credential-refresh'};
+    if(cliTokenRequest31(url,method)||(url.hostname==='oauth2.googleapis.com'&&method==='POST'&&['/token','/oauth2/v4/token'].includes(url.pathname)))return {kind:'credential-refresh'};
     if(firestoreLocationRead31(url,method))return {kind:'read'};
     need(READ_HOSTS.has(url.hostname),'Unreviewed API host');
     const iamRead=method==='POST'&&((url.hostname==='cloudresourcemanager.googleapis.com'&&url.pathname===`/v1/projects/${PROJECT}:getIamPolicy`)||(url.hostname==='iam.googleapis.com'&&new RegExp(`^/v1/projects/${PROJECT}/serviceAccounts/[a-zA-Z0-9@._-]+:getIamPolicy$`).test(url.pathname)));
@@ -152,6 +211,11 @@ class RuntimeDeploymentTransportGuard31 {
     throw Error('Unapproved cloud mutation refused: '+method+' '+url.hostname+url.pathname);
   }
   after(operation,result){
+    if(operation.kind==='credential-refresh'){
+      const url=new URL(operation.url);
+      this.events.push({kind:'credential-refresh',method:operation.method,host:url.hostname,path:url.pathname,status:Number.isInteger(result?.status)?result.status:null});
+      return;
+    }
     if(operation.kind==='existing-service-identity'){verifyServiceIdentityResponse31(operation,result);need(!this.identityResponses.has(operation.service),'Duplicate identity response');this.identityResponses.add(operation.service);}
     if(operation.kind==='generate-upload'){
       const body=result.body,url=new URL(body?.uploadUrl);need(url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&(url.hostname==='storage.googleapis.com'||url.hostname.endsWith('.storage.googleapis.com')),'Unexpected signed source-upload origin');
@@ -171,15 +235,35 @@ function installNetworkBoundary31(guard){
     const api=require(mod),original=api.request;
     api.request=function(input,options,callback){
       const effective=effectiveRequest31(input,options,mod==='node:https'?'https:':'http:'),u=effective.url,method=effective.method,admitted=context.getStore();
+      let networkOperation=admitted;
+      if(admitted?.kind==='credential-refresh'){
+        credentialDebugLease?.assertOwned();
+        need(u.href===admitted.url&&method===admitted.method,'Credential-refresh method or redirect changed');
+        need(!admitted.transportUsed,'Credential-refresh transport retry or redirect refused');
+        admitted.transportUsed=true;
+      }
       if(u.protocol==='http:')need(['127.0.0.1','localhost','[::1]'].includes(u.hostname)&&method==='GET'&&['/__/functions.yaml','/__/health'].includes(u.pathname),'Only local Functions discovery is allowed over HTTP');
-      else if(AUTH_HOSTS.has(u.hostname)&&method==='POST')guard.read(u,method);
+      else if(AUTH_HOSTS.has(u.hostname)&&method==='POST'){
+        credentialDebugLease?.assertOwned();
+        const operation=guard.read(u,method);
+        if(admitted?.kind!=='credential-refresh')networkOperation={...operation,url:u.href,method,transportUsed:true};
+      }
       else if(!admitted)guard.read(u,method);
       else need(u.href===admitted.url&&method===admitted.method,'Cloud request method/query/redirect changed');
       const bodylessFirestore=u.href===FIRESTORE_LOCATION_URL&&method==='GET';
       if(bodylessFirestore)firestoreLocationHeaders31({...((input instanceof URL||typeof input==='string')?{}:input),...(options&&typeof options==='object'?options:{})}.headers);
       const write=admitted&&!['read','credential-refresh'].includes(admitted.kind)&&!(AUTH_HOSTS.has(u.hostname)&&method==='POST');
       if(write){need(!admitted.transportUsed,'Automatic cloud mutation transport retry refused');admitted.transportUsed=true;}
-      const args=arguments,receiver=this;const request=context.run({...admitted,networkVerified:true},()=>original.apply(receiver,args));
+      const args=arguments,receiver=this;const request=context.run({...networkOperation,networkVerified:true},()=>original.apply(receiver,args));
+      if(u.hostname==='www.googleapis.com'){
+        let refused=false;
+        const checked=action=>{try{need(!refused,'Credential-refresh request was already refused');return action();}catch(error){refused=true;request.destroy();throw error;}};
+        const originalSetHeader=request.setHeader,originalAppendHeader=request.appendHeader,originalWrite=request.write,originalEnd=request.end;
+        request.setHeader=function(name,value){const receiver=this;return checked(()=>{cliTokenHostHeader31({[name]:value});return originalSetHeader.call(receiver,name,value);});};
+        if(originalAppendHeader)request.appendHeader=function(name,value){const receiver=this;return checked(()=>{need(String(name).toLowerCase()!=='host','Credential-refresh Host header cannot be appended');return originalAppendHeader.call(receiver,name,value);});};
+        request.write=function(){const args=arguments,receiver=this;return checked(()=>originalWrite.apply(receiver,args));};
+        request.end=function(){const args=arguments,receiver=this;return checked(()=>originalEnd.apply(receiver,args));};
+      }
       if(write){const chunks=[];let total=0;const originalWrite=request.write,originalEnd=request.end;
         request.flushHeaders=()=>{throw Error('Unverified mutation body cannot flush headers');};
         request.write=function(chunk,encoding,cb){const bytes=Buffer.isBuffer(chunk)?chunk:Buffer.from(chunk,typeof encoding==='string'?encoding:undefined);total+=bytes.length;need(total<=128*1024*1024,'Mutation body exceeds bound');chunks.push(bytes);const callback=typeof encoding==='function'?encoding:cb;if(callback)queueMicrotask(callback);return true;};
@@ -211,6 +295,10 @@ function installNetworkBoundary31(guard){
 function installApiBoundary31(Client,guard,beforeWrite){
   const original=Client.prototype.request;
   Client.prototype.request=async function(request){const operation=guard.before(this,request);if(!['read','credential-refresh'].includes(operation.kind)){operation.sequence=++guard.sequence;operation.bodySha256=operation.kind==='existing-service-identity'?hash(Buffer.from('{}')):bodyBinding31(request);await beforeWrite(operation);}
-    const result=await context.run(operation,()=>original.call(this,{...request,retryCodes:[],retries:0}));guard.after(operation,result);return result;};
+    const credential=operation.kind==='credential-refresh';
+    if(credential){credentialDebugLease?.assertOwned();credentialRefreshInFlight++;}
+    try{const result=await context.run(operation,()=>original.call(this,{...request,retryCodes:[],retries:0}));guard.after(operation,result);return result;}
+    finally{if(credential)credentialRefreshInFlight--;}
+  };
 }
-module.exports={existingServiceIdentityBindings31,verifyServiceIdentityResponse31,RuntimeDeploymentTransportGuard31,installApiBoundary31,installNetworkBoundary31,urlOf,leaves,effectiveRequest31,bodyBinding31};
+module.exports={existingServiceIdentityBindings31,verifyServiceIdentityResponse31,RuntimeDeploymentTransportGuard31,installApiBoundary31,installNetworkBoundary31,installCredentialRefreshDebugBoundary31,urlOf,leaves,effectiveRequest31,bodyBinding31};

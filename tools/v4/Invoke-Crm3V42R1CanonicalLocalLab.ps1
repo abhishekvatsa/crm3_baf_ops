@@ -45,12 +45,12 @@ $expected = [ordered]@{
   grpcJs = '1.14.5'
   mcpSdk = '1.32.0'
   honoNodeServer = '2.0.10'
-  fastUri = '3.1.8'
+  fastUri = '3.1.9'
   honoRuntime = '4.13.11'
-  ipAddress = '10.7.1'
+  ipAddress = '10.7.4'
   jsYaml = '4.3.2'
   morgan = '1.12.1'
-  undici = '8.10.2'
+  undici = '8.12.2'
   braceExpansion = '5.0.12'
   re2 = '1.26.1'
   tar = '7.5.21'
@@ -318,16 +318,16 @@ function Assert-FirebaseCliLockPolicy {
     honoNaturalRange = ($mcpHonoRange -eq '^1.19.9 || ^2.0.5')
     fastUriOverride = ($fastUriOverride -eq $expected.fastUri)
     fastUriLocked = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'version') -eq $expected.fastUri)
-    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.8.tgz')
-    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==')
+    fastUriResolved = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'resolved') -eq 'https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz')
+    fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==')
     honoRuntimeOverride = ($honoRuntimeOverride -eq $expected.honoRuntime)
     honoRuntimeLocked = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version') -eq $expected.honoRuntime)
     honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.13.11.tgz')
     honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==')
     ipAddressOverride = ($ipAddressOverride -eq $expected.ipAddress)
     ipAddressLocked = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'version') -eq $expected.ipAddress)
-    ipAddressResolved = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'resolved') -eq 'https://registry.npmjs.org/ip-address/-/ip-address-10.7.1.tgz')
-    ipAddressIntegrity = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'integrity') -eq 'sha512-4OUAqU9Z1i3vCnS05hzGiFnEMDpQ+62pAD/MVQOp83fYyNC8GleCqaS0QikQBmcWCrKFiUs/B8ztRRiYOAXuCA==')
+    ipAddressResolved = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'resolved') -eq 'https://registry.npmjs.org/ip-address/-/ip-address-10.7.4.tgz')
+    ipAddressIntegrity = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'integrity') -eq 'sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg==')
     jsYamlOverride = ($jsYamlOverride -eq $expected.jsYaml)
     jsYamlLocked = ($null -ne $jsYamlLock -and [string](Get-JsonPropertyValue -Object $jsYamlLock -Name 'version') -eq $expected.jsYaml)
     jsYamlResolved = ($null -ne $jsYamlLock -and [string](Get-JsonPropertyValue -Object $jsYamlLock -Name 'resolved') -eq 'https://registry.npmjs.org/js-yaml/-/js-yaml-4.3.2.tgz')
@@ -338,8 +338,8 @@ function Assert-FirebaseCliLockPolicy {
     morganIntegrity = ($null -ne $morganLock -and [string](Get-JsonPropertyValue -Object $morganLock -Name 'integrity') -eq 'sha512-tljKC0ex20AjO58Ob/eZ53JloycbVswbVNCHx6V6VLGzqt/w8dIynVGL0G8qVjNKwiA7sYSogCrN6QtJ82IV+g==')
     undiciOverride = ($undiciOverride -eq $expected.undici)
     undiciLocked = ($null -ne $undiciLock -and [string](Get-JsonPropertyValue -Object $undiciLock -Name 'version') -eq $expected.undici)
-    undiciResolved = ($null -ne $undiciLock -and [string](Get-JsonPropertyValue -Object $undiciLock -Name 'resolved') -eq 'https://registry.npmjs.org/undici/-/undici-8.10.2.tgz')
-    undiciIntegrity = ($null -ne $undiciLock -and [string](Get-JsonPropertyValue -Object $undiciLock -Name 'integrity') -eq 'sha512-/y4/bH9YNU5hi9NIrpOuvGXFcxrj3CMrV+/AYpowAYTpHn8gX/XPFjNy766FPoYY0miQhdW977JFWKGNhBdwyQ==')
+    undiciResolved = ($null -ne $undiciLock -and [string](Get-JsonPropertyValue -Object $undiciLock -Name 'resolved') -eq 'https://registry.npmjs.org/undici/-/undici-8.12.2.tgz')
+    undiciIntegrity = ($null -ne $undiciLock -and [string](Get-JsonPropertyValue -Object $undiciLock -Name 'integrity') -eq 'sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg==')
     braceExpansionDeclared = ($braceExpansionDeclared -eq 'file:../brace-expansion-compat')
     braceExpansionOverride = ($braceExpansionOverride -eq '$brace-expansion')
     braceExpansionAdapterLocked = ($null -ne $braceExpansionLock -and [string](Get-JsonPropertyValue -Object $braceExpansionLock -Name 'version') -eq $expected.braceExpansion)

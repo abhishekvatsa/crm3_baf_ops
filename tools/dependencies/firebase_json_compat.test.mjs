@@ -36,15 +36,16 @@ test('all installed JSON parser packages resolve the patched upstream or local a
   const entries = Object.entries(lock.packages).filter(([key, value]) =>
     /node_modules\/stream-json(?:-modern)?$/.test(key) || value.name === 'stream-json');
   assert.equal(entries.length, 2);
-  for (const [, value] of entries) assert.equal(value.version, '3.6.0');
+  for (const [, value] of entries) assert.equal(value.version, '3.7.0');
   assert.equal(lock.packages['node_modules/stream-json'].resolved, 'file:../stream-json-compat');
   assert.equal(lock.packages['node_modules/@grpc/grpc-js'].version, '1.14.5');
   assert.equal(require('@grpc/grpc-js/package.json').version, '1.14.5');
-  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.8');
-  assert.equal(lock.packages['node_modules/ip-address'].version, '10.7.1');
+  assert.equal(lock.packages['node_modules/fast-uri'].version, '3.1.9');
+  assert.equal(lock.packages['node_modules/ip-address'].version, '10.7.4');
   assert.equal(lock.packages['node_modules/morgan'].version, '1.12.1');
-  assert.equal(lock.packages['node_modules/undici'].version, '8.10.2');
-  assert.equal(lock.packages['node_modules/qs'].version, '6.16.0');
+  assert.equal(lock.packages['node_modules/undici'].version, '8.12.2');
+  assert.equal(lock.packages['node_modules/qs'].version, '6.16.1');
+  assert.equal(lock.packages['node_modules/zod'].version, '4.6.6');
   for (const [name, version] of [['proxy-addr', '2.0.8'], ['compression', '1.8.2']]) {
     assert.equal(lock.packages[`node_modules/${name}`].version, version);
     assert.equal(require(`${name}/package.json`).version, version);
@@ -53,6 +54,33 @@ test('all installed JSON parser packages resolve the patched upstream or local a
     const otherLock = JSON.parse(fs.readFileSync(path.join(dir, 'package-lock.json')));
     assert.ok(!Object.keys(otherLock.packages).some(key => /stream-json/.test(key)),
       'The parser adapter must remain confined to Firebase CLI tooling');
+  }
+});
+
+test('Express 4 and 5 resolve their patched Body Parser major and parse bounded bodies', async () => {
+  const populations = [
+    [path.join(root, 'functions'), 'node_modules/express', '4.22.1', '1.20.9'],
+    [cliRoot, 'node_modules/express', '4.22.2', '1.20.9'],
+    [cliRoot, 'node_modules/@modelcontextprotocol/sdk/node_modules/express', '5.2.1', '2.4.0'],
+  ];
+  for (const [base, relative, expressVersion, parserVersion] of populations) {
+    const expressPackage = path.join(base, relative, 'package.json');
+    const expressRequire = createRequire(expressPackage);
+    assert.equal(JSON.parse(fs.readFileSync(expressPackage)).version, expressVersion);
+    assert.equal(expressRequire('body-parser/package.json').version, parserVersion,
+      `${relative} must resolve its own compatible Body Parser major`);
+    const bodyParser = expressRequire('body-parser');
+    async function parse(type, body, middleware) {
+      const request = Readable.from([Buffer.from(body)]);
+      request.headers = {'content-type': type, 'content-length': String(Buffer.byteLength(body))};
+      request.method = 'POST';
+      await new Promise((resolve, reject) => middleware(request, {}, error => error ? reject(error) : resolve()));
+      return request.body;
+    }
+    assert.deepEqual(await parse('application/json', '{"active":true}', bodyParser.json()), {active: true});
+    assert.deepEqual(await parse('application/x-www-form-urlencoded', 'user[name]=test&enabled=true',
+      bodyParser.urlencoded({extended: true})), {user: {name: 'test'}, enabled: 'true'});
+    await assert.rejects(parse('application/json', '{', bodyParser.json()), {status: 400});
   }
 });
 

@@ -41,9 +41,9 @@
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.0",
     "brace-expansion": "file:../tooling/brace-expansion-compat",
+    "braces": "file:../tooling/braces-depth-guard",
     "jest": "^29.7.0",
-    "typescript": "^5.9.3",
-    "braces": "file:../tooling/braces-depth-guard"
+    "typescript": "^5.9.3"
   },
   "overrides": {
     "qs": "6.16.0",
@@ -53,6 +53,7 @@
     "js-yaml": "4.3.2",
     "brace-expansion": "$brace-expansion",
     "braces": "$braces",
-    "proxy-addr": "2.0.8"
+    "proxy-addr": "2.0.8",
+    "body-parser": "1.20.9"
   }
 }

@@ -16,7 +16,9 @@ DOCUMENTS = (ROOT_MANIFEST, "package-lock.json", FUNCTIONS, FUNCTIONS.replace("p
              CLI, CLI.replace("package.json", "package-lock.json"), ADAPTER)
 REGISTRY_ROWS = ((ROOT_MANIFEST, "js-yaml"), (FUNCTIONS, "js-yaml"), (CLI, "js-yaml"),
                  (FUNCTIONS, "proxy-addr"), (CLI, "proxy-addr"),
-                 (CLI, "compression"), (CLI, "stream-json-modern"))
+                 (CLI, "compression"), (CLI, "stream-json-modern"),
+                 (FUNCTIONS, "body-parser"), (CLI, "body-parser"),
+                 *((CLI, name) for name in ("fast-uri", "ip-address", "undici", "zod", "qs")))
 ALL_ROWS = (*REGISTRY_ROWS, (CLI, "stream-json"))
 
 
@@ -62,7 +64,9 @@ class GuardCases:
     def test_missing_or_changed_manifest_overrides_refuse(self):
         for manifest, name in ((ROOT_MANIFEST, "js-yaml"), (FUNCTIONS, "js-yaml"),
                                (CLI, "js-yaml"), (FUNCTIONS, "proxy-addr"), (CLI, "proxy-addr"),
-                               (CLI, "compression"), (CLI, "stream-json")):
+                               (CLI, "compression"), (CLI, "stream-json"), (FUNCTIONS, "body-parser"),
+                               (CLI, "body-parser@^1"), (CLI, "body-parser@^2"),
+                               *((CLI, name) for name in ("fast-uri", "ip-address", "undici", "zod", "qs"))):
             for mutation in ("missing", "changed"):
                 with self.subTest(manifest=manifest, package=name, mutation=mutation):
                     self.reset()
@@ -115,7 +119,9 @@ class GuardCases:
 
     def test_stale_nested_copy_cannot_hide_behind_current_top_level(self):
         old_versions = {"js-yaml": "3.15.2", "proxy-addr": "2.0.7", "compression": "1.8.1",
-                        "stream-json": "3.5.0", "stream-json-modern": "3.5.0"}
+                        "stream-json": "3.5.0", "stream-json-modern": "3.5.0",
+                        "body-parser": "1.20.6", "fast-uri": "3.1.8", "ip-address": "10.7.1",
+                        "undici": "8.10.2", "zod": "4.4.3", "qs": "6.16.0"}
         for manifest, name in ALL_ROWS:
             with self.subTest(manifest=manifest, package=name):
                 self.reset()
@@ -164,6 +170,23 @@ class GuardCases:
                     self.row(CLI, "stream-json-modern")["name"] = "different-package"
                 else:
                     self.documents[CLI]["dependencies"]["stream-json"] = "3.6.0"
+                self.assertFalse(self.guard())
+
+    def test_cli_body_parser_requires_both_compatible_patched_majors(self):
+        for mutation in ("global-override", "wrong-v2-version", "wrong-v2-origin", "wrong-v2-integrity", "missing-v2"):
+            with self.subTest(mutation=mutation):
+                self.reset()
+                packages = self.packages(CLI)
+                v2_key = next(key for key, entry in packages.items()
+                              if key.endswith("node_modules/body-parser") and entry["version"] == "2.4.0")
+                if mutation == "global-override":
+                    self.documents[CLI]["overrides"]["body-parser"] = "1.20.9"
+                elif mutation == "missing-v2":
+                    del packages[v2_key]
+                else:
+                    field = {"wrong-v2-version": "version", "wrong-v2-origin": "resolved",
+                             "wrong-v2-integrity": "integrity"}[mutation]
+                    packages[v2_key][field] = "unreviewed"
                 self.assertFalse(self.guard())
 
     def test_matching_nested_copies_and_unrelated_packages_remain_valid(self):

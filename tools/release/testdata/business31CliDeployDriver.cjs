@@ -27,7 +27,7 @@ function environment(scratch) {
     NO_UPDATE_NOTIFIER: "1", FIREBASE_CLI_DISABLE_UPDATE_CHECK: "true" };
 }
 function createRun(mode) {
-  assert(["prepare-entry", "pre-release"].includes(mode));
+  assert(["prepare-entry", "pre-release", "credential-refresh"].includes(mode));
   const root = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "b31-cli-" + mode + "-"));
   const repo = path.resolve(__dirname, "../../..");
   const firebaseConfigurationPath = path.join(repo, "firebase.json");
@@ -69,7 +69,7 @@ function createRun(mode) {
   const cohorts = structuredClone(execution.EXPECTED_COHORTS);
   write(path.join(root, "RUN.json"), { mode, runtime, node: { path: process.execPath, sha256: nodeSha256 },
     cohorts, sourceFirebaseConfiguration, functionsConfiguration, sourceRuntimeIdentityPolicy,
-    childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: 3,
+    childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: mode === "credential-refresh" ? 5 : 3,
     controllerInvoked: false, fullControllerRehearsalClaimed: false, noProductionAuthority: true });
   return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts, sourceFirebaseConfiguration, functionsConfiguration,
     sourceRuntimeIdentityPolicy, runtimeIdentityPolicy };
@@ -88,19 +88,20 @@ function syntheticProject(source, fleet, functionsConfiguration) {
   write(path.join(project, "functions/functions.yaml"), fleet.manifest);
   return project;
 }
-function runSample(run, phase, fleetVariant = "existing-fleet") {
+function runSample(run, phase, fleetVariant = "existing-fleet", credentialScenario = null) {
   assert(execution.PHASES.includes(phase));
   assert(fleetFixture.VARIANTS.includes(fleetVariant));
   assert(run.mode === "pre-release" || fleetVariant === "existing-fleet");
+  assert(run.mode === "credential-refresh" ? ["expired", "refresh-margin", "later-phase", "failed-refresh"].includes(credentialScenario) : credentialScenario === null);
   const fleet = fleetFixture.createFleetFixture(run.cohorts, run.runtimeIdentityPolicy, fleetVariant);
-  const root = path.join(run.root, phase + (fleetVariant === "existing-fleet" ? "" : "-" + fleetVariant));
+  const root = path.join(run.root, phase + (fleetVariant === "existing-fleet" ? "" : "-" + fleetVariant) + (credentialScenario ? "-" + credentialScenario : ""));
   fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
-  for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs",
+  for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs", "backendRuntimeClosure31.cjs",
     "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
-  for (const name of ["business31CliDeployFixture.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
+  for (const name of ["business31CliDeployFixture.cjs", "business31CliCredentialWire.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
     fs.copyFileSync(path.join(__dirname, name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   assert.equal(sha(fs.readFileSync(path.join(source, "business31CaptureBootstrap.cjs"))),
@@ -117,6 +118,7 @@ function runSample(run, phase, fleetVariant = "existing-fleet") {
     fleet, sourceRuntimeIdentityPolicy: run.sourceRuntimeIdentityPolicy,
     functionsConfiguration: run.functionsConfiguration, sourceFirebaseConfiguration: run.sourceFirebaseConfiguration,
     names: plan.functionNames, cohorts: run.cohorts, cliArguments,
+    credentialScenario,
     permissionRoutes: [
       "POST https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":testIamPermissions",
       "POST https://iam.googleapis.com/v1/projects/" + PROJECT + "/serviceAccounts/" + PROJECT + "@appspot.gserviceaccount.com:testIamPermissions"

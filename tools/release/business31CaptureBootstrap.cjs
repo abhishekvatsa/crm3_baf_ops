@@ -79,14 +79,15 @@ function regular(file, directory = false) {
 }
 function exact(value, keys, label) { need(value && typeof value === "object" && !Array.isArray(value) && same(Object.keys(value).sort(), [...keys].sort()), label + " fields differ"); }
 function readJson(file, hash) { file = regular(file); const st = fs.statSync(file); need(st.size <= 8 * 1024 * 1024, "request bound exceeded"); const bytes = fs.readFileSync(file); need(sha(bytes) === hash, "request bytes differ"); return JSON.parse(new TextDecoder("utf8", { fatal: true }).decode(bytes)); }
-function sourceMap(root) { const result = {}; let directories = 0; function walk(dir) { need(++directories <= 100000, "source directory bound exceeded"); for (const name of fs.readdirSync(dir).sort()) {
+function sourceMap(root) { const result = {}; let directories = 0, files = 0; function walk(dir) { need(++directories <= 100000, "source directory bound exceeded"); for (const name of fs.readdirSync(dir).sort()) {
     const file = path.join(dir, name), st = fs.lstatSync(file);
     need(!st.isSymbolicLink(), "source redirect refused");
     if (st.isDirectory())
         walk(file);
     else {
-        need(st.isFile() && Object.keys(result).length < 50000, "source file bound exceeded");
+        need(st.isFile() && files < 50000, "source file bound exceeded");
         Object.defineProperty(result, path.relative(root, file).split(path.sep).join("/"), { value: sha(fs.readFileSync(regular(file))), enumerable: true });
+        files++;
     }
 } } walk(root); return result; }
 function createPopulation(root, bindings) {
