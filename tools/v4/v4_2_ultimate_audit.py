@@ -41,6 +41,38 @@ def http_and_json_dependency_pins_match() -> bool:
             and entry.get("integrity") == integrity for entry in copies
         )
 
+    # Keep Express 4 and Express 5 on their compatible, patched parser majors.
+    body_parser_pins = {
+        "1.20.9": "sha512-FISIQxV5u91Y9gvuFq3q/tA/qTqLJn3AhRcEvyozyhJTh5OBFFtv827AdHU7Rbyct4r+Ba1/99oFa1Y3yuFsdw==",
+        "2.4.0": "sha512-Ifk1KcLrxaGt1occQagQNFNNOqRt1LFuehEnHHzB8Z6cRgIxRU1TBaiIsUiCdA+gy5PL7Y1IX31DNKkRmxtXjQ==",
+    }
+    if not registry_copies("functions/package.json", "body-parser", "1.20.9", body_parser_pins["1.20.9"]):
+        return False
+    cli_package = data("tooling/firebase-cli/package.json")
+    cli_overrides = cli_package.get("overrides", {})
+    cli_packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
+    if (not isinstance(cli_packages, dict) or "body-parser" in cli_overrides
+            or cli_overrides.get("body-parser@^1") != "1.20.9"
+            or cli_overrides.get("body-parser@^2") != "2.4.0"):
+        return False
+    body_copies = [entry for key, entry in cli_packages.items()
+                   if key == "node_modules/body-parser" or key.endswith("/node_modules/body-parser")]
+    if (not all(isinstance(entry, dict) for entry in body_copies)
+            or {entry.get("version") for entry in body_copies} != set(body_parser_pins)
+            or not all(entry.get("integrity") == body_parser_pins[entry["version"]]
+                       and entry.get("resolved") == f"https://registry.npmjs.org/body-parser/-/body-parser-{entry['version']}.tgz"
+                       for entry in body_copies)):
+        return False
+    cli_registry_pins = (
+        ("fast-uri", "3.1.9", "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="),
+        ("ip-address", "10.7.4", "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="),
+        ("undici", "8.12.2", "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="),
+        ("zod", "4.6.6", "sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA=="),
+        ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg=="),
+    )
+    if not all(registry_copies("tooling/firebase-cli/package.json", *pin) for pin in cli_registry_pins):
+        return False
+
     yaml_integrity = "sha512-SFNOvSJ+Dgf/9An904Yx+CgSlIPCkIpao4qo51lpee25TIRejdH3rhR4EZMGoNx3/TP3O+wzWuiTFl4sqbltzA=="
     if (data("package.json").get("devDependencies", {}).get("js-yaml") != "4.3.2"
             or not all(registry_copies(manifest, "js-yaml", "4.3.2", yaml_integrity)
@@ -66,22 +98,22 @@ def http_and_json_dependency_pins_match() -> bool:
     if (not isinstance(packages, dict)
             or package.get("dependencies", {}).get("stream-json") != "file:../stream-json-compat"
             or package.get("overrides", {}).get("stream-json") != "$stream-json"
-            or adapter.get("name") != "stream-json" or adapter.get("version") != "3.6.0"
-            or adapter.get("dependencies", {}).get("stream-json-modern") != "npm:stream-json@3.6.0"):
+            or adapter.get("name") != "stream-json" or adapter.get("version") != "3.7.0"
+            or adapter.get("dependencies", {}).get("stream-json-modern") != "npm:stream-json@3.7.0"):
         return False
     local = [entry for key, entry in packages.items()
              if key == "node_modules/stream-json" or key.endswith("/node_modules/stream-json")]
     upstream = [entry for key, entry in packages.items()
                 if key == "node_modules/stream-json-modern" or key.endswith("/node_modules/stream-json-modern")]
     return bool(local) and bool(upstream) and all(
-        isinstance(entry, dict) and entry.get("version") == "3.6.0"
+        isinstance(entry, dict) and entry.get("version") == "3.7.0"
         and entry.get("resolved") == "file:../stream-json-compat"
-        and entry.get("dependencies", {}).get("stream-json-modern") == "npm:stream-json@3.6.0"
+        and entry.get("dependencies", {}).get("stream-json-modern") == "npm:stream-json@3.7.0"
         for entry in local
     ) and all(
-        isinstance(entry, dict) and entry.get("name") == "stream-json" and entry.get("version") == "3.6.0"
-        and entry.get("resolved") == "https://registry.npmjs.org/stream-json/-/stream-json-3.6.0.tgz"
-        and entry.get("integrity") == "sha512-NiJdqxKyau579z/E8vfqcjWfSDWxW/AT99javFXdPXF147Z5za85LRXSHEmSX9TKOakB7gaIccfD0fOIctb7KQ=="
+        isinstance(entry, dict) and entry.get("name") == "stream-json" and entry.get("version") == "3.7.0"
+        and entry.get("resolved") == "https://registry.npmjs.org/stream-json/-/stream-json-3.7.0.tgz"
+        and entry.get("integrity") == "sha512-rCSBdcBP/bPk6T8QFcxAj1MSzAuc5i49cYW6IE7sYObNEPccBJIUiL6fU9c9BWt40aJK0siVynLX7lWaW8alXw=="
         for entry in upstream
     )
 
@@ -318,7 +350,7 @@ check(
     "Application and Functions lockfiles contain remediated dependency versions",
     root_versions["protobufjs"] == "7.6.5"
     and functions_versions["protobufjs"] == "7.6.5"
-    and functions_versions["body-parser"] == "1.20.6"
+    and functions_versions["body-parser"] == "1.20.9"
     and root_versions["brace-expansion"] == "5.0.12"
     and functions_versions["brace-expansion"] == "5.0.12"
     and root_versions["js-yaml"] == "4.3.2"
@@ -336,17 +368,17 @@ check(
     "Governed Firebase CLI lockfile is separately remediated",
     basic_ftp_pin_matches()
     and tooling_versions["protobufjs"] == "7.6.5"
-    and tooling_versions["body-parser"] == "1.20.6"
+    and tooling_versions["body-parser"] == "1.20.9"
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.12"
     and tooling_versions["@hono/node-server"] == "2.0.10"
-    and tooling_versions["fast-uri"] == "3.1.8"
+    and tooling_versions["fast-uri"] == "3.1.9"
     and tooling_versions["hono"] == "4.13.11"
-    and tooling_versions["ip-address"] == "10.7.1"
+    and tooling_versions["ip-address"] == "10.7.4"
     and tooling_versions["js-yaml"] == "4.3.2"
     and tooling_versions["re2"] == "1.26.1"
     and tooling_versions["morgan"] == "1.12.1"
-    and tooling_versions["undici"] == "8.10.2",
+    and tooling_versions["undici"] == "8.12.2",
     str(tooling_versions),
 )
 check(

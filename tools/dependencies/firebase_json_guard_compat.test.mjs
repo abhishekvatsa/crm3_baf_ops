@@ -160,7 +160,7 @@ test('five JSON adapters cold-import and all 14 factories retain strict format r
     const modernRoot = path.resolve(path.dirname(modernEntry), '..');
     const modernPackage = JSON.parse(fs.readFileSync(path.join(modernRoot, 'package.json'), 'utf8'));
     assert.equal(modernPackage.name, 'stream-json');
-    assert.equal(modernPackage.version, '3.6.0');
+    assert.equal(modernPackage.version, '3.7.0');
     assert.equal(modernPackage.type, 'module');
     const upstreamBefore = scan(modernRoot);
     const upstreamCopy = path.join(cliPopulation, 'stream-json-modern');
