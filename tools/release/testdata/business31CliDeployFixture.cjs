@@ -22,7 +22,8 @@ async function runCase(caseId, componentData) {
   assert.equal(caseId, "installed-positive");
   assert.deepEqual(Object.keys(componentData), ["runtime"]);
   const selection = JSON.parse(fs.readFileSync(path.join(__dirname, "CASE.json"), "utf8"));
-  assert(["prepare-entry", "pre-release"].includes(selection.mode));
+  assert(["prepare-entry", "pre-release", "credential-refresh"].includes(selection.mode));
+  const realAuth = selection.mode === "credential-refresh", fullPrepare = selection.mode !== "prepare-entry";
   assert(["callables", "events", "fleet"].includes(selection.phase));
   assert.equal(selection.fleet.synthetic, true);
   assert.equal(selection.fleet.currentProductionStateClaimed, false);
@@ -43,7 +44,7 @@ async function runCase(caseId, componentData) {
   const safety = require("./business31CliOfflineFence.cjs").installOfflineFence({
     scratch, source: __dirname, cliRoot, readFiles: [runtime.cliFileBindings.path, process.execPath], event
   });
-  let lease, api, prepare, release, prepareDescriptor, releaseDescriptor, prepareWrapper, releaseWrapper;
+  let lease, api, prepare, release, prepareDescriptor, releaseDescriptor, prepareWrapper, releaseWrapper, credentialWire;
   let requestDescriptor, requestWrapper, networkSlots = [], finishRegistered = false;
   const registerFinish = () => { if (!finishRegistered) { finishRegistered = true; process.once("exit", finish); } };
   const ownedSlots = [];
@@ -83,10 +84,16 @@ async function runCase(caseId, componentData) {
   function cleanup() {
     if (cleanupDone) return;
     cleanupDone = true;
+    if (credentialWire) {
+      try { credentialWire.assertComplete(); }
+      catch (caught) { error("CREDENTIAL_ASSERTION_ERROR", caught); process.exitCode = 1; }
+    }
     try {
+      if (credentialWire) credentialWire.restore();
       for (const { object, key, before, owned } of [...ownedSlots].reverse()) {
         assert(isDeepStrictEqual(Object.getOwnPropertyDescriptor(object, key), owned), "foreign fixture hook retained: " + key);
-        Object.defineProperty(object, key, before);
+        if (before) Object.defineProperty(object, key, before);
+        else delete object[key];
       }
       if (prepare) {
         assert.equal(prepare.prepare, prepareWrapper, "foreign prepare hook retained");
@@ -125,7 +132,9 @@ async function runCase(caseId, componentData) {
     const { configstore } = require(path.join(lib, "configstore.js"));
     assert.equal(path.resolve(configstore.path).startsWith(path.resolve(scratch) + path.sep), true);
     configstore.set("user", { email: "offline-fixture@example.invalid" });
-    configstore.set("tokens", { access_token: "NON_SECRET_OFFLINE_FIXTURE", expires_at: Date.now() + 3600000 });
+    configstore.set("tokens", realAuth
+      ? require("./business31CliCredentialWire.cjs").initialTokens(selection.credentialScenario)
+      : { access_token: "NON_SECRET_OFFLINE_FIXTURE", expires_at: Date.now() + 3600000 });
     configstore.set("usage", false);
     configstore.set("motd", { fetched: Date.now() });
     api = require(path.join(lib, "apiv2.js"));
@@ -146,14 +155,14 @@ async function runCase(caseId, componentData) {
           && isDeepStrictEqual(request.body, { permissions: ["iam.serviceAccounts.actAs"] }) && Object.keys(query).length === 0
           && isDeepStrictEqual(request.headers, {})) {
         body = { permissions: ["iam.serviceAccounts.actAs"] };
-      } else if (selection.mode === "pre-release" && method === "POST"
+      } else if (fullPrepare && method === "POST"
           && ["pubsub.googleapis.com", "eventarc.googleapis.com"].some(service => url.href === "https://serviceusage.googleapis.com/v1beta1/projects/" + NUMBER + "/services/" + service + ":generateServiceIdentity")
           && isDeepStrictEqual(request.body, {}) && Object.keys(query).length === 0
           && isDeepStrictEqual(request.headers, { "x-goog-user-project": NUMBER })) {
         const service = url.pathname.split("/").at(-1).split(":")[0];
         const bound = require("./runtimeDeploymentTransportGuard31.cjs").existingServiceIdentityBindings31(identityBaseline);
         body = { done: true, response: { "@type": "type.googleapis.com/google.api.serviceusage.v1beta1.ServiceIdentity", email: bound.emails[service] } };
-      } else if (selection.mode === "pre-release" && method === "GET" && request.body === undefined) {
+      } else if (fullPrepare && method === "GET" && request.body === undefined) {
         // Finite synthetic control reads. The real guard runs outside this fixture first.
         const enabledServices = [
           ...["cloudresourcemanager.googleapis.com", "cloudfunctions.googleapis.com", "runtimeconfig.googleapis.com",
@@ -185,7 +194,13 @@ async function runCase(caseId, componentData) {
       state.fixtureCalls.push(row); event({ kind: "FIXTURE_RESPONSE", ...row });
       return { status: 200, body, headers: {} };
     };
-    Object.defineProperty(api.Client.prototype, "request", { ...requestDescriptor, value: requestWrapper });
+    if (realAuth) {
+      credentialWire = require("./business31CliCredentialWire.cjs").install({
+        selection, lib, configstore, event, state, retainOwned, respond: requestWrapper
+      });
+      // Only the physical HTTPS transport is faked; Client.request/auth/prepare stay original.
+      requestWrapper = requestDescriptor.value;
+    } else Object.defineProperty(api.Client.prototype, "request", { ...requestDescriptor, value: requestWrapper });
     prepare = require(path.join(lib, "deploy/functions/prepare.js"));
     prepareDescriptor = Object.getOwnPropertyDescriptor(prepare, "prepare");
     assert(prepareDescriptor && typeof prepareDescriptor.value === "function");
@@ -204,10 +219,11 @@ async function runCase(caseId, componentData) {
       assert.equal(Object.hasOwn(options.config.src.functions[0], "runtime"), false);
       assert.equal(options.config.src.hosting, undefined);
       assert.equal(options.user.email, "offline-fixture@example.invalid");
-      assert.equal(options.tokens.access_token, "NON_SECRET_OFFLINE_FIXTURE");
+      if (credentialWire) credentialWire.enterPrepare(options);
+      else assert.equal(options.tokens.access_token, "NON_SECRET_OFFLINE_FIXTURE");
       assert.deepEqual(process.argv, [process.execPath, runtime.cliEntrypoint, ...selection.cliArguments]);
       assert.deepEqual(state.fixtureCalls.slice(0, 2).map(call => call.key), selection.permissionRoutes);
-      event({ kind: "PREPARE_ENTRY", phase: selection.phase, names: selection.names, originalBodyInvoked: selection.mode === "pre-release",
+      event({ kind: "PREPARE_ENTRY", phase: selection.phase, names: selection.names, originalBodyInvoked: fullPrepare,
         config: options.config.src, project: options.project, nonInteractive: options.nonInteractive, only: options.only });
       if (selection.mode === "prepare-entry") {
         state.sentinel = STOP_PREPARE; event({ kind: "EXPECTED_STOP", marker: STOP_PREPARE });
@@ -225,10 +241,13 @@ async function runCase(caseId, componentData) {
           backends: Object.entries(payload.functions).map(([codebase, value]) => ({
             codebase, want: endpoints(value.wantBackend), have: endpoints(value.haveBackend) })) });
         return result;
-      } catch (caught) { error("ORIGINAL_PREPARE_ERROR", caught); throw caught; }
+      } catch (caught) {
+        if (!credentialWire?.isExpectedStop(caught)) error("ORIGINAL_PREPARE_ERROR", caught);
+        throw caught;
+      }
     };
     Object.defineProperty(prepare, "prepare", { ...prepareDescriptor, value: prepareWrapper });
-    if (selection.mode === "pre-release") {
+    if (fullPrepare) {
       release = require(path.join(lib, "deploy/functions/release/index.js"));
       releaseDescriptor = Object.getOwnPropertyDescriptor(release, "release");
       assert(releaseDescriptor && typeof releaseDescriptor.value === "function");
@@ -245,6 +264,7 @@ async function runCase(caseId, componentData) {
         baselineFunctions: Object.fromEntries(selection.fleet.existingFunctions.map(fn => [fn.name.split("/").at(-1), fn])),
         projectNumber: NUMBER, serviceIdentityBaseline: identityBaseline
       });
+      if (credentialWire) credentialWire.bindGuard(guard);
       // Diagnostic wrapper retains the original predicate and never converts a refusal to a response.
       const originalBefore = guard.before;
       guard.before = function (...args) {
@@ -264,17 +284,25 @@ async function runCase(caseId, componentData) {
       neutral.installNetworkBoundary31(guard);
       networkSlots.forEach(([object, key], i) => ownedSlots.push({ object, key, before: previous[i], owned: Object.getOwnPropertyDescriptor(object, key) }));
       retainOwned(api.Client.prototype, "request", () => neutral.installApiBoundary31(api.Client, guard,
-        operation => require("./business31ServiceIdentityCapture.cjs").admitServiceIdentity31(operation, {
+        operation => {
+          if (credentialWire && operation.kind !== "existing-service-identity") return credentialWire.beforeUpload(operation);
+          return require("./business31ServiceIdentityCapture.cjs").admitServiceIdentity31(operation, {
           currentControls: { fixtureOnly: true },
           verifyControls: () => { assert.deepEqual(neutral.existingServiceIdentityBindings31(identityBaseline).projectNumber, NUMBER); },
           assertClean: () => verifyProjectFixtures(),
           assertWindow: () => { event({ kind: "SYNTHETIC_EXISTING_IDENTITY_ADMISSION", service: operation.service,
             fixtureOnly: true, productionControllerControlsOrWindowVerified: false }); }
-        })));
+          });
+        }));
       event({ kind: "REAL_UNPREPARED_TRANSPORT_GUARD_INSTALLED", preparedComparisonFabricated: false });
     }
     lease.assertHealthy();
     process.chdir(selection.project);
+    if (credentialWire?.failureCase) {
+      registerFinish();
+      await credentialWire.runFailure();
+      return await new Promise(() => {});
+    }
     process.argv = [process.execPath, runtime.cliEntrypoint, ...selection.cliArguments];
     event({ kind: "REAL_CLI_ENTRY_START", arguments: selection.cliArguments, mode: selection.mode, phase: selection.phase });
     require(runtime.cliEntrypoint);
