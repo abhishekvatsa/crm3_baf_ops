@@ -33,6 +33,9 @@ PROC_THREAD_ATTRIBUTE_HANDLE_LIST = 0x20002
 PROC_THREAD_ATTRIBUTE_JOB_LIST = 0x2000D
 STARTF_USESTDHANDLES = 0x100
 TERMINATION_CODE = 0xE0310001
+# An exited command does not authorize detached work to occupy its owned job.
+# Allow ordinary final child/output draining, then fail and clean only this job.
+ROOT_EXIT_GRACE_SECONDS = 2.0
 
 
 class SECURITY_ATTRIBUTES(C.Structure):
@@ -158,6 +161,10 @@ def _exited(process):
     if status not in (WAIT_OBJECT_0, WAIT_TIMEOUT):
         raise OSError(C.get_last_error(), "wait owned process")
     return status == WAIT_OBJECT_0
+
+
+def _root_exit_grace_expired(root_exited, active_processes, now, root_exit_deadline):
+    return root_exited and active_processes != 0 and now >= root_exit_deadline
 
 
 def run_owned_process(*, executable, arguments, cwd, environment, output_directory,
@@ -329,16 +336,25 @@ def run_owned_process(*, executable, arguments, cwd, environment, output_directo
                 raise OSError(C.get_last_error(), "resume owned child")
             result["resumed"], result["resumedAtUtc"] = True, _utc()
             close_owned(thread)
+            root_exit_deadline = None
             while True:
                 result["rootExited"], result["activeProcesses"] = _exited(process), _active(job)
+                now = time.monotonic()
+                if result["rootExited"] and root_exit_deadline is None:
+                    root_exit_deadline = now + ROOT_EXIT_GRACE_SECONDS
+                    code = W.DWORD()
+                    _check(_exit_code(process, C.byref(code)), "read exited root code")
+                    result["exitCode"] = int(code.value)
                 if reader_error.is_set():
                     result["failure"] = "output-persistence-or-read-failed"
                 elif overflow.is_set():
                     result["failure"] = "output-bound-exceeded"
                 elif cancellation is not None and cancellation.is_set():
                     result["failure"] = "cancelled"
-                elif time.monotonic() >= deadline:
+                elif now >= deadline:
                     result["failure"] = "timeout"
+                elif _root_exit_grace_expired(result["rootExited"], result["activeProcesses"], now, root_exit_deadline):
+                    result["failure"] = "root-exited-with-live-descendants"
                 if result["failure"]:
                     break
                 if result["rootExited"] and result["activeProcesses"] == 0 and all(not r.is_alive() for r in readers):
@@ -370,7 +386,10 @@ def run_owned_process(*, executable, arguments, cwd, environment, output_directo
                     time.sleep(0.01)
                 code = W.DWORD()
                 _check(_exit_code(process, C.byref(code)), "read root exit")
-                result["exitCode"] = int(code.value)
+                if result["exitCode"] is None:
+                    result["exitCode"] = int(code.value)
+                elif result["exitCode"] != int(code.value):
+                    raise RuntimeError("Observed exited root code changed during owned cleanup")
                 result["treeComplete"] = result["rootExited"] and result["jobAssigned"] and result["activeProcesses"] == 0
         except BaseException as error:
             result["cleanupErrors"].append({"operation": "owned-tree-cleanup", "detail": str(error)})

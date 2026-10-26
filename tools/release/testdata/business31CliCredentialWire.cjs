@@ -10,10 +10,10 @@ const CANARIES = [INITIAL, REFRESH, RENEWED, CLIENT_SECRET];
 const PROJECT = "crm3-baf-ops-b8638";
 const SIGNED = "https://storage.googleapis.com/offline-credential-fixture/source.zip?Signature=synthetic";
 const digest = (raw, algorithm = "sha256") => crypto.createHash(algorithm).update(raw).digest("hex");
-function initialTokens(scenario) {
+function initialTokens(scenario, now = Date.now()) {
   assert(["expired", "refresh-margin", "later-phase", "failed-refresh"].includes(scenario));
   const lifetime = scenario === "later-phase" ? 3600000 : scenario === "refresh-margin" ? 14 * 60000 : -60000;
-  return { access_token: INITIAL, refresh_token: REFRESH, expires_at: Date.now() + lifetime, scopes: [] };
+  return { access_token: INITIAL, refresh_token: REFRESH, expires_at: now + lifetime, scopes: [] };
 }
 function install({ selection, lib, configstore, event, state, retainOwned, respond }) {
   const transport = require("./runtimeDeploymentTransportGuard31.cjs");
@@ -23,7 +23,7 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
   const loggerModule = require(path.join(lib, "logger.js"));
   loggerModule.useFileLogger(path.join(selection.scratch, "credential-debug.log"));
   let loggerLease;
-  const initialRemainingMs = configstore.get("tokens").expires_at - Date.now();
+  const initialRemainingMs = configstore.get("tokens").expires_at - selection.fixtureNow;
   if (selection.credentialScenario === "expired" || failureCase) assert(initialRemainingMs < 0);
   if (selection.credentialScenario === "refresh-margin") assert(initialRemainingMs > 0 && initialRemainingMs < 15 * 60000);
   if (selection.credentialScenario === "later-phase") assert(initialRemainingMs > 15 * 60000);
@@ -36,12 +36,13 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
   fs.mkdirSync(bin);
   const npm = path.join(bin, process.platform === "win32" ? "npm.exe" : "npm");
   fs.writeFileSync(npm, "", { flag: "wx", mode: 0o700 });
-  retainOwned(process.env, "PATH", () => { process.env.PATH = bin; });
+  const selectedPath = bin + path.delimiter + path.dirname(process.execPath);
+  retainOwned(process.env, "PATH", () => { process.env.PATH = selectedPath; });
   let advisoryCalls = 0;
   retainOwned(cp, "spawnSync", () => {
     cp.spawnSync = function (command, args, options) {
       if (command !== npm && command !== "npm") return fencedSpawnSync.apply(this, arguments);
-      assert.equal(process.env.PATH, bin);
+      assert.equal(process.env.PATH, selectedPath);
       assert.equal(fs.readFileSync(npm).length, 0);
       assert.deepEqual(args, ["show", "firebase-functions", "--json=true"]);
       assert.deepEqual(Object.keys(options).sort(), ["encoding", "timeout"]);
@@ -53,10 +54,9 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
       return { status: 0, signal: null, pid: 0, output: [null, stdout, ""], stdout, stderr: "" };
     };
   });
-  let guard, refreshes = 0, uploads = 0, hashes = 0, archive, enterRefreshCount = null, authenticatedCallsAfterRefresh = 0;
-  const originalNow = Date.now;
+  let guard, refreshes = 0, uploads = 0, hashes = 0, archive, enterRefreshCount = null, authenticatedCallsAfterRefresh = 0, motdRequests = 0;
   let clockOffset = 0;
-  retainOwned(Date, "now", () => { Date.now = () => originalNow() + clockOffset; });
+  retainOwned(Date, "now", () => { Date.now = () => selection.fixtureNow + clockOffset; });
   // Independently bound source inventory, before real CLI packaging/hash execution.
   const inventory = {};
   for (const name of Object.keys(selection.projectFiles).sort()) {
@@ -64,7 +64,7 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
     const raw = fs.readFileSync(path.join(selection.project, name));
     inventory[name.slice("functions/".length)] = { sha256: digest(raw).toUpperCase(), bytes: raw.length };
   }
-  assert.deepEqual(Object.keys(inventory).sort(), ["functions.yaml", "index.js", "package.json"]);
+  assert.deepEqual(Object.keys(inventory).sort(), selection.dynamicDiscovery ? ["index.js", "package.json"] : ["functions.yaml", "index.js", "package.json"]);
   const expectedSourceHash = digest(Object.keys(inventory).map(name =>
     digest(fs.readFileSync(path.join(selection.project, "functions", name)), "sha1")).sort().join(""), "sha1");
   const apply = require(path.join(lib, "deploy/functions/cache/applyHash.js"));
@@ -108,7 +108,11 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
         final(done) {
           (async () => {
             const raw = Buffer.concat(chunks), url = effective.url, method = effective.method;
-            if (url.href !== "https://www.googleapis.com/oauth2/v3/token" && url.href !== SIGNED) {
+            const motd = url.href === "https://firebase-public.firebaseio.com/cli.json";
+            if (motd) {
+              assert.equal(method, "GET"); assert.equal(raw.length, 0);
+              assert.equal(headerMap.has("authorization"), false); assert.equal(headerMap.has("cookie"), false);
+            } else if (url.href !== "https://www.googleapis.com/oauth2/v3/token" && url.href !== SIGNED) {
               const authorization = String(headerMap.get("authorization"));
               assert(authorization === "Bearer " + (refreshes ? RENEWED : INITIAL), "physical API request did not use the selected synthetic access token");
               if (refreshes) authenticatedCallsAfterRefresh++;
@@ -125,6 +129,13 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
               body = { access_token: RENEWED, token_type: "Bearer", expires_in: 3600 };
               event({ kind: "OFFLINE_CREDENTIAL_TRANSPORT", method, host: url.hostname, path: url.pathname, status: failureCase ? null : 200 });
               if (failureCase) throw Error("SYNTHETIC_CREDENTIAL_TRANSPORT_FAILURE");
+            } else if (motd) {
+              assert.equal(++motdRequests, 1);
+              event({ kind: "OFFLINE_MOTD_TRANSPORT", method, host: url.hostname, path: url.pathname,
+                status: selection.initializationScenario === "motd-failure" ? null : 200, authenticated: false, bodyless: true });
+              if (selection.initializationScenario === "motd-failure") throw Error("SYNTHETIC_MOTD_TRANSPORT_FAILURE");
+              if (selection.initializationScenario === "delayed-high-min-version") await new Promise(resolve => setTimeout(resolve, 2500));
+              body = { minVersion: selection.initializationScenario === "delayed-high-min-version" ? "15.22.5" : "15.22.4" };
             } else if (url.href === "https://cloudfunctions.googleapis.com/v2/projects/" + PROJECT + "/locations/asia-south1/functions:generateUploadUrl") {
               assert.equal(method, "POST"); assert.equal(raw.length, 0); assert.equal(hashes, 1);
               body = { uploadUrl: SIGNED, storageSource: { bucket: "offline-credential-fixture", object: "source.zip", generation: "1" } };
@@ -167,6 +178,14 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
   });
   return {
     failureCase,
+    beforeCliEntry() {
+      if (selection.initializationScenario === "cross-entry-warm") {
+        assert(configstore.get("motd.fetched") > Date.now() - 24 * 3600000);
+        clockOffset = 61000;
+        assert(configstore.get("motd.fetched") <= Date.now() - 24 * 3600000);
+        event({ kind: "MOTD_EXPIRED_BETWEEN_LAUNCH_AND_REAL_CLI_ENTRY", phase: selection.phase });
+      }
+    },
     bindGuard(value) {
       assert.equal(guard, undefined); guard = value;
       loggerLease = transport.installCredentialRefreshDebugBoundary31(loggerModule.logger);
@@ -204,6 +223,15 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
     isExpectedStop() { return false; },
     assertComplete() {
       if (loggerLease) loggerLease.assertOwned();
+      if (selection.initializationScenario === "min-version-too-high") {
+        assert.equal(refreshes, 0); assert.equal(hashes, 0); assert.equal(uploads, 0); assert.equal(motdRequests, 0);
+        assert.equal(advisoryCalls, 0); assert.equal(state.prepareEntries, 0); assert.equal(state.releaseEntries, 0);
+        assert.equal(state.sentinel, "BUSINESS31_OFFLINE_EXPECTED_MOTD_MIN_VERSION_STOP");
+        assert.equal(guard.events.length, 0); assert.equal(state.preIdentityRefusals, 0);
+        event({ kind: "CACHED_MOTD_MIN_VERSION_NEGATIVE_VERIFIED", phase: selection.phase,
+          realCliEntry: true, identityRequestsSent: 0, uploadRequestsSent: 0 });
+        return;
+      }
       if (failureCase) {
         assert.equal(refreshes, 1); assert.equal(hashes, 0); assert.equal(uploads, 0); assert.equal(advisoryCalls, 0);
         assert.equal(state.sentinel, "BUSINESS31_OFFLINE_EXPECTED_REFRESH_FAILURE");
@@ -214,7 +242,23 @@ function install({ selection, lib, configstore, event, state, retainOwned, respo
           realAuthFunctionsReplaced: false, realClientRequestStubbed: false, realCliEntry: false, productionAuthority: false });
         return;
       }
+      if (["motd-failure", "delayed-high-min-version"].includes(selection.initializationScenario)) {
+        assert.equal(motdRequests, 1); assert.equal(hashes, 0); assert.equal(uploads, 0);
+        assert.equal(state.originalPrepareCompleted, 0); assert.equal(state.releaseEntries, 0);
+        assert(state.preIdentityRefusals >= 1);
+        assert.equal(guard.events.filter(row => row.kind === "existing-service-identity").length, 0);
+        assert.equal(guard.events.filter(row => row.kind === "source-upload").length, 0);
+        event({ kind: "CAUGHT_MOTD_FAILURE_STOPS_BEFORE_IDENTITY_SEND", phase: selection.phase,
+          identityRequestsSent: 0, uploadRequestsSent: 0, stickyFailurePreserved: true });
+        return;
+      }
       assert.equal(refreshes, 1); assert.equal(hashes, 1); assert.equal(uploads, 1);
+      assert.equal(state.preIdentityRefusals, 0);
+      const expectedMotdRequests = selection.initializationScenario === "fresh-warm" ? 0 : 1;
+      assert.equal(motdRequests, expectedMotdRequests);
+      assert.equal(guard.events.filter(row => row.kind === "cli-motd").length, expectedMotdRequests);
+      assert.equal(guard.events.filter(row => row.kind === "discovery-shutdown-admitted").length, 1);
+      assert.equal(guard.events.filter(row => row.kind === "discovery-stopped").length, 1);
       assert.equal(advisoryCalls, 1);
       assert(authenticatedCallsAfterRefresh > 0);
       assert.notEqual(enterRefreshCount, null);

@@ -126,7 +126,9 @@ function installFreshGuard(sourceRoot, sourceFiles, phaseEntry = null) {
             cacheNames.length === 2 && Module._cache[fixedEntry] === phaseEntry && Module._cache[__filename] === module &&
             module.parent === phaseEntry, "only exact fresh CAPTURE facade/bootstrap cache permitted");
     }
-    need(same(process.execArgv, selectedOperation === null ? [] : ["--no-global-search-paths"]) &&
+    need((selectedOperation === null
+        ? same(process.execArgv, []) || same(process.execArgv, ["--no-global-search-paths"])
+        : same(process.execArgv, ["--no-global-search-paths"])) &&
         !process.env.NODE_OPTIONS && !process.env.NODE_PATH, "preloaded Node execution refused");
     const populations = [createPopulation(sourceRoot, sourceFiles)], known = new Map(), loading = new Map(), leases = [];
     need(module.loaded === true, "main module evaluation must finish before startup");

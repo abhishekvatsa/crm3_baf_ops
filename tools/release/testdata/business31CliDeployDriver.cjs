@@ -6,6 +6,7 @@ const bootstrap = require("../business31CaptureBootstrap.cjs");
 const execution = require("../backendRuntimeExecution31.cjs");
 const kernel = require("./business31CliSyntheticKernel.cjs");
 const fleetFixture = require("./business31CliFleetFixture.cjs");
+const discoveryFixture = require("./business31CliDiscoveryWire.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const PROJECT = "crm3-baf-ops-b8638";
 const STOP_PREPARE = "BUSINESS31_OFFLINE_PREPARE_ENTRY_STOP";
@@ -17,7 +18,10 @@ function write(file, value) {
 }
 function environment(scratch) {
   const env = {};
-  for (const key of ["SystemRoot", "SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT"]) {
+  const roots = [process.env.SystemRoot, process.env.SYSTEMROOT].filter(value => value !== undefined);
+  if (process.platform === "win32") assert(roots.length > 0 && roots.every(value => value && value === roots[0]), "conflicting or missing SystemRoot aliases");
+  if (roots.length) env.SystemRoot = roots[0];
+  for (const key of ["WINDIR", "COMSPEC", "PATHEXT"]) {
     if (process.env[key] !== undefined) env[key] = process.env[key];
   }
   for (const key of ["HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "CLOUDSDK_CONFIG", "TEMP", "TMP"]) {
@@ -65,16 +69,19 @@ function createRun(mode) {
   const cliEntrypoint = path.join(cliRoot, "firebase-tools/lib/bin/firebase.js");
   const runtime = { cliEntrypoint, cliFileBindings: { path: map.path, sha256: map.sha256 } };
   const nodeSha256 = sha(fs.readFileSync(process.execPath));
+  const pythonPath = process.env.BUSINESS31_CLI_PYTHON313 ?? "C:/Python313/python.exe";
+  const python = process.platform === "win32" && mode === "credential-refresh"
+    ? { path: path.resolve(pythonPath), sha256: sha(fs.readFileSync(pythonPath)) } : null;
   assert.equal(JSON.parse(fs.readFileSync(path.join(cliRoot, "firebase-tools/package.json"), "utf8")).version, "15.22.4");
   const cohorts = structuredClone(execution.EXPECTED_COHORTS);
-  write(path.join(root, "RUN.json"), { mode, runtime, node: { path: process.execPath, sha256: nodeSha256 },
+  write(path.join(root, "RUN.json"), { mode, runtime, node: { path: process.execPath, sha256: nodeSha256, version: process.version }, python,
     cohorts, sourceFirebaseConfiguration, functionsConfiguration, sourceRuntimeIdentityPolicy,
-    childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", freshSamples: mode === "credential-refresh" ? 5 : 3,
+    childTimeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", everySampleFresh: true,
     controllerInvoked: false, fullControllerRehearsalClaimed: false, noProductionAuthority: true });
   return { root, mode, runtime, files, cliRoot, nodeSha256, cohorts, sourceFirebaseConfiguration, functionsConfiguration,
-    sourceRuntimeIdentityPolicy, runtimeIdentityPolicy };
+    sourceRuntimeIdentityPolicy, runtimeIdentityPolicy, python };
 }
-function syntheticProject(source, fleet, functionsConfiguration) {
+function syntheticProject(source, fleet, functionsConfiguration, dynamicDiscovery) {
   const project = path.join(source, "project");
   write(path.join(project, "firebase.json"), { functions: structuredClone(functionsConfiguration) });
   write(path.join(project, ".firebaserc"), { projects: {} });
@@ -82,43 +89,53 @@ function syntheticProject(source, fleet, functionsConfiguration) {
     name: "business31-offline-fixture", private: true, main: "index.js", engines: { node: "22" }, dependencies: { "firebase-functions": "7.0.0" }
   });
   write(path.join(project, "functions/index.js"), 'throw Error("OFFLINE_FUNCTIONS_SOURCE_MUST_NOT_EXECUTE");\n');
-  // Discovery is a declared synthetic YAML fixture, not an SDK execution proof.
+  // The manifest remains synthetic. In faithful samples the pinned CLI must obtain it
+  // through its real HTTP discovery/finally path and a real, exact fixture child.
   write(path.join(project, "functions/node_modules/firebase-functions/package.json"), { name: "firebase-functions", version: "7.0.0", main: "index.js" });
   write(path.join(project, "functions/node_modules/firebase-functions/index.js"), 'throw Error("OFFLINE_SYNTHETIC_SDK_MUST_NOT_EXECUTE");\n');
-  write(path.join(project, "functions/functions.yaml"), fleet.manifest);
+  if (dynamicDiscovery) {
+    write(path.join(project, "functions/node_modules/.bin/firebase-functions"), discoveryFixture.SDK_TEXT);
+    write(path.join(project, "functions/node_modules/firebase-functions/discovery-manifest.json"), fleet.manifest);
+  } else write(path.join(project, "functions/functions.yaml"), fleet.manifest);
   return project;
 }
-function runSample(run, phase, fleetVariant = "existing-fleet", credentialScenario = null) {
+function runSample(run, phase, fleetVariant = "existing-fleet", credentialScenario = null, initializationScenario = null) {
   assert(execution.PHASES.includes(phase));
   assert(fleetFixture.VARIANTS.includes(fleetVariant));
   assert(run.mode === "pre-release" || fleetVariant === "existing-fleet");
   assert(run.mode === "credential-refresh" ? ["expired", "refresh-margin", "later-phase", "failed-refresh"].includes(credentialScenario) : credentialScenario === null);
+  initializationScenario ??= run.mode === "credential-refresh" && credentialScenario !== "failed-refresh" ? "stale-warm" : "fresh-warm";
+  assert(["stale-warm", "absent-cold", "exact-day-cold", "cross-entry-warm", "fresh-warm", "min-version-too-high", "motd-failure", "delayed-high-min-version"].includes(initializationScenario));
   const fleet = fleetFixture.createFleetFixture(run.cohorts, run.runtimeIdentityPolicy, fleetVariant);
-  const root = path.join(run.root, phase + (fleetVariant === "existing-fleet" ? "" : "-" + fleetVariant) + (credentialScenario ? "-" + credentialScenario : ""));
+  const root = path.join(run.root, phase + (fleetVariant === "existing-fleet" ? "" : "-" + fleetVariant) + (credentialScenario ? "-" + credentialScenario : "") + "-" + initializationScenario);
   fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
   for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs", "backendRuntimeClosure31.cjs",
     "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
-  for (const name of ["business31CliDeployFixture.cjs", "business31CliCredentialWire.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
+  if (run.python) for (const name of ["runtime_process_runner.py", "runtime_supervisor.py"])
+    fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
+  for (const name of ["business31CliDeployFixture.cjs", "business31CliCredentialWire.cjs", "business31CliDiscoveryWire.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
     fs.copyFileSync(path.join(__dirname, name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   assert.equal(sha(fs.readFileSync(path.join(source, "business31CaptureBootstrap.cjs"))),
     sha(fs.readFileSync(path.resolve(__dirname, "../business31CaptureBootstrap.cjs"))));
   write(path.join(source, "business31CaptureBootstrap.test.cjs"), '"use strict";\nmodule.exports = require("./business31CliDeployFixture.cjs");\n');
-  const project = syntheticProject(scratch, fleet, run.functionsConfiguration), projectFiles = bootstrap.sourceMap(project);
+  const dynamicDiscovery = run.mode === "credential-refresh" && credentialScenario !== "failed-refresh";
+  const project = syntheticProject(scratch, fleet, run.functionsConfiguration, dynamicDiscovery), projectFiles = bootstrap.sourceMap(project);
   const kernelMetadata = write(path.join(scratch, kernel.KERNEL_RELATIVE), kernel.KERNEL_TEXT);
   const plan = execution.fixedCohortPlan({ ok: true, proposalOnly: true, deploymentAuthorized: false,
     cohorts: run.cohorts, projectId: PROJECT, region: "asia-south1",
     runtime: { nodeExecutable: process.execPath, cliEntrypoint: run.runtime.cliEntrypoint } }, phase);
-  // The fixed bootstrap requires empty execArgv. The real CLI receives exactly the planner's deploy arguments.
+  // The faithful mode uses the controller's sole exact startup flag. Other component
+  // samples retain the legacy empty execArgv; neither route accepts arbitrary flags.
   const cliArguments = plan.arguments.slice(2);
   const selection = { mode: run.mode, phase, scratch, project, projectFiles, kernelMetadata,
     fleet, sourceRuntimeIdentityPolicy: run.sourceRuntimeIdentityPolicy,
     functionsConfiguration: run.functionsConfiguration, sourceFirebaseConfiguration: run.sourceFirebaseConfiguration,
     names: plan.functionNames, cohorts: run.cohorts, cliArguments,
-    credentialScenario,
+    credentialScenario, dynamicDiscovery, initializationScenario, fixtureNow: Date.now(),
     permissionRoutes: [
       "POST https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":testIamPermissions",
       "POST https://iam.googleapis.com/v1/projects/" + PROJECT + "/serviceAccounts/" + PROJECT + "@appspot.gserviceaccount.com:testIamPermissions"
@@ -128,17 +145,53 @@ function runSample(run, phase, fleetVariant = "existing-fleet", credentialScenar
   const request = write(path.join(root, "REQUEST.json"), { schemaVersion: 1, operation: "component-test",
     suite: "bootstrap-regressions", caseId: "installed-positive", componentData: { runtime: run.runtime },
     sourceRoot: source, sourceFiles, nodeExecutable: process.execPath, nodeSha256: run.nodeSha256, gitExecutable: null, nonOperational: true });
-  const env = environment(scratch), argv = [path.join(source, "business31CaptureBootstrap.cjs"), "--component-child", request.path, request.sha256];
+  const env = environment(scratch), argv = [...(run.mode === "credential-refresh" ? ["--no-global-search-paths"] : []),
+    path.join(source, "business31CaptureBootstrap.cjs"), "--component-child", request.path, request.sha256];
   write(path.join(root, "LAUNCH.json"), { executable: process.execPath, argv, cwd: project, environment: env,
     timeoutMs: 600000, maxBuffer: 64 * 1024 * 1024, stdin: "closed", windowsHide: true });
   const started = new Date().toISOString();
-  const native = cp.spawnSync(process.execPath, argv, { cwd: project, env, windowsHide: true,
+  let native, ownedProcess = null, ownedProcessPointer = null, ownedProcessClosureVerified = false;
+  if (run.python) {
+    assert.equal(sha(fs.readFileSync(run.python.path)), run.python.sha256);
+    const supervised = write(path.join(root, "OWNED_REQUEST.json"), {
+      schemaVersion: 1, parentPid: process.pid,
+      supervisorSha256: sha(fs.readFileSync(path.join(source, "runtime_supervisor.py"))),
+      executable: process.execPath, arguments: argv, cwd: project, environment: env,
+      outputDirectory: path.join(root, "owned-process"), timeoutSeconds: 600,
+      maxOutputBytes: 64 * 1024 * 1024, cleanupSeconds: 30
+    });
+    const runnerArgv = ["-I", "-S", "-B", path.join(source, "runtime_process_runner.py"),
+      "--python-root", path.dirname(run.python.path), supervised.path];
+    native = cp.spawnSync(run.python.path, runnerArgv, { cwd: project, env, windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"], timeout: 650000, killSignal: "SIGKILL", maxBuffer: 64 * 1024 * 1024 });
+    const runnerStdout = write(path.join(root, "runner.stdout.bin"), native.stdout ?? Buffer.alloc(0));
+    const runnerStderr = write(path.join(root, "runner.stderr.bin"), native.stderr ?? Buffer.alloc(0));
+    write(path.join(root, "RUNNER_RESULT.json"), { executable: run.python, argv: runnerArgv,
+      status: native.status, signal: native.signal, error: native.error ? { code: native.error.code, message: native.error.message } : null,
+      stdout: runnerStdout, stderr: runnerStderr, request: supervised });
+    const resultFile = path.join(root, "owned-process/result.json");
+    if (fs.existsSync(resultFile)) {
+      const bytes = fs.readFileSync(resultFile);
+      ownedProcessPointer = { path: resultFile, sha256: sha(bytes), bytes: bytes.length };
+      ownedProcess = JSON.parse(bytes);
+      assert.equal(ownedProcess.executable, process.execPath); assert.deepEqual(ownedProcess.arguments, argv);
+      assert.equal(ownedProcess.cwd, project);
+      native.stdout = fs.readFileSync(path.join(root, "owned-process/stdout.bin"));
+      native.stderr = fs.readFileSync(path.join(root, "owned-process/stderr.bin"));
+      ownedProcessClosureVerified = ownedProcess.rootExited === true && ownedProcess.jobAssigned === true
+        && ownedProcess.resumed === true && ownedProcess.treeComplete === true && ownedProcess.activeProcesses === 0
+        && ownedProcess.outputComplete === true && ownedProcess.cleanupErrors.length === 0
+        && ownedProcess.terminationRequested === false && Object.values(ownedProcess.streams).every(row => row.eof === true && row.error === null && !row.closeError);
+    }
+  } else native = cp.spawnSync(process.execPath, argv, { cwd: project, env, windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"], timeout: 600000, killSignal: "SIGKILL", maxBuffer: 64 * 1024 * 1024 });
   // Retain every native outcome before parsing or asserting anything about it.
   const stdout = write(path.join(root, "stdout.bin"), native.stdout ?? Buffer.alloc(0));
   const stderr = write(path.join(root, "stderr.bin"), native.stderr ?? Buffer.alloc(0));
   const result = { status: native.status, signal: native.signal, error: native.error ? { code: native.error.code, message: native.error.message } : null,
-    startedAtUtc: started, completedAtUtc: new Date().toISOString(), stdout, stderr, request, phase, mode: run.mode };
+    startedAtUtc: started, completedAtUtc: new Date().toISOString(), stdout, stderr, request, phase, mode: run.mode,
+    ownedProcessPointer, ownedProcess, ownedProcessClosureVerified,
+    processScope: run.python ? "actual-windows-owned-job" : "portable-direct-child-only" };
   write(path.join(root, "NATIVE_RESULT.json"), result);
   const eventsFile = path.join(scratch, "events.jsonl");
   let events = [], parseError = null;

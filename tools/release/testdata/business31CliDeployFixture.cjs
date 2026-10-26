@@ -4,6 +4,7 @@ const fs = require("node:fs"), path = require("node:path"), assert = require("no
 const crypto = require("node:crypto");
 const { isDeepStrictEqual } = require("node:util");
 const kernel = require("./business31CliSyntheticKernel.cjs");
+const discoveryPhysical = require("./business31CliDiscoveryWire.cjs");
 const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toUpperCase();
 const PROJECT = "crm3-baf-ops-b8638", NUMBER = "123456789";
 const PERMISSIONS = ["firebase.projects.get", "cloudfunctions.functions.list", "cloudfunctions.functions.create",
@@ -36,7 +37,8 @@ async function runCase(caseId, componentData) {
     if (sequence > 1024 || bytes.length > 65536 || rawWrite(fd, bytes) !== bytes.length) throw Error("OFFLINE_EVENT_BOUND_OR_WRITE");
   };
   const state = { prepareEntries: 0, originalPrepareEntries: 0, originalPrepareCompleted: 0, releaseEntries: 0,
-    fixtureCalls: [], unmatched: [], guardRejections: [], errors: [], sentinel: null, guardHealthy: false, cleanupComplete: false };
+    fixtureCalls: [], unmatched: [], guardRejections: [], errors: [], preIdentityRefusals: 0,
+    sentinel: null, guardHealthy: false, cleanupComplete: false };
   const errorView = error => ({ name: error.name, code: error.code ?? null, message: error.message, stack: error.stack });
   const error = (kind, value) => { const row = { kind, ...errorView(value) }; state.errors.push(row); event(row); };
   process.on("uncaughtExceptionMonitor", value => error("UNCAUGHT_ERROR", value));
@@ -44,7 +46,7 @@ async function runCase(caseId, componentData) {
   const safety = require("./business31CliOfflineFence.cjs").installOfflineFence({
     scratch, source: __dirname, cliRoot, readFiles: [runtime.cliFileBindings.path, process.execPath], event
   });
-  let lease, api, prepare, release, prepareDescriptor, releaseDescriptor, prepareWrapper, releaseWrapper, credentialWire;
+  let lease, api, prepare, release, prepareDescriptor, releaseDescriptor, prepareWrapper, releaseWrapper, credentialWire, discoveryWire;
   let requestDescriptor, requestWrapper, networkSlots = [], finishRegistered = false;
   const registerFinish = () => { if (!finishRegistered) { finishRegistered = true; process.once("exit", finish); } };
   const ownedSlots = [];
@@ -90,6 +92,7 @@ async function runCase(caseId, componentData) {
     }
     try {
       if (credentialWire) credentialWire.restore();
+      if (discoveryWire) { discoveryWire.assertComplete(state.prepareEntries > 0); discoveryWire.restore(); }
       for (const { object, key, before, owned } of [...ownedSlots].reverse()) {
         assert(isDeepStrictEqual(Object.getOwnPropertyDescriptor(object, key), owned), "foreign fixture hook retained: " + key);
         if (before) Object.defineProperty(object, key, before);
@@ -113,11 +116,17 @@ async function runCase(caseId, componentData) {
     } catch (caught) { error("CLEANUP_ERROR", caught); process.exitCode = 1; }
   }
   function finish(code) {
+    if (selection.initializationScenario === "min-version-too-high" && code === 1 && state.prepareEntries === 0) {
+      state.sentinel = "BUSINESS31_OFFLINE_EXPECTED_MOTD_MIN_VERSION_STOP";
+      event({ kind: "EXPECTED_MOTD_MIN_VERSION_STOP", pinnedVersion: "15.22.4", cachedMinVersion: "15.22.5",
+        identityRequestsSent: 0, uploadRequestsSent: 0 });
+    }
     cleanup();
     if (safety.denials.length || state.errors.length || state.unmatched.length || state.guardRejections.length) process.exitCode = 1;
     event({ kind: "PROCESS_EXIT", code, effectiveExitCode: process.exitCode ?? code, ...state,
       denials: safety.denials, controllerInvoked: false, controllerTraversalSucceeded: false,
-      deploymentAuthorized: false, networkForwarded: false });
+      deploymentAuthorized: false, networkForwarded: false, externalNetworkForwarded: false,
+      physicalLoopbackDiscoveryUsed: discoveryWire?.executed() ?? false });
     // Keep this descriptor open until OS closure: a later exit listener must still log a denial.
   }
   try {
@@ -133,10 +142,26 @@ async function runCase(caseId, componentData) {
     assert.equal(path.resolve(configstore.path).startsWith(path.resolve(scratch) + path.sep), true);
     configstore.set("user", { email: "offline-fixture@example.invalid" });
     configstore.set("tokens", realAuth
-      ? require("./business31CliCredentialWire.cjs").initialTokens(selection.credentialScenario)
+      ? require("./business31CliCredentialWire.cjs").initialTokens(selection.credentialScenario, selection.fixtureNow)
       : { access_token: "NON_SECRET_OFFLINE_FIXTURE", expires_at: Date.now() + 3600000 });
     configstore.set("usage", false);
-    configstore.set("motd", { fetched: Date.now() });
+    const day = 24 * 60 * 60 * 1000, initialization = selection.initializationScenario;
+    if (initialization !== "absent-cold") configstore.set("motd", {
+      minVersion: initialization === "min-version-too-high" ? "15.22.5" : "15.22.4",
+      fetched: initialization === "exact-day-cold" ? selection.fixtureNow - day
+        : initialization === "cross-entry-warm" ? selection.fixtureNow - day + 60000
+          : ["stale-warm", "motd-failure", "delayed-high-min-version"].includes(initialization) ? selection.fixtureNow - day - 60000
+            : selection.fixtureNow
+    });
+    if (!initialization.endsWith("cold")) configstore.set("apiEnablementCache", {
+      [PROJECT]: { "cloudfunctions.googleapis.com": true, "cloudbuild.googleapis.com": true,
+        "artifactregistry.googleapis.com": true },
+      [NUMBER]: { "run.googleapis.com": true, "eventarc.googleapis.com": true }
+    });
+    event({ kind: "SYNTHETIC_CLI_INITIALIZATION_STATE", scenario: initialization,
+      motdPresent: initialization !== "absent-cold", motdMinVersion: configstore.get("motd.minVersion") ?? null,
+      apiEnablementCache: initialization.endsWith("cold") ? "absent" : "mixed-existing-and-absent",
+      fixtureClockControlled: realAuth });
     api = require(path.join(lib, "apiv2.js"));
     requestDescriptor = Object.getOwnPropertyDescriptor(api.Client.prototype, "request");
     assert(requestDescriptor && typeof requestDescriptor.value === "function");
@@ -147,7 +172,10 @@ async function runCase(caseId, componentData) {
       const key = method + " " + url.href;
       const row = { key, body: request.body ?? null, query };
       let body;
-      if (key === "POST https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":testIamPermissions"
+      if (key === "GET https://firebase-public.firebaseio.com/cli.json" && this.opts.auth === false
+          && request.body === undefined && Object.keys(query).length === 0) {
+        body = { minVersion: "15.22.4" };
+      } else if (key === "POST https://cloudresourcemanager.googleapis.com/v1/projects/" + PROJECT + ":testIamPermissions"
           && isDeepStrictEqual(request.body, { permissions: PERMISSIONS }) && Object.keys(query).length === 0
           && isDeepStrictEqual(request.headers, { "x-goog-user-project": PROJECT })) {
         body = { permissions: PERMISSIONS };
@@ -195,6 +223,7 @@ async function runCase(caseId, componentData) {
       return { status: 200, body, headers: {} };
     };
     if (realAuth) {
+      if (selection.dynamicDiscovery) discoveryWire = discoveryPhysical.install({ selection, lib, event, retainOwned });
       credentialWire = require("./business31CliCredentialWire.cjs").install({
         selection, lib, configstore, event, state, retainOwned, respond: requestWrapper
       });
@@ -222,7 +251,7 @@ async function runCase(caseId, componentData) {
       if (credentialWire) credentialWire.enterPrepare(options);
       else assert.equal(options.tokens.access_token, "NON_SECRET_OFFLINE_FIXTURE");
       assert.deepEqual(process.argv, [process.execPath, runtime.cliEntrypoint, ...selection.cliArguments]);
-      assert.deepEqual(state.fixtureCalls.slice(0, 2).map(call => call.key), selection.permissionRoutes);
+      assert.deepEqual(state.fixtureCalls.filter(call => selection.permissionRoutes.includes(call.key)).map(call => call.key), selection.permissionRoutes);
       event({ kind: "PREPARE_ENTRY", phase: selection.phase, names: selection.names, originalBodyInvoked: fullPrepare,
         config: options.config.src, project: options.project, nonInteractive: options.nonInteractive, only: options.only });
       if (selection.mode === "prepare-entry") {
@@ -265,6 +294,7 @@ async function runCase(caseId, componentData) {
         projectNumber: NUMBER, serviceIdentityBaseline: identityBaseline
       });
       if (credentialWire) credentialWire.bindGuard(guard);
+      if (discoveryWire) discoveryWire.bindGuard(guard);
       // Diagnostic wrapper retains the original predicate and never converts a refusal to a response.
       const originalBefore = guard.before;
       guard.before = function (...args) {
@@ -286,6 +316,9 @@ async function runCase(caseId, componentData) {
       retainOwned(api.Client.prototype, "request", () => neutral.installApiBoundary31(api.Client, guard,
         operation => {
           if (credentialWire && operation.kind !== "existing-service-identity") return credentialWire.beforeUpload(operation);
+          assert.equal(state.preIdentityRefusals, 0, "Every earlier Client refusal is fatal before identity");
+          assert.equal(state.guardRejections.length, 0, "Every earlier guard refusal is fatal before identity");
+          if (discoveryWire) discoveryWire.beforeIdentity(guard);
           return require("./business31ServiceIdentityCapture.cjs").admitServiceIdentity31(operation, {
           currentControls: { fixtureOnly: true },
           verifyControls: () => { assert.deepEqual(neutral.existingServiceIdentityBindings31(identityBaseline).projectNumber, NUMBER); },
@@ -294,6 +327,19 @@ async function runCase(caseId, componentData) {
             fixtureOnly: true, productionControllerControlsOrWindowVerified: false }); }
           });
         }));
+      retainOwned(api.Client.prototype, "request", () => {
+        const guarded = api.Client.prototype.request;
+        api.Client.prototype.request = async function (request) {
+          try { return await guarded.call(this, request); }
+          catch (caught) {
+            state.preIdentityRefusals++;
+            const url = new URL(this.opts.urlPrefix + (this.opts.apiVersion ? "/" + this.opts.apiVersion : "") + "/" + request.path.replace(/^\//, ""));
+            event({ kind: "PRE_IDENTITY_REQUEST_REFUSED", method: request.method ?? "GET", host: url.hostname,
+              path: url.pathname, status: null });
+            throw caught;
+          }
+        };
+      });
       event({ kind: "REAL_UNPREPARED_TRANSPORT_GUARD_INSTALLED", preparedComparisonFabricated: false });
     }
     lease.assertHealthy();
@@ -304,7 +350,11 @@ async function runCase(caseId, componentData) {
       return await new Promise(() => {});
     }
     process.argv = [process.execPath, runtime.cliEntrypoint, ...selection.cliArguments];
-    event({ kind: "REAL_CLI_ENTRY_START", arguments: selection.cliArguments, mode: selection.mode, phase: selection.phase });
+    assert.deepEqual(process.execArgv, realAuth ? ["--no-global-search-paths"] : []);
+    if (credentialWire) credentialWire.beforeCliEntry();
+    event({ kind: "REAL_CLI_ENTRY_START", arguments: selection.cliArguments, execArgv: process.execArgv,
+      mode: selection.mode, phase: selection.phase });
+    if (selection.initializationScenario === "min-version-too-high") registerFinish();
     require(runtime.cliEntrypoint);
     registerFinish();
     // The CLI completes asynchronously and calls its unchanged errorOut/process.exit.

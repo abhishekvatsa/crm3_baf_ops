@@ -177,7 +177,9 @@ function captureFixture(options = {}) {
             } catch (error) { reject(error); }
           });
         });
-        req.on("error", reject); req.end(Buffer.from(JSON.stringify(request.body)));
+        req.on("error", reject);
+        const send = () => { try { req.end(Buffer.from(JSON.stringify(request.body))); } catch (error) { reject(error); } };
+        if (options.wireBarrier) Promise.resolve(options.wireBarrier()).then(send, reject); else send();
       });
     }
   }
@@ -230,15 +232,17 @@ function captureFixture(options = {}) {
   try {
     capture = identityCapture.installServiceIdentityCapture31({
       Client, guard: g, phase: "callables", source: SOURCE, approvalPointer: APPROVAL, baselinePointer, save, now: clock, assertWindow,
-      assertAdmission: operation => {
+      assertAdmission: async operation => {
         if (options.admissionFailure === "callback") throw Error("SYNTHETIC_CALLBACK_REFUSAL");
-        return identityCapture.admitServiceIdentity31(operation, {
+        const admitted = identityCapture.admitServiceIdentity31(operation, {
           currentControls: options.admissionFailure === "missing-controls" ? null : currentControls,
           verifyControls(p) { admissionChecks.push("controls"); assert.deepEqual(read(p), currentDocument);
             if (options.admissionFailure === "controls") throw Error("SYNTHETIC_CONTROL_DRIFT"); },
           assertClean() { admissionChecks.push("clean"); if (options.admissionFailure === "clean") throw Error("SYNTHETIC_SOURCE_DRIFT"); },
           assertWindow() { admissionChecks.push("window"); if (options.admissionFailure === "window") throw Error("SYNTHETIC_WINDOW_CLOSED"); return assertWindow(); }
         });
+        if (options.admissionBarrier) await options.admissionBarrier();
+        return admitted;
       }
     });
   } catch (error) { restoreSlots(); throw error; }
@@ -476,3 +480,33 @@ for (const [name, options, request, message] of [
   assert.throws(() => f.capture.finish(), /Two complete original identity requests required/);
   assert(fs.readdirSync(f.dir).some(name => name.startsWith("service-identity-refusal-")));
 }));
+
+test("an early OAuth refusal retains only safe endpoint metadata and remains sticky", async () => withCapture({}, async f => {
+  const canaries = ["REFRESH_BODY_CANARY", "CLIENT_SECRET_CANARY", "QUERY_CANARY", "AUTH_HEADER_CANARY"];
+  await assert.rejects(f.request({ urlPrefix: "https://www.googleapis.com" }, {
+    method: "POST", path: "/oauth2/v3/token?secret=" + canaries[2],
+    body: { refresh_token: canaries[0], client_secret: canaries[1] }, headers: { Authorization: canaries[3] }
+  }));
+  const name = fs.readdirSync(f.dir).find(name => name.startsWith("service-identity-refusal-"));
+  const row = JSON.parse(fs.readFileSync(path.join(f.dir, name), "utf8"));
+  assert.deepEqual(row, { phase: "callables", observedAtUtc: row.observedAtUtc, code: "PREPARATION_REQUEST_REFUSED",
+    rawErrorRetained: false, method: "POST", host: "www.googleapis.com", path: "/oauth2/v3/token", status: null });
+  for (const canary of canaries) assert.equal(JSON.stringify(row).includes(canary), false);
+  await assert.rejects(f.call(), /Only existing identities may write before preparation/);
+  assert.equal(f.nativeClientCalls, 0); assert.equal(f.nativeWrites, 0); assert.equal(f.nativeEnds, 0);
+  assert.throws(() => f.capture.finish(), /Two complete original identity requests required/);
+}));
+
+for (const stage of ["admission", "wire"]) test("a caught concurrent refusal during " + stage + " stops identity before outbound bytes", async () => {
+  let entered, release;
+  const started = new Promise(resolve => { entered = resolve; }), barrier = new Promise(resolve => { release = resolve; });
+  const options = { [stage === "admission" ? "admissionBarrier" : "wireBarrier"]: () => { entered(); return barrier; } };
+  await withCapture(options, async f => {
+    const identity = f.call(); await started;
+    await assert.rejects(f.request({ urlPrefix: "https://compute.googleapis.com" }, { method: "GET", path: "projects/123456789012" }), /Unreviewed API host/);
+    release(); await assert.rejects(identity, /Identity capture failed/);
+    assert.equal(f.nativeWrites, 0); assert.equal(f.nativeEnds, 0);
+    assert.equal(f.nativeClientCalls, stage === "admission" ? 0 : 1);
+    assert.throws(() => f.capture.finish(), /Two complete original identity requests required/);
+  });
+});

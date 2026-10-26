@@ -234,7 +234,8 @@ runtime/control/execution/closure records, and independent enrollment of the
 protected hosted verifier with narrow private-evidence access.
 Public PR code must never receive that credential or raw private evidence.
 A successful preparation test or public hash attestation does not satisfy
-those requirements. The original immutable verifier family stays unchanged.
+those requirements. Historical immutable verifier snapshots retain their original
+bytes and authority scopes.
 
 After final reviewed source and its actual main gates, fresh exact-source
 controls, a concrete production decision and verified deployed closure must
@@ -366,6 +367,72 @@ process records and tool version probes remain schema 1. Historical runtime
 proofs are not relabelled to satisfy these new joins.
 
 ## Windows runtime collection
+
+### CLI initialization, discovery and pre-launch reads
+
+The pinned Firebase CLI starts its asynchronous MOTD fetch before parsing a
+command. Its cache is fresh only while `motd.fetched > now - 24 hours`; a cache
+that was fresh when the controller started can therefore be stale when a later
+CLI process starts. The transport boundary admits only the unauthenticated,
+bodyless `GET https://firebase-public.firebaseio.com/cli.json`, at both the
+Client and physical transport boundaries. This is a separate finite operation,
+not a general Firebase Realtime Database host allowance. Authentication,
+cookies, query parameters, body framing, trailers, redirects and retries remain
+refused. A refused request remains fatal even if the CLI catches its error.
+
+The current immutable anchor is `a0e07e9ba62bb4201d18d04f99a63853a8b18a21`.
+Its fourteen-file family is unchanged; only the transport guard differs from the
+previous anchor. Historical anchors remain in ancestry and are explicitly refused
+as substitutes for current bytes. Authority, runtime and capture bindings use
+the actual anchor and canonical LF source digests.
+
+The minimum-version policy is implemented inside the immutable transport-guard
+file. Cached and newly fetched `motd.minVersion` must not exceed the pinned
+`15.22.4`. A pending MOTD request must settle successfully before service
+identity initiation; a late advisory failure cannot race identity writes or
+change the next phase's CLI requirement after a successful earlier phase.
+
+HTTP discovery shutdown is part of preparation, before service identities.
+The phase binds the actual pinned CLI Delegate, selected Functions directory,
+owned child and port. Only that live child's exact bodyless local
+`/__/quitquitquit` GET is admitted once. Its successful response and child exit
+must precede identity initiation. Rehearsals also check that the actual synthetic
+SDK server process is gone before either identity call. The existing CLI
+`finally` remains responsible for shutdown; this does not grant a general
+localhost allowance. A supervised root that exits with live descendants gets a
+fixed two-second grace, then fails and closes its owned job, preserving its
+original exit code and complete output rather than waiting for the command's
+full timeout.
+
+The offline CLI rehearsals use the real pinned dispatcher, prepare/hash and ZIP
+upload path with synthetic credentials, metadata responses and the final
+external transport. They exercise stale/absent/boundary-crossing MOTD caches,
+cold and warm API caches, expired/near-expiry tokens and later-phase refresh.
+Any pre-identity refusal fails a positive rehearsal. A too-high cached minimum
+version must stop before identities or upload. OAuth evidence remains limited
+to method, host, path and status; token bodies and values are never retained.
+The discovery child is an explicit synthetic SDK fixture, not execution proof
+for the deployed application SDK or a successful parent-controller traversal.
+
+`business31ReadOnlyPrelaunch.cjs` supplies the separately guarded read-only
+primitive for the real CLI `functions:list` entry. A future trusted caller must
+bind the qualified source/runtime, exact controller environment, existing
+account and expected nineteen-function cohort and authenticate a separate root
+admission before invoking it. The primitive does not create deployment
+authority or a contract. It checks cached minimum version before and after
+entry, genuine refresh eligibility and token persistence, zero refusals and
+clean lifetime closure. Entry uses the exact selected controller environment,
+including fixed CI/no-color settings. The pinned npm-conf dependency assigns
+`HOME=os.homedir()` during CLI initialization: the checker observes and binds the
+selected home before imports, then allows only that exact HOME assignment and
+the literal CLI marker afterward. Other environment changes fail.
+Its finite API surface excludes every identity,
+upload and deployment write. Terminal API, network and credential-debug fences
+remain installed through the real CLI exit callbacks; a late refusal makes the
+native result fail even after a preliminary receipt. The caller must require
+native exit zero, full streams and owned-tree closure. Preparing or testing its
+synthetic fixture is not a live pre-launch result; invoking it remains a separate
+owner-authorized step.
 
 `collectBusinessRuntime31.cjs` collects local schema-3 evidence from one explicit
 JSON input file. Its input names an exact source commit, tree and Functions tree;

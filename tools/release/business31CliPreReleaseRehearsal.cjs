@@ -9,7 +9,7 @@ const sha = bytes => crypto.createHash("sha256").update(bytes).digest("hex").toU
 const STOP_RELEASE = "BUSINESS31_OFFLINE_RELEASE_ENTRY_STOP";
 const CONTROLLER_REFUSAL = "Business capture bootstrap: component entry cannot authorize operational dispatch";
 const FAILURE_KINDS = new Set(["DENIED", "UNMATCHED_FIXTURE_REQUEST", "TRANSPORT_GUARD_REJECTION",
-  "FIXTURE_OR_ENTRY_ERROR", "CLEANUP_ERROR", "UNCAUGHT_ERROR", "ORIGINAL_PREPARE_ERROR"]);
+  "FIXTURE_OR_ENTRY_ERROR", "CLEANUP_ERROR", "UNCAUGHT_ERROR", "ORIGINAL_PREPARE_ERROR", "PRE_IDENTITY_REQUEST_REFUSED"]);
 
 // Serialized into the exclusive source-bound component fixture; never called in the parent.
 async function controllerAdmissionCase(caseId, data) {
@@ -121,13 +121,20 @@ function runControllerAdmissionSample(run) {
 function assessPreReleaseSample(report) {
   const final = report.final, failureEvents = report.events.filter(event => FAILURE_KINDS.has(event.kind));
   const completeThroughReleaseEntry = report.status === 1 && !report.error && !report.signal && !report.parseError
+    && (process.platform !== "win32" || (report.ownedProcessClosureVerified === true
+      && report.ownedProcess?.exitCode === 1 && report.ownedProcess?.failure === "nonzero-root-exit"))
     && report.validEventSequence && report.finalRecordIsLast && final?.effectiveExitCode === report.status
     && final.sentinel === STOP_RELEASE && final.prepareEntries === 1 && final.originalPrepareEntries === 1
     && final.originalPrepareCompleted === 1 && final.releaseEntries === 1 && final.guardHealthy && final.cleanupComplete
+    && final.preIdentityRefusals === 0
     && !final.errors.length && !final.denials.length && !final.unmatched.length && !final.guardRejections.length
     && failureEvents.length === 0
     && report.events.filter(event => event.kind === "PREPARE_ENTRY").length === 1
     && report.events.filter(event => event.kind === "ORIGINAL_PREPARE_COMPLETED").length === 1
+    && report.events.filter(event => event.kind === "NO_DISCOVERY_PROCESS_AFTER_EXIT" && event.processAbsent === true).length === 1
+    && report.events.filter(event => event.kind === "NO_DISCOVERY_SURVIVOR_BEFORE_IDENTITY").length === 2
+    && report.events.filter(event => event.kind === "OFFLINE_MOTD_TRANSPORT" && event.authenticated === false && event.bodyless === true && event.status === 200).length === 1
+    && report.events.filter(event => event.kind === "ACTUAL_SIGNED_UPLOAD_BODY_VERIFIED").length === 1
     && report.events.filter(event => event.kind === "EXPECTED_STOP" && event.marker === STOP_RELEASE).length === 1;
   return { phase: report.phase, report: path.join(report.root, "CASE_REPORT.json"), nativeStatus: report.status,
     error: report.error, signal: report.signal, parseError: report.parseError,
@@ -140,12 +147,12 @@ function assessPreReleaseSample(report) {
 }
 function main() {
   if (process.argv.length !== 3 || process.argv[2] !== "--offline") throw Error("Use --offline only");
-  const run = driver.createRun("pre-release"), phases = [];
+  const run = driver.createRun("credential-refresh"), phases = [];
   let controllerAdmission;
   try { controllerAdmission = runControllerAdmissionSample(run); }
   catch (error) { controllerAdmission = { expectedAdmissionRefusal: false, setupFailure: { message: error.message, stack: error.stack } }; }
   for (const phase of driver.PHASES) {
-    try { phases.push(assessPreReleaseSample(driver.runSample(run, phase))); }
+    try { phases.push(assessPreReleaseSample(driver.runSample(run, phase, "existing-fleet", phase === "callables" ? "expired" : "later-phase", "stale-warm"))); }
     catch (error) { phases.push({ phase, completeThroughReleaseEntry: false, setupFailure: { message: error.message, stack: error.stack } }); }
   }
   let preservationError = null;
@@ -154,7 +161,9 @@ function main() {
   const summary = { status: "OFFLINE_REHEARSAL_BLOCKED", controllerAdmission, phases, samplesReachedReleaseEntry,
     preservationError, root: run.root, controllerInvoked: controllerAdmission.controllerInvoked ?? false,
     controllerTraversalSucceeded: false, productionAuthority: false, syntheticDiscoveryManifest: true,
-    syntheticReadResponses: true, actualSdkDiscoveryExecuted: false, productionControlOrCustodyAdmissionClaimed: false,
+    syntheticReadResponses: true, actualSdkDiscoveryExecuted: false,
+    realPinnedCliHttpDiscoveryExecuted: true, actualSyntheticDiscoveryProcessesSelected: true,
+    productionControlOrCustodyAdmissionClaimed: false,
     preparedComparisonFabricated: false, originalReleaseInvoked: false, automaticRetry: false,
     limitation: "The actual controller refuses a fenced component entry. Independent CLI phase samples are not a successful controller traversal." };
   driver.write(path.join(run.root, "REHEARSAL.json"), summary);
