@@ -178,3 +178,19 @@ test("a late Client API token request stays fenced and invalidates earlier succe
   assert(r.events.some(e => e.kind === "read-only-refused" && e.sequence > result.sequence));
   assert.equal(r.events.filter(e => e.kind === "OFFLINE_PHYSICAL_READ").length, 5);
 });
+
+test("a late authenticated MOTD rejected before URL validation invalidates earlier success", { timeout: 200000 }, () => {
+  const r = sample("late-exit-authenticated-motd"); assert.equal(r.native.status, 1);
+  const result = r.events.find(e => e.kind === "READ_ONLY_SESSION_RESULT"); assert(result);
+  const exit = r.events.find(e => e.kind === "FIXTURE_EXIT"); assert(exit.sequence > result.sequence);
+  assert.equal(r.events.at(-1).kind, "LATE_EXIT_AUTHENTICATED_MOTD_ATTEMPTED");
+  assert.equal(r.events.at(-1).promiseReturned, true);
+  assert(r.events.at(-1).sequence > exit.sequence);
+  assert(r.events.some(e => e.kind === "read-only-refused" && e.sequence > result.sequence));
+  assert.equal(r.events.filter(e => e.kind === "OFFLINE_PHYSICAL_READ").length, 5);
+  if (process.platform === "win32") {
+    const retained = JSON.parse(fs.readFileSync(path.join(r.root, "NATIVE_RESULT.json"), "utf8"));
+    assert.equal(retained.ownedWindowsResult.exitCode, 1);
+    assert(Object.values(retained.ownedWindowsResult.streams).every(stream => stream.eof));
+  }
+});

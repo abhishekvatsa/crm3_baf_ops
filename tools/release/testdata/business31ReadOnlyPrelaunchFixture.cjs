@@ -117,7 +117,7 @@ async function runCase(caseId, data) {
       emit: row => {
         if (row.kind === "read-only-prelaunch-cleanup") cleanupObserved = row.cleanupComplete;
         event(row);
-        if (row.kind === "functions-v2" && scenario === "late-exit-api")
+        if (row.kind === "functions-v2" && ["late-exit-api", "late-exit-authenticated-motd"].includes(scenario))
           lateClient = require(path.join(path.dirname(path.dirname(data.runtime.cliEntrypoint)), "apiv2.js")).Client;
         if (row.kind === "functions-v2" && scenario === "unexpected-home")
           process.env.HOME = path.join(scratch, "unselected-home");
@@ -147,6 +147,19 @@ async function runCase(caseId, data) {
           method: "POST", path: "/oauth2/v3/token", body: { refresh_token: REFRESH }
         }).catch(() => {});
         event({ kind: "LATE_EXIT_API_REQUEST_ATTEMPTED", networkForwarded: false });
+      });
+    }
+    if (scenario === "late-exit-authenticated-motd") {
+      assert.equal(typeof lateClient, "function");
+      // Registered after the session returns, hence after its exit auditor.
+      // urlOf rejects this authenticated public request before guard.before.
+      process.once("exit", () => {
+        const pending = new lateClient({ urlPrefix: "https://firebase-public.firebaseio.com", auth: true }).request({
+          method: "GET", path: "/cli.json"
+        });
+        assert(pending instanceof Promise);
+        pending.catch(() => {});
+        event({ kind: "LATE_EXIT_AUTHENTICATED_MOTD_ATTEMPTED", promiseReturned: true, networkForwarded: false });
       });
     }
   } catch (error) {

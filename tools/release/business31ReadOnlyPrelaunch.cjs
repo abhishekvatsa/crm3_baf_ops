@@ -278,6 +278,8 @@ async function runReadOnlyPrelaunch31({ runtime, node, environment, cwd, account
     transport.installApiBoundary31(api.Client, guard, () => { need(false, "NO_PRELAUNCH_WRITE_ALLOWED"); });
     const guarded = api.Client.prototype.request;
     api.Client.prototype.request = async function (request) {
+      // An exit listener may run after the final auditor: fail before parsing.
+      if (guard.sealed) { guard.refused(null, "UNKNOWN"); need(false, "TERMINAL_READ_ONLY_TRANSPORT"); }
       guard.inFlight++;
       try { return await guarded.call(this, { ...request, timeout: request.path === "/cli.json" ? 15000 : 30000 }); }
       catch { guard.failed = true; throw Object.assign(Error("READ_ONLY_CLI_REQUEST_FAILED"), { code: "READ_ONLY_CLI_REQUEST_FAILED" }); }
