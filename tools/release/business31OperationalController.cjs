@@ -11,7 +11,7 @@ const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
 const recorder = require("./business31CaptureRecorder.cjs");
 const pythonRuntime = require("./collectBusinessRuntime31.cjs");
 const {need, keys, sha, json, privateBytes} = x;
-const SUPERVISOR_SHA = "4AE021C13E2FDC0D3FAD18ADBF5D7D796FD2DA946E8C907288BA0A83C585F37C";
+const SUPERVISOR_SHA = "9BB5B926F09D617225111F8E9FA82ABD40884AE3547A3C3625DF4EE40CF856BA";
 const utc = () => new Date().toISOString();
 const read = (root,pointer) => json(privateBytes(root,pointer));
 const phases = custody.PHASES;
@@ -237,13 +237,14 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
   const admission={...ctx,projectId:"crm3-baf-ops-b8638",region:"asia-south1"};
   const lease=common.cliLoadLease,library=path.dirname(path.dirname(ctx.runtime.cliEntrypoint));
   let identityCapture=null,serviceIdentities=null;
-  let hook=null,boundary=null,parameterWrites=null,credentialDebug=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
+  let hook=null,boundary=null,parameterWrites=null,credentialDebug=null,discovery=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
   const fail=()=>{writer.failed=true;if(writer.active)writer.active.failed=true;};
   const cleanup=()=>{const errors=[];if(boundary){try{boundary.restore();}catch(e){errors.push(e);}boundary=null;}
     if(parameterWrites){try{parameterWrites.restore();}catch(e){errors.push(e);}parameterWrites=null;}
     if(preparation&&preparation.prepare===prepareWrapper)preparation.prepare=originalPrepare;
     else if(preparation&&preparation.prepare!==originalPrepare)errors.push(Error("foreign prepare wrapper retained"));
     if(hook){try{hook.restore();}catch(e){errors.push(e);}hook=null;}
+    if(discovery){try{discovery.restore();}catch(e){errors.push(e);}discovery=null;}
     if(credentialDebug){try{credentialDebug.restore();}catch(e){errors.push(e);}credentialDebug=null;}
     if(!lease.isReleased())try{lease.release();}catch(e){errors.push(e);}
     if(errors.length)throw new AggregateError(errors,"phase cleanup incomplete");};
@@ -253,6 +254,8 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     credentialDebug=neutral.installCredentialRefreshDebugBoundary31(require(path.join(library,"logger.js")).logger);
     preparation=require(path.join(library,"deploy/functions/prepare.js"));originalPrepare=preparation.prepare;
     const unprepared=new neutral.RuntimeDeploymentTransportGuard31({...guardInputs,names:phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase],allNames:ctx.cohorts.fleet,phase});
+    discovery=neutral.installDiscoveryLifecycle31({Delegate:require(path.join(library,"deploy/functions/runtimes/node/index.js")).Delegate,
+      guard:unprepared,sourceDirectory:path.join(ctx.repoRoot,"functions"),projectId:"crm3-baf-ops-b8638"});
     const envelopeBytes=common.repository.readBlob(ctx.approvalPointer.commit,ctx.approvalPointer.file);
     hook=require("./captureBusiness31PreparedHook.cjs").installBusinessPreparedHook31({writer,phase,admission,envelopeBytes,
       archiveExpectedFiles:common.inventory,guardInputs});
@@ -260,7 +263,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     const preparedTransition=function(...args){
       need(!active&&currentControls!==null,"fresh controls must precede actual hash invocation");
       need(nativeConfig,"governed native Config required before hash invocation");nativeConfig.assertUnchanged();
-      boundary.assertOwned();serviceIdentities=identityCapture.finish();boundary.restore();boundary=null;
+      discovery.assertOwned();unprepared.assertDiscoveryStopped31();boundary.assertOwned();serviceIdentities=identityCapture.finish();boundary.restore();boundary=null;
       try{const value=actualHashWrapper.apply(this,args);hook.module.applyBackendHashToBackends=actualHashWrapper;hook.restore();hook=null;
         boundary=installOwned(slots,()=>recorder.installBusinessCapture31({Client:api.Client,writer,observeLive:()=>observe(common)}));
         active=true;return value;

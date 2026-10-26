@@ -46,10 +46,10 @@ function installServiceIdentityCapture31({Client,guard,phase,source,approvalPoin
     api.request=function(...args) {
       const candidate=local.getStore()?.item,effective=neutral.effectiveRequest31(args[0],args[1],api===require("node:https")?"https:":"http:");
       const item=candidate&&effective.url.href===candidate.operation.url&&effective.method===candidate.operation.method?candidate:null;
-      if(item){need(++item.transports===1,"Second identity transport refused");item.row.requestAdmittedAtUtc=window();}
+      if(item){need(!failed&&!finished,"Identity capture failed before physical request");guard.assertInitializationSettled31();guard.assertDiscoveryStopped31();need(++item.transports===1,"Second identity transport refused");item.row.requestAdmittedAtUtc=window();}
       const req=request.apply(this,args);if(!item)return req;
       const write=req.write,end=req.end;let sent=false;
-      function first(){if(!sent){try{item.row.firstOutboundAtUtc=window();}catch(error){item.captureError=true;req.destroy(error);throw error;}sent=true;}}
+      function first(){if(!sent){try{need(!failed&&!finished,"Identity capture failed before first outbound bytes");guard.assertInitializationSettled31();guard.assertDiscoveryStopped31();item.row.firstOutboundAtUtc=window();}catch(error){failed=true;item.captureError=true;req.destroy(error);throw error;}sent=true;}}
       function retain(chunk){if(chunk===undefined||chunk===null)return;need(Buffer.isBuffer(chunk),"Original identity wire must be bytes");need(item.wireBytes+chunk.length<=2,"Identity body exceeds exact empty-object size");item.wire.push(Buffer.from(chunk));item.wireBytes+=chunk.length;}
       req.write=function(chunk,...rest){retain(chunk);first();return write.call(this,chunk,...rest);};
       req.end=function(chunk,...rest){retain(chunk);first();item.wireEnded=true;return end.call(this,chunk,...rest);};
@@ -67,6 +67,7 @@ function installServiceIdentityCapture31({Client,guard,phase,source,approvalPoin
     const run=queue.then(async()=>{
       need(!failed&&!finished&&operation.kind==="existing-service-identity","Only existing identities may write before preparation");
       const currentControls=await assertAdmission(operation);need(currentControls,"Current control evidence required");
+      need(!failed&&!finished,"Identity capture failed during admission");guard.assertInitializationSettled31();guard.assertDiscoveryStopped31();
       window();const startedAtUtc=at(),sequence=rows.length+1;need(sequence<=2&&operation.sequence===sequence,"Identity initiation count differs");
       const request={client:{urlPrefix:scope.client.opts.urlPrefix,apiVersion:scope.client.opts.apiVersion??""},
         request:{method:scope.request.method,path:scope.request.path,queryParams:scope.request.queryParams??null,body:structuredClone(scope.request.body),
@@ -86,7 +87,7 @@ function installServiceIdentityCapture31({Client,guard,phase,source,approvalPoin
     return local.run(scope,async()=>{
       let result,success=false;
       try{result=await guarded.call(this,request);success=true;return result;}
-      catch(error){failed=true;if(!scope.item)save("service-identity-refusal-"+(++refusals)+".json",{phase,observedAtUtc:at(),code:"PREPARATION_REQUEST_REFUSED",rawErrorRetained:false});throw error;}
+      catch(error){failed=true;if(!scope.item)save("service-identity-refusal-"+(++refusals)+".json",{phase,observedAtUtc:at(),code:"PREPARATION_REQUEST_REFUSED",rawErrorRetained:false,...neutral.safeRequestMetadata31(this,request)});throw error;}
       finally{if(scope.item){const okay=finalize(scope.item,success,result);if(success&&!okay)throw Error("Incomplete original identity response");}}
     });
   };

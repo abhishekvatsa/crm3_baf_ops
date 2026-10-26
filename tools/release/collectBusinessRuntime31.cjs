@@ -3,7 +3,7 @@
 // source admission, CI, owner and deployment authority remain external gates.
 const fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto");
 const cp = require("node:child_process"), {isDeepStrictEqual: same} = require("node:util");
-const SUPERVISOR_SHA = "4AE021C13E2FDC0D3FAD18ADBF5D7D796FD2DA946E8C907288BA0A83C585F37C";
+const SUPERVISOR_SHA = "9BB5B926F09D617225111F8E9FA82ABD40884AE3547A3C3625DF4EE40CF856BA";
 const PLAN = Object.freeze(["node-version", "npm-version", "root-install", "functions-install", "cli-install",
   "dependency-bin-materialization", "functions-build", "functions-host-tests", "governed-emulator-tests",
   "dependency-compatibility", "installed-runtime", "audit-root-full", "audit-root-runtime",

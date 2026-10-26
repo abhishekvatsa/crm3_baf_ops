@@ -5,7 +5,7 @@ const x=require("./business31ExecutionContract.cjs"),path=require("./backendRunt
 const {need,keys,sha,json}=x;
 const PRODUCERS=Object.freeze(["prepareBusinessIntent31.cjs","collectBusinessRuntime31.cjs","business31CaptureBootstrap.cjs","runtime_contract_bindings.json",
   "runtime_process_runner.py","runtime_supervisor.py"].map(name=>"tools/release/"+name));
-const SUPERVISOR_SHA="4AE021C13E2FDC0D3FAD18ADBF5D7D796FD2DA946E8C907288BA0A83C585F37C";
+const SUPERVISOR_SHA="9BB5B926F09D617225111F8E9FA82ABD40884AE3547A3C3625DF4EE40CF856BA";
 function verifyIntentPreparation31({contract,proof,source,read,instant,repository,snapshot,evidenceDirectory,ownerReceivedAtUtc}) {
   need(contract.schemaVersion===2&&repository&&snapshot&&typeof evidenceDirectory==="string","actual contract2 source context required");
   const get=p=>json(read(p)),envelope=get(contract.intentPreparation),intent=get(contract.intendedHashInputs);
