@@ -237,7 +237,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
   const admission={...ctx,projectId:"crm3-baf-ops-b8638",region:"asia-south1"};
   const lease=common.cliLoadLease,library=path.dirname(path.dirname(ctx.runtime.cliEntrypoint));
   let identityCapture=null,serviceIdentities=null;
-  let hook=null,boundary=null,parameterWrites=null,credentialDebug=null,discovery=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
+  let hook=null,boundary=null,parameterWrites=null,credentialDebug=null,discovery=null,packaging=null,preparation=null,originalPrepare=null,prepareWrapper=null,currentControls=null,nativeConfig=null,active=false,finished=false;
   const fail=()=>{writer.failed=true;if(writer.active)writer.active.failed=true;};
   const cleanup=()=>{const errors=[];if(boundary){try{boundary.restore();}catch(e){errors.push(e);}boundary=null;}
     if(parameterWrites){try{parameterWrites.restore();}catch(e){errors.push(e);}parameterWrites=null;}
@@ -245,6 +245,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     else if(preparation&&preparation.prepare!==originalPrepare)errors.push(Error("foreign prepare wrapper retained"));
     if(hook){try{hook.restore();}catch(e){errors.push(e);}hook=null;}
     if(discovery){try{discovery.restore();}catch(e){errors.push(e);}discovery=null;}
+    if(packaging){try{packaging.restore();}catch(e){errors.push(e);}packaging=null;}
     if(credentialDebug){try{credentialDebug.restore();}catch(e){errors.push(e);}credentialDebug=null;}
     if(!lease.isReleased())try{lease.release();}catch(e){errors.push(e);}
     if(errors.length)throw new AggregateError(errors,"phase cleanup incomplete");};
@@ -253,6 +254,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     const api=require(path.join(library,"apiv2.js")),slots=hookSlots(api.Client);
     credentialDebug=neutral.installCredentialRefreshDebugBoundary31(require(path.join(library,"logger.js")).logger);
     preparation=require(path.join(library,"deploy/functions/prepare.js"));originalPrepare=preparation.prepare;
+    packaging=custody.isolateNativePackagingConfig31(require(path.join(library,"deploy/functions/prepareFunctionsUpload.js")));
     const unprepared=new neutral.RuntimeDeploymentTransportGuard31({...guardInputs,names:phase==="fleet"?ctx.cohorts.schedulers:ctx.cohorts[phase],allNames:ctx.cohorts.fleet,phase});
     discovery=neutral.installDiscoveryLifecycle31({Delegate:require(path.join(library,"deploy/functions/runtimes/node/index.js")).Delegate,
       guard:unprepared,sourceDirectory:path.join(ctx.repoRoot,"functions"),projectId:"crm3-baf-ops-b8638"});
@@ -262,7 +264,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     const actualHashWrapper=hook.module.applyBackendHashToBackends;
     const preparedTransition=function(...args){
       need(!active&&currentControls!==null,"fresh controls must precede actual hash invocation");
-      need(nativeConfig,"governed native Config required before hash invocation");nativeConfig.assertUnchanged();
+      need(nativeConfig,"governed native Config required before hash invocation");packaging.assertOwned();nativeConfig.assertUnchanged();
       discovery.assertOwned();unprepared.assertDiscoveryStopped31();boundary.assertOwned();serviceIdentities=identityCapture.finish();boundary.restore();boundary=null;
       try{const value=actualHashWrapper.apply(this,args);hook.module.applyBackendHashToBackends=actualHashWrapper;hook.restore();hook=null;
         boundary=installOwned(slots,()=>recorder.installBusinessCapture31({Client:api.Client,writer,observeLive:()=>observe(common)}));
@@ -289,8 +291,8 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
         schedulerBaseline:x.pointerView(ctx.evidenceDirectory,common.baseline.schedulerPointer),approvalSha256:ctx.approvalPointer.sha256,
         decisionAtUtc:ctx.decision.decidedAtUtc,phase,cohorts:ctx.cohorts,endpointRuntimeHashes:common.intentResult.labels,
         requiredProducerBindings:ctx.runtime.requiredProducerBindings,installedControlRuntime:ctx.runtime.installedControlRuntime});
-      cleanPoint(ctx);windowNow(ctx);nativeConfig.assertUnchanged();
-      const result=await originalPrepare.apply(this,args);nativeConfig.assertUnchanged();return result;
+      cleanPoint(ctx);windowNow(ctx);packaging.assertOwned();nativeConfig.assertUnchanged();
+      const result=await originalPrepare.apply(this,args);packaging.assertOwned();nativeConfig.assertUnchanged();return result;
     };
     preparation.prepare=prepareWrapper;
     parameterWrites=denyParameterWrites();
@@ -306,7 +308,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
         return custody.pointer31(ctx.evidenceDirectory,file);
       },
       assertAdmission:operation=>identity.admitServiceIdentity31(operation,{currentControls,
-        verifyControls:()=>{need(nativeConfig,"Native Config required before existing identity");nativeConfig.assertUnchanged();
+        verifyControls:()=>{need(nativeConfig,"Native Config required before existing identity");packaging.assertOwned();nativeConfig.assertUnchanged();
           controls.verifyCurrentCohortControls31({repoRoot:ctx.repoRoot,sourceCommit:ctx.source.commit,evidenceDirectory:ctx.evidenceDirectory,
             beforePointer:x.pointerView(ctx.evidenceDirectory,common.baseline.controlsPointer),currentPointer:x.pointerView(ctx.evidenceDirectory,currentControls),
             schedulerBaseline:x.pointerView(ctx.evidenceDirectory,common.baseline.schedulerPointer),approvalSha256:ctx.approvalPointer.sha256,
@@ -318,7 +320,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
       if(finished)return;finished=true;
       try{
         need(code===0&&active&&currentControls&&!writer.failed&&(writer.active?.pending??-1)===0,"actual CLI did not settle one complete phase");
-        nativeConfig.assertUnchanged();boundary.assertOwned();credentialDebug.assertOwned();const result=writer.finishCohort();need(result.complete,"phase capture incomplete");writer.finishPhase();
+        packaging.assertOwned();nativeConfig.assertUnchanged();boundary.assertOwned();credentialDebug.assertOwned();const result=writer.finishCohort();need(result.complete,"phase capture incomplete");writer.finishPhase();
         cleanPoint(ctx);cleanup();
         write(ctx.evidenceDirectory,path.join(custody.phaseDirectory31(ctx,phase),"phase-capture-result.json"),{schemaVersion:1,documentType:"build31-business-phase-capture-result",
           phase,source:ctx.source,approvalPointer:ctx.approvalPointer,context:measured.contextPointer,start:measured.startPointer,

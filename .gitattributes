@@ -1,4 +1,7 @@
 * text=auto eol=lf
+# Unified-diff data retains its context prefix before upstream tabs/blank lines.
+tooling/deepmerge-prototype-guard/patches/forward.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
+tooling/deepmerge-prototype-guard/patches/inverse.patch whitespace=-blank-at-eol,-blank-at-eof,-space-before-tab
 *.png binary
 *.jpg binary
 *.jpeg binary

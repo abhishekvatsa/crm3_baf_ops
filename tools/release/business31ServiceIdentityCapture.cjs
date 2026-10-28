@@ -6,6 +6,32 @@ const zlib=require("node:zlib");
 const neutral=require("./runtimeDeploymentTransportGuard31.cjs");
 const {need,hash,time}=require("./backendRuntimeAdmission31.cjs").helpers;
 const RESPONSE_LIMIT=16*1024*1024;
+// Only fixed local labels may cross the refusal boundary. Never serialize an
+// exception, its cause/stack, headers, or credential request/response bodies.
+const REFUSAL_REASONS=new Map([
+  ["Business31 execution contract: governed native Config changed","NATIVE_CONFIG_CHANGED"],
+  ["Business31 execution contract: governed materialized Config changed","MATERIALIZED_CONFIG_CHANGED"],
+  ["Business31 execution contract: governed Config identity changed","CONFIG_IDENTITY_CHANGED"],
+  ["Business31 execution contract: governed Config paths changed","CONFIG_PATHS_CHANGED"],
+  ["Business31 execution contract: actual M/main/origin checkout is not clean","SOURCE_NOT_CLEAN"],
+  ["Business31 execution contract: outside actual decision execution window","WINDOW_CLOSED"],
+  ["CLI MOTD must settle with an accepted minimum version before identity","INITIALIZATION_NOT_SETTLED"],
+  ["Owned discovery shutdown must complete before identity","DISCOVERY_NOT_STOPPED"],
+  ["Discovery method ownership changed","DISCOVERY_OWNERSHIP_CHANGED"],
+  ["Service identity quota project differs","IDENTITY_QUOTA_PROJECT_DIFFERS"],
+  ["Service identity project/service differs","IDENTITY_RESOURCE_DIFFERS"],
+  ["Exact empty JSON service-identity body required","IDENTITY_BODY_DIFFERS"],
+  ["Exact serialized empty JSON body required","IDENTITY_BODY_DIFFERS"],
+  ["Only existing identities may write before preparation","IDENTITY_WRITE_STATE_REFUSED"],
+  ["Identity capture failed during admission","IDENTITY_ADMISSION_INTERRUPTED"],
+  ["Identity initiation count differs","IDENTITY_SEQUENCE_DIFFERS"]
+]);
+function refusalReason(error){
+  try{
+    const message=error&&typeof error==="object"?Object.getOwnPropertyDescriptor(error,"message")?.value:null;
+    return typeof message==="string"?(REFUSAL_REASONS.get(message)??"UNCLASSIFIED_FAILURE"):"UNCLASSIFIED_FAILURE";
+  }catch{return "UNCLASSIFIED_FAILURE";}
+}
 const instant=value=>{need(typeof value==="string"&&/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}Z$/.test(value)&&new Date(value).toISOString()===value,"Exact identity observation time required");return value;};
 function admitServiceIdentity31(operation,{currentControls,verifyControls,assertClean,assertWindow}) {
   need(operation.kind==="existing-service-identity"&&currentControls,"Verified current controls required before service identity");
@@ -22,7 +48,7 @@ function decode(bytes,encoding) {
   return new TextDecoder("utf-8",{fatal:true}).decode(decoded);
 }
 function installServiceIdentityCapture31({Client,guard,phase,source,approvalPointer,baselinePointer,assertAdmission,assertWindow,save,now=()=>new Date().toISOString()}) {
-  const local=new AsyncLocalStorage(),rows=[];let pending=0,failed=false,finished=false,refusals=0,queue=Promise.resolve();
+  const local=new AsyncLocalStorage(),rows=[];let pending=0,failed=false,finished=false,refusals=0,firstRefusal=null,queue=Promise.resolve();
   const at=()=>instant(now()),window=()=>instant(assertWindow());
   function finalize(item,apiSuccess,result) {
     need(!item.finalized&&pending>0,"Identity capture finalized twice");item.finalized=true;
@@ -65,13 +91,17 @@ function installServiceIdentityCapture31({Client,guard,phase,source,approvalPoin
   neutral.installApiBoundary31(Client,guard,operation=>{
     const scope=local.getStore();need(scope,"Identity capture context missing");
     const run=queue.then(async()=>{
+      scope.stage="identity-admission";
       need(!failed&&!finished&&operation.kind==="existing-service-identity","Only existing identities may write before preparation");
       const currentControls=await assertAdmission(operation);need(currentControls,"Current control evidence required");
+      scope.stage="identity-readiness";
       need(!failed&&!finished,"Identity capture failed during admission");guard.assertInitializationSettled31();guard.assertDiscoveryStopped31();
+      scope.stage="identity-window-and-sequence";
       window();const startedAtUtc=at(),sequence=rows.length+1;need(sequence<=2&&operation.sequence===sequence,"Identity initiation count differs");
       const request={client:{urlPrefix:scope.client.opts.urlPrefix,apiVersion:scope.client.opts.apiVersion??""},
         request:{method:scope.request.method,path:scope.request.path,queryParams:scope.request.queryParams??null,body:structuredClone(scope.request.body),
           headers:{"x-goog-user-project":scope.request.headers["x-goog-user-project"]}}};
+      scope.stage="identity-item-retention";
       const prefix="service-identity-"+String(sequence).padStart(2,"0"),row={schemaVersion:1,documentType:"build31-existing-service-identity",phase,sequence,
         service:operation.service,startedAtUtc,requestAdmittedAtUtc:null,firstOutboundAtUtc:null,completedAtUtc:null,currentControls,
         request:save(prefix+"-request.json",request),wireBody:null,response:null,responseBinding:null,error:null};
@@ -83,11 +113,16 @@ function installServiceIdentityCapture31({Client,guard,phase,source,approvalPoin
   });
   const guarded=Client.prototype.request;
   Client.prototype.request=function(request) {
-    const scope={client:this,request};
+    const scope={client:this,request,stage:"guarded-request"};
     return local.run(scope,async()=>{
       let result,success=false;
       try{result=await guarded.call(this,request);success=true;return result;}
-      catch(error){failed=true;if(!scope.item)save("service-identity-refusal-"+(++refusals)+".json",{phase,observedAtUtc:at(),code:"PREPARATION_REQUEST_REFUSED",rawErrorRetained:false,...neutral.safeRequestMetadata31(this,request)});throw error;}
+      catch(error){const previouslyFailed=failed;failed=true;if(!scope.item){
+        const sequence=++refusals,reason=refusalReason(error);
+        firstRefusal??={sequence,stage:scope.stage,reason};
+        save("service-identity-refusal-"+sequence+".json",{phase,observedAtUtc:at(),code:"PREPARATION_REQUEST_REFUSED",rawErrorRetained:false,
+          refusal:{sequence,stage:scope.stage,reason,previouslyFailed,first:firstRefusal},...neutral.safeRequestMetadata31(this,request)});
+      }throw error;}
       finally{if(scope.item){const okay=finalize(scope.item,success,result);if(success&&!okay)throw Error("Incomplete original identity response");}}
     });
   };

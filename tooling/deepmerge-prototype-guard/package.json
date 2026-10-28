@@ -1,0 +1,20 @@
+{
+  "name": "@crm3/deepmerge-prototype-guard",
+  "version": "4.3.1-b31.1",
+  "private": true,
+  "description": "Repository-maintained deepmerge 4.3.1 prototype guard for development and test tooling",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "license.txt",
+    "README.md",
+    "UPSTREAM.json",
+    "patches/"
+  ]
+}

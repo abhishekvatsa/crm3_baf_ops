@@ -117,6 +117,31 @@ function bindNativeConfig31({ctx, phase, parameterConfig, options, sourceFunctio
   return {assertUnchanged};
 }
 
+// The pinned CLI packager appends its three exclusions to config.ignore. Its
+// normalized config otherwise shares that array with the governed native Config.
+// Isolate only this argument; retain native packaging and strict Config equality.
+function isolateNativePackagingConfig31(packaging) {
+  const key="prepareFunctionsUpload",original=Object.getOwnPropertyDescriptor(packaging,key);
+  need(original&&Object.hasOwn(original,"value")&&typeof original.value==="function"&&original.writable&&original.configurable,
+    "owned native packager export required");
+  let restored=false;
+  const wrapped=function(...args){
+    lease.assertOwned();const config=args[2];
+    need(config&&Object.getPrototypeOf(config)===Object.prototype,"plain native packaging config required");
+    const ignore=Object.getOwnPropertyDescriptor(config,"ignore");
+    if(ignore){
+      need(Object.hasOwn(ignore,"value")&&Array.isArray(ignore.value)&&ignore.value.every(value=>typeof value==="string"),
+        "native packaging ignore array required");
+      args[2]={...config,ignore:[...ignore.value]};
+    }
+    return original.value.apply(this,args);
+  };
+  const installed={...original,value:wrapped};
+  const lease={assertOwned(){need(!restored&&same(Object.getOwnPropertyDescriptor(packaging,key),installed),"native packager ownership changed");},
+    restore(){if(restored)return;lease.assertOwned();Object.defineProperty(packaging,key,original);restored=true;}};
+  Object.defineProperty(packaging,key,installed);return lease;
+}
+
 function verifyPrefix31(predecessors, phase, expected) {
   need(Array.isArray(predecessors), "original predecessor pointers required");
   equal(predecessors.map(row => row.phase), PHASES.slice(0, PHASES.indexOf(phase)), "exact predecessor prefix required");
@@ -261,4 +286,4 @@ function save31(root, file, value) {
 
 module.exports = {PHASES, PROCESS_KEYS, phaseDirectory31, commandArguments31, verifyPrefix31,
   verifyPhaseStart31, verifyOwnedProcess31, verifyCohortProcess31, runCohortSupervisor31, pointer31, save31,
-  governedParameter31, createParameterConfig31, verifyParameterConfig31, bindNativeConfig31};
+  governedParameter31, createParameterConfig31, verifyParameterConfig31, bindNativeConfig31, isolateNativePackagingConfig31};

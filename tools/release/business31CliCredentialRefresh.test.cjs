@@ -88,7 +88,8 @@ for (const [phase, scenario, initialization] of [["callables", "expired", "stale
   ["callables", "expired", "fresh-warm"]]) {
   test("real CLI " + phase + " " + scenario + " " + initialization + " refresh persists and sends the verified ZIP offline", { timeout: 650000 }, () => {
     const report = driver.runSample(run, phase, "existing-fleet", scenario, initialization);
-    const detail = "Retained offline evidence: " + report.root;
+    const detail = "Retained offline evidence: " + report.root + "\nFirst safe admission failure: "
+      + JSON.stringify(report.final?.firstIdentityAdmissionFailure ?? null);
     assertNoSecretTraces(report);
     assertOwnedClosure(report);
     assert.equal(report.status, 1, detail); assert.equal(report.signal, null, detail); assert.equal(report.error, null, detail);
@@ -101,6 +102,14 @@ for (const [phase, scenario, initialization] of [["callables", "expired", "stale
     assert.equal(final.originalPrepareCompleted, 1, detail); assert.equal(final.releaseEntries, 1, detail);
     assert.equal(final.guardHealthy, true, detail); assert.equal(final.cleanupComplete, true, detail);
     assert.equal(final.preIdentityRefusals, 0, detail);
+    assert.equal(final.firstIdentityAdmissionFailure, null, detail);
+    assert.equal(final.identityCaptureCompleted, true, detail);
+    assert.equal(report.events.filter(row => row.kind === "REAL_NATIVE_PACKAGING_CONFIG_ISOLATION_INSTALLED").length, 1, detail);
+    assert.equal(report.events.filter(row => row.kind === "REAL_SERVICE_IDENTITY_CAPTURE_INSTALLED").length, 1, detail);
+    assert.equal(report.events.filter(row => row.kind === "REAL_SERVICE_IDENTITY_CAPTURE_COMPLETED" && row.records === 2).length, 1, detail);
+    assert.equal(report.events.filter(row => row.kind === "REAL_NATIVE_CONFIG_BOUND").length, 1, detail);
+    assert.deepEqual(report.events.filter(row => row.kind === "OFFLINE_NATIVE_CONFIG_CHECK").map(row => row.stage),
+      ["BEFORE_ORIGINAL_PREPARE", "BEFORE_IDENTITY", "BEFORE_IDENTITY", "BEFORE_ORIGINAL_HASH", "AFTER_ORIGINAL_PREPARE"], detail);
     assert.deepEqual(report.events.find(row => row.kind === "REAL_CLI_ENTRY_START").execArgv, ["--no-global-search-paths"]);
     for (const field of ["errors", "denials", "unmatched", "guardRejections"]) assert.deepEqual(final[field], [], detail);
     for (const kind of ["ORIGINAL_HASH_AND_ZIP_VERIFIED", "ACTUAL_SIGNED_UPLOAD_BODY_VERIFIED", "REAL_REFRESH_PERSISTENCE_VERIFIED"]) {

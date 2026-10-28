@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "packageIdentity": {
+    "name": "@crm3/deepmerge-prototype-guard",
+    "version": "4.3.1-b31.1",
+    "repositoryMaintained": true,
+    "officialUpstreamPatchedRelease": false,
+    "intendedInstallName": "deepmerge",
+    "intendedSelection": "local npm dependency override for development/test dependencies only",
+    "registryPublication": false
+  },
+  "upstream": {
+    "name": "deepmerge",
+    "version": "4.3.1",
+    "sourceCommit": "5b87756a5671635679001cbac72aa42f23472c81",
+    "sourceUrl": "https://github.com/TehShrike/deepmerge/blob/5b87756a5671635679001cbac72aa42f23472c81/index.js",
+    "sourceIndexSha256": "12440C84957C1990EA2D5E33DC0091722DC1DC1585C6D20E0C780E568FFA9D30",
+    "packageManifestSha256": "F56978E7A6DA1A3C6EDEE41ABB54F98584A2FA2680458C48DB820AE772FEF0C9",
+    "runtimeEntry": {
+      "file": "dist/cjs.js",
+      "sha256": "2E5160F84A1141BD927264AFE4D15766F1E6CF07DAEF182B37FF53FEA121DE7D",
+      "bytes": 4048
+    },
+    "capture": "Exact installed root entry; the installed Functions entry was independently found byte-identical. No installed package is modified by these files."
+  },
+  "advisory": {
+    "id": "GHSA-gcqx-w48m-w2h4",
+    "cve": "CVE-2026-93753",
+    "url": "https://github.com/advisories/GHSA-gcqx-w48m-w2h4",
+    "reportedAffectedVersions": ">=4.2.0 <=4.3.1",
+    "reportedPatchedVersions": "None",
+    "primaryEvidenceInspectedOn": "2026-10-28"
+  },
+  "repairLineage": {
+    "issue": "https://github.com/TehShrike/deepmerge/issues/273",
+    "proposedPullRequest": "https://github.com/TehShrike/deepmerge/pull/274",
+    "observedPullRequestState": "closed",
+    "proposedCommitUrl": "https://github.com/TehShrike/deepmerge/commit/c5ad573",
+    "proposedCommitObservedPrefix": "c5ad573",
+    "proposedCommitFullShaIndependentlyRetained": false,
+    "adaptation": "The two key checks from the upstream proposal are inlined into the existing CommonJS bundle; no helper, bundler, dependency or other merge behavior is added.",
+    "changes": [
+      "Reject literal __proto__ at the start of the target-copy callback, before target[key] is read or assigned.",
+      "Reject literal __proto__ in the source callback before the existing target-shape safety predicate or assignment."
+    ],
+    "indexJs": {
+      "sha256": "976C91F003A1FC609EBE2017BABDA35EB15DCB972C4BC868637626D3850C2756",
+      "bytes": 4117
+    },
+    "unchangedRuntimeBytesExceptTwoSubstitutions": true
+  },
+  "unchangedFiles": {
+    "license.txt": {
+      "sha256": "6CFC4687CB2F2D86F4A77E6B526290D3878E5E512F3FEC2F4CB36A9CB36F798B",
+      "bytes": 1116
+    },
+    "index.d.ts": {
+      "sha256": "146BA4B99C5FEB82663E17A671BF9F53BB39C704CD76345D6C5A801C26372F44",
+      "bytes": 823
+    }
+  },
+  "reversibility": {
+    "forwardPatch": {
+      "file": "patches/forward.patch",
+      "sha256": "366B8A4C87EA42DEA26DDBF7353E86EA25F139C1952B487BBA2BA5C8EFCF9864",
+      "bytes": 459
+    },
+    "inversePatch": {
+      "file": "patches/inverse.patch",
+      "sha256": "AA9F14F4BDEBEA2A52F991648885A5207A73D20870CAA8DC3646647C39E6DECD",
+      "bytes": 459
+    },
+    "exactForwardSubstitutions": "patches/EXACT_SUBSTITUTIONS.json",
+    "exactInverseSubstitutions": "patches/EXACT_INVERSE_SUBSTITUTIONS.json",
+    "originalBytesRecoveredByExactInverse": true,
+    "recoveredOriginalSha256": "2E5160F84A1141BD927264AFE4D15766F1E6CF07DAEF182B37FF53FEA121DE7D",
+    "proofScope": "Static byte transformations only; this authoring step did not execute or test the package."
+  },
+  "auditBoundary": "This real source repair and truthful local identity do not replace npm audit, dependency-origin policy, exact installation checks or security/compatibility tests. No threshold or advisory suppression is supplied.",
+  "productionDependencyAllowed": false
+}

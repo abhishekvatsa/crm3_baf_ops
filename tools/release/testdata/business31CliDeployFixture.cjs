@@ -38,6 +38,7 @@ async function runCase(caseId, componentData) {
   };
   const state = { prepareEntries: 0, originalPrepareEntries: 0, originalPrepareCompleted: 0, releaseEntries: 0,
     fixtureCalls: [], unmatched: [], guardRejections: [], errors: [], preIdentityRefusals: 0,
+    identityCaptureCompleted: false, firstIdentityAdmissionFailure: null,
     sentinel: null, guardHealthy: false, cleanupComplete: false };
   const errorView = error => ({ name: error.name, code: error.code ?? null, message: error.message, stack: error.stack });
   const error = (kind, value) => { const row = { kind, ...errorView(value) }; state.errors.push(row); event(row); };
@@ -47,6 +48,7 @@ async function runCase(caseId, componentData) {
     scratch, source: __dirname, cliRoot, readFiles: [runtime.cliFileBindings.path, process.execPath], event
   });
   let lease, api, prepare, release, prepareDescriptor, releaseDescriptor, prepareWrapper, releaseWrapper, credentialWire, discoveryWire;
+  let nativeAdmission, identityCapture, identityBoundary, packaging;
   let requestDescriptor, requestWrapper, networkSlots = [], finishRegistered = false;
   const registerFinish = () => { if (!finishRegistered) { finishRegistered = true; process.once("exit", finish); } };
   const ownedSlots = [];
@@ -54,6 +56,47 @@ async function runCase(caseId, componentData) {
     const before = Object.getOwnPropertyDescriptor(object, key);
     action();
     ownedSlots.push({ object, key, before, owned: Object.getOwnPropertyDescriptor(object, key) });
+  }
+  function installBoundary(action) {
+    const http = require("node:http"), https = require("node:https"), net = require("node:net");
+    const tls = require("node:tls"), Module = require("node:module");
+    const slots = [[https, "request"], [https, "get"], [http, "request"], [http, "get"],
+      [net.Socket.prototype, "connect"], [tls, "connect"], [Module, "_load"], [globalThis, "fetch"],
+      [api.Client.prototype, "request"]];
+    const frames = slots.map(([object, key]) => ({ object, key, before: Object.getOwnPropertyDescriptor(object, key) }));
+    let value;
+    try { value = action(); }
+    catch (error) {
+      for (const { object, key, before } of frames) {
+        if (before) Object.defineProperty(object, key, before); else delete object[key];
+      }
+      throw error;
+    }
+    frames.forEach(frame => { frame.owned = Object.getOwnPropertyDescriptor(frame.object, frame.key); });
+    ownedSlots.push(...frames);
+    let restored = false;
+    return { value, restore() {
+      assert.equal(restored, false, "identity boundary cannot restore twice");
+      assert.deepEqual(ownedSlots.slice(-frames.length), frames, "identity boundary ownership order changed");
+      for (const { object, key, owned } of frames)
+        assert(isDeepStrictEqual(Object.getOwnPropertyDescriptor(object, key), owned), "foreign identity boundary hook retained: " + key);
+      for (const { object, key, before } of frames) {
+        if (before) Object.defineProperty(object, key, before); else delete object[key];
+      }
+      ownedSlots.splice(-frames.length); restored = true;
+    } };
+  }
+  function wrapPreIdentityRefusals() {
+    const guarded = api.Client.prototype.request;
+    api.Client.prototype.request = async function (request) {
+      try { return await guarded.call(this, request); }
+      catch (caught) {
+        state.preIdentityRefusals++;
+        const safe = require("./runtimeDeploymentTransportGuard31.cjs").safeRequestMetadata31(this, request);
+        event({ kind: "PRE_IDENTITY_REQUEST_REFUSED", ...safe });
+        throw caught;
+      }
+    };
   }
   // Substitute one declared synthetic metadata request; every other read still reaches the fence.
   // Observe and rethrow the identical error for delegated denials; no host read root is added.
@@ -93,6 +136,7 @@ async function runCase(caseId, componentData) {
     try {
       if (credentialWire) credentialWire.restore();
       if (discoveryWire) { discoveryWire.assertComplete(state.prepareEntries > 0); discoveryWire.restore(); }
+      if (packaging) packaging.restore();
       for (const { object, key, before, owned } of [...ownedSlots].reverse()) {
         assert(isDeepStrictEqual(Object.getOwnPropertyDescriptor(object, key), owned), "foreign fixture hook retained: " + key);
         if (before) Object.defineProperty(object, key, before);
@@ -231,6 +275,11 @@ async function runCase(caseId, componentData) {
       requestWrapper = requestDescriptor.value;
     } else Object.defineProperty(api.Client.prototype, "request", { ...requestDescriptor, value: requestWrapper });
     prepare = require(path.join(lib, "deploy/functions/prepare.js"));
+    if (realAuth) {
+      packaging = require("./business31CohortProcess.cjs").isolateNativePackagingConfig31(
+        require(path.join(lib, "deploy/functions/prepareFunctionsUpload.js")));
+      event({ kind: "REAL_NATIVE_PACKAGING_CONFIG_ISOLATION_INSTALLED", phase: selection.phase });
+    }
     prepareDescriptor = Object.getOwnPropertyDescriptor(prepare, "prepare");
     assert(prepareDescriptor && typeof prepareDescriptor.value === "function");
     const { FirebaseError } = require(path.join(lib, "error.js"));
@@ -252,6 +301,7 @@ async function runCase(caseId, componentData) {
       else assert.equal(options.tokens.access_token, "NON_SECRET_OFFLINE_FIXTURE");
       assert.deepEqual(process.argv, [process.execPath, runtime.cliEntrypoint, ...selection.cliArguments]);
       assert.deepEqual(state.fixtureCalls.filter(call => selection.permissionRoutes.includes(call.key)).map(call => call.key), selection.permissionRoutes);
+      if (nativeAdmission) { packaging.assertOwned(); nativeAdmission.bind(options); }
       event({ kind: "PREPARE_ENTRY", phase: selection.phase, names: selection.names, originalBodyInvoked: fullPrepare,
         config: options.config.src, project: options.project, nonInteractive: options.nonInteractive, only: options.only });
       if (selection.mode === "prepare-entry") {
@@ -261,6 +311,7 @@ async function runCase(caseId, componentData) {
       state.originalPrepareEntries++;
       try {
         const result = await prepareDescriptor.value.apply(this, arguments);
+        if (nativeAdmission) { packaging.assertOwned(); nativeAdmission.check("AFTER_ORIGINAL_PREPARE"); }
         state.originalPrepareCompleted++;
         const endpoints = backend => Object.values(backend.endpoints).flatMap(region => Object.values(region))
           .map(endpoint => ({ id: endpoint.id, serviceAccount: endpoint.serviceAccount ?? null,
@@ -295,6 +346,10 @@ async function runCase(caseId, componentData) {
       });
       if (credentialWire) credentialWire.bindGuard(guard);
       if (discoveryWire) discoveryWire.bindGuard(guard);
+      if (realAuth) nativeAdmission = require("./business31CliAdmissionFixture.cjs").create({
+        selection, Config: require(path.join(lib, "config.js")).Config, identityBaseline,
+        event, state, verifyProjectFixtures
+      });
       // Diagnostic wrapper retains the original predicate and never converts a refusal to a response.
       const originalBefore = guard.before;
       guard.before = function (...args) {
@@ -307,6 +362,46 @@ async function runCase(caseId, componentData) {
           state.guardRejections.push(row); event({ kind: "TRANSPORT_GUARD_REJECTION", ...row }); throw caught;
         }
       };
+      if (realAuth) {
+        // The exact installed hash still runs. Before it, complete the real pre-hash
+        // capture and restore its owned boundary, then retain the existing upload guard.
+        const apply = require(path.join(lib, "deploy/functions/cache/applyHash.js"));
+        const originalHash = apply.applyBackendHashToBackends;
+        retainOwned(apply, "applyBackendHashToBackends", () => {
+          apply.applyBackendHashToBackends = function (...args) {
+            packaging.assertOwned(); nativeAdmission.check("BEFORE_ORIGINAL_HASH");
+            const completion = identityCapture.finish();
+            state.identityCaptureCompleted = true;
+            event({ kind: "REAL_SERVICE_IDENTITY_CAPTURE_COMPLETED", phase: selection.phase,
+              records: 2, completion, parentControllerAdmitted: false });
+            identityBoundary.restore(); identityBoundary = null;
+            installBoundary(() => {
+              neutral.installNetworkBoundary31(guard);
+              neutral.installApiBoundary31(api.Client, guard, operation => credentialWire.beforeUpload(operation));
+            });
+            return originalHash.apply(this, args);
+          };
+        });
+        identityBoundary = installBoundary(() => {
+          const capture = require("./business31ServiceIdentityCapture.cjs").installServiceIdentityCapture31({
+            Client: api.Client, guard, phase: selection.phase, source: nativeAdmission.source,
+            approvalPointer: nativeAdmission.approvalPointer, baselinePointer: nativeAdmission.baselinePointer,
+            now: nativeAdmission.now, assertWindow: nativeAdmission.assertWindow, save: nativeAdmission.saveIdentity,
+            assertAdmission: operation => {
+              packaging.assertOwned();
+              assert.equal(state.preIdentityRefusals, 0, "Every earlier Client refusal is fatal before identity");
+              assert.equal(state.guardRejections.length, 0, "Every earlier guard refusal is fatal before identity");
+              if (discoveryWire) discoveryWire.beforeIdentity(guard);
+              return nativeAdmission.admission(operation);
+            }
+          });
+          wrapPreIdentityRefusals();
+          return capture;
+        });
+        identityCapture = identityBoundary.value;
+        event({ kind: "REAL_SERVICE_IDENTITY_CAPTURE_INSTALLED", phase: selection.phase,
+          nativeConfigChecks: true, syntheticCustodyOnly: true, fullControllerSourceAndControlsReplay: false });
+      } else {
       const http = require("node:http"), https = require("node:https"), net = require("node:net"), tls = require("node:tls"), Module = require("node:module");
       networkSlots = [[https, "request"], [https, "get"], [http, "request"], [http, "get"],
         [net.Socket.prototype, "connect"], [tls, "connect"], [Module, "_load"], [globalThis, "fetch"]];
@@ -328,18 +423,9 @@ async function runCase(caseId, componentData) {
           });
         }));
       retainOwned(api.Client.prototype, "request", () => {
-        const guarded = api.Client.prototype.request;
-        api.Client.prototype.request = async function (request) {
-          try { return await guarded.call(this, request); }
-          catch (caught) {
-            state.preIdentityRefusals++;
-            const url = new URL(this.opts.urlPrefix + (this.opts.apiVersion ? "/" + this.opts.apiVersion : "") + "/" + request.path.replace(/^\//, ""));
-            event({ kind: "PRE_IDENTITY_REQUEST_REFUSED", method: request.method ?? "GET", host: url.hostname,
-              path: url.pathname, status: null });
-            throw caught;
-          }
-        };
+        wrapPreIdentityRefusals();
       });
+      }
       event({ kind: "REAL_UNPREPARED_TRANSPORT_GUARD_INSTALLED", preparedComparisonFabricated: false });
     }
     lease.assertHealthy();

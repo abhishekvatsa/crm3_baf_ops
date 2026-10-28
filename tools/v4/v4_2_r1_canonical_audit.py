@@ -76,6 +76,37 @@ def http_and_json_dependency_pins_match() -> bool:
             and entry.get("integrity") == integrity for entry in copies
         )
 
+    # A labelled local repair is allowed only in the two Jest/test populations.
+    # Runtime bytes and installed Jest resolution are checked by dependency-compat.
+    deepmerge = data("tooling/deepmerge-prototype-guard/package.json")
+    if (deepmerge.get("name") != "@crm3/deepmerge-prototype-guard"
+            or deepmerge.get("version") != "4.3.1-b31.1"
+            or deepmerge.get("private") is not True or deepmerge.get("main") != "index.js"
+            or deepmerge.get("scripts") or deepmerge.get("dependencies")):
+        return False
+    for manifest, selection in (
+            ("package.json", "file:tooling/deepmerge-prototype-guard"),
+            ("functions/package.json", "file:../tooling/deepmerge-prototype-guard")):
+        package = data(manifest)
+        lock = data(manifest.replace("package.json", "package-lock.json"))
+        packages = lock.get("packages", {})
+        if (not isinstance(packages, dict)
+                or package.get("devDependencies", {}).get("deepmerge") != selection
+                or package.get("overrides", {}).get("deepmerge") != "$deepmerge"
+                or "deepmerge" in package.get("dependencies", {})
+                or "deepmerge" in package.get("optionalDependencies", {})
+                or packages.get("", {}).get("devDependencies", {}).get("deepmerge") != selection):
+            return False
+        copies = [entry for key, entry in packages.items()
+                  if key == "node_modules/deepmerge" or key.endswith("/node_modules/deepmerge")
+                  or isinstance(entry, dict) and entry.get("name") in ("deepmerge", "@crm3/deepmerge-prototype-guard")]
+        if not copies or not all(
+                isinstance(entry, dict) and entry.get("name") == "@crm3/deepmerge-prototype-guard"
+                and entry.get("version") == "4.3.1-b31.1" and entry.get("resolved") == selection
+                and entry.get("dev") is True and "integrity" not in entry and "link" not in entry
+                for entry in copies):
+            return False
+
     # Keep Express 4 and Express 5 on their compatible, patched parser majors.
     body_parser_pins = {
         "1.20.9": "sha512-FISIQxV5u91Y9gvuFq3q/tA/qTqLJn3AhRcEvyozyhJTh5OBFFtv827AdHU7Rbyct4r+Ba1/99oFa1Y3yuFsdw==",
@@ -98,12 +129,15 @@ def http_and_json_dependency_pins_match() -> bool:
                        and entry.get("resolved") == f"https://registry.npmjs.org/body-parser/-/body-parser-{entry['version']}.tgz"
                        for entry in body_copies)):
         return False
+    qs_pin = ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==")
+    if not registry_copies("functions/package.json", *qs_pin):
+        return False
     cli_registry_pins = (
         ("fast-uri", "3.1.9", "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="),
         ("ip-address", "10.7.4", "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="),
         ("undici", "8.12.2", "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="),
         ("zod", "4.6.6", "sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA=="),
-        ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg=="),
+        qs_pin,
     )
     if not all(registry_copies("tooling/firebase-cli/package.json", *pin) for pin in cli_registry_pins):
         return False
