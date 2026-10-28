@@ -233,6 +233,7 @@ function captureFixture(options = {}) {
     capture = identityCapture.installServiceIdentityCapture31({
       Client, guard: g, phase: "callables", source: SOURCE, approvalPointer: APPROVAL, baselinePointer, save, now: clock, assertWindow,
       assertAdmission: async operation => {
+        if (options.admissionError) throw options.admissionError;
         if (options.admissionFailure === "callback") throw Error("SYNTHETIC_CALLBACK_REFUSAL");
         const admitted = identityCapture.admitServiceIdentity31(operation, {
           currentControls: options.admissionFailure === "missing-controls" ? null : currentControls,
@@ -262,7 +263,9 @@ function captureFixture(options = {}) {
     },
     restore() {
       if (restored) return; restored = true; restoreSlots();
-      save("TEST_NATIVE_RESULT.json", { options, calls: calls.map(row => ({ url: row.url, method: row.method,
+      const { admissionError, ...recordedOptions } = options;
+      save("TEST_NATIVE_RESULT.json", { options: recordedOptions, admissionErrorInjected: admissionError !== undefined,
+        calls: calls.map(row => ({ url: row.url, method: row.method,
         rawBodyHex: Buffer.concat(row.chunks).toString("hex") })), nativeClientCalls, nativeWrites, nativeEnds, admissionChecks });
       console.error("Retained service-identity fixture: " + dir);
     }
@@ -490,12 +493,51 @@ test("an early OAuth refusal retains only safe endpoint metadata and remains sti
   const name = fs.readdirSync(f.dir).find(name => name.startsWith("service-identity-refusal-"));
   const row = JSON.parse(fs.readFileSync(path.join(f.dir, name), "utf8"));
   assert.deepEqual(row, { phase: "callables", observedAtUtc: row.observedAtUtc, code: "PREPARATION_REQUEST_REFUSED",
-    rawErrorRetained: false, method: "POST", host: "www.googleapis.com", path: "/oauth2/v3/token", status: null });
+    rawErrorRetained: false, refusal: { sequence: 1, stage: "guarded-request", reason: "UNCLASSIFIED_FAILURE", previouslyFailed: false,
+      first: { sequence: 1, stage: "guarded-request", reason: "UNCLASSIFIED_FAILURE" } },
+    method: "POST", host: "www.googleapis.com", path: "/oauth2/v3/token", status: null });
   for (const canary of canaries) assert.equal(JSON.stringify(row).includes(canary), false);
   await assert.rejects(f.call(), /Only existing identities may write before preparation/);
   assert.equal(f.nativeClientCalls, 0); assert.equal(f.nativeWrites, 0); assert.equal(f.nativeEnds, 0);
   assert.throws(() => f.capture.finish(), /Two complete original identity requests required/);
 }));
+
+test("first native Config refusal is retained separately from a later sticky refusal", async () => withCapture({
+  admissionError: Error("Business31 execution contract: governed native Config changed")
+}, async f => {
+  await assert.rejects(f.call(SERVICES[0]), /governed native Config changed/);
+  await assert.rejects(f.call(SERVICES[1]), /Only existing identities/);
+  const rows = [1, 2].map(n => JSON.parse(fs.readFileSync(path.join(f.dir, "service-identity-refusal-" + n + ".json"), "utf8")));
+  const first = { sequence: 1, stage: "identity-admission", reason: "NATIVE_CONFIG_CHANGED" };
+  assert.deepEqual(rows[0].refusal, { ...first, previouslyFailed: false, first });
+  assert.deepEqual(rows[1].refusal, { sequence: 2, stage: "identity-admission", reason: "IDENTITY_WRITE_STATE_REFUSED", previouslyFailed: true, first });
+  assert.equal(f.nativeClientCalls, 0); assert.equal(f.nativeWrites, 0);
+  assert.throws(() => f.capture.finish());
+}));
+
+for (const accessor of [false, true]) test("unclassified refusal cannot retain or evaluate secret-bearing error data: accessor=" + accessor, async () => {
+  const secret = "REFUSAL_SECRET_CANARY", failure = Error(secret);
+  failure.stack = secret; failure.cause = { body: secret };
+  if (accessor) Object.defineProperty(failure, "message", { configurable: true, get() { throw Error("SECRET_GETTER_MUST_NOT_RUN"); } });
+  await withCapture({ admissionError: failure }, async f => {
+    await assert.rejects(f.call(), error => error === failure);
+    const raw = fs.readFileSync(path.join(f.dir, "service-identity-refusal-1.json"), "utf8"), row = JSON.parse(raw);
+    assert.equal(row.refusal.stage, "identity-admission"); assert.equal(row.refusal.reason, "UNCLASSIFIED_FAILURE");
+    assert.equal(raw.includes(secret), false); assert.equal(raw.includes("SECRET_GETTER"), false);
+    assert.equal(f.nativeClientCalls, 0); assert.throws(() => f.capture.finish());
+  });
+});
+
+test("throwing error metadata cannot mask the original refusal or prevent its safe record", async () => {
+  const failure = new Proxy(Error("SECRET_PROXY_CANARY"), { getOwnPropertyDescriptor() { throw Error("SECRET_TRAP_CANARY"); } });
+  await withCapture({ admissionError: failure }, async f => {
+    await assert.rejects(f.call(), error => error === failure);
+    const raw = fs.readFileSync(path.join(f.dir, "service-identity-refusal-1.json"), "utf8");
+    assert.equal(JSON.parse(raw).refusal.reason, "UNCLASSIFIED_FAILURE");
+    assert.equal(raw.includes("SECRET_"), false); assert.equal(f.nativeClientCalls, 0);
+    assert.throws(() => f.capture.finish());
+  });
+});
 
 for (const stage of ["admission", "wire"]) test("a caught concurrent refusal during " + stage + " stops identity before outbound bytes", async () => {
   let entered, release;

@@ -111,12 +111,14 @@ function runSample(run, phase, fleetVariant = "existing-fleet", credentialScenar
   fs.mkdirSync(root); const source = path.join(root, "source"), scratch = path.join(source, "scratch");
   fs.mkdirSync(source); fs.mkdirSync(scratch);
   for (const name of ["business31CaptureBootstrap.cjs", "runtimeDeploymentTransportGuard31.cjs", "business31ServiceIdentityCapture.cjs", "backendRuntimeClosure31.cjs",
-    "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs"]) {
+    "backendRuntimeAdmission31.cjs", "backendRuntimeEvidenceAccess31.cjs", "business31CohortProcess.cjs",
+    "business31ExecutionContract.cjs", "collectBusinessRuntime31.cjs", "business31BackendAuthority.cjs",
+    "business31NpmBinMaterialization.cjs", "business31ToolchainIdentity.cjs"]) {
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   if (run.python) for (const name of ["runtime_process_runner.py", "runtime_supervisor.py"])
     fs.copyFileSync(path.resolve(__dirname, "..", name), path.join(source, name), fs.constants.COPYFILE_EXCL);
-  for (const name of ["business31CliDeployFixture.cjs", "business31CliCredentialWire.cjs", "business31CliDiscoveryWire.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
+  for (const name of ["business31CliDeployFixture.cjs", "business31CliAdmissionFixture.cjs", "business31CliCredentialWire.cjs", "business31CliDiscoveryWire.cjs", "business31CliOfflineFence.cjs", "business31CliSyntheticKernel.cjs", "business31CliFleetFixture.cjs"]) {
     fs.copyFileSync(path.join(__dirname, name), path.join(source, name), fs.constants.COPYFILE_EXCL);
   }
   assert.equal(sha(fs.readFileSync(path.join(source, "business31CaptureBootstrap.cjs"))),

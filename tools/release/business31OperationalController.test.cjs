@@ -6,6 +6,51 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
   const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),cp=require("node:child_process"),crypto=require("node:crypto");
   const {installOwned,runController31,runPhaseChild31,denyParameterWrites,collectCurrentBusinessControls31}=require("./business31OperationalController.cjs");
   const custody=require("./business31CohortProcess.cjs");
+  for(const rejects of [false,true])test("native packaging isolates only ignore while preserving arguments, result and rejection: "+rejects,async()=>{
+    const config={source:"functions",ignore:["node_modules",".git"],other:{fixed:true}},before=structuredClone(config);
+    const self={},tail={exportType:"zip"},failure=Error("NATIVE_PACKAGING_FAILURE"),result=Promise.resolve({path:"synthetic.zip"});
+    let observed,calls=0;
+    const module={prepareFunctionsUpload:function(...args){calls++;assert.equal(this,self);observed=args;
+      args[2].ignore.push("firebase-debug.log","firebase-debug.*.log",".runtimeconfig.json");
+      if(rejects)throw failure;return result;}};
+    const original=Object.getOwnPropertyDescriptor(module,"prepareFunctionsUpload"),lease=custody.isolateNativePackagingConfig31(module);
+    try{
+      if(rejects)assert.throws(()=>module.prepareFunctionsUpload.call(self,"project","source",config,[],undefined,tail),error=>error===failure);
+      else assert.equal(module.prepareFunctionsUpload.call(self,"project","source",config,[],undefined,tail),result);
+      assert.equal(calls,1);assert.deepEqual(config,before);assert.notEqual(observed[2],config);assert.notEqual(observed[2].ignore,config.ignore);
+      assert.equal(observed[2].other,config.other);assert.equal(observed[0],"project");assert.equal(observed[1],"source");assert.equal(observed[5],tail);
+      assert.deepEqual(observed[2].ignore,[...before.ignore,"firebase-debug.log","firebase-debug.*.log",".runtimeconfig.json"]);
+      lease.assertOwned();
+    }finally{lease.restore();}
+    assert.deepEqual(Object.getOwnPropertyDescriptor(module,"prepareFunctionsUpload"),original);
+  });
+  test("native packaging forwards the identical rejected Promise and original async error",async()=>{
+    const config={ignore:["node_modules"]},failure=Error("ASYNC_NATIVE_PACKAGING_FAILURE");
+    let rejected;
+    const module={prepareFunctionsUpload(_project,_source,actual){actual.ignore.push("firebase-debug.log");
+      rejected=Promise.reject(failure);return rejected;}};
+    const original=Object.getOwnPropertyDescriptor(module,"prepareFunctionsUpload"),lease=custody.isolateNativePackagingConfig31(module);
+    try{const returned=module.prepareFunctionsUpload("project","source",config);assert.equal(returned,rejected);
+      await assert.rejects(returned,error=>error===failure);assert.deepEqual(config.ignore,["node_modules"]);lease.assertOwned();
+    }finally{lease.restore();}
+    assert.deepEqual(Object.getOwnPropertyDescriptor(module,"prepareFunctionsUpload"),original);
+  });
+  test("native packaging leaves absent ignore absent and refuses invalid ignore before native call",()=>{
+    const config={source:"functions"};let calls=0;
+    const module={prepareFunctionsUpload(_project,_source,actual){calls++;assert.equal(actual,config);assert.equal(Object.hasOwn(actual,"ignore"),false);return 17;}};
+    const lease=custody.isolateNativePackagingConfig31(module);
+    try{assert.equal(module.prepareFunctionsUpload("project","source",config),17);
+      for(const ignore of [null,"*",[1]])assert.throws(()=>module.prepareFunctionsUpload("project","source",{ignore}),/ignore array/);
+      const getter={};Object.defineProperty(getter,"ignore",{get(){throw Error("GETTER_MUST_NOT_RUN");}});
+      assert.throws(()=>module.prepareFunctionsUpload("project","source",getter),/ignore array/);assert.equal(calls,1);
+    }finally{lease.restore();}
+  });
+  test("native packaging refuses and preserves a foreign module descriptor",()=>{
+    let calls=0;const module={prepareFunctionsUpload(){calls++;}},lease=custody.isolateNativePackagingConfig31(module),owned=module.prepareFunctionsUpload;
+    const foreign=()=>{};module.prepareFunctionsUpload=foreign;
+    assert.throws(()=>owned("project","source",{ignore:[]}),/ownership changed/);assert.throws(()=>lease.restore(),/ownership changed/);
+    assert.equal(module.prepareFunctionsUpload,foreign);assert.equal(calls,0);
+  });
   const root=fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()),"business31-controller-primitives-"));
   const sha=b=>crypto.createHash("sha256").update(b).digest("hex").toUpperCase();
   const file=(name,value)=>{const out=path.join(root,name);fs.writeFileSync(out,JSON.stringify(value)+"\n",{flag:"wx"});return out;};
@@ -159,7 +204,8 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
     const bound=require("./business31CaptureFixture.cjs").createBoundCliFixture31(path.resolve(__dirname,"../.."),root);
     test.after(()=>{try{bound.assertOriginalUnchanged();}finally{try{bound.lease.release();}finally{denial.restore();}}});
     assert.equal(require(path.join(path.dirname(bound.cli),"package.json")).version,"15.22.4");
-    installed={Config:require(path.join(bound.cli,"config.js")).Config,env:require(path.join(bound.cli,"functions/env.js"))};
+    installed={Config:require(path.join(bound.cli,"config.js")).Config,env:require(path.join(bound.cli,"functions/env.js")),
+      projectConfig:require(path.join(bound.cli,"functions/projectConfig.js")),packaging:require(path.join(bound.cli,"deploy/functions/prepareFunctionsUpload.js"))};
     return installed;
   }
   function parameterFixture(t) {
@@ -197,6 +243,30 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
     const start=custody.save31(ctx.evidenceDirectory,path.join(directory,"attempt-start.json"),startValue);
     return {contextValue,startValue,record:{...startValue,context,start},verify(record){return custody.verifyPhaseStart31({ctx,record:record??this.record,predecessors:[]});}};
   }
+  test("pinned native packaging reproduces the Config mutation and isolated packaging preserves exact ZIP members and hash",async t=>{
+    const {Config,projectConfig,packaging}=installedConfig(),outputs=[];
+    for(const isolated of [false,true]){
+      const f=parameterFixture(t),sourceDir=path.join(f.ctx.repoRoot,"functions"),content=Buffer.from("exports.synthetic = true;\n");
+      fs.writeFileSync(path.join(sourceDir,"index.js"),content);
+      fs.writeFileSync(path.join(sourceDir,"firebase-debug.log"),"EXCLUDED_LOG_CANARY");
+      fs.writeFileSync(path.join(sourceDir,".runtimeconfig.json"),"EXCLUDED_CONFIG_CANARY");
+      const config=new Config({functions:structuredClone(f.sourceFunctions)},{projectDir:f.ctx.repoRoot});
+      const binding=f.bind({project:PROJECT,config},Config),before=structuredClone(config.src);
+      const normalized=projectConfig.normalizeAndValidate(config.src.functions)[0];
+      assert.equal(normalized.ignore,config.src.functions[0].ignore,"pinned normalization shares the guarded ignore array");
+      const isolation=isolated?custody.isolateNativePackagingConfig31(packaging):null;
+      try{
+        const archive=await packaging.prepareFunctionsUpload(f.ctx.repoRoot,sourceDir,normalized,[],undefined);
+        require("./backendRuntimeClosure31.cjs").verifyArchiveBytes31(fs.readFileSync(archive.pathToSource),{"index.js":{bytes:content.length,sha256:sha(content)}});
+        outputs.push(archive.hash);
+        if(isolated){binding.assertUnchanged();assert.deepEqual(config.src,before);
+          config.src.functions[0].source="unapproved";assert.throws(()=>binding.assertUnchanged(),/governed native Config changed/);
+        }else{assert.deepEqual(config.src.functions[0].ignore,[...before.functions[0].ignore,"firebase-debug.log","firebase-debug.*.log",".runtimeconfig.json"]);
+          assert.throws(()=>binding.assertUnchanged(),/governed native Config changed/);}
+      }finally{isolation?.restore();}
+    }
+    assert.equal(outputs[0],outputs[1],"native source hash is unchanged by ignore isolation");
+  });
   test("actual installed Config/env consumes governed false with zero dotenv writes and source unchanged",t=>{
     const {Config,env}=installedConfig(),f=parameterFixture(t),config=new Config({functions:structuredClone(f.sourceFunctions)},{projectDir:f.ctx.repoRoot});
     const options={project:PROJECT,config},binding=f.bind(options,Config),guard=denyParameterWrites();
