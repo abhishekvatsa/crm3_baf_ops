@@ -17,7 +17,7 @@ DOCUMENTS = (ROOT_MANIFEST, "package-lock.json", FUNCTIONS, FUNCTIONS.replace("p
 REGISTRY_ROWS = ((ROOT_MANIFEST, "js-yaml"), (FUNCTIONS, "js-yaml"), (CLI, "js-yaml"),
                  (FUNCTIONS, "proxy-addr"), (CLI, "proxy-addr"),
                  (CLI, "compression"), (CLI, "stream-json-modern"),
-                 (FUNCTIONS, "body-parser"), (CLI, "body-parser"),
+                 (FUNCTIONS, "body-parser"), (CLI, "body-parser"), (FUNCTIONS, "qs"),
                  *((CLI, name) for name in ("fast-uri", "ip-address", "undici", "zod", "qs")))
 ALL_ROWS = (*REGISTRY_ROWS, (CLI, "stream-json"))
 
@@ -65,7 +65,7 @@ class GuardCases:
         for manifest, name in ((ROOT_MANIFEST, "js-yaml"), (FUNCTIONS, "js-yaml"),
                                (CLI, "js-yaml"), (FUNCTIONS, "proxy-addr"), (CLI, "proxy-addr"),
                                (CLI, "compression"), (CLI, "stream-json"), (FUNCTIONS, "body-parser"),
-                               (CLI, "body-parser@^1"), (CLI, "body-parser@^2"),
+                               (CLI, "body-parser@^1"), (CLI, "body-parser@^2"), (FUNCTIONS, "qs"),
                                *((CLI, name) for name in ("fast-uri", "ip-address", "undici", "zod", "qs"))):
             for mutation in ("missing", "changed"):
                 with self.subTest(manifest=manifest, package=name, mutation=mutation):

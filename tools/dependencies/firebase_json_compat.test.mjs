@@ -69,6 +69,9 @@ test('Express 4 and 5 resolve their patched Body Parser major and parse bounded 
     assert.equal(JSON.parse(fs.readFileSync(expressPackage)).version, expressVersion);
     assert.equal(expressRequire('body-parser/package.json').version, parserVersion,
       `${relative} must resolve its own compatible Body Parser major`);
+    const parserRequire = createRequire(expressRequire.resolve('body-parser/package.json'));
+    assert.equal(parserRequire('qs/package.json').version, '6.16.1',
+      `${relative} Body Parser must resolve the patched qs`);
     const bodyParser = expressRequire('body-parser');
     async function parse(type, body, middleware) {
       const request = Readable.from([Buffer.from(body)]);
@@ -82,6 +85,16 @@ test('Express 4 and 5 resolve their patched Body Parser major and parse bounded 
       bodyParser.urlencoded({extended: true})), {user: {name: 'test'}, enabled: 'true'});
     await assert.rejects(parse('application/json', '{', bodyParser.json()), {status: 400});
   }
+});
+
+test('Functions qs handles comma arrays with non-callable toString entries', () => {
+  const functionsRequire = createRequire(path.join(root, 'functions/package.json'));
+  const qs = functionsRequire('qs');
+  assert.equal(functionsRequire('qs/package.json').version, '6.16.1');
+  const input = JSON.parse('{"a":["b",{"toString":"x"},"c"]}');
+  assert.equal(qs.stringify(input, {arrayFormat: 'comma'}), 'a=b%2C%5Bobject%20Object%5D%2Cc');
+  assert.equal(qs.stringify(qs.parse('a[][b]=c', {plainObjects: true}), {arrayFormat: 'comma'}),
+    'a=%5Bobject%20Object%5D');
 });
 
 test('mapped IPv6 trust subnets do not accept spoofed forwarding from an unrelated IPv4 peer', () => {

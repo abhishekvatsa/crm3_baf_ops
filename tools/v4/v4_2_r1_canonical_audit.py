@@ -98,12 +98,15 @@ def http_and_json_dependency_pins_match() -> bool:
                        and entry.get("resolved") == f"https://registry.npmjs.org/body-parser/-/body-parser-{entry['version']}.tgz"
                        for entry in body_copies)):
         return False
+    qs_pin = ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg==")
+    if not registry_copies("functions/package.json", *qs_pin):
+        return False
     cli_registry_pins = (
         ("fast-uri", "3.1.9", "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="),
         ("ip-address", "10.7.4", "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="),
         ("undici", "8.12.2", "sha512-XtuDWVdqTLr3NAxm2ly9/hU6kUsJOgGh1RASzMBbsw6aWCOaQzHdW+QQDfdERjfJ2V5vL5pRPa4RetO9UfivDg=="),
         ("zod", "4.6.6", "sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA=="),
-        ("qs", "6.16.1", "sha512-5Px6J7rfHBAGUhNQ3es4YzcOdBBw0SDcVtThJml4RdnKw4tKs2epA0kPZ+K8X+WiHktT93RHVcQ/3ym5aTCgtg=="),
+        qs_pin,
     )
     if not all(registry_copies("tooling/firebase-cli/package.json", *pin) for pin in cli_registry_pins):
         return False
