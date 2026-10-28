@@ -12,8 +12,9 @@ ROOT_MANIFEST = "package.json"
 FUNCTIONS = "functions/package.json"
 CLI = "tooling/firebase-cli/package.json"
 ADAPTER = "tooling/stream-json-compat/package.json"
+DEEPMERGE = "tooling/deepmerge-prototype-guard/package.json"
 DOCUMENTS = (ROOT_MANIFEST, "package-lock.json", FUNCTIONS, FUNCTIONS.replace("package.json", "package-lock.json"),
-             CLI, CLI.replace("package.json", "package-lock.json"), ADAPTER)
+             CLI, CLI.replace("package.json", "package-lock.json"), ADAPTER, DEEPMERGE)
 REGISTRY_ROWS = ((ROOT_MANIFEST, "js-yaml"), (FUNCTIONS, "js-yaml"), (CLI, "js-yaml"),
                  (FUNCTIONS, "proxy-addr"), (CLI, "proxy-addr"),
                  (CLI, "compression"), (CLI, "stream-json-modern"),
@@ -50,6 +51,49 @@ class GuardCases:
 
     def test_actual_fixed_manifests_and_locks_pass(self):
         self.assertTrue(self.guard())
+
+    def test_deepmerge_must_be_the_reviewed_local_test_dependency(self):
+        for manifest in (ROOT_MANIFEST, FUNCTIONS):
+            for defect in ("missing-override", "changed-override", "production", "missing-selection",
+                           "wrong-version", "wrong-name", "registry-origin", "not-dev", "registry-digest",
+                           "nested-unpatched", "root-lock-mismatch"):
+                with self.subTest(manifest=manifest, defect=defect):
+                    self.reset()
+                    package = self.documents[manifest]
+                    row = self.row(manifest, "deepmerge")
+                    if defect == "missing-override":
+                        del package["overrides"]["deepmerge"]
+                    elif defect == "changed-override":
+                        package["overrides"]["deepmerge"] = "4.3.1"
+                    elif defect == "production":
+                        package.setdefault("dependencies", {})["deepmerge"] = "4.3.1"
+                    elif defect == "missing-selection":
+                        del package["devDependencies"]["deepmerge"]
+                    elif defect == "wrong-version":
+                        row["version"] = "4.3.1"
+                    elif defect == "wrong-name":
+                        row["name"] = "deepmerge"
+                    elif defect == "registry-origin":
+                        row["resolved"] = "https://registry.npmjs.org/deepmerge/-/deepmerge-4.3.1.tgz"
+                    elif defect == "not-dev":
+                        row["dev"] = False
+                    elif defect == "registry-digest":
+                        row["integrity"] = "sha512-unreviewed"
+                    elif defect == "nested-unpatched":
+                        self.packages(manifest)["node_modules/jest-config/node_modules/deepmerge"] = {
+                            "version": "4.3.1", "dev": True}
+                    elif defect == "root-lock-mismatch":
+                        self.packages(manifest)[""]["devDependencies"]["deepmerge"] = "4.3.1"
+                    self.assertFalse(self.guard())
+
+    def test_deepmerge_local_identity_cannot_hide_a_different_package_or_install_hook(self):
+        for key, value in (("name", "deepmerge"), ("version", "4.3.2"), ("private", False),
+                           ("main", "other.js"), ("scripts", {"postinstall": "unreviewed"}),
+                           ("dependencies", {"deepmerge": "4.3.1"})):
+            with self.subTest(field=key):
+                self.reset()
+                self.documents[DEEPMERGE][key] = value
+                self.assertFalse(self.guard())
 
     def test_guard_is_connected_to_an_actual_audit_check(self):
         checks = [node for node in ast.walk(self.tree) if isinstance(node, ast.Call)

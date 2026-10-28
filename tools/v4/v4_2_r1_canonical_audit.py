@@ -76,6 +76,37 @@ def http_and_json_dependency_pins_match() -> bool:
             and entry.get("integrity") == integrity for entry in copies
         )
 
+    # A labelled local repair is allowed only in the two Jest/test populations.
+    # Runtime bytes and installed Jest resolution are checked by dependency-compat.
+    deepmerge = data("tooling/deepmerge-prototype-guard/package.json")
+    if (deepmerge.get("name") != "@crm3/deepmerge-prototype-guard"
+            or deepmerge.get("version") != "4.3.1-b31.1"
+            or deepmerge.get("private") is not True or deepmerge.get("main") != "index.js"
+            or deepmerge.get("scripts") or deepmerge.get("dependencies")):
+        return False
+    for manifest, selection in (
+            ("package.json", "file:tooling/deepmerge-prototype-guard"),
+            ("functions/package.json", "file:../tooling/deepmerge-prototype-guard")):
+        package = data(manifest)
+        lock = data(manifest.replace("package.json", "package-lock.json"))
+        packages = lock.get("packages", {})
+        if (not isinstance(packages, dict)
+                or package.get("devDependencies", {}).get("deepmerge") != selection
+                or package.get("overrides", {}).get("deepmerge") != "$deepmerge"
+                or "deepmerge" in package.get("dependencies", {})
+                or "deepmerge" in package.get("optionalDependencies", {})
+                or packages.get("", {}).get("devDependencies", {}).get("deepmerge") != selection):
+            return False
+        copies = [entry for key, entry in packages.items()
+                  if key == "node_modules/deepmerge" or key.endswith("/node_modules/deepmerge")
+                  or isinstance(entry, dict) and entry.get("name") in ("deepmerge", "@crm3/deepmerge-prototype-guard")]
+        if not copies or not all(
+                isinstance(entry, dict) and entry.get("name") == "@crm3/deepmerge-prototype-guard"
+                and entry.get("version") == "4.3.1-b31.1" and entry.get("resolved") == selection
+                and entry.get("dev") is True and "integrity" not in entry and "link" not in entry
+                for entry in copies):
+            return False
+
     # Keep Express 4 and Express 5 on their compatible, patched parser majors.
     body_parser_pins = {
         "1.20.9": "sha512-FISIQxV5u91Y9gvuFq3q/tA/qTqLJn3AhRcEvyozyhJTh5OBFFtv827AdHU7Rbyct4r+Ba1/99oFa1Y3yuFsdw==",

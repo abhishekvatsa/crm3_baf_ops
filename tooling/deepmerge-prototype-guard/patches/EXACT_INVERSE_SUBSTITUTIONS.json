@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "file": "index.js",
+    "sha256": "976C91F003A1FC609EBE2017BABDA35EB15DCB972C4BC868637626D3850C2756",
+    "bytes": 4117
+  },
+  "target": {
+    "package": "deepmerge",
+    "version": "4.3.1",
+    "file": "dist/cjs.js",
+    "sha256": "2E5160F84A1141BD927264AFE4D15766F1E6CF07DAEF182B37FF53FEA121DE7D",
+    "bytes": 4048
+  },
+  "substitutions": [
+    {
+      "before": "\t\tif (key === '__proto__' || propertyIsUnsafe(target, key)) {\n",
+      "after": "\t\tif (propertyIsUnsafe(target, key)) {\n",
+      "occurrences": 1
+    },
+    {
+      "before": "\t\tgetKeys(target).forEach(function(key) {\n\t\t\tif (key === '__proto__') {\n\t\t\t\treturn\n\t\t\t}\n",
+      "after": "\t\tgetKeys(target).forEach(function(key) {\n",
+      "occurrences": 1
+    }
+  ]
+}
