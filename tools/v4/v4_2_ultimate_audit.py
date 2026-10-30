@@ -405,7 +405,7 @@ check(
     and tooling_versions["body-parser"] == "1.20.9"
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.12"
-    and tooling_versions["@hono/node-server"] == "2.0.10"
+    and tooling_versions["@hono/node-server"] == "2.1.3"
     and tooling_versions["fast-uri"] == "3.1.9"
     and tooling_versions["hono"] == "4.13.11"
     and tooling_versions["ip-address"] == "10.7.4"
