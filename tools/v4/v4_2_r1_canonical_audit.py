@@ -3487,7 +3487,7 @@ check(
         for key, entry in firebase_cli_packages.items()
         if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")
     )
-    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.0.10"
+    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.1.3"
     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.9"
     and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.1"
     and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
@@ -3506,9 +3506,9 @@ check(
     and firebase_cli_package.get("overrides", {}).get("re2") == "1.26.1"
     and firebase_cli_package.get("overrides", {}).get("undici") == "8.12.2"
     and firebase_tools.get("version") == "15.22.4"
-    and hono.get("version") == "2.0.10"
-    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.0.10.tgz"
-    and hono.get("integrity") == "sha512-ZcnNVhKTmyDJeg0UlnZjvM73JBsTAuhrH/J4fjwGOw59PwOW51r4J+p6CsKZWXdKSme4MFqU62CZMOsdDrU4CA=="
+    and hono.get("version") == "2.1.3"
+    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.3.tgz"
+    and hono.get("integrity") == "sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw=="
     and fast_uri.get("version") == "3.1.9"
     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz"
     and fast_uri.get("integrity") == "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="
@@ -3614,7 +3614,7 @@ check(
         "HOLD_FIREBASE_CLI_LOCK_POLICY",
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
-        "2.0.10",
+        "2.1.3",
         "3.1.9",
         "4.13.11",
         "10.7.4",

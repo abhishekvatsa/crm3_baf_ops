@@ -55,7 +55,7 @@ Assert-FirebaseCliLockPolicy | Out-Null
 $script:passedCases++
 $workspace = $fixtureRoot
 Restore-LockFixture
-$packages = @('basic-ftp', '@grpc/grpc-js', '@modelcontextprotocol/sdk', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
+$packages = @('basic-ftp', '@grpc/grpc-js', '@modelcontextprotocol/sdk', '@hono/node-server', 'fast-uri', 'hono', 'ip-address', 'js-yaml', 'morgan', 'undici')
 foreach ($packageName in $packages) {
   foreach ($field in @('version', 'resolved', 'integrity', 'missing', 'override')) {
     Restore-LockFixture
