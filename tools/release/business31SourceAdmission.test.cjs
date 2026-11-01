@@ -135,6 +135,25 @@ const reviewedDeepmergePaths = Object.freeze([
   "tooling/deepmerge-prototype-guard/patches/forward.patch",
   "tooling/deepmerge-prototype-guard/patches/inverse.patch",
 ]);
+const reviewedAdapterPaths = Object.freeze([
+  "tooling/glob-compat.tgz",
+  "tooling/glob-compat/README.md",
+  "tooling/glob-compat/index.cjs",
+  "tooling/glob-compat/index.d.ts",
+  "tooling/glob-compat/index.mjs",
+  "tooling/glob-compat/package.json",
+  "tooling/minimatch-compat.tgz",
+  "tooling/minimatch-compat/README.md",
+  "tooling/minimatch-compat/index.cjs",
+  "tooling/minimatch-compat/index.d.ts",
+  "tooling/minimatch-compat/index.mjs",
+  "tooling/minimatch-compat/package.json",
+  "tooling/minimatch-v3-compat.tgz",
+  "tooling/minimatch-v3-compat/README.md",
+  "tooling/minimatch-v3-compat/index.cjs",
+  "tooling/minimatch-v3-compat/index.d.ts",
+  "tooling/minimatch-v3-compat/package.json"
+]);
 function reviewedDeltaFixture() {
   const args = fixture(), before = {}, after = {};
   for (const entry of reviewedDelta.protectedDelta) {
@@ -282,29 +301,68 @@ function measuredGitFixtures() {
     return args;
   });
 }
-test("full baseline-to-15ff and current HEAD Git populations expose every protected change", () => {
-  const [reviewed, current] = measuredGitFixtures();
-  for (const args of [reviewed, current]) {
-    const original = structuredClone(args);
-    assert.equal(Object.keys(args.baselineSnapshot.files).length > 335, true);
-    assert.equal(Object.keys(args.sourceSnapshot.files).length > 362, true);
-    assert.deepEqual(args.manifest.protectedDelta, reviewedDelta.protectedDelta);
-    assert.deepEqual(args.dependencySha256, reviewedDelta.dependencySha256);
-    const proof = validateSourceInventory31(args);
-    assert.equal(proof.protectedFileCount, 362);
-    assert.equal(proof.changedPaths.length, 46);
-    assert.equal(proof.changedPaths.filter(p => reviewedJsonRuntimePaths.includes(p)).length, 5);
-    assert.equal(proof.changedPaths.filter(p => !reviewedJsonRuntimePaths.includes(p)).length, 41);
-    assert.deepEqual(proof.baseline, args.manifest.baseline);
-    assert.deepEqual(proof.source, args.manifest.source);
-    assert.equal(proof.deploymentAuthority, false);
-    assert.equal(proof.credentialAccessAuthorized, false);
-    assert.deepEqual(args, original);
-    const partial = structuredClone(args);
-    partial.manifest.protectedDelta = partial.manifest.protectedDelta.filter(entry =>
-      !reviewedDeepmergePaths.includes(entry.path));
-    assert.equal(partial.manifest.protectedDelta.length, 36);
-    signFixture(partial);
-    assert.throws(() => validateSourceInventory31(partial), /Actual protected delta/);
-  }
+test("historical 15ff oracle retains its exact 46 changes and dependency bytes", () => {
+  const [reviewed] = measuredGitFixtures();
+  assert.deepEqual(reviewed.manifest.protectedDelta, reviewedDelta.protectedDelta);
+  assert.deepEqual(reviewed.dependencySha256, reviewedDelta.dependencySha256);
+  const proof = validateSourceInventory31(reviewed);
+  assert.equal(proof.protectedFileCount, 362);
+  assert.equal(proof.changedPaths.length, 46);
 });
+
+test("current Git population includes only the reviewed historical scope and exact adapter additions", () => {
+  const [, args] = measuredGitFixtures(), original = structuredClone(args);
+  assert.equal(Object.keys(args.baselineSnapshot.files).length > 335, true);
+  const expected = [...reviewedDelta.protectedDelta.map(entry => entry.path), ...reviewedAdapterPaths].sort();
+  assert.equal(reviewedAdapterPaths.length, 17);
+  assert.deepEqual(args.manifest.protectedDelta.map(entry => entry.path), expected);
+  for (const prior of reviewedDelta.protectedDelta) {
+    const actual = args.manifest.protectedDelta.find(entry => entry.path === prior.path);
+    assert.deepEqual(actual.before, prior.before);
+    if (!DEPENDENCIES.includes(prior.path)) assert.deepEqual(actual, prior);
+  }
+  for (const name of reviewedAdapterPaths) {
+    const actual = args.manifest.protectedDelta.find(entry => entry.path === name);
+    assert.equal(actual.before, null);
+    assert.equal(actual.after.mode, "100644");
+    assert.match(actual.after.oid, /^[a-f0-9]{40}$/);
+  }
+  const proof = validateSourceInventory31(args);
+  assert.equal(proof.protectedFileCount, 362 + reviewedAdapterPaths.length);
+  assert.equal(proof.changedPaths.length, expected.length);
+  assert.equal(proof.changedPaths.filter(p => reviewedJsonRuntimePaths.includes(p)).length, 5);
+  assert.deepEqual(proof.baseline, args.manifest.baseline);
+  assert.deepEqual(proof.source, args.manifest.source);
+  assert.equal(proof.deploymentAuthority, false);
+  assert.equal(proof.credentialAccessAuthorized, false);
+  assert.deepEqual(args, original);
+  const partial = structuredClone(args);
+  partial.manifest.protectedDelta = partial.manifest.protectedDelta.filter(entry =>
+    !reviewedDeepmergePaths.includes(entry.path));
+  assert.equal(partial.manifest.protectedDelta.length, expected.length - 10);
+  signFixture(partial);
+  assert.throws(() => validateSourceInventory31(partial), /Actual protected delta/);
+});
+
+for (const name of reviewedAdapterPaths) test(`adapter source or archive ${name} remains exact, nonexecutable and nondeletable`, () => {
+  const a = fixture();
+  a.sourceSnapshot.files[name] = id("5");
+  refreshMeasurement(a);
+  assert.ok(validateSourceInventory31(a).changedPaths.includes(name));
+  a.sourceSnapshot.files[name].oid = "6".repeat(40);
+  assert.throws(() => validateSourceInventory31(a), /complete source population/);
+  for (const mode of ["100755", "120000", "160000"]) {
+    const changed = fixture(); changed.sourceSnapshot.files[name] = {...id("5"), mode};
+    refreshMeasurement(changed);
+    assert.throws(() => validateSourceInventory31(changed),
+      mode === "100755" ? /non-executable/ : /regular Git blob/);
+  }
+  const deleted = fixture();
+  deleted.baselineSnapshot.files[name] = id("5");
+  refreshMeasurement(deleted);
+  assert.throws(() => validateSourceInventory31(deleted), /Deleting admitted/);
+});
+
+test("adapter additions do not admit an unreviewed neighboring file", () => fails(a => {
+  a.sourceSnapshot.files["tooling/minimatch-compat/unreviewed.cjs"] = id("4");
+}, /unadmitted source delta/, {remeasure: true}));

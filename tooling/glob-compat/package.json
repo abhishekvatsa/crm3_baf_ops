@@ -1,0 +1,25 @@
+{
+  "name": "crm3-glob-legacy-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Legacy callback and synchronous exports backed by patched glob",
+  "files": ["index.cjs", "index.mjs", "index.d.ts", "README.md"],
+  "type": "module",
+  "main": "./index.cjs",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": "18 || 20 || >=22"
+  },
+  "dependencies": {
+    "glob-modern": "npm:glob@14.0.2",
+    "minimatch-modern": "npm:minimatch@11.0.1"
+  }
+}

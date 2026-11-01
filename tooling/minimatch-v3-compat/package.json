@@ -1,0 +1,19 @@
+{
+  "name": "crm3-minimatch-v3-compat",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Observed minimatch 3 callable Windows path behavior over patched matching",
+  "files": ["index.cjs", "index.d.ts", "README.md"],
+  "main": "./index.cjs",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./index.cjs",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": "18 || 20 || >=22"
+  },
+  "dependencies": {
+    "minimatch-modern": "npm:minimatch@11.0.1"
+  }
+}
