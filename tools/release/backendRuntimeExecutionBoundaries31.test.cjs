@@ -290,3 +290,26 @@ const structuredNegatives31=[
 for(const [name,change]of structuredNegatives31)test('structured Codex refuses '+name,()=>{const f=structuredLive31();change(f);rebindStructured31(f);assert.throws(()=>gate.verifyLiveGitHubRecords31(f));});
 test('structured native body digest remains mandatory',()=>{const f=structuredLive31();f.review.body+='\n';assert.throws(()=>gate.verifyLiveGitHubRecords31(f),/chain differs/);});
 test('generic Codex footer is not a structured result',()=>{const f=structuredLive31();f.review.body=f.review.body.slice(f.review.body.indexOf('<details>'));assert.equal(gate.codexStructuredReview31({review:f.review}),null);assert.throws(()=>gate.verifyPreservedLiveGitHub31({observer:{executable:process.execPath,sha256:h(fs.readFileSync(process.execPath))},observedAtUtc:f.nowUtc,completedAtUtc:f.nowUtc,pr:JSON.stringify(f.pr),review:JSON.stringify(f.review),reviewRequest:JSON.stringify(f.reviewRequest),reviewSummary:null,threads:'{}'},{runtime:{githubExecutable:process.execPath,githubExecutableSha256:h(fs.readFileSync(process.execPath))}},f.approval),/marker absent/);});
+
+test('retained PR420 summary6559153282 reviews the normal merge while request6560024228 names the head',()=>{
+ // Literal public originals retained before this repair, not refetched or rewritten.
+ const rawReview=fs.readFileSync(path.join(__dirname,'testdata/codex-review-summary-6559153282.json'));
+ const rawRequest=fs.readFileSync(path.join(__dirname,'testdata/codex-review-request-6560024228.json'));
+ assert.equal(h(rawReview),'D0E5094B2A4A4BAA8C780CF9859D7AD81938C13F0C7F949A7AF657ACE91BEA95');
+ assert.equal(h(rawRequest),'7F8F401FAD2982D7608F43897786440C17DBC245B5158AD58E4B70E71745A1B6');
+ const review=JSON.parse(rawReview),request=JSON.parse(rawRequest);
+ const head='0d6c9f9fb7febb77022a1b37aac3ad83dde481a2',previous='a43c93c7090f142d9e97efc891b325a4e0a211a0',merge='a7c67389bf612a46c97644a4941f51e3c0bc3e1d';
+ const input={review,request,summary:review,selectedSummary:{id:review.id,bodySha256:h(Buffer.from(review.body))},headCommit:head,pullRequestNumber:420,latestUtc:'2026-11-01T15:35:00Z',source:{commit:merge},mergeParents:[previous,head],
+  pr:{number:420,merged:true,merge_commit_sha:merge,merged_at:'2026-11-01T15:11:45Z',head:{sha:head},base:{sha:previous,ref:'main',repo:{full_name:'abhishekvatsa/crm3_baf_ops'}}}};
+ assert.equal(gate.codexStructuredReview31(input),merge);assert.equal(review.id,6559153282);assert.equal(request.id,6560024228);
+ assert.ok(request.body.includes(head));assert.ok(review.body.includes(merge));
+ for(const mutate of [
+  v=>v.pr.merge_commit_sha=head,
+  v=>v.mergeParents.reverse(),
+  v=>v.review.body+='\n',
+  v=>v.review.user.type='User',
+  v=>delete v.source,
+  v=>v.pr.merged_at='2026-11-01T15:35:00Z',
+ ]){const invalid=structuredClone(input);mutate(invalid);assert.throws(()=>gate.codexStructuredReview31(invalid));}
+ assert.equal(rawReview.toString(),JSON.stringify(review));assert.equal(rawRequest.toString(),JSON.stringify(request));
+});
