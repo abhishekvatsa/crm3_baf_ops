@@ -329,6 +329,8 @@ class RuntimeDeploymentTransportGuard31 {
     if(operation.kind==='generate-upload'){
       const body=result.body,url=new URL(body?.uploadUrl);need(url.protocol==='https:'&&!url.username&&!url.password&&!url.port&&(url.hostname==='storage.googleapis.com'||url.hostname.endsWith('.storage.googleapis.com')),'Unexpected signed source-upload origin');
       need(body.storageSource&&typeof body.storageSource.bucket==='string'&&typeof body.storageSource.object==='string','Actual generated source location required');
+      // Match the pinned CLI's URLSearchParams serialization of the signed query.
+      url.search=url.searchParams.toString();
       const retained=Object.freeze(structuredClone(body.storageSource));this.uploads.set(url.href,retained);this.sourceLocations.push(retained);
     }
     this.events.push({kind:operation.kind,...(operation.sequence?{sequence:operation.sequence}:{}),...(operation.name?{name:operation.name}:{})});
