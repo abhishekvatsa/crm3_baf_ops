@@ -380,7 +380,7 @@ not a general Firebase Realtime Database host allowance. Authentication,
 cookies, query parameters, body framing, trailers, redirects and retries remain
 refused. A refused request remains fatal even if the CLI catches its error.
 
-The current immutable anchor is `a0e07e9ba62bb4201d18d04f99a63853a8b18a21`.
+The current immutable anchor is `a30720a0bf8ead1f1736302727dd23bd5687059b`.
 Its fourteen-file family is unchanged; only the transport guard differs from the
 previous anchor. Historical anchors remain in ancestry and are explicitly refused
 as substitutes for current bytes. Authority, runtime and capture bindings use
