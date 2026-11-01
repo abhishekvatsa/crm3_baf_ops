@@ -1,7 +1,7 @@
 {
   "description": "Exact reviewed delta records for compact structural tests; not complete Git snapshots or deployment evidence.",
   "baselineCommit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",
-  "reviewedSourceCommit": "78067042453b7f39346e3ff1026147cd3824f7d5",
+  "reviewedSourceCommit": "15ff88f3e7bb1496405953a004a0f6b534960051",
   "protectedDelta": [
     {
       "path": "functions/package-lock.json",
@@ -11,7 +11,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "ae032c46cd384d97e255522c17c2d4da9e5c6b86"
+        "oid": "56127988827d9fade44e64a7c9cf67aad3aedd17"
       }
     },
     {
@@ -22,7 +22,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "3c92cd363c5604827383c886436f05f636f71b4c"
+        "oid": "50d4334902d0c784993bd9d030d242be33036900"
       }
     },
     {
@@ -250,6 +250,86 @@
       }
     },
     {
+      "path": "tooling/deepmerge-prototype-guard/README.md",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "7b7342e8fffae4d80879be3ac7bf5b1e1200ab47"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/UPSTREAM.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "9187fc47ffcf3ba563295ca668c392e6930d4c8e"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/index.d.ts",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "46784de5625a962c3c4c68c8fe16078815cce018"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/index.js",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "65499f63542e7e106fa7fd8fc9e9b01382bcafa5"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/license.txt",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "5003078718343fc207823c9f543ef906ac59dcbe"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/package.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "b87293eeafb7e335eb629c11c1ab1ee6e0ce9936"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/patches/EXACT_INVERSE_SUBSTITUTIONS.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "3d3256675c664e6c10172b4decc32bd34c7d2137"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/patches/EXACT_SUBSTITUTIONS.json",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "6fd389cd91e6f071f5f545c5e110404d9d239248"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/patches/forward.patch",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "f9a56dcddb496bf8e898b9fc4ef7685b3e0ff032"
+      }
+    },
+    {
+      "path": "tooling/deepmerge-prototype-guard/patches/inverse.patch",
+      "before": null,
+      "after": {
+        "mode": "100644",
+        "oid": "02565b368cbce5c2bc5bbb0d043ab34f2ef1fcb9"
+      }
+    },
+    {
       "path": "tooling/firebase-cli/package-lock.json",
       "before": {
         "mode": "100644",
@@ -257,7 +337,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "6aa359c53725eded7661c7f36825fc3fb0acfb21"
+        "oid": "8d78a5de4df4fa11ec9fcd144cc8747a4e8f1c28"
       }
     },
     {
@@ -268,7 +348,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "3897b14e0d82e7bd451cb72c4ed0721f121ebd94"
+        "oid": "91aeac3d87d36f647f5b1ca668db69c913cc8c01"
       }
     },
     {
@@ -279,7 +359,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "1bbd829816c9c0bc5f19aa564405c476b176c7ad"
+        "oid": "cfa0bfa47c126fc47cc1cf83c8f60878a6003f45"
       }
     },
     {
@@ -323,7 +403,7 @@
       },
       "after": {
         "mode": "100644",
-        "oid": "85cc1a108c44c24a68155d1c347435940032b0b0"
+        "oid": "1eb96e3d2a574df52e8189f38d3f9ae130994851"
       }
     },
     {
@@ -350,9 +430,9 @@
     }
   ],
   "dependencySha256": {
-    "functions/package.json": "B38757086C702A612A0434D31D8B3BB552487C88A72D0C7623FBB17144E5AADC",
-    "functions/package-lock.json": "8844A15AB4E6AD3ECA88E86910505675864B5FB406E64FB56BA352E5971E3734",
-    "tooling/firebase-cli/package.json": "B5FD93F89785A3332302863798194FD891911A84CF21347A03596BAA3B573318",
-    "tooling/firebase-cli/package-lock.json": "0E72C573D3EECBCA915A5B70AED03BA3AD550F017CE56A8CF10EE843566C151A"
+    "functions/package.json": "1C0CE81B8A24662EE95152C62782235CA4826C0218C1E4AF5BBD58874BC68359",
+    "functions/package-lock.json": "658E36B4AC3BA3E38793B9C3887FD512E0F0417ADDE8240B2638C22B72FD8BDD",
+    "tooling/firebase-cli/package.json": "F489E0BDD7B9442E48D31639899985299714D43916F8E18E364EC19064710E40",
+    "tooling/firebase-cli/package-lock.json": "257A46821D48CF679D58C02E2F5EBBB6E1AFC47A60C7D80A82CA0509A4A72CFF"
   }
 }

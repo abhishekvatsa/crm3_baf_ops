@@ -24,7 +24,7 @@
     "emulator:test:global-pull": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:global-pull\"",
     "emulator:test:notifications": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore \"npm --prefix functions run test:emulator:notifications\"",
     "emulator:test:governed": "node tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js emulators:exec --only firestore --project demo-crm3-governed \"npm run test:rules && npm run test:governed-asset-identity-reconciliation:emulator && npm --prefix functions run test:emulator:governed\"",
-    "test:dependency-compat": "npm run test:deepmerge-prototype-guard && node tools/dependencies/verify_braces_depth_guard.mjs && node --test tools/dependencies/verify_braces_depth_guard.test.mjs && node tools/dependencies/verify_brace_expansion_compat.mjs && node --test tools/dependencies/firebase_json_compat.test.mjs tools/dependencies/firebase_csv_compat.test.mjs tools/dependencies/yaml_compat.test.mjs",
+    "test:dependency-compat": "npm run test:deepmerge-prototype-guard && node tools/dependencies/verify_braces_depth_guard.mjs && node --test tools/dependencies/verify_braces_depth_guard.test.mjs && node tools/dependencies/verify_brace_expansion_compat.mjs && node --test tools/dependencies/glob_minimatch_compat.test.mjs && node --test tools/dependencies/firebase_json_compat.test.mjs tools/dependencies/firebase_csv_compat.test.mjs tools/dependencies/yaml_compat.test.mjs",
     "test:build-test-dependency-exception": "node --test tools/dependencies/verify_build_test_dependency_audit.test.mjs",
     "test:firebase-client-key-custody": "node --test tools/security/firebase_client_api_key_custody.test.mjs tools/security/collect_firebase_client_api_key_readback.test.mjs tools/security/apply_firebase_android_api_key_restrictions.test.mjs && node tools/security/firebase_client_api_key_custody.cjs",
     "test:firestore-live-readback-custody": "node --test tools/release/collectFirestoreRulesIndexesReadback.test.mjs",
@@ -45,11 +45,20 @@
     "firebase": "^12.13.0",
     "brace-expansion": "file:tooling/brace-expansion-compat",
     "deepmerge": "file:tooling/deepmerge-prototype-guard",
+    "glob-legacy-compat": "file:tooling/glob-compat.tgz",
     "js-yaml": "4.3.2",
+    "minimatch": "file:tooling/minimatch-compat.tgz",
+    "minimatch-v3-compat": "file:tooling/minimatch-v3-compat.tgz",
     "jest": "^30.4.2"
   },
   "overrides": {
     "deepmerge": "$deepmerge",
+    "glob": "14.0.2",
+    "minimatch": "$minimatch",
+    "test-exclude@6.0.0": {
+      "glob": "$glob-legacy-compat",
+      "minimatch": "$minimatch-v3-compat"
+    },
     "protobufjs": "7.6.5",
     "@grpc/grpc-js": "1.13.6",
     "@babel/core": "7.29.6",

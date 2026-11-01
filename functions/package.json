@@ -43,11 +43,23 @@
     "brace-expansion": "file:../tooling/brace-expansion-compat",
     "braces": "file:../tooling/braces-depth-guard",
     "deepmerge": "file:../tooling/deepmerge-prototype-guard",
+    "glob-legacy-compat": "file:../tooling/glob-compat.tgz",
     "jest": "^29.7.0",
+    "minimatch": "file:../tooling/minimatch-compat.tgz",
+    "minimatch-v3-compat": "file:../tooling/minimatch-v3-compat.tgz",
     "typescript": "^5.9.3"
   },
   "overrides": {
     "deepmerge": "$deepmerge",
+    "glob": "14.0.2",
+    "minimatch": "$minimatch",
+    "@jest/reporters@29.7.0": {"glob": "$glob-legacy-compat"},
+    "jest-config@29.7.0": {"glob": "$glob-legacy-compat"},
+    "jest-runtime@29.7.0": {"glob": "$glob-legacy-compat"},
+    "test-exclude@6.0.0": {
+      "glob": "$glob-legacy-compat",
+      "minimatch": "$minimatch-v3-compat"
+    },
     "qs": "6.16.1",
     "uuid": "11.1.1",
     "@grpc/grpc-js": "1.14.5",

@@ -7,6 +7,8 @@
     "braces": "file:../braces-depth-guard",
     "crm3_baf_ops": "file:../..",
     "firebase-tools": "15.22.4",
+    "minimatch": "file:../minimatch-compat.tgz",
+    "minimatch-v3-compat": "file:../minimatch-v3-compat.tgz",
     "stream-json": "file:../stream-json-compat"
   },
   "overrides": {
@@ -22,10 +24,17 @@
     "csv-parse": "7.0.2",
     "fast-uri": "3.1.9",
     "gaxios": "7.1.5",
+    "glob": "14.0.2",
     "hono": "4.13.11",
     "ip-address": "10.7.4",
     "js-yaml": "4.3.2",
     "morgan": "1.12.1",
+    "minimatch": "$minimatch",
+    "firebase-tools@15.22.4": {
+      "minimatch": "$minimatch-v3-compat",
+      "readdir-glob@1.1.3": {"minimatch": "$minimatch"},
+      "superstatic@10.0.0": {"minimatch": "$minimatch"}
+    },
     "protobufjs": "7.6.5",
     "qs": "6.16.1",
     "re2": "1.26.1",
