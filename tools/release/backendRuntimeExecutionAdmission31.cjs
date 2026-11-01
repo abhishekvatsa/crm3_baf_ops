@@ -64,7 +64,7 @@ function githubRead31(runtime, endpoint, method = 'GET', fields = []) {
 
 // The official summary is updated in place. Its structured code-review state,
 // not the explanatory footer or visible abbreviated table, supplies the result.
-function codexStructuredReview31({review, request, summary, selectedSummary, headCommit, pullRequestNumber, latestUtc}) {
+function codexStructuredReview31({review, request, summary, selectedSummary, headCommit, pullRequestNumber, latestUtc, source, mergeParents, pr}) {
   const body = review?.body;
   need(typeof body === 'string', 'Original Codex review body required');
   if (!CODEX_STRUCTURED.test(body)) return null;
@@ -82,9 +82,23 @@ function codexStructuredReview31({review, request, summary, selectedSummary, hea
   const code = state.code_review;
   need(code && typeof code === 'object' && !Array.isArray(code), 'Codex code-review state required');
   eq(Object.keys(code).sort(), ['commit_sha','has_any_findings','has_unresolved_findings','status'], 'Codex code-review fields differ');
-  need(/^[0-9a-f]{40}$/.test(code.commit_sha ?? '') && code.commit_sha === headCommit &&
+  need(/^[0-9a-f]{40}$/.test(code.commit_sha ?? '') &&
     code.status === 'completed' && code.has_any_findings === false && code.has_unresolved_findings === false,
-    'Completed exact-head Codex code review without findings required');
+    'Completed exact-commit Codex code review without findings required');
+  if (code.commit_sha !== headCommit) {
+    // The request still names the PR head. A rewritten structured summary may
+    // instead review its exact normal merge, never an arbitrary descendant.
+    need(code.commit_sha === source?.commit && pr?.merged === true && pr.number === pullRequestNumber &&
+      pr.merge_commit_sha === source.commit && pr.head?.sha === headCommit &&
+      pr.base?.ref === 'main' && pr.base.repo?.full_name === REPOSITORY &&
+      Array.isArray(mergeParents) && mergeParents.length === 2 &&
+      mergeParents.every(p => /^[0-9a-f]{40}$/.test(p)) && mergeParents[0] !== mergeParents[1],
+      'Exact normal-merge Codex review target required');
+    // GitHub's base pointer can advance after merge; actual Git parents are
+    // checked against this ordered approval in the contract, observer and replay.
+    need(mergeParents[1] === headCommit, 'Codex review normal-merge parent order differs');
+    need(time(pr.merged_at) <= time(review.updated_at), 'Codex merge review predates merge');
+  }
   need(review.user?.login === REVIEWER && review.user?.id === 199175422 && review.user?.type === 'Bot' &&
     review.performed_via_github_app?.id === 1144995 && review.performed_via_github_app?.slug === 'chatgpt-codex-connector', 'Official Codex summary actor/app required');
   const app = review.performed_via_github_app;
@@ -110,6 +124,15 @@ function codexStructuredReview31({review, request, summary, selectedSummary, hea
   return code.commit_sha;
 }
 
+// Resolve the merge in actual Git in both observation and preserved replay.
+// Full-head and legacy review behavior is unchanged.
+function verifyCodexMergeGit31(commit, headCommit, admission, approval) {
+  if (commit === headCommit) return;
+  need(commit === admission.source.commit, 'Resolved Codex merge target differs');
+  eq(gtext(admission.repoRoot, ['rev-list','--parents','-n','1',commit]).split(' ').slice(1),
+    approval.normalMergeParents, 'Actual Codex review normal-merge parents differ');
+}
+
 function verifyLiveGitHubRecords31({source, approval, release, security, mainRef, pr, review, reviewRequest, reviewSummary, reviewedHeadCommit, reviews, threads, nowUtc}) {
   need(mainRef.object?.sha === source.commit && mainRef.ref === 'refs/heads/main', 'Live main advanced or differs');
   const parents = approval.normalMergeParents;
@@ -127,7 +150,7 @@ function verifyLiveGitHubRecords31({source, approval, release, security, mainRef
     need(time(value.created_at)<=time(approval.decidedAtUtc),'Review chain postdates decision');
   }
   need(review.user?.login===REVIEWER&&review.performed_via_github_app?.slug==='chatgpt-codex-connector'&&(!selected.summary||reviewSummary.user?.login===REVIEWER),'Expected actual bot identity required');
-  const structuredHead = codexStructuredReview31({review,request:reviewRequest,summary:reviewSummary,selectedSummary:selected.summary,headCommit:pr.head.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc});
+  const structuredHead = codexStructuredReview31({review,request:reviewRequest,summary:reviewSummary,selectedSummary:selected.summary,headCommit:pr.head.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc,source,mergeParents:parents,pr});
   if (structuredHead === null) {
     need(reviewRequest.body.includes(pr.head.sha)&&reviewedHeadCommit===pr.head.sha,'Actual full request and uniquely resolved reviewed commit must bind exact head');
     need(time(reviewRequest.created_at)<=time(review.created_at)&&(!selected.summary||time(reviewRequest.created_at)<=time(reviewSummary.updated_at)&&time(reviewSummary.updated_at)<=time(approval.decidedAtUtc)),'Bot response predates exact-head request');
@@ -155,7 +178,8 @@ function observeLiveGitHub31(admission, approval, nowUtc) {
     return {raw:{run:run.raw,jobs:jobs.raw}, value:{schemaVersion:1,evidenceType:kind === 'release'?'github-exact-main-release-gate':'github-exact-main-codeql',repository:REPOSITORY,sourceCommit:admission.source.commit,sourceTree:admission.source.tree,capturedAtUtc:nowUtc,pullRequest:pr.value,run:run.value,jobs:jobs.value}};
   };
   const release=capture('release'),security=capture('security');
-  const chain=approval.settledSourceReview;const readComment=pointer=>{need(Number.isSafeInteger(pointer?.id)&&pointer.id>0,'Exact review comment pointer required');return githubRead31(r,`repos/${REPOSITORY}/issues/comments/${pointer.id}`);};const review=readComment(chain.response),reviewRequest=readComment(chain.request),reviewSummary=chain.summary?readComment(chain.summary):null;const abbreviated=codexStructuredReview31({review:review.value,request:reviewRequest.value,summary:reviewSummary?.value,selectedSummary:chain.summary,headCommit:pr.value.head?.sha,pullRequestNumber:n,latestUtc:approval.reviewPreparedAtUtc})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.value.body??'')?.[1];need(abbreviated,'Actual bot reviewed-commit marker required');const reviewedHeadCommit=gtext(admission.repoRoot,['rev-parse','--verify',abbreviated+'^{commit}']);
+  const chain=approval.settledSourceReview;const readComment=pointer=>{need(Number.isSafeInteger(pointer?.id)&&pointer.id>0,'Exact review comment pointer required');return githubRead31(r,`repos/${REPOSITORY}/issues/comments/${pointer.id}`);};const review=readComment(chain.response),reviewRequest=readComment(chain.request),reviewSummary=chain.summary?readComment(chain.summary):null;const abbreviated=codexStructuredReview31({review:review.value,request:reviewRequest.value,summary:reviewSummary?.value,selectedSummary:chain.summary,headCommit:pr.value.head?.sha,pullRequestNumber:n,latestUtc:approval.reviewPreparedAtUtc,source:admission.source,mergeParents:approval.normalMergeParents,pr:pr.value})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.value.body??'')?.[1];need(abbreviated,'Actual bot reviewed-commit marker required');const reviewedHeadCommit=gtext(admission.repoRoot,['rev-parse','--verify',abbreviated+'^{commit}']);
+  verifyCodexMergeGit31(reviewedHeadCommit,pr.value.head?.sha,admission,approval);
   const query=`query { repository(owner:"abhishekvatsa", name:"crm3_baf_ops") { pullRequest(number:${n}) { reviews(first:100) { nodes { state submittedAt author { login } commit { oid } } pageInfo { hasNextPage } } reviewThreads(first:100) { nodes { isResolved } pageInfo { hasNextPage } } } } }`;
   const threads=githubRead31(r,'graphql','POST',['-f','query='+query]);
   const finalMain=githubRead31(r,`repos/${REPOSITORY}/git/ref/heads/main`),completedAtUtc=new Date().toISOString();release.value.capturedAtUtc=completedAtUtc;security.value.capturedAtUtc=completedAtUtc;verifyLiveGitHubRecords31({source:admission.source,approval,release:release.value,security:security.value,mainRef:finalMain.value,pr:pr.value,review:review.value,reviewRequest:reviewRequest.value,reviewSummary:reviewSummary?.value,reviewedHeadCommit,reviews:threads.value.data?.repository?.pullRequest?.reviews,threads:threads.value.data?.repository?.pullRequest?.reviewThreads,nowUtc:completedAtUtc});
@@ -171,10 +195,12 @@ function verifyPreservedLiveGitHub31(record,admission,approval){
   const pr=parse(record.pr),review=parse(record.review),request=parse(record.reviewRequest);
   if (CODEX_STRUCTURED.test(review.body??'')) need((record.reviewSummary == null) === (approval.settledSourceReview.summary == null), 'Structured replay summary population differs from selected pointer');
   const summary=CODEX_STRUCTURED.test(review.body??'')?(record.reviewSummary==null?null:parse(record.reviewSummary)):(record.reviewSummary?parse(record.reviewSummary):null),threads=parse(record.threads);
-  const prefix=codexStructuredReview31({review,request,summary,selectedSummary:approval.settledSourceReview.summary,headCommit:pr.head?.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.body??'')?.[1];need(prefix,'Actual reviewed-commit marker absent');
+  const prefix=codexStructuredReview31({review,request,summary,selectedSummary:approval.settledSourceReview.summary,headCommit:pr.head?.sha,pullRequestNumber:pr.number,latestUtc:approval.reviewPreparedAtUtc,source:admission.source,mergeParents:approval.normalMergeParents,pr})??/\*\*Reviewed commit:\*\*\s*`([0-9a-f]{7,40})`/i.exec(review.body??'')?.[1];need(prefix,'Actual reviewed-commit marker absent');
+  const reviewedHeadCommit=gtext(admission.repoRoot,['rev-parse','--verify',prefix+'^{commit}']);
+  verifyCodexMergeGit31(reviewedHeadCommit,pr.head?.sha,admission,approval);
   const capture=kind=>({schemaVersion:1,evidenceType:kind==='release'?'github-exact-main-release-gate':'github-exact-main-codeql',repository:REPOSITORY,sourceCommit:admission.source.commit,sourceTree:admission.source.tree,capturedAtUtc:record.completedAtUtc,pullRequest:pr,run:parse(record[kind].run),jobs:parse(record[kind].jobs)});
   need(parse(record.main).object?.sha===admission.source.commit,'Original live main changed during admission');
-  return verifyLiveGitHubRecords31({source:admission.source,approval,release:capture('release'),security:capture('security'),mainRef:parse(record.finalMain),pr,review,reviewRequest:request,reviewSummary:summary,reviewedHeadCommit:gtext(admission.repoRoot,['rev-parse','--verify',prefix+'^{commit}']),reviews:threads.data?.repository?.pullRequest?.reviews,threads:threads.data?.repository?.pullRequest?.reviewThreads,nowUtc:record.completedAtUtc});
+  return verifyLiveGitHubRecords31({source:admission.source,approval,release:capture('release'),security:capture('security'),mainRef:parse(record.finalMain),pr,review,reviewRequest:request,reviewSummary:summary,reviewedHeadCommit,reviews:threads.data?.repository?.pullRequest?.reviews,threads:threads.data?.repository?.pullRequest?.reviewThreads,nowUtc:record.completedAtUtc});
 }
 
 function rejectConsumedEvidence31(config,approval){

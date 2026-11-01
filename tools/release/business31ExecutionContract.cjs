@@ -213,8 +213,16 @@ function verifyExecutionContract31({contract, decision, proof, source, baseline,
       reviewSummary:originals.summary,latestUtc:contract.preparedAtUtc});
   } else {
     const structuredHead = require("./backendRuntimeExecutionAdmission31.cjs").codexStructuredReview31({review:originals.response,
-      request:originals.request,summary:originals.summary,selectedSummary:selected.summary,headCommit:selected.headCommit,pullRequestNumber:release.pullRequest.number,latestUtc:contract.preparedAtUtc});
-    if (structuredHead !== null) approval.reviewPreparedAtUtc = contract.preparedAtUtc;
+      request:originals.request,summary:originals.summary,selectedSummary:selected.summary,headCommit:selected.headCommit,pullRequestNumber:release.pullRequest.number,latestUtc:contract.preparedAtUtc,source,mergeParents,pr:release.pullRequest});
+    if (structuredHead !== null) {
+      if (structuredHead !== selected.headCommit) {
+        need(snapshot?.commit === source.commit && same(snapshot.parents, mergeParents), 'reviewed merge differs from actual source snapshot');
+        need(security.pullRequest.number === release.pullRequest.number && security.pullRequest.merged === true &&
+          security.pullRequest.merge_commit_sha === source.commit &&
+          security.pullRequest.merged_at === release.pullRequest.merged_at, 'reviewed merge differs between CI originals');
+      }
+      approval.reviewPreparedAtUtc = contract.preparedAtUtc;
+    }
   }
   return {approval,reviewOriginals:originals,intendedHashInputs:contract.intendedHashInputs,githubObserver:contract.githubObserver};
 }

@@ -176,11 +176,42 @@ function structuredFixture31(){
  f.reviewRequest.body='@codex review\n\nReview exact head '+head;f.reviewRequest.user={login:'abhishekvatsa',id:213690022,type:'User'};f.reviewRequest.author_association='OWNER';
  f.review.created_at=T(-30);f.review.updated_at=T(-10);return rebind(f);
 }
+function structuredMergeFixture31(){
+ const f=structuredFixture31();f.pr.base.sha=left;f.review.updated_at=T(5);
+ f.review.body=f.review.body.replaceAll(head,M);f.reviewedHeadCommit=M;return rebind(f);
+}
+
+for(const route of ['live','preserved']) {
+ const verify=f=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval);
+ test('structured exact normal merge keeps the manual request on its PR head ('+route+')',()=>{
+  const f=structuredMergeFixture31(),before=JSON.stringify(f);assert.equal(verify(f),true);
+  assert.equal(JSON.stringify(f),before);assert.ok(f.reviewRequest.body.includes(head));assert.ok(!f.reviewRequest.body.includes(M));
+ });
+ for(const [label,change]of [
+  ['wrong merge SHA',f=>f.pr.merge_commit_sha=left],
+  ['wrong source SHA',f=>f.source={...f.source,commit:left}],
+  ['wrong ordered parents',f=>f.approval.normalMergeParents.reverse()],
+  ['non-normal merge',f=>f.approval.normalMergeParents.push(ancestor)],
+  ['unmerged PR',f=>f.pr.merged=false],
+  ['review before merge',f=>f.review.updated_at=T(-1)],
+  ['non-bot actor',f=>f.review.user.type='User'],
+  ['wrong bot app',f=>f.review.performed_via_github_app.id++],
+  ['manual request names only merge',f=>f.reviewRequest.body='@codex review\n'+M],
+  ['legacy merge marker',f=>f.review.body='No findings. **Reviewed commit:** `'+M+'`'],
+ ])test('normal merge refuses '+label+' ('+route+')',()=>{const f=structuredMergeFixture31();change(f);rebind(f);assert.throws(()=>verify(f));});
+ test('normal merge permits an advanced PR base pointer ('+route+')',()=>{const f=structuredMergeFixture31();f.pr.base.sha=M;assert.equal(verify(f),true);});
+ test('normal merge refuses edited original body ('+route+')',()=>{const f=structuredMergeFixture31();f.review.body+='\n';assert.throws(()=>verify(f),/chain differs/);});
+}
+test('preserved normal merge checks actual Git parents even if both records claim another base',()=>{
+ const f=structuredMergeFixture31();f.pr.base.sha=ancestor;f.approval.normalMergeParents[0]=ancestor;
+ assert.throws(()=>x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/Actual Codex review normal-merge parents/);
+});
+
 test('structured Codex native full head passes direct and preserved Git replay',()=>{const f=structuredFixture31(),raw=observation(f),before=JSON.stringify(raw);assert.equal(x.verifyBusinessLiveGitHubRecords31(f),true);assert.equal(x.verifyPreservedBusinessLiveGitHub31(raw,admission(f),f.approval),true);assert.equal(JSON.stringify(raw),before);});
 for(const route of ['live','preserved'])test('structured Codex cannot use its own summary as the request ('+route+')',()=>{const f=structuredFixture31();f.reviewRequest=structuredClone(f.review);rebind(f);assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval),/Distinct/);});
 for(const route of ['live','preserved'])test('structured Codex malformed state cannot downgrade to a footer ('+route+')',()=>{const f=structuredFixture31();f.review.body=f.review.body.replace('codex-review-state:v1','codex-review-state:v2')+'\nNo findings. **Reviewed commit:** `'+head+'`';rebind(f);assert.throws(()=>route==='live'?x.verifyBusinessLiveGitHubRecords31(f):x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),f.approval));});
 
-for(const [provider,makeFixture]of [["Claude",fixture],["structured Codex",structuredFixture31]])test("fixed "+provider+" observer retains original synthetic responses through actual bound child calls and replays them",()=>{
+for(const [provider,makeFixture]of [["Claude",fixture],["structured Codex",structuredFixture31],["normal merge Codex",structuredMergeFixture31]])test("fixed "+provider+" observer retains original synthetic responses through actual bound child calls and replays them",()=>{
   const f=makeFixture(),dir=path.join(root,"observer-"+provider.replaceAll(" ","-"));fs.mkdirSync(dir);const raw=observation(f),records={};const prefix="repos/abhishekvatsa/crm3_baf_ops/";
   records[prefix+"git/ref/heads/main"]=raw.main;records[prefix+"pulls/405"]=raw.pr;
   for(const [kind,id]of [["release",11],["security",12]]){records[prefix+"actions/runs/"+id]=raw[kind].run;records[prefix+"actions/runs/"+id+"/attempts/1/jobs?per_page=100"]=raw[kind].jobs;}
@@ -210,6 +241,37 @@ for(const value of ['',false,0,'null'])test('structured replay refuses non-null 
 
 // Pure contract-format regression uses this suite's existing local Git fixture;
 // it needs no installed Firebase CLI or operational controller traversal.
+function mergeContractInput31(f,label) {
+ const directory=path.join(root,'merge-contract-'+label);fs.mkdirSync(directory);let serial=0;
+ const retain=value=>{const bytes=Buffer.from(JSON.stringify(value)),file='original-'+(++serial)+'.json';fs.writeFileSync(path.join(directory,file),bytes);return {file,sha256:h(bytes),bytes:bytes.length};};
+ const runtimeProof=retain({synthetic:true}),intended=retain({synthetic:true});
+ const selected={...f.approval.settledSourceReview,request:{...f.approval.settledSourceReview.request,original:retain(f.reviewRequest)},response:{...f.approval.settledSourceReview.response,original:retain(f.review)},summary:null};
+ const baseline={commit:x.BASELINE,tree:'4'.repeat(40),functionsTree:'5'.repeat(40)};
+ return {contract:{schemaVersion:1,documentType:'build31-business-execution-contract',profile:x.PROFILE,source:f.source,baseline,sourceManifestSha256:'A'.repeat(64),runtimeProof,preparedAtUtc:T(70),intendedHashInputs:intended,githubObserver:{path:process.execPath,sha256:h(fs.readFileSync(process.execPath))},settledSourceReview:selected},decision:{runtimeProof,decidedAtUtc:T(100)},proof:{completedAtUtc:T(60)},source:f.source,baseline,manifestSha256:'A'.repeat(64),ownerReceivedAtUtc:T(80),read:p=>x.privateBytes(directory,p),instant:a.helpers.time,mergeParents:f.approval.normalMergeParents,release:f.release,security:f.security,
+  snapshot:{commit:M,parents:git(['rev-list','--parents','-n','1',M]).split(' ').slice(1)}};
+}
+test('normal-merge contract preserves the existing schema and replays the same manual chain',()=>{
+ const f=structuredMergeFixture31(),input=mergeContractInput31(f,'positive'),result=x.verifyExecutionContract31(input);
+ const expected=structuredClone(f.approval);delete expected.settledSourceReview.summary; // Existing Codex contract omits an unselected summary.
+ assert.deepEqual(result.approval,expected);assert.equal(result.reviewOriginals.response.body,f.review.body);
+ assert.equal(x.verifyPreservedBusinessLiveGitHub31(observation(f),admission(f),result.approval),true);
+ assert.equal(Object.hasOwn(result,'deploymentAuthorized'),false);
+});
+for(const [label,change,rebindBody=true]of [
+ ['wrong-merge',f=>f.pr.merge_commit_sha=left],
+ ['wrong-parent-order',f=>f.approval.normalMergeParents.reverse()],
+ ['jointly-fabricated-base',f=>{f.pr.base.sha=ancestor;f.approval.normalMergeParents[0]=ancestor;}],
+ ['non-bot',f=>f.review.user.type='User'],
+ ['edited-body',f=>f.review.body+='\n',false],
+ ['request-only-merge',f=>f.reviewRequest.body='@codex review\n'+M],
+ ['review-before-merge',f=>f.review.updated_at=T(-1)],
+ ['wrong-security-PR',f=>{f.security.pullRequest=structuredClone(f.pr);f.security.pullRequest.number++;}],
+])test('normal-merge contract refuses '+label,()=>{const f=structuredMergeFixture31();change(f);if(rebindBody)rebind(f);assert.throws(()=>x.verifyExecutionContract31(mergeContractInput31(f,label)));});
+test('normal-merge contract requires the actual source snapshot',()=>{
+ const input=mergeContractInput31(structuredMergeFixture31(),'missing-snapshot');delete input.snapshot;
+ assert.throws(()=>x.verifyExecutionContract31(input),/actual source snapshot/);
+});
+
 test('structured Codex contract retains native originals and prepared-time cutoff',()=>{
  const f=structuredFixture31(),directory=path.join(root,'contract-originals');fs.mkdirSync(directory);let serial=0;
  const retain=value=>{const bytes=Buffer.from(JSON.stringify(value)),file='original-'+(++serial)+'.json';fs.writeFileSync(path.join(directory,file),bytes);return {file,sha256:h(bytes),bytes:bytes.length};};
