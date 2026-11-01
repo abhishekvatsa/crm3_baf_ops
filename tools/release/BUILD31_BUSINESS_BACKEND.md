@@ -95,8 +95,17 @@ single marker in actual Git and retain all exact-main, normal-merge, CI,
 review-population and resolved-thread checks. A requested review, local JSON
 or arbitrary `COMMENTED` status cannot pass those checks.
 
-The existing Codex kind delegates to its unchanged historical verifier. No
-provider is relabelled and no original response is rewritten. Contract,
+The Codex kind preserves its manual request and PR-head-bound paths. A completed
+structured code review may also name the exact normal merge: its full commit
+must equal the source and the actual PR merge commit, with ordered Git parents
+`[previous main, requested PR head]`. Contract validation binds the actual source
+snapshot; live observation and preserved replay check the actual Git parents.
+The PR base pointer may advance and is not treated as a historical parent. The
+owner request must still name the full PR head, and the merge review must be
+updated after both that request and the merge. Official bot/app identity, exact
+body digests, chronology, findings and resolved-thread checks remain mandatory.
+There is no automatic-review route or legacy merge-marker fallback. No provider
+is relabelled and no original response is rewritten. Contract,
 decision and intent schema versions stay unchanged; the new review kind is a
 closed discriminator. Preparation and recorded replay still grant no authority.
 Changing these source helpers requires new exact-source CI and qualification;
@@ -380,9 +389,10 @@ not a general Firebase Realtime Database host allowance. Authentication,
 cookies, query parameters, body framing, trailers, redirects and retries remain
 refused. A refused request remains fatal even if the CLI catches its error.
 
-The current immutable anchor is `a30720a0bf8ead1f1736302727dd23bd5687059b`.
-Its fourteen-file family is unchanged; only the transport guard differs from the
-previous anchor. Historical anchors remain in ancestry and are explicitly refused
+The current immutable anchor is `f4b89857d65587a820eb4416e700daf5f907f020`.
+Its fourteen-file family is unchanged; only the review admission differs from the
+previous anchor `a30720a0bf8ead1f1736302727dd23bd5687059b`. The PR420 transport
+guard remains byte-identical. Historical anchors remain in ancestry and are explicitly refused
 as substitutes for current bytes. Authority, runtime and capture bindings use
 the actual anchor and canonical LF source digests.
 

@@ -10,7 +10,7 @@ const originalPath = require("./backendRuntimeEvidenceAccess31.cjs").path;
 const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const PROFILE = "build31-exact-business-backend-v1";
 const DECISION_FILE = "release/approvals/build31-business-backend-deployment-approval.json";
-const IMMUTABLE_COMMIT = "a30720a0bf8ead1f1736302727dd23bd5687059b";
+const IMMUTABLE_COMMIT = "f4b89857d65587a820eb4416e700daf5f907f020";
 const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "executeBackendRuntime31.cjs",
   "captureBackendRuntimePreparedInputs31.cjs", "runtimeDeploymentTransportGuard31.cjs", "backendRuntimeClosedReplay31.cjs",
   "backendRuntimeEvidenceAccess31.cjs", "backendRuntimeAdmission31.cjs", "backendRuntimeProof31.cjs",
