@@ -389,10 +389,10 @@ not a general Firebase Realtime Database host allowance. Authentication,
 cookies, query parameters, body framing, trailers, redirects and retries remain
 refused. A refused request remains fatal even if the CLI catches its error.
 
-The current immutable anchor is `f4b89857d65587a820eb4416e700daf5f907f020`.
-Its fourteen-file family is unchanged; only the review admission differs from the
-previous anchor `a30720a0bf8ead1f1736302727dd23bd5687059b`. The PR420 transport
-guard remains byte-identical. Historical anchors remain in ancestry and are explicitly refused
+The current immutable anchor is `374e2a02c516cf5c66e80dadc563209d63cbd24d`.
+Its fourteen-file family is unchanged; only the strict source-policy evidence consumer
+differs from the previous anchor `f4b89857d65587a820eb4416e700daf5f907f020`. The PR420
+transport guard and review admission remain byte-identical. Historical anchors remain in ancestry and are explicitly refused
 as substitutes for current bytes. Authority, runtime and capture bindings use
 the actual anchor and canonical LF source digests.
 
@@ -520,3 +520,11 @@ existing bytecode, with the same constrained launch as collection. Missing Windo
 configuration fails visibly. Other platforms report the Windows integration as
 skipped and cannot establish its acceptance. Test output names the retained
 synthetic evidence directory; no fixture or original failed attempt is deleted.
+
+### Preserving the reviewed live Function controls
+
+The Functions entrypoint declares only `setGlobalOptions({preserveExternalChanges: true})` before any endpoint-producing import or construction. The source policy admits that exact prefix only in `functions/src/index.ts`, rejects any other global-option occurrence, and still requires every reviewed explicit endpoint cap. Historical source evidence retains its original absent/omitted facts; current evidence declares the preservation policy explicitly. Direct imports before the entrypoint do not retroactively receive global options and are tested separately.
+
+`business31PreservedControls31.cjs` runs before the unchanged transport comparison. It can restore only an omitted matching live HTTP signature value and reorder only identical, unique event-filter triples to the baseline order. Other environment changes, unequal filters, wrong identities and unrelated body/mask/source changes remain refused. Mutation schema 4 records original and effective requests plus an exact edit sidecar before forwarding. Replay authenticates those records and recomputes the same two permitted transformations before the strict guard and wire checks; older mutation records cannot substitute for this evidence.
+
+The two retained real 19-Function fixtures reproduce 251 original comparison failures, 238 removed by the SDK preservation declaration, 13 remaining and no new failures. The complete fix passes the unchanged guard for all 19 with zero leaf/mask mismatches and all 76 resource values equal to the saved live baseline. These are offline regression data, not a deployment result or fresh production observation.

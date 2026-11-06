@@ -50,7 +50,8 @@ function mutationFixture(phase="callables",endpointLabels=labels) {
  function append(kind,name,client,options,wire,responseBody){
   const index=records.length,start=112+index*4,bodyText=typeof responseBody==="string"?responseBody:JSON.stringify(responseBody);
   const responseRaw=retain(Buffer.from(bodyText)),responseBinding=retain({responseRaw,contentEncoding:null,responseComplete:true,retainedBytes:responseRaw.bytes,httpStatus:200});
-  records.push(retain({schemaVersion:3,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),requestAdmittedAtUtc:T(start+2),firstOutboundAtUtc:T(start+2),completedAtUtc:T(start+3),request:retain({client,request:options}),wireBody:retain(wire),response:retain({httpStatus:200,bodyText}),responseBinding,liveObservation:retain(observation(start)),error:null}));
+  const request=retain({client,request:options}),requestPreservation=kind==="function-update"?retain({schemaVersion:1,documentType:"build31-business-request-preservation",originalRequest:request,effectiveRequest:request,edits:[]}):null;
+  records.push(retain({schemaVersion:4,documentType:"build31-business-original-mutation",phase,sequence:index+1,completionSequence:index+1,kind,name,startedAtUtc:T(start+2),requestAdmittedAtUtc:T(start+2),firstOutboundAtUtc:T(start+2),completedAtUtc:T(start+3),request,requestPreservation,wireBody:retain(wire),response:retain({httpStatus:200,bodyText}),responseBinding,liveObservation:retain(observation(start)),error:null}));
  }
  const location={bucket:"synthetic",object:"source",generation:"2"},uploadUrl="https://storage.googleapis.com/synthetic-"+phase+"?proof=synthetic";
  append("generate-upload",null,{urlPrefix:"https://cloudfunctions.googleapis.com",apiVersion:"v2"},{method:"POST",path:resource.slice(0,-1)+":generateUploadUrl",queryParams:{},body:null},Buffer.alloc(0),{uploadUrl,storageSource:location});
@@ -61,6 +62,44 @@ function mutationFixture(phase="callables",endpointLabels=labels) {
 const replay=f=>closure.replayMutationTranscript31(f);
 const change=(f,index,fn)=>{const row=j(f.records[index]);fn(row);f.records[index]=retain(row);};
 test("synthetic three-cohort composition replays real ZIP, original live Git/CI/review and all25 pure transport mutations",()=>{const results=["callables","events","fleet"].map(phase=>replay(mutationFixture(phase)));assert.equal(results.reduce((n,r)=>n+r.mutationCount,0),25);assert.equal(results.flatMap(r=>r.events).filter(r=>r.kind==="function-update").length,19);assert.ok(results.every(r=>!Object.hasOwn(r,"deploymentAuthorized")&&!Object.hasOwn(r,"ok")));});
+function preservationFixture(event=false) {
+ const f=mutationFixture(event?"events":"callables"),row=j(f.records[2]),original=j(row.request),name=row.name,baseline=f.baseline.baselineFunctions[name];
+ const edits=[];
+ if(event) {
+  baseline.eventTrigger={eventType:"type",eventFilters:[{attribute:"type",value:"event"},{attribute:"subject",value:"path/*",operator:"match-path-pattern"}]};
+  original.request.body.eventTrigger=structuredClone(baseline.eventTrigger);original.request.body.eventTrigger.eventFilters.reverse();original.request.queryParams.updateMask+=",eventTrigger.eventFilters";
+  edits.push({kind:"restore-event-filter-order",path:"eventTrigger.eventFilters",before:structuredClone(original.request.body.eventTrigger.eventFilters),after:structuredClone(baseline.eventTrigger.eventFilters)});
+ } else {
+  baseline.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE="http";original.request.queryParams.updateMask+=",serviceConfig.environmentVariables";
+  edits.push({kind:"restore-http-signature",path:"serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE",before:{present:false},after:{present:true,value:"http"}});
+ }
+ const effective=structuredClone(original);
+ if(event) effective.request.body.eventTrigger.eventFilters=structuredClone(baseline.eventTrigger.eventFilters);
+ else effective.request.body.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE="http";
+ row.request=retain(effective);row.requestPreservation=retain({schemaVersion:1,documentType:"build31-business-request-preservation",originalRequest:retain(original),effectiveRequest:row.request,edits});
+ row.wireBody=retain(Buffer.from(JSON.stringify(effective.request.body)));f.records[2]=retain(row);return f;
+}
+for(const event of [false,true])test("replay recomputes explicit "+(event?"filter reorder":"HTTP signature restoration")+" and verifies effective wire under unchanged guard",()=>{
+ const f=preservationFixture(event);assert.equal(replay(f).mutationCount,f.records.length);
+});
+for(const [label,edit] of [
+ ["missing trace",row=>delete row.requestPreservation],
+ ["null trace",row=>row.requestPreservation=null],
+ ["historical schema3",row=>row.schemaVersion=3],
+ ["omitted edit",row=>{const trace=j(row.requestPreservation);trace.edits=[];row.requestPreservation=retain(trace);}],
+ ["extra edit",row=>{const trace=j(row.requestPreservation);trace.edits.push({...trace.edits[0]});row.requestPreservation=retain(trace);}],
+ ["wrong effective pointer",row=>{const trace=j(row.requestPreservation);trace.effectiveRequest=trace.originalRequest;row.requestPreservation=retain(trace);}],
+ ["changed original environment",row=>{const trace=j(row.requestPreservation),original=j(trace.originalRequest);original.request.body.serviceConfig.environmentVariables.EXTRA="unapproved";trace.originalRequest=retain(original);row.requestPreservation=retain(trace);}],
+ ["extra sidecar field",row=>{const trace=j(row.requestPreservation);trace.allowOtherChanges=true;row.requestPreservation=retain(trace);}],
+ ["wire differs from effective request",row=>row.wireBody=retain(Buffer.from("{}"))]
+])test("preservation replay refuses "+label,()=>{const f=preservationFixture();change(f,2,edit);assert.throws(()=>replay(f));});
+test("generate/upload cannot carry a Function preservation trace",()=>{const f=preservationFixture(),trace=j(f.records[2]).requestPreservation;change(f,0,row=>row.requestPreservation=trace);assert.throws(()=>replay(f),/non-Function/);});
+test("even an internally consistent original/effective chain cannot authorize another control change",()=>{
+ const f=preservationFixture();change(f,2,row=>{const trace=j(row.requestPreservation),original=j(trace.originalRequest),effective=j(row.request);
+  original.request.body.serviceConfig.ingressSettings="ALLOW_INTERNAL_ONLY";effective.request.body.serviceConfig.ingressSettings="ALLOW_INTERNAL_ONLY";
+  trace.originalRequest=retain(original);row.request=retain(effective);trace.effectiveRequest=row.request;row.requestPreservation=retain(trace);row.wireBody=retain(Buffer.from(JSON.stringify(effective.request.body)));
+ });assert.throws(()=>replay(f),/Unapproved Function control mutation/);
+});
 test("Claude originals replay through all three business closure cohorts without Codex substitution",()=>{
  const count=["callables","events","fleet"].map(phase=>{
   const f=mutationFixture(phase),claude={...response,body:"**Claude finished @synthetic-requester\'s task in 25s** \u2014\u2014 [View job](https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/123)\n\n---\nNo findings.\n**Reviewed commit:** `"+right+"`",updated_at:response.created_at,
@@ -313,7 +352,7 @@ test("actual writer schema3 all25 records replay; final response settles late wi
   }
   f.args.closure.completedAtUtc=T(802);f.args.closure.recordedAtUtc=T(805);
   assert.equal(writer.finish().mutationCount,25);assert.equal(responses,25);
-  const last=j(retained.at(-1));assert.equal(last.schemaVersion,3);assert.ok(a.instant(last.firstOutboundAtUtc)<=a.instant(executionWindow.notAfterUtc));assert.equal(last.completedAtUtc,T(800));
+  const last=j(retained.at(-1));assert.equal(last.schemaVersion,4);assert.ok(a.instant(last.firstOutboundAtUtc)<=a.instant(executionWindow.notAfterUtc));assert.equal(last.completedAtUtc,T(800));
   closure.verifyClosureExecutionWindow31({closure:f.args.closure,executionWindow,nowUtc:T(810)});
   const result=outerRun(f);assert.equal(result.result.cohortCount,3);assert.equal(result.result.functionCount,19);
   // No record/callback replacement: the late final row above is exactly what the writer persisted.

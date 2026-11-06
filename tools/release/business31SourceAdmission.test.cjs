@@ -310,10 +310,12 @@ test("historical 15ff oracle retains its exact 46 changes and dependency bytes",
   assert.equal(proof.changedPaths.length, 46);
 });
 
-test("current Git population includes only the reviewed historical scope and exact adapter additions", () => {
+const reviewedPreservationPaths = ["functions/src/index.ts", "functions/test/functionFleetInstanceCaps.test.js"];
+
+test("current Git population includes only reviewed historical, adapter and preservation changes", () => {
   const [, args] = measuredGitFixtures(), original = structuredClone(args);
   assert.equal(Object.keys(args.baselineSnapshot.files).length > 335, true);
-  const expected = [...reviewedDelta.protectedDelta.map(entry => entry.path), ...reviewedAdapterPaths].sort();
+  const expected = [...reviewedDelta.protectedDelta.map(entry => entry.path), ...reviewedAdapterPaths, ...reviewedPreservationPaths].sort();
   assert.equal(reviewedAdapterPaths.length, 17);
   assert.deepEqual(args.manifest.protectedDelta.map(entry => entry.path), expected);
   for (const prior of reviewedDelta.protectedDelta) {
@@ -326,6 +328,12 @@ test("current Git population includes only the reviewed historical scope and exa
     assert.equal(actual.before, null);
     assert.equal(actual.after.mode, "100644");
     assert.match(actual.after.oid, /^[a-f0-9]{40}$/);
+  }
+  for (const name of reviewedPreservationPaths) {
+    const actual = args.manifest.protectedDelta.find(entry => entry.path === name);
+    assert.equal(actual.before.mode, "100644");
+    assert.equal(actual.after.mode, "100644");
+    assert.notEqual(actual.before.oid, actual.after.oid);
   }
   const proof = validateSourceInventory31(args);
   assert.equal(proof.protectedFileCount, 362 + reviewedAdapterPaths.length);
@@ -366,3 +374,12 @@ for (const name of reviewedAdapterPaths) test(`adapter source or archive ${name}
 test("adapter additions do not admit an unreviewed neighboring file", () => fails(a => {
   a.sourceSnapshot.files["tooling/minimatch-compat/unreviewed.cjs"] = id("4");
 }, /unadmitted source delta/, {remeasure: true}));
+
+for (const name of reviewedPreservationPaths) test(`preservation source ${name} requires its exact reviewed blob`, () => {
+  const a = fixture(); a.baselineSnapshot.files[name] = id("3"); a.sourceSnapshot.files[name] = id("5");
+  refreshMeasurement(a); assert.ok(validateSourceInventory31(a).changedPaths.includes(name));
+  a.sourceSnapshot.files[name] = id("6");
+  assert.throws(() => validateSourceInventory31(a), /complete source population/);
+  delete a.sourceSnapshot.files[name]; refreshMeasurement(a);
+  assert.throws(() => validateSourceInventory31(a), /Deleting admitted/);
+});
