@@ -7,6 +7,7 @@ const path = access.path, {need,keys,sha,json,pointer,privateBytes,pointerView} 
 const a = require("./business31BackendAuthority.cjs"), neutral = require("./backendRuntimeClosure31.cjs");
 const controls = require("./business31BackendControls.cjs"), readbacks = require("./backendRuntimeReadbacks31.cjs");
 const {RuntimeDeploymentTransportGuard31,bodyBinding31} = require("./runtimeDeploymentTransportGuard31.cjs");
+const {preserveFunctionRequest31} = require("./business31PreservedControls31.cjs");
 const PHASES = Object.freeze(["callables","events","fleet"]);
 const CLOSURE_FILE = "release/evidence/build31-business-backend-deployment-closure.json";
 const t = a.instant;
@@ -84,10 +85,10 @@ function verifyMutationResponse31(evidenceDirectory,responsePointer,bindingPoint
   need(bodyText===response.bodyText,"derived response body differs from retained wire response");
   return response;
 }
-// Version3 records the live guard's samples, not the earlier measurement clock.
-// Historical records lack this evidence and never gain late-settlement permission.
+// Version4 retains both the live forwarding samples and the explicit request
+// preservation chain. Historical records cannot substitute for current evidence.
 function verifyMutationInitiation31(record,window) {
-  need(record.schemaVersion===3 && record.error===null,"mutation live initiation evidence required");
+  need(record.schemaVersion===4 && record.error===null,"mutation live initiation evidence required");
   const start=t(record.startedAtUtc),admitted=t(record.requestAdmittedAtUtc),outbound=t(record.firstOutboundAtUtc),completed=t(record.completedAtUtc);
   need(t(window.notBeforeUtc)<=start && start<=admitted && admitted<=outbound && outbound<=t(window.notAfterUtc) && outbound<=completed,"mutation live initiation/window differs");
 }
@@ -98,6 +99,28 @@ function verifyClosureExecutionWindow31({closure,executionWindow,nowUtc}) {
     t(closure.startedAtUtc)<=t(closure.completedAtUtc) && t(closure.completedAtUtc)<=t(closure.recordedAtUtc) &&
     t(closure.recordedAtUtc)<=t(nowUtc),"closure chronology/window differs");
 }
+function requestEnvelope31(request) {
+  keys(request,["client","request"],"retained request"); keys(request.client,["urlPrefix","apiVersion"],"retained client");
+  keys(request.request,["method","path","queryParams","body"],"retained request options");
+}
+function verifyMutationRequestPreservation31({evidenceDirectory,record,request,names,baselineFunctions}) {
+  requestEnvelope31(request);
+  if(record.kind!=="function-update") {
+    need(record.requestPreservation===null,"non-Function mutation cannot carry preservation edits");
+    return;
+  }
+  pointer(record.requestPreservation); need(record.requestPreservation.bytes<=8*1024*1024,"request preservation exceeds bound");
+  const trace=read(evidenceDirectory,record.requestPreservation);
+  keys(trace,["schemaVersion","documentType","originalRequest","effectiveRequest","edits"],"request preservation");
+  need(trace.schemaVersion===1 && trace.documentType==="build31-business-request-preservation","request preservation type differs");
+  eq(trace.effectiveRequest,record.request,"effective request pointer differs");
+  pointer(trace.originalRequest); need(trace.originalRequest.bytes<=8*1024*1024,"original request exceeds bound");
+  const original=read(evidenceDirectory,trace.originalRequest); requestEnvelope31(original);
+  const applied=preserveFunctionRequest31({client:{opts:original.client},request:original.request,names,baselineFunctions});
+  need(applied,"approved Function request preservation required");
+  eq(trace.edits,applied.edits,"recorded preservation edits differ");
+  eq(request,{client:original.client,request:applied.request},"effective request differs from exact permitted edits");
+}
 function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,archivePointer}) {
   const names = phase === "fleet" ? ctx.cohorts.schedulers : ctx.cohorts[phase];
   need(Array.isArray(records) && records.length === names.length + 2,"complete generate/upload/update transcript required");
@@ -107,9 +130,10 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
   guard.preparedMatches(capture); let previous=t(capture.completedAtUtc); const completions=[]; let uploadedAt=null, justGeneratedAt=null; const expectedKinds=["generate-upload","source-upload",...names.map(()=>"function-update")];
   for (let index=0;index<records.length;index++) {
     const r = read(ctx.evidenceDirectory,records[index]);
-    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","requestAdmittedAtUtc","firstOutboundAtUtc","completedAtUtc","request","wireBody","response","responseBinding","liveObservation","error"],"mutation transcript");
-    // Schema1 lacks response-wire proof; schema2 lacks live forwarding times. Both are refused.
-    need(r.schemaVersion===3 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
+    keys(r,["schemaVersion","documentType","phase","sequence","completionSequence","kind","name","startedAtUtc","requestAdmittedAtUtc","firstOutboundAtUtc","completedAtUtc","request","requestPreservation","wireBody","response","responseBinding","liveObservation","error"],"mutation transcript");
+    // Earlier schemas lack at least one of response wire, live times or the
+    // original/effective preservation chain. None is upgraded implicitly.
+    need(r.schemaVersion===4 && r.documentType==="build31-business-original-mutation" && r.phase===phase && r.sequence===index+1 && r.kind===expectedKinds[index] &&
       (index<2?r.name===null:names.includes(r.name)) && Number.isSafeInteger(r.completionSequence) && r.completionSequence>=1 && r.completionSequence<=records.length && r.error===null,"mutation order/completion differs");
     need(previous<=t(r.startedAtUtc) && t(r.startedAtUtc)<=t(r.completedAtUtc) && t(r.completedAtUtc)<=t(command.completedAtUtc),"mutation interval differs"); previous=t(r.startedAtUtc);
     verifyMutationInitiation31(r,ctx.decision.executionWindow);
@@ -119,8 +143,7 @@ function replayMutationTranscript31({ctx,phase,command,capture,baseline,records,
     need(t(capture.completedAtUtc)<=t(observed.observedAtUtc) && t(observed.completedAtUtc)<=t(r.startedAtUtc),"fresh per-write observation missing");
     x.verifyPreservedBusinessLiveGitHub31(observed,ctx,ctx.liveApproval);
     const request=read(ctx.evidenceDirectory,r.request), response=verifyMutationResponse31(ctx.evidenceDirectory,r.response,r.responseBinding), wire=privateBytes(ctx.evidenceDirectory,r.wireBody);
-    keys(request,["client","request"],"original request"); keys(request.client,["urlPrefix","apiVersion"],"original client");
-    keys(request.request,["method","path","queryParams","body"],"original request options");
+    verifyMutationRequestPreservation31({evidenceDirectory:ctx.evidenceDirectory,record:r,request,names,baselineFunctions:baseline.baselineFunctions});
     const options=structuredClone(request.request);
     if(r.kind==="source-upload") {
       keys(options.body,["path"],"upload original path");

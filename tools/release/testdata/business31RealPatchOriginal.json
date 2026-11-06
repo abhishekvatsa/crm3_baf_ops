@@ -1,0 +1,2941 @@
+{
+  "schemaVersion": 1,
+  "kind": "build31-real-manifest-patch-regression",
+  "variant": "original",
+  "source": {
+    "commit": "49cd181eed60010cc6438ef8a9b769bdde62c4b4",
+    "tree": "ccea3e7679648d8a486994d5cc74b53eb35501b9",
+    "functionsTree": "533d9632ada62bbb4313ce224018569e5f8290f9"
+  },
+  "provenance": {
+    "recordedFixture": {
+      "sha256": "74BA730A8DE7CC041CB705E9A79C8278A1E8D68CBC0B9E550DE7BDC80FD7C549",
+      "bytes": 922918
+    },
+    "manifestSha256": "51AD5B3D0923753F089AEC7FC1D0A45438A48056FFDEFE2B406D3CCE1240975D",
+    "guardComparisonSourceSha256": "70DF8B4C4CFBF383D5CABA1435D336CCD15EA688C8EBC9B0380B74BFB6211ACE",
+    "retainedInputs": [
+      {
+        "role": "manifest",
+        "sha256": "51AD5B3D0923753F089AEC7FC1D0A45438A48056FFDEFE2B406D3CCE1240975D",
+        "bytes": 11791
+      },
+      {
+        "role": "parametersOriginal",
+        "sha256": "FE658D3073B4C43D94716D328F6F594F96EB662DFBD9EBC076BACE3B869C4059",
+        "bytes": 357
+      },
+      {
+        "role": "projectConfigOriginal",
+        "sha256": "57E484E03FA64DC8AF005632CDDBCCAF1532FD0421E07C98D7DDFEEFB0D1F1E5",
+        "bytes": 646
+      },
+      {
+        "role": "after4",
+        "sha256": "FCBBE7AFF58C02189E8D72DA8D4EA9C01C2E2B649FC3BC95BC286BCA837CB9B1",
+        "bytes": 263441
+      },
+      {
+        "role": "prepared-hash-inputs",
+        "sha256": "07D469DDC31C4C7705BAF559BD026458E6521FF0591E6C0BB06B342E1A384F48",
+        "bytes": 7617
+      }
+    ],
+    "cliVersion": "15.22.4",
+    "sdkVersion": "7.2.5",
+    "preserveOnlyGeneration": null,
+    "scope": "Real SDK manifests and pinned CLI control-isolation reconstruction from accepted saved read-4. No actual rejected PATCH body was captured. Accepted source selector/archive/runtime hashes held constant; not a deployable new archive, live API request, or provider default proof. Only redundant recorded comparison arrays and unused capture metadata were omitted from this published projection."
+  },
+  "manifest": {
+    "endpoints": {
+      "completePlannedJobExecution": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-complete-job@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "completePlannedJobExecution"
+      },
+      "assignPublishedTemplateVersion": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-assign-template@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "assignPublishedTemplateVersion"
+      },
+      "beginGlobalPullRun": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 15,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 80,
+        "serviceAccountEmail": "crm3-global-pull-reader@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "beginGlobalPullRun"
+      },
+      "stampGlobalPullServerClock": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-global-pull-writer@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "{collectionId}/{documentId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "stampGlobalPullServerClock"
+      },
+      "mutateRuntimeJobModulePopulation": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-runtime-modules@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateRuntimeJobModulePopulation"
+      },
+      "getBackendReleaseIdentity": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 15,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 40,
+        "serviceAccountEmail": "crm3-backend-identity-runtime@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "getBackendReleaseIdentity"
+      },
+      "mutateUserAuthority": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-user-authority@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateUserAuthority"
+      },
+      "mutateChargeAbnormality": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateChargeAbnormality"
+      },
+      "mutateChargeAbnormalityV2": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateChargeAbnormalityV2"
+      },
+      "assignPublishedTemplateVersionV2": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-assign-template@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "assignPublishedTemplateVersionV2"
+      },
+      "mutateAssetHierarchyV2": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateAssetHierarchyV2"
+      },
+      "mutateAssetHierarchy": {
+        "availableMemoryMb": 256,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "mutateAssetHierarchy"
+      },
+      "onTicketCreated": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-fn-ticket-created@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "maintenance_records/{ticketId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "onTicketCreated"
+      },
+      "onTicketResolved": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-fn-ticket-resolved@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.updated",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "maintenance_records/{ticketId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "onTicketResolved"
+      },
+      "onJobAssigned": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-fn-job-assigned@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "job_executions/{executionId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "onJobAssigned"
+      },
+      "executeMaintenanceWorkflowCommand": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-workflow-command@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "executeMaintenanceWorkflowCommand"
+      },
+      "executeMaintenanceWorkflowCommandV2": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 60,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": 20,
+        "serviceAccountEmail": "crm3-fn-workflow-command@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "callableTrigger": {},
+        "entryPoint": "executeMaintenanceWorkflowCommandV2"
+      },
+      "maintenanceWorkflowEscalationSweep": {
+        "availableMemoryMb": 512,
+        "timeoutSeconds": 300,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-fn-workflow-sweep@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "scheduleTrigger": {
+          "schedule": "every 15 minutes",
+          "retryConfig": {},
+          "timeZone": "Asia/Kolkata"
+        },
+        "entryPoint": "maintenanceWorkflowEscalationSweep"
+      },
+      "onMaintenanceWorkflowEventCreated": {
+        "availableMemoryMb": null,
+        "timeoutSeconds": null,
+        "minInstances": null,
+        "maxInstances": 20,
+        "ingressSettings": null,
+        "concurrency": null,
+        "serviceAccountEmail": "crm3-fn-workflow-event@{{ params.PROJECT_ID }}.iam.gserviceaccount.com",
+        "vpc": null,
+        "platform": "gcfv2",
+        "region": [
+          "asia-south1"
+        ],
+        "labels": {},
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "eventFilters": {
+            "database": "(default)",
+            "namespace": "(default)"
+          },
+          "eventFilterPathPatterns": {
+            "document": "maintenance_workflow_events/{eventId}"
+          },
+          "retry": true
+        },
+        "entryPoint": "onMaintenanceWorkflowEventCreated"
+      }
+    },
+    "specVersion": "v1alpha1",
+    "requiredAPIs": [
+      {
+        "api": "cloudscheduler.googleapis.com",
+        "reason": "Needed for scheduled functions."
+      }
+    ],
+    "extensions": {},
+    "params": [
+      {
+        "name": "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK",
+        "description": "Require valid Firebase App Check tokens for all mutating callables after signed-client readiness is proven.",
+        "type": "boolean",
+        "default": false
+      }
+    ]
+  },
+  "parameters": {
+    "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false"
+  },
+  "firebaseConfig": {
+    "projectId": "crm3-baf-ops-b8638",
+    "storageBucket": "crm3-baf-ops-b8638.firebasestorage.app"
+  },
+  "liveFunctions": [
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/getBackendReleaseIdentity",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "getBackendReleaseIdentity",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "getBackendReleaseIdentity/function-source.zip",
+            "generation": "1790533079178970"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "getBackendReleaseIdentity/function-source.zip",
+            "generation": "1790533079178970"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/getbackendreleaseidentity",
+        "timeoutSeconds": 15,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/getBackendReleaseIdentity",
+          "FUNCTION_TARGET": "getBackendReleaseIdentity",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://getbackendreleaseidentity-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "getbackendreleaseidentity-00023-riv",
+        "maxInstanceRequestConcurrency": 40,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.932729078Z",
+      "labels": {
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/getBackendReleaseIdentity",
+      "satisfiesPzs": true,
+      "createTime": "2026-06-19T19:13:51.816515499Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchy",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateAssetHierarchy",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateAssetHierarchy/function-source.zip",
+            "generation": "1790533079013828"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateAssetHierarchy/function-source.zip",
+            "generation": "1790533079013828"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateassethierarchy",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateAssetHierarchy",
+          "FUNCTION_TARGET": "mutateAssetHierarchy",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutateassethierarchy-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutateassethierarchy-00019-qos",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:07.724186358Z",
+      "labels": {
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateAssetHierarchy",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-17T21:44:32.369470403Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersion",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "assignPublishedTemplateVersion",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "assignPublishedTemplateVersion/function-source.zip",
+            "generation": "1790533078730026"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "assignPublishedTemplateVersion/function-source.zip",
+            "generation": "1790533078730026"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignpublishedtemplateversion",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignPublishedTemplateVersion",
+          "FUNCTION_TARGET": "assignPublishedTemplateVersion",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://assignpublishedtemplateversion-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "assignpublishedtemplateversion-00023-rek",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.344423211Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/assignPublishedTemplateVersion",
+      "satisfiesPzs": true,
+      "createTime": "2026-06-19T19:13:51.691450321Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketCreated",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/07b37833-8d80-478f-a1b2-0de743e5679b",
+        "runtime": "nodejs22",
+        "entryPoint": "onTicketCreated",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onTicketCreated/function-source.zip",
+            "generation": "1790534038538114"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onTicketCreated/function-source.zip",
+            "generation": "1790534038538114"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onticketcreated",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onTicketCreated",
+          "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+          "FUNCTION_TARGET": "onTicketCreated",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://onticketcreated-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "onticketcreated-00024-xux",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "eventTrigger": {
+        "trigger": "projects/crm3-baf-ops-b8638/locations/asia-south1/triggers/onticketcreated-097967",
+        "triggerRegion": "asia-south1",
+        "eventType": "google.cloud.firestore.document.v1.created",
+        "eventFilters": [
+          {
+            "attribute": "database",
+            "value": "(default)"
+          },
+          {
+            "attribute": "namespace",
+            "value": "(default)"
+          },
+          {
+            "attribute": "document",
+            "value": "maintenance_records/{ticketId}",
+            "operator": "match-path-pattern"
+          }
+        ],
+        "pubsubTopic": "projects/crm3-baf-ops-b8638/topics/eventarc-asia-south1-onticketcreated-097967-053",
+        "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "retryPolicy": "RETRY_POLICY_RETRY"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:34:06.735825454Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/onTicketCreated",
+      "satisfiesPzs": true,
+      "createTime": "2026-04-19T13:43:52.853224194Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormalityV2",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateChargeAbnormalityV2",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateChargeAbnormalityV2/function-source.zip",
+            "generation": "1790533079972697"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateChargeAbnormalityV2/function-source.zip",
+            "generation": "1790533079972697"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutatechargeabnormalityv2",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateChargeAbnormalityV2",
+          "FUNCTION_TARGET": "mutateChargeAbnormalityV2",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutatechargeabnormalityv2-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutatechargeabnormalityv2-00004-suf",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:11.407072969Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateChargeAbnormalityV2",
+      "satisfiesPzs": true,
+      "createTime": "2026-09-13T09:07:28.107825357Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateRuntimeJobModulePopulation",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateRuntimeJobModulePopulation",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateRuntimeJobModulePopulation/function-source.zip",
+            "generation": "1790533078980553"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateRuntimeJobModulePopulation/function-source.zip",
+            "generation": "1790533078980553"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateruntimejobmodulepopulation",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateRuntimeJobModulePopulation",
+          "FUNCTION_TARGET": "mutateRuntimeJobModulePopulation",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutateruntimejobmodulepopulation-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutateruntimejobmodulepopulation-00022-xal",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:12.237493478Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateRuntimeJobModulePopulation",
+      "satisfiesPzs": true,
+      "createTime": "2026-06-26T18:41:29.043345859Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommandV2",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "executeMaintenanceWorkflowCommandV2",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "executeMaintenanceWorkflowCommandV2/function-source.zip",
+            "generation": "1790533078987384"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "executeMaintenanceWorkflowCommandV2/function-source.zip",
+            "generation": "1790533078987384"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executemaintenanceworkflowcommandv2",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executeMaintenanceWorkflowCommandV2",
+          "FUNCTION_TARGET": "executeMaintenanceWorkflowCommandV2",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://executemaintenanceworkflowcommandv2-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "executemaintenanceworkflowcommandv2-00003-rul",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:09.181482422Z",
+      "labels": {
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/executeMaintenanceWorkflowCommandV2",
+      "satisfiesPzs": true,
+      "createTime": "2026-09-13T09:08:19.205119226Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onMaintenanceWorkflowEventCreated",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/07b37833-8d80-478f-a1b2-0de743e5679b",
+        "runtime": "nodejs22",
+        "entryPoint": "onMaintenanceWorkflowEventCreated",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onMaintenanceWorkflowEventCreated/function-source.zip",
+            "generation": "1790534039528924"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onMaintenanceWorkflowEventCreated/function-source.zip",
+            "generation": "1790534039528924"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onmaintenanceworkfloweventcreated",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onMaintenanceWorkflowEventCreated",
+          "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+          "FUNCTION_TARGET": "onMaintenanceWorkflowEventCreated",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://onmaintenanceworkfloweventcreated-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "onmaintenanceworkfloweventcreated-00022-fah",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "eventTrigger": {
+        "trigger": "projects/crm3-baf-ops-b8638/locations/asia-south1/triggers/onmaintenanceworkfloweventcreated-177494",
+        "triggerRegion": "asia-south1",
+        "eventType": "google.cloud.firestore.document.v1.created",
+        "eventFilters": [
+          {
+            "attribute": "database",
+            "value": "(default)"
+          },
+          {
+            "attribute": "namespace",
+            "value": "(default)"
+          },
+          {
+            "attribute": "document",
+            "value": "maintenance_workflow_events/{eventId}",
+            "operator": "match-path-pattern"
+          }
+        ],
+        "pubsubTopic": "projects/crm3-baf-ops-b8638/topics/eventarc-asia-south1-onmaintenanceworkfloweventcreated-177494-234",
+        "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "retryPolicy": "RETRY_POLICY_RETRY"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:34:08.491628213Z",
+      "labels": {
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/onMaintenanceWorkflowEventCreated",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-04T13:02:36.531865298Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersionV2",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "assignPublishedTemplateVersionV2",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "assignPublishedTemplateVersionV2/function-source.zip",
+            "generation": "1790533079171699"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "assignPublishedTemplateVersionV2/function-source.zip",
+            "generation": "1790533079171699"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignpublishedtemplateversionv2",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignPublishedTemplateVersionV2",
+          "FUNCTION_TARGET": "assignPublishedTemplateVersionV2",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://assignpublishedtemplateversionv2-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "assignpublishedtemplateversionv2-00003-kuc",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.810019389Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/assignPublishedTemplateVersionV2",
+      "satisfiesPzs": true,
+      "createTime": "2026-09-13T09:07:28.238262651Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/stampGlobalPullServerClock",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/07b37833-8d80-478f-a1b2-0de743e5679b",
+        "runtime": "nodejs22",
+        "entryPoint": "stampGlobalPullServerClock",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "stampGlobalPullServerClock/function-source.zip",
+            "generation": "1790533483799481"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "stampGlobalPullServerClock/function-source.zip",
+            "generation": "1790533483799481"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/stampglobalpullserverclock",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/stampGlobalPullServerClock",
+          "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+          "FUNCTION_TARGET": "stampGlobalPullServerClock",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://stampglobalpullserverclock-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "stampglobalpullserverclock-00020-wix",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "eventTrigger": {
+        "trigger": "projects/crm3-baf-ops-b8638/locations/asia-south1/triggers/stampglobalpullserverclock-662495",
+        "triggerRegion": "asia-south1",
+        "eventType": "google.cloud.firestore.document.v1.written",
+        "eventFilters": [
+          {
+            "attribute": "database",
+            "value": "(default)"
+          },
+          {
+            "attribute": "namespace",
+            "value": "(default)"
+          },
+          {
+            "attribute": "document",
+            "value": "{collectionId}/{documentId}",
+            "operator": "match-path-pattern"
+          }
+        ],
+        "pubsubTopic": "projects/crm3-baf-ops-b8638/topics/eventarc-asia-south1-stampglobalpullserverclock-662495-174",
+        "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "retryPolicy": "RETRY_POLICY_RETRY"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:25:37.272639196Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/stampGlobalPullServerClock",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-06T17:16:54.457098128Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateUserAuthority",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateUserAuthority",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateUserAuthority/function-source.zip",
+            "generation": "1790533079801585"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateUserAuthority/function-source.zip",
+            "generation": "1790533079801585"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateuserauthority",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateUserAuthority",
+          "FUNCTION_TARGET": "mutateUserAuthority",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutateuserauthority-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutateuserauthority-00021-ziy",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.755196608Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateUserAuthority",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-04T12:55:00.698230084Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketResolved",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/07b37833-8d80-478f-a1b2-0de743e5679b",
+        "runtime": "nodejs22",
+        "entryPoint": "onTicketResolved",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onTicketResolved/function-source.zip",
+            "generation": "1790534039689825"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onTicketResolved/function-source.zip",
+            "generation": "1790534039689825"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onticketresolved",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onTicketResolved",
+          "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+          "FUNCTION_TARGET": "onTicketResolved",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://onticketresolved-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "onticketresolved-00024-lof",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "eventTrigger": {
+        "trigger": "projects/crm3-baf-ops-b8638/locations/asia-south1/triggers/onticketresolved-794480",
+        "triggerRegion": "asia-south1",
+        "eventType": "google.cloud.firestore.document.v1.updated",
+        "eventFilters": [
+          {
+            "attribute": "namespace",
+            "value": "(default)"
+          },
+          {
+            "attribute": "document",
+            "value": "maintenance_records/{ticketId}",
+            "operator": "match-path-pattern"
+          },
+          {
+            "attribute": "database",
+            "value": "(default)"
+          }
+        ],
+        "pubsubTopic": "projects/crm3-baf-ops-b8638/topics/eventarc-asia-south1-onticketresolved-794480-737",
+        "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "retryPolicy": "RETRY_POLICY_RETRY"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:34:07.934883240Z",
+      "labels": {
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/onTicketResolved",
+      "satisfiesPzs": true,
+      "createTime": "2026-04-19T13:45:07.553570942Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/beginGlobalPullRun",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "beginGlobalPullRun",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "beginGlobalPullRun/function-source.zip",
+            "generation": "1790533037675446"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "beginGlobalPullRun/function-source.zip",
+            "generation": "1790533037675446"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/beginglobalpullrun",
+        "timeoutSeconds": 15,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/beginGlobalPullRun",
+          "FUNCTION_TARGET": "beginGlobalPullRun",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://beginglobalpullrun-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "beginglobalpullrun-00023-woc",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:11.302355890Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/beginGlobalPullRun",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-02T14:37:23.366991346Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchyV2",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateAssetHierarchyV2",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateAssetHierarchyV2/function-source.zip",
+            "generation": "1790533079553194"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateAssetHierarchyV2/function-source.zip",
+            "generation": "1790533079553194"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateassethierarchyv2",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateAssetHierarchyV2",
+          "FUNCTION_TARGET": "mutateAssetHierarchyV2",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutateassethierarchyv2-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutateassethierarchyv2-00003-xeq",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:07.835089502Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateAssetHierarchyV2",
+      "satisfiesPzs": true,
+      "createTime": "2026-09-13T09:08:08.328050347Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/completePlannedJobExecution",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "completePlannedJobExecution",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "completePlannedJobExecution/function-source.zip",
+            "generation": "1790533037568427"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "completePlannedJobExecution/function-source.zip",
+            "generation": "1790533037568427"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/completeplannedjobexecution",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/completePlannedJobExecution",
+          "FUNCTION_TARGET": "completePlannedJobExecution",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://completeplannedjobexecution-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "completeplannedjobexecution-00023-bul",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.534524011Z",
+      "labels": {
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1",
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/completePlannedJobExecution",
+      "satisfiesPzs": true,
+      "createTime": "2026-05-18T14:05:53.841841904Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormality",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/089bbcfa-daab-455d-9842-ad34c445351d",
+        "runtime": "nodejs22",
+        "entryPoint": "mutateChargeAbnormality",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateChargeAbnormality/function-source.zip",
+            "generation": "1790533079340198"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "mutateChargeAbnormality/function-source.zip",
+            "generation": "1790533079340198"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutatechargeabnormality",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateChargeAbnormality",
+          "FUNCTION_TARGET": "mutateChargeAbnormality",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://mutatechargeabnormality-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "mutatechargeabnormality-00022-xow",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:09.429997497Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/mutateChargeAbnormality",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-04T12:55:52.367301733Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommand",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/108a1af6-d97a-465d-8b36-4d1888d692d7",
+        "runtime": "nodejs22",
+        "entryPoint": "executeMaintenanceWorkflowCommand",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "executeMaintenanceWorkflowCommand/function-source.zip",
+            "generation": "1790533078731016"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "executeMaintenanceWorkflowCommand/function-source.zip",
+            "generation": "1790533078731016"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executemaintenanceworkflowcommand",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executeMaintenanceWorkflowCommand",
+          "FUNCTION_TARGET": "executeMaintenanceWorkflowCommand",
+          "LOG_EXECUTION_ID": "true",
+          "FUNCTION_SIGNATURE_TYPE": "http"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://executemaintenanceworkflowcommand-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "executemaintenanceworkflowcommand-00021-foq",
+        "maxInstanceRequestConcurrency": 20,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:18:08.355371727Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-callable": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/executeMaintenanceWorkflowCommand",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-04T12:55:00.479552119Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/maintenanceWorkflowEscalationSweep",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/2ded8618-c4f6-4cf7-9f33-0ac5c94b1815",
+        "runtime": "nodejs22",
+        "entryPoint": "maintenanceWorkflowEscalationSweep",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "maintenanceWorkflowEscalationSweep/function-source.zip",
+            "generation": "1790534216988966"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "maintenanceWorkflowEscalationSweep/function-source.zip",
+            "generation": "1790534216988966"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/maintenanceworkflowescalationsweep",
+        "timeoutSeconds": 300,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/maintenanceWorkflowEscalationSweep",
+          "FUNCTION_TARGET": "maintenanceWorkflowEscalationSweep",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://maintenanceworkflowescalationsweep-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "512Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "maintenanceworkflowescalationsweep-00021-nix",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:37:46.063220909Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "deployment-scheduled": "true",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/maintenanceWorkflowEscalationSweep",
+      "satisfiesPzs": true,
+      "createTime": "2026-08-04T13:11:01.629529470Z",
+      "satisfiesPzi": true
+    },
+    {
+      "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onJobAssigned",
+      "buildConfig": {
+        "build": "projects/894346496105/locations/asia-south1/builds/07b37833-8d80-478f-a1b2-0de743e5679b",
+        "runtime": "nodejs22",
+        "entryPoint": "onJobAssigned",
+        "source": {
+          "storageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onJobAssigned/function-source.zip",
+            "generation": "1790534039787672"
+          }
+        },
+        "environmentVariables": {
+          "GOOGLE_NODE_RUN_SCRIPTS": ""
+        },
+        "dockerRepository": "projects/crm3-baf-ops-b8638/locations/asia-south1/repositories/gcf-artifacts",
+        "sourceProvenance": {
+          "resolvedStorageSource": {
+            "bucket": "gcf-v2-sources-894346496105-asia-south1",
+            "object": "onJobAssigned/function-source.zip",
+            "generation": "1790534039787672"
+          }
+        },
+        "dockerRegistry": "ARTIFACT_REGISTRY",
+        "serviceAccount": "projects/crm3-baf-ops-b8638/serviceAccounts/894346496105-compute@developer.gserviceaccount.com",
+        "automaticUpdatePolicy": {}
+      },
+      "serviceConfig": {
+        "service": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onjobassigned",
+        "timeoutSeconds": 60,
+        "environmentVariables": {
+          "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+          "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+          "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+          "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onJobAssigned",
+          "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+          "FUNCTION_TARGET": "onJobAssigned",
+          "LOG_EXECUTION_ID": "true"
+        },
+        "maxInstanceCount": 20,
+        "ingressSettings": "ALLOW_ALL",
+        "uri": "https://onjobassigned-ejidepfefq-el.a.run.app",
+        "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "availableMemory": "256Mi",
+        "allTrafficOnLatestRevision": true,
+        "revision": "onjobassigned-00024-nef",
+        "maxInstanceRequestConcurrency": 80,
+        "availableCpu": "1"
+      },
+      "eventTrigger": {
+        "trigger": "projects/crm3-baf-ops-b8638/locations/asia-south1/triggers/onjobassigned-459650",
+        "triggerRegion": "asia-south1",
+        "eventType": "google.cloud.firestore.document.v1.created",
+        "eventFilters": [
+          {
+            "attribute": "database",
+            "value": "(default)"
+          },
+          {
+            "attribute": "namespace",
+            "value": "(default)"
+          },
+          {
+            "attribute": "document",
+            "value": "job_executions/{executionId}",
+            "operator": "match-path-pattern"
+          }
+        ],
+        "pubsubTopic": "projects/crm3-baf-ops-b8638/topics/eventarc-asia-south1-onjobassigned-459650-754",
+        "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+        "retryPolicy": "RETRY_POLICY_RETRY"
+      },
+      "state": "ACTIVE",
+      "updateTime": "2026-09-27T18:34:07.579623349Z",
+      "labels": {
+        "deployment-tool": "cli-firebase",
+        "firebase-functions-hash": "403a607ce7ee26d89a78388c2fd2ee4e2eb4fcc1"
+      },
+      "environment": "GEN_2",
+      "url": "https://asia-south1-crm3-baf-ops-b8638.cloudfunctions.net/onJobAssigned",
+      "satisfiesPzs": true,
+      "createTime": "2026-04-19T13:45:07.856806550Z",
+      "satisfiesPzi": true
+    }
+  ],
+  "sourceSelector": {
+    "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+    "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+  },
+  "prepared": {
+    "sourceArchiveHash": "1ac70fbc1d2b515cbc4870f556768a70df85f550",
+    "archiveSha256": "A55848A87D016E6F27E8807A6B469743820802A8EE64474840F95A5EEBA724C1",
+    "archiveBytes": 2694416,
+    "endpointRuntimeHashes": {
+      "assignPublishedTemplateVersion": "2cea14f481557dfca580561605495ef0347367b1",
+      "assignPublishedTemplateVersionV2": "2cea14f481557dfca580561605495ef0347367b1",
+      "beginGlobalPullRun": "2cea14f481557dfca580561605495ef0347367b1",
+      "completePlannedJobExecution": "2cea14f481557dfca580561605495ef0347367b1",
+      "executeMaintenanceWorkflowCommand": "2cea14f481557dfca580561605495ef0347367b1",
+      "executeMaintenanceWorkflowCommandV2": "2cea14f481557dfca580561605495ef0347367b1",
+      "getBackendReleaseIdentity": "2cea14f481557dfca580561605495ef0347367b1",
+      "maintenanceWorkflowEscalationSweep": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateAssetHierarchy": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateAssetHierarchyV2": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateChargeAbnormality": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateChargeAbnormalityV2": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateRuntimeJobModulePopulation": "2cea14f481557dfca580561605495ef0347367b1",
+      "mutateUserAuthority": "2cea14f481557dfca580561605495ef0347367b1",
+      "onJobAssigned": "2cea14f481557dfca580561605495ef0347367b1",
+      "onMaintenanceWorkflowEventCreated": "2cea14f481557dfca580561605495ef0347367b1",
+      "onTicketCreated": "2cea14f481557dfca580561605495ef0347367b1",
+      "onTicketResolved": "2cea14f481557dfca580561605495ef0347367b1",
+      "stampGlobalPullServerClock": "2cea14f481557dfca580561605495ef0347367b1"
+    }
+  },
+  "requestRows": [
+    {
+      "function": "completePlannedJobExecution",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/completePlannedJobExecution",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/completePlannedJobExecution",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "completePlannedJobExecution",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/completePlannedJobExecution",
+            "FUNCTION_TARGET": "completePlannedJobExecution",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-complete-job@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "E4881E805810511608C5A4F6D6D1D91CF3E2F98AEAD823710221504D91EF0473",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "assignPublishedTemplateVersion",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersion",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersion",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "assignPublishedTemplateVersion",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignPublishedTemplateVersion",
+            "FUNCTION_TARGET": "assignPublishedTemplateVersion",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "1D9465279330DAABFBC58EE79AA37A904DF41F5DD9CFD87E998DBB50A3E67CCB",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateRuntimeJobModulePopulation",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateRuntimeJobModulePopulation",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateRuntimeJobModulePopulation",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateRuntimeJobModulePopulation",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateRuntimeJobModulePopulation",
+            "FUNCTION_TARGET": "mutateRuntimeJobModulePopulation",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-runtime-modules@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "3A235809175AC059CDBA757F89AE0DC1152812ADB8B65FF3FA1AEA1D9149477D",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "assignPublishedTemplateVersionV2",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersionV2",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/assignPublishedTemplateVersionV2",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "assignPublishedTemplateVersionV2",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/assignPublishedTemplateVersionV2",
+            "FUNCTION_TARGET": "assignPublishedTemplateVersionV2",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-assign-template@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "F398E355DE0569B1688D0A74864F6EDE46C6D36FF59E65C7174E157C85A62C5E",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "executeMaintenanceWorkflowCommand",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommand",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommand",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "executeMaintenanceWorkflowCommand",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executeMaintenanceWorkflowCommand",
+            "FUNCTION_TARGET": "executeMaintenanceWorkflowCommand",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "76878FCFFB2EA9F443A281503563F2C72EF46265DC80517E0AC0365FB3A8C5E5",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "executeMaintenanceWorkflowCommandV2",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommandV2",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/executeMaintenanceWorkflowCommandV2",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "executeMaintenanceWorkflowCommandV2",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/executeMaintenanceWorkflowCommandV2",
+            "FUNCTION_TARGET": "executeMaintenanceWorkflowCommandV2",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-workflow-command@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "20399480BAC46F7EFFC9956F30C0792E6CD13350CA6ED9596FEFCD997E02CBE9",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "maintenanceWorkflowEscalationSweep",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/maintenanceWorkflowEscalationSweep",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/maintenanceWorkflowEscalationSweep",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "maintenanceWorkflowEscalationSweep",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/maintenanceWorkflowEscalationSweep",
+            "FUNCTION_TARGET": "maintenanceWorkflowEscalationSweep",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 300,
+          "serviceAccountEmail": "crm3-fn-workflow-sweep@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "512Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-scheduled": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "84FE387A05F565DE2B84F2837547EABD9DEF493772317D0192A7F071044028B9",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "beginGlobalPullRun",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/beginGlobalPullRun",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/beginGlobalPullRun",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "beginGlobalPullRun",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/beginGlobalPullRun",
+            "FUNCTION_TARGET": "beginGlobalPullRun",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 15,
+          "serviceAccountEmail": "crm3-global-pull-reader@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "6033A7CD72D555FED2E09A7D9E6012405C4644E397B9C907225CCCA5E5E9C0B1",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "getBackendReleaseIdentity",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/getBackendReleaseIdentity",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/getBackendReleaseIdentity",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "getBackendReleaseIdentity",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/getBackendReleaseIdentity",
+            "FUNCTION_TARGET": "getBackendReleaseIdentity",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 15,
+          "serviceAccountEmail": "crm3-backend-identity-runtime@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 40,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "8267AD2E19FBF40540C7E53810FE1A731552599E0FB90DA459F3DBB0F63E4C47",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateUserAuthority",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateUserAuthority",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateUserAuthority",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateUserAuthority",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateUserAuthority",
+            "FUNCTION_TARGET": "mutateUserAuthority",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-user-authority@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "9920B0058C0F285BC95EFD3502807F39C02FA536BB6EF903E9671FB1EE07A706",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateChargeAbnormality",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormality",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormality",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateChargeAbnormality",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateChargeAbnormality",
+            "FUNCTION_TARGET": "mutateChargeAbnormality",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "42BA1E7AD1060A1746469FC30DA3BC57DF665FF55BF043B8FD8FA552B385C189",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateChargeAbnormalityV2",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormalityV2",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateChargeAbnormalityV2",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateChargeAbnormalityV2",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateChargeAbnormalityV2",
+            "FUNCTION_TARGET": "mutateChargeAbnormalityV2",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-charge-abnormality@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "8A1586C9D9D7F1FF0A67E572949B2620F4C4A44F0F86FAB65EA5022BED50EB18",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateAssetHierarchyV2",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchyV2",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchyV2",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateAssetHierarchyV2",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateAssetHierarchyV2",
+            "FUNCTION_TARGET": "mutateAssetHierarchyV2",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "B58BF7C1F66B0AFB131E82E0AB9EB2A3344DD58411F95E852161D81D1A4A4F49",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "mutateAssetHierarchy",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchy",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/mutateAssetHierarchy",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "mutateAssetHierarchy",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/mutateAssetHierarchy",
+            "FUNCTION_TARGET": "mutateAssetHierarchy",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": 60,
+          "serviceAccountEmail": "crm3-fn-asset-hierarchy@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 20,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "deployment-callable": "true",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels",
+      "wireBodySha256": "9F691D69112D5EB0A6083FBF3E985969B5860E180CFEDCA7F799CE526BB60EF9",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "stampGlobalPullServerClock",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/stampGlobalPullServerClock",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/stampGlobalPullServerClock",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "stampGlobalPullServerClock",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/stampGlobalPullServerClock",
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+            "FUNCTION_TARGET": "stampGlobalPullServerClock",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.written",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "serviceAccountEmail": "crm3-global-pull-writer@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "{collectionId}/{documentId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "triggerRegion": "asia-south1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels,eventTrigger.eventType,eventTrigger.retryPolicy,eventTrigger.serviceAccountEmail,eventTrigger.eventFilters,eventTrigger.triggerRegion",
+      "wireBodySha256": "AA796670068B6B1CCA5FE25D4B3D8FEB165F2D9474E0680DABD90FEE1E935F2A",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "onTicketCreated",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketCreated",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketCreated",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "onTicketCreated",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onTicketCreated",
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+            "FUNCTION_TARGET": "onTicketCreated",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "serviceAccountEmail": "crm3-fn-ticket-created@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "maintenance_records/{ticketId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "triggerRegion": "asia-south1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels,eventTrigger.eventType,eventTrigger.retryPolicy,eventTrigger.serviceAccountEmail,eventTrigger.eventFilters,eventTrigger.triggerRegion",
+      "wireBodySha256": "7B11A1EE71F2DE009F3371A7112F157F150DFEF48B120C4E2FAE03582C364AAD",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "onTicketResolved",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketResolved",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onTicketResolved",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "onTicketResolved",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onTicketResolved",
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+            "FUNCTION_TARGET": "onTicketResolved",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.updated",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "serviceAccountEmail": "crm3-fn-ticket-resolved@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "maintenance_records/{ticketId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "triggerRegion": "asia-south1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels,eventTrigger.eventType,eventTrigger.retryPolicy,eventTrigger.serviceAccountEmail,eventTrigger.eventFilters,eventTrigger.triggerRegion",
+      "wireBodySha256": "895A7B952A4C89571592B6EE6333DB6F4924F7F3F5B4352CB3479698D6AC2266",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "onJobAssigned",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onJobAssigned",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onJobAssigned",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "onJobAssigned",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onJobAssigned",
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+            "FUNCTION_TARGET": "onJobAssigned",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "serviceAccountEmail": "crm3-fn-job-assigned@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "job_executions/{executionId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "triggerRegion": "asia-south1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels,eventTrigger.eventType,eventTrigger.retryPolicy,eventTrigger.serviceAccountEmail,eventTrigger.eventFilters,eventTrigger.triggerRegion",
+      "wireBodySha256": "70159A5A7786F89E04B93A4E86C499F31EC86709E4AF2668C6A2D9D01D6F32D4",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    },
+    {
+      "function": "onMaintenanceWorkflowEventCreated",
+      "method": "PATCH",
+      "host": "cloudfunctions.googleapis.com",
+      "path": "/v2/projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onMaintenanceWorkflowEventCreated",
+      "body": {
+        "name": "projects/crm3-baf-ops-b8638/locations/asia-south1/functions/onMaintenanceWorkflowEventCreated",
+        "buildConfig": {
+          "runtime": "nodejs22",
+          "entryPoint": "onMaintenanceWorkflowEventCreated",
+          "source": {
+            "storageSource": {
+              "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+              "object": "dcd5cdf8-94c6-4892-a788-86e9891b0cba.zip"
+            }
+          },
+          "environmentVariables": {
+            "GOOGLE_NODE_RUN_SCRIPTS": ""
+          }
+        },
+        "serviceConfig": {
+          "environmentVariables": {
+            "CRM3_MUTATING_CALLABLE_ENFORCE_APP_CHECK": "false",
+            "FIREBASE_CONFIG": "{\"projectId\":\"crm3-baf-ops-b8638\",\"storageBucket\":\"crm3-baf-ops-b8638.firebasestorage.app\"}",
+            "GCLOUD_PROJECT": "crm3-baf-ops-b8638",
+            "EVENTARC_CLOUD_EVENT_SOURCE": "projects/crm3-baf-ops-b8638/locations/asia-south1/services/onMaintenanceWorkflowEventCreated",
+            "FUNCTION_SIGNATURE_TYPE": "cloudevent",
+            "FUNCTION_TARGET": "onMaintenanceWorkflowEventCreated",
+            "LOG_EXECUTION_ID": "true"
+          },
+          "ingressSettings": null,
+          "timeoutSeconds": null,
+          "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "availableMemory": "256Mi",
+          "minInstanceCount": null,
+          "maxInstanceCount": 20,
+          "maxInstanceRequestConcurrency": 80,
+          "availableCpu": "1",
+          "vpcConnector": null,
+          "vpcConnectorEgressSettings": null,
+          "directVpcNetworkInterface": null,
+          "directVpcEgress": null
+        },
+        "labels": {
+          "deployment-tool": "cli-firebase",
+          "firebase-functions-hash": "2cea14f481557dfca580561605495ef0347367b1"
+        },
+        "eventTrigger": {
+          "eventType": "google.cloud.firestore.document.v1.created",
+          "retryPolicy": "RETRY_POLICY_RETRY",
+          "serviceAccountEmail": "crm3-fn-workflow-event@crm3-baf-ops-b8638.iam.gserviceaccount.com",
+          "eventFilters": [
+            {
+              "attribute": "database",
+              "value": "(default)"
+            },
+            {
+              "attribute": "namespace",
+              "value": "(default)"
+            },
+            {
+              "attribute": "document",
+              "value": "maintenance_workflow_events/{eventId}",
+              "operator": "match-path-pattern"
+            }
+          ],
+          "triggerRegion": "asia-south1"
+        }
+      },
+      "undefinedOwnLeaves": [
+        "buildConfig.sourceToken"
+      ],
+      "updateMask": "name,buildConfig.runtime,buildConfig.entryPoint,buildConfig.source.storageSource.bucket,buildConfig.source.storageSource.object,buildConfig.environmentVariables,buildConfig.sourceToken,serviceConfig.environmentVariables,serviceConfig.ingressSettings,serviceConfig.timeoutSeconds,serviceConfig.serviceAccountEmail,serviceConfig.availableMemory,serviceConfig.minInstanceCount,serviceConfig.maxInstanceCount,serviceConfig.maxInstanceRequestConcurrency,serviceConfig.availableCpu,serviceConfig.vpcConnector,serviceConfig.vpcConnectorEgressSettings,serviceConfig.directVpcNetworkInterface,serviceConfig.directVpcEgress,labels,eventTrigger.eventType,eventTrigger.retryPolicy,eventTrigger.serviceAccountEmail,eventTrigger.eventFilters,eventTrigger.triggerRegion",
+      "wireBodySha256": "F612333486A17473BA5CE515B5CD6B9B6859BCF75BF9F89C412E52F8D973D4D3",
+      "expectedFirstRefusal": "Unapproved Function control mutation: serviceConfig.ingressSettings"
+    }
+  ]
+}

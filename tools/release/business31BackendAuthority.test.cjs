@@ -175,6 +175,7 @@ test("immutable enrollment keeps the independently enumerated fourteen-file boun
 const completeEntryCases = [
   ["synthetic-current-anchor", null],
   ["real-current-anchor", null],
+  ["real-pre-preservation-anchor-refusal", null],
   ["real-pre-review-anchor-refusal", null],
   ["real-displaced-anchor-refusal", null],
   ["real-previous-anchor-refusal", null],
@@ -205,7 +206,8 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const commit = parents => git(["commit-tree", git(["write-tree"]), ...parents.flatMap(p => ["-p", p]), "-m", "Synthetic local preparation fixture only"]);
   git(["read-tree", fixtureSource]);
   const authorityName = "tools/release/business31BackendAuthority.cjs", guardName = "tools/release/runtimeDeploymentTransportGuard31.cjs";
-  const currentCommit = "f4b89857d65587a820eb4416e700daf5f907f020";
+  const currentCommit = "374e2a02c516cf5c66e80dadc563209d63cbd24d";
+  const prePreservationCommit = "f4b89857d65587a820eb4416e700daf5f907f020";
   const preReviewCommit = "a30720a0bf8ead1f1736302727dd23bd5687059b";
   const displacedCommit = "a0e07e9ba62bb4201d18d04f99a63853a8b18a21";
   const previousCommit = "93c36a958de6c6115c4da2b6846c87e9f22d74f1";
@@ -236,17 +238,17 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
     assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private fixture anchor literal may change");
     producerBytes[authorityName] = Buffer.from(fixtureAuthority);
     verifierParent = syntheticAnchor;
-  } else if (["real-pre-review-anchor-refusal", "real-displaced-anchor-refusal", "real-previous-anchor-refusal", "real-recent-anchor-refusal", "real-historical-anchor-refusal"].includes(fixtureKind)) {
+  } else if (["real-pre-preservation-anchor-refusal", "real-pre-review-anchor-refusal", "real-displaced-anchor-refusal", "real-previous-anchor-refusal", "real-recent-anchor-refusal", "real-historical-anchor-refusal"].includes(fixtureKind)) {
     // The genuine old refusal remains reproducible in an isolated private fixture.
     // Production retains the reviewed current anchor; no historical bytes change.
-    const refusedCommit = fixtureKind === "real-pre-review-anchor-refusal" ? preReviewCommit : fixtureKind === "real-displaced-anchor-refusal" ? displacedCommit : fixtureKind === "real-previous-anchor-refusal" ? previousCommit : fixtureKind === "real-recent-anchor-refusal" ? recentCommit : historicalCommit;
+    const refusedCommit = fixtureKind === "real-pre-preservation-anchor-refusal" ? prePreservationCommit : fixtureKind === "real-pre-review-anchor-refusal" ? preReviewCommit : fixtureKind === "real-displaced-anchor-refusal" ? displacedCommit : fixtureKind === "real-previous-anchor-refusal" ? previousCommit : fixtureKind === "real-recent-anchor-refusal" ? recentCommit : historicalCommit;
     const fixtureAnchorDeclaration = `const IMMUTABLE_COMMIT = "${refusedCommit}";`;
     const fixtureAuthority = productionAuthority.toString("utf8").replace(originalAnchorDeclaration, fixtureAnchorDeclaration);
     assert.equal(fixtureAuthority.replace(fixtureAnchorDeclaration, originalAnchorDeclaration), productionAuthority.toString("utf8"), "only the private historical fixture anchor literal may change");
     producerBytes[authorityName] = Buffer.from(fixtureAuthority);
-    const changedMember = fixtureKind === "real-pre-review-anchor-refusal" ? "tools/release/backendRuntimeExecutionAdmission31.cjs" : guardName;
+    const changedMember = fixtureKind === "real-pre-preservation-anchor-refusal" ? "tools/release/backendRuntimeControls31.cjs" : fixtureKind === "real-pre-review-anchor-refusal" ? "tools/release/backendRuntimeExecutionAdmission31.cjs" : guardName;
     assert.notEqual(git(["rev-parse", `${refusedCommit}:${changedMember}`]), blob(producerBytes[changedMember]), "reviewed immutable member really differs from the previous or historical production anchor");
-    if (fixtureKind === "real-pre-review-anchor-refusal") assert.equal(git(["rev-parse", `${refusedCommit}:${guardName}`]), blob(producerBytes[guardName]), "PR420 transport guard is unchanged");
+    if (["real-pre-preservation-anchor-refusal", "real-pre-review-anchor-refusal"].includes(fixtureKind)) assert.equal(git(["rev-parse", `${refusedCommit}:${guardName}`]), blob(producerBytes[guardName]), "PR420 transport guard is unchanged");
   } else if (fixtureKind === "real-retired-anchor-refusal") {
     // The retired ancestor stays in history and cannot substitute for the corrected anchor.
     const fixtureAnchorDeclaration = `const IMMUTABLE_COMMIT = "${retiredCommit}";`;
@@ -403,7 +405,7 @@ test("complete entry composes real Git V/M/C and synthetic originals without ope
   const input = {...options, trustedVerifier: {commit: V, tree: git(["rev-parse", V + "^{tree}"]), files: producerBindings}, sourceCommit: M, sourceManifest,
     trustedManifestSha256, evidenceDirectory, decisionPointer: {commit: C, file: subject.DECISION_FILE, sha256: sha(envelope)}, nowUtc: "2026-01-02T05:00:00Z"};
   assert.deepEqual(fs.readFileSync(path.join(__dirname, path.basename(authorityName))), productionAuthority, "production authority remains unchanged");
-  if (fixtureKind === "real-current-anchor-byte-mismatch" || fixtureKind === "real-pre-review-anchor-refusal" || fixtureKind === "real-displaced-anchor-refusal" || fixtureKind === "real-previous-anchor-refusal" || fixtureKind === "real-recent-anchor-refusal" || fixtureKind === "real-historical-anchor-refusal" || fixtureKind === "real-retired-anchor-refusal") {
+  if (fixtureKind === "real-current-anchor-byte-mismatch" || fixtureKind === "real-pre-preservation-anchor-refusal" || fixtureKind === "real-pre-review-anchor-refusal" || fixtureKind === "real-displaced-anchor-refusal" || fixtureKind === "real-previous-anchor-refusal" || fixtureKind === "real-recent-anchor-refusal" || fixtureKind === "real-historical-anchor-refusal" || fixtureKind === "real-retired-anchor-refusal") {
     assert.throws(() => fixtureSubject.verifyBusiness31BackendAuthority(input), {
       message: "Business31 preparation: original immutable verifier changed"
     });

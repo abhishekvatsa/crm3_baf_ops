@@ -131,6 +131,18 @@ test("existing source-default scaling reset needs its fresh explicit approval be
   assert.notEqual(publicProof.controls.receiptSha256, good.controls.receiptSha256);
 });
 
+test("historical public source evidence remains distinct from the new preservation policy", () => {
+  assert.equal(opts.sdkReset.sourcePreserveExternalChangesOmitted, true);
+  assert.equal(opts.sdkReset.sourceGlobalOptionsAbsent, true);
+  assert.equal(Object.hasOwn(opts.sdkReset, "sourcePreserveExternalChangesDeclared"), false);
+  const approved = structuredClone(approval);
+  approved.approvedDeployment.sourceScalingAuthority = {...opts.sdkReset,
+    sourcePreserveExternalChangesOmitted: false, sourceGlobalOptionsAbsent: false,
+    sourcePreserveExternalChangesDeclared: true, sourceGlobalOptionsPolicy: "entrypoint-preserve-external-changes-v1"};
+  const ctx = {...context, approval: approved, approvalSha256: guard.hash(JSON.stringify(approved))};
+  assert.throws(() => publication.createPublicProof(inputs(false, () => {}, ctx)), /verification failed/);
+});
+
 test("generation failures never expose malformed private payloads, URLs or environment canaries", () => {
   const malformed = Buffer.from(`{\"private\":\"${canaries[0]}\" invalid`);
   const badUrl = inputs(); const raw = JSON.parse(badUrl.rawProofBytes);

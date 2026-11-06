@@ -1,3 +1,7 @@
+import {setGlobalOptions} from "firebase-functions/v2";
+
+setGlobalOptions({preserveExternalChanges: true});
+
 import {userCanMutateOrdinaryDirective, isOrdinaryDirectiveOperation, mutateOrdinaryDirectiveWithDb, OrdinaryDirectiveResult} from "./ordinaryDirectiveMutation";
 import {onCall, HttpsError, CallableRequest} from "firebase-functions/v2/https";
 import {

@@ -9,6 +9,7 @@ bootstrap.assertBootstrap31();
 const neutral = require("./runtimeDeploymentTransportGuard31.cjs");
 const prepared = require("./captureBackendRuntimePreparedInputs31.cjs");
 const business = require("./business31BackendAuthority.cjs");
+const {preserveFunctionRequest31} = require("./business31PreservedControls31.cjs");
 const executionWindows = new WeakMap();
 const phaseAdmissions = new WeakMap();
 const phaseConstruction = Symbol("measured single phase");
@@ -135,16 +136,23 @@ class BusinessCapture31 {
     this.assertExecutionWindow();
     const startedAtUtc=exactTime(this.now());
     need(s.capture.completedAtUtc<=observation.observedAtUtc&&observation.observedAtUtc<=observation.completedAtUtc&&observation.completedAtUtc<=startedAtUtc&&s.lastStarted<=startedAtUtc,"live/start chronology differs");
-    s.lastStarted=startedAtUtc; const original=projectRequest(scope.client,scope.request);
-    if(operation.kind==="source-upload") need(original.request.body.path===path.join(this.root,s.archivePointer.file),"upload must use retained exact ZIP path");
+    s.lastStarted=startedAtUtc; const effective=projectRequest(scope.client,scope.request);
+    if(operation.kind==="source-upload") need(effective.request.body.path===path.join(this.root,s.archivePointer.file),"upload must use retained exact ZIP path");
     const prefix="mutation-"+String(operation.sequence).padStart(4,"0");
-    const record={schemaVersion:3,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
+    const effectivePointer=this.put(prefix+"-request.json",effective);
+    let requestPreservation=null;
+    if(operation.kind==="function-update") {
+      need(scope.preservation&&scope.originalRequest,"explicit Function request preservation evidence required");
+      requestPreservation=this.put(prefix+"-preservation.json",{schemaVersion:1,documentType:"build31-business-request-preservation",
+        originalRequest:this.put(prefix+"-original-request.json",scope.originalRequest),effectiveRequest:effectivePointer,edits:scope.preservation.edits});
+    }
+    const record={schemaVersion:4,documentType:"build31-business-original-mutation",phase:s.phase,sequence:operation.sequence,
       completionSequence:null,kind:operation.kind,name:operation.name??null,startedAtUtc,requestAdmittedAtUtc:null,firstOutboundAtUtc:null,completedAtUtc:null,
-      request:this.put(prefix+"-request.json",original),wireBody:null,response:null,responseBinding:null,liveObservation:this.put(prefix+"-live.json",observation),error:null};
+      request:effectivePointer,requestPreservation,wireBody:null,response:null,responseBinding:null,liveObservation:this.put(prefix+"-live.json",observation),error:null};
     const item={record,prefix,operation,wire:[],wireBytes:0,responseChunks:[],responseBytes:0,wireEnded:false,responseEnded:false,transportCount:0,success:false};
     s.records.push(item);s.pending++;scope.item=item;
     // Intent is retained before the request; a killed process cannot erase an uncompleted attempt.
-    this.put(prefix+"-intent.json",{phase:s.phase,sequence:operation.sequence,kind:operation.kind,name:operation.name??null,startedAtUtc,request:record.request,liveObservation:record.liveObservation});
+    this.put(prefix+"-intent.json",{phase:s.phase,sequence:operation.sequence,kind:operation.kind,name:operation.name??null,startedAtUtc,request:record.request,requestPreservation,liveObservation:record.liveObservation});
   }
   refuse() {
     const s=this.active; if(!s)return;this.failed=true;s.failed=true;
@@ -308,7 +316,11 @@ function installBusinessCapture31({Client,writer,observeLive}) {
   const guarded=Client.prototype.request;
   Client.prototype.request=function(request){const scope={client:this,request};
     return local.run(scope,async()=>{let result,success=false;
-      try{result=await guarded.call(this,request);success=true;}
+      try{
+        const preservation=preserveFunctionRequest31({client:this,request,names:guard.names,baselineFunctions:guard.baselineFunctions});
+        if(preservation){scope.originalRequest=projectRequest(this,request);scope.preservation=preservation;scope.request=preservation.request;}
+        result=await guarded.call(this,scope.request);success=true;
+      }
       catch(error){if(!scope.item)writer.refuse();throw error;}
       finally{if(scope.item){const okay=writer.end(scope,success);if(success&&!okay)throw Error("Business capture refused incomplete original response");}}
       return result;

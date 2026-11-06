@@ -20,6 +20,8 @@ const DEPENDENCIES = Object.freeze([
 // in the separately trusted manifest. No manifest or approval is generated here.
 const ADMITTED_DELTA_PATHS = Object.freeze([
   ...DEPENDENCIES,
+  "functions/src/index.ts",
+  "functions/test/functionFleetInstanceCaps.test.js",
   "functions/src/maintenanceWorkflow/commandAuthority.ts",
   "functions/src/maintenanceWorkflow/dispatcher.ts",
   "functions/src/maintenanceWorkflow/innerCoverConcernDisposition.ts",
