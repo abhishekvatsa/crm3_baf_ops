@@ -117,7 +117,7 @@ for(const [name,pattern,mutate]of [
  ["retry sequence",/mutation order/,f=>change(f,2,r=>r.sequence=2)], ["failed completion",/mutation order/,f=>change(f,2,r=>r.error="failure")],
  ["wrong cohort",/mutation order/,f=>change(f,2,r=>r.phase="events")], ["wrong endpoint",/mutation order/,f=>change(f,2,r=>r.name="other")],
  ["wire bytes differ",/original wire body differs/,f=>change(f,2,r=>r.wireBody=retain("changed"))],
- ["changed preserved control",/Unapproved Function control/,f=>change(f,2,r=>{const q=j(r.request);q.request.body.serviceConfig.maxInstanceCount=21;r.request=retain(q);r.wireBody=retain(JSON.stringify(q.request.body));})],
+ ["changed preserved control",/Unapproved Function control/,f=>change(f,2,r=>{const q=j(r.request);q.request.body.serviceConfig.maxInstanceCount=21;r.request=retain(q);r.requestPreservation=retain({schemaVersion:1,documentType:"build31-business-request-preservation",originalRequest:r.request,effectiveRequest:r.request,edits:[]});r.wireBody=retain(JSON.stringify(q.request.body));})],
  ["failed HTTP response",/successful original response/,f=>change(f,2,r=>r.response=retain({httpStatus:500,bodyText:"{}"}))],
  ["stale live source",/main moved|Current main|source|live main/i,f=>change(f,2,r=>{const o=j(r.liveObservation);o.finalMain=JSON.stringify({ref:"refs/heads/main",object:{sha:"0".repeat(40)}});r.liveObservation=retain(o);})],
  ["unresolved live review",/thread/i,f=>change(f,2,r=>{const o=j(r.liveObservation),q=JSON.parse(o.threads);q.data.repository.pullRequest.reviewThreads.nodes.push({isResolved:false});o.threads=JSON.stringify(q);r.liveObservation=retain(o);})],
@@ -316,7 +316,7 @@ for(const preparation of [false,true])test("OUTER WIRING ONLY refuses late "+(pr
  assert.throws(()=>outerRun(f),preparation?/preparation initiation/:/cohort initiation/);
 });
 
-test("actual writer schema3 all25 records replay; final response settles late with no later cohort",async()=>{
+test("actual writer schema4 all25 records replay; final response settles late with no later cohort",async()=>{
  // Real writer + raw replay + installed hash, injected HTTPS and synthetic CI/owner.
  // The outer controls context remains the same documented substitute; NOT full authority.
  const f=outerFixture(),{BusinessCapture31,installBusinessCapture31}=require("./captureBusiness31PreparedInputs.cjs");
