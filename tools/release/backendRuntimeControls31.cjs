@@ -206,7 +206,7 @@ function context({repoRoot,sourceCommit,requiredProducerBindings,installedContro
  const policy=helpers.object(git(repoRoot,['show',sourceCommit+':release/function-fleet-runtime-identity-policy.json']));
  const guard=loadSourceModule(repoRoot,sourceCommit,requiredProducerBindings,'tools/release/scopedCallableInvokerIam.js');
  loadSourceModule(repoRoot,sourceCommit,requiredProducerBindings,'tools/release/collectProductionGlobalPullBackend.js');
- const controls=loadSourceModule(repoRoot,sourceCommit,requiredProducerBindings,'tools/release/reviewedBackendControls.js');
+ const controls=loadSourceModule(repoRoot,sourceCommit,requiredProducerBindings,'tools/release/business31SourceOptions.cjs');
  verifyInstalledControlsRuntime(repoRoot,installedControlRuntime);
  const options=withInstalledControlsRuntime31(repoRoot,installedControlRuntime,()=>controls.sourceOptions(repoRoot,sourceCommit));
  verifyInstalledControlsRuntime(repoRoot,installedControlRuntime);

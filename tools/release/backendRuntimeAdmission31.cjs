@@ -71,7 +71,7 @@ function verifyRuntimeFiles(runtime){
  return runtime;
 }
 function verifyProducerBindings(root,commit,bindings){
- const required=['tools/release/collectFunctionFleetRuntimeIdentityReadback.js','tools/release/collectFunctionsIamDependenciesReadback.js','tools/release/collectFirestoreRulesIndexesReadback.js','tools/release/reviewedBackendControls.js','tools/release/collectProductionGlobalPullBackend.js','tools/release/scopedCallableInvokerIam.js','tools/release/deploymentFleetContract.js'];
+ const required=['tools/release/collectFunctionFleetRuntimeIdentityReadback.js','tools/release/collectFunctionsIamDependenciesReadback.js','tools/release/collectFirestoreRulesIndexesReadback.js','tools/release/reviewedBackendControls.js','tools/release/business31SourceOptions.cjs','tools/release/collectProductionGlobalPullBackend.js','tools/release/scopedCallableInvokerIam.js','tools/release/deploymentFleetContract.js'];
  need(bindings&&typeof bindings==='object','Producer bindings required');eq(Object.keys(bindings).sort(),required.sort(),'Exact executing producer population required');for(const p of required)need(hex(bindings[p],64)&&hash(git(root,['show',commit+':'+p]))===bindings[p].toUpperCase()&&hash(local(root,p))===bindings[p].toUpperCase(),'Producer source/loaded bytes differ');
  return bindings;
 }
