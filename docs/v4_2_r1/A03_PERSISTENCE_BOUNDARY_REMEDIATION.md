@@ -577,3 +577,30 @@ its targeted refresh regression reference. The new-publication model factory
 allocates fresh native identity without introducing presentation persistence or
 changing remote decoding. This source qualification adds no actual-device,
 production, distribution, historical-closure or Build31 authority.
+
+
+## Authoritative package dependency read — 9 November 2026
+
+The current working source measures 643 operations across 2241 primitive sites
+and the same 89 classified persistence surfaces, with digest
+`3BE19939932B74F91F5F45D9D77E3BA9CF1FE86A5A74221DD9E39AEE92CF53F8`.
+Removing only the new repository operation from the measured inventory reproduces
+the preceding 642-operation, 2240-site digest exactly; the earlier measurements
+remain historical evidence.
+
+The added operation is `FirestoreTemplateGovernanceRepository.getAuthoritativeVersionsForPackagePush`,
+a read-only Firestore query used before pushing a package publication pointer.
+It requires server provenance, rejects cache and pending writes, and validates
+the raw version identity, package identity and lifecycle status against the
+decoded record before returning it. The push gate separately requires the exact
+published target and version number. The local adapter refuses this
+authoritative read. Missing or unready dependencies defer their package while
+ready peers continue; captured-snapshot marking and existing remote writes stay
+unchanged. Firestore Rules remain the final authority if state changes after the
+read.
+
+The existing remote adapter retains its profile, stores and access modes; its
+regression references add `test/sync_push_group_isolation_test.dart`. No new
+persistence surface or presentation access is introduced. This inventory records
+source structure only and does not claim a Rules-emulator verdict, passing CI,
+production deployment or a new build allocation.

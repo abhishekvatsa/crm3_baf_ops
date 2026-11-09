@@ -1207,11 +1207,12 @@
       "authorityBoundary": "Consumes authenticated repository calls and preserves server/Rules authority; it does not derive approval from payload data.",
       "persistenceOwnership": "Firestore access is confined to this remote adapter; no Isar transaction is permitted.",
       "transactionOwnership": "This adapter owns only the feature Firestore batches, transactions, and remote replay operations.",
-      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership.",
+      "rationale": "Extracted from the former mixed provider so remote transport and mapping cannot silently reacquire offline-store ownership. The 9 November package-dependency guard adds one server-only version read with cache/pending-write and raw identity/status checks; existing responsibilities and transaction ownership remain unchanged.",
       "regressionTests": [
-        "test/maintenance_lifecycle_replay_contract_test.dart"
+        "test/maintenance_lifecycle_replay_contract_test.dart",
+        "test/sync_push_group_isolation_test.dart"
       ],
-      "maximumLines": 934,
+      "maximumLines": 961,
       "requiredMarkers": [
         "part of '"
       ],

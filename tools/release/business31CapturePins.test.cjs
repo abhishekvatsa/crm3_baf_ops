@@ -25,7 +25,7 @@ test("capture verifies the new preparation dependency before importing or instal
     [require("node:net").Socket.prototype, "connect"], [require("node:tls"), "connect"],
     [require("node:module"), "_load"], [globalThis, "fetch"]];
   const before = slots.map(([object, key]) => Object.getOwnPropertyDescriptor(object, key));
-  for (const dependency of [helper, "business31ToolchainIdentity.cjs", "business31CaptureRecorder.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"]) {
+  for (const dependency of [helper, "business31SourceOptions.cjs", "business31ToolchainIdentity.cjs", "business31CaptureRecorder.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"]) {
     assert.ok(dependencies.includes(dependency), "new dependency is pinned before import");
     for (const label of ["modified", "missing"]) {
       const f = copy(dependency + "-" + label), target = path.join(f.root, dependency);

@@ -21,6 +21,12 @@ describe("explicit fleet instance limits", () => {
     for (const [name, endpoint] of endpoints) {
       // Exercise actual installed SDK output, not text matching of the source.
       expect(endpoint.__endpoint.maxInstances).toBe(20);
+      for (const field of ["ingressSettings", "minInstances", "vpc"]) {
+        expect(Object.hasOwn(endpoint.__endpoint, field)).toBe(false);
+      }
+      if (endpoint.__endpoint.eventTrigger) {
+        expect(Object.hasOwn(endpoint.__endpoint, "timeoutSeconds")).toBe(false);
+      }
       expect(JSON.parse(JSON.stringify(endpoint.__endpoint)).maxInstances).toBe(20);
       expect(endpoint.__endpoint.platform).toBe("gcfv2");
       expect(endpoint.__endpoint.region).toEqual(["asia-south1"]);
@@ -38,13 +44,22 @@ describe("explicit fleet instance limits", () => {
     expect([callableCount, eventCount, scheduleCount]).toEqual([13, 5, 1]);
   });
 
-  test("omitting the option would restore the SDK reset, not preserve cap20", () => {
-    const {onCall} = require("firebase-functions/v2/https");
-    const omitted = onCall({region: "asia-south1"}, async () => {});
-    const explicit = onCall({region: "asia-south1", maxInstances: 20}, async () => {});
-    expect(omitted.__endpoint.maxInstances.toJSON()).toBeNull();
-    expect(JSON.parse(JSON.stringify(omitted.__endpoint)).maxInstances).toBeNull();
-    expect(explicit.__endpoint.maxInstances).toBe(20);
+  test("the isolated SDK resets an omitted cap until preservation is selected", () => {
+    const result = spawnSync(process.execPath, ["-e", `
+      const assert = require('node:assert/strict');
+      const {onCall} = require('firebase-functions/v2/https');
+      const {setGlobalOptions} = require('firebase-functions/v2');
+      const omitted = onCall({region: 'asia-south1'}, async () => {});
+      assert.equal(omitted.__endpoint.maxInstances.toJSON(), null);
+      assert.equal(JSON.parse(JSON.stringify(omitted.__endpoint)).maxInstances, null);
+      setGlobalOptions({preserveExternalChanges: true});
+      const preserved = onCall({region: 'asia-south1'}, async () => {});
+      assert.equal(Object.hasOwn(preserved.__endpoint, 'maxInstances'), false);
+      const explicit = onCall({region: 'asia-south1', maxInstances: 20}, async () => {});
+      assert.equal(explicit.__endpoint.maxInstances, 20);
+    `], {cwd: path.join(root, "functions"), encoding: "utf8", timeout: 15000});
+    expect({status: result.status, stderr: result.stderr})
+      .toEqual({status: 0, stderr: ""});
   });
 
   test("workflow exports also carry cap20 when loaded before the main module", () => {
@@ -56,12 +71,21 @@ describe("explicit fleet instance limits", () => {
       assert.equal(Object.keys(workflow).length, 4);
       for (const endpoint of Object.values(workflow)) {
         assert.equal(endpoint.__endpoint.maxInstances, 20);
+        assert.equal(endpoint.__endpoint.ingressSettings.toJSON(), null);
       }
       const main = require('./lib/index');
       assert.equal(Object.keys(main).length, 19);
       for (const endpoint of Object.values(main)) {
         assert.equal(endpoint.__endpoint.maxInstances, 20);
       }
+      // Direct imports construct these four endpoints before index is loaded.
+      // The entrypoint global is not retroactive; do not claim otherwise.
+      for (const [name, endpoint] of Object.entries(workflow)) {
+        assert.equal(main[name], endpoint);
+        assert.equal(main[name].__endpoint.ingressSettings.toJSON(), null);
+      }
+      assert.equal(Object.hasOwn(main.onTicketCreated.__endpoint, 'ingressSettings'), false);
+      assert.equal(Object.hasOwn(main.onTicketCreated.__endpoint, 'timeoutSeconds'), false);
     `], {cwd: path.join(root, "functions"), encoding: "utf8", timeout: 15000});
     expect({status: result.status, stderr: result.stderr})
       .toEqual({status: 0, stderr: ""});

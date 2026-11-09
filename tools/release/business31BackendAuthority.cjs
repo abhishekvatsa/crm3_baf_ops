@@ -10,7 +10,7 @@ const originalPath = require("./backendRuntimeEvidenceAccess31.cjs").path;
 const {isDeepStrictEqual: same, TextDecoder} = require("node:util");
 const PROFILE = "build31-exact-business-backend-v1";
 const DECISION_FILE = "release/approvals/build31-business-backend-deployment-approval.json";
-const IMMUTABLE_COMMIT = "f4b89857d65587a820eb4416e700daf5f907f020";
+const IMMUTABLE_COMMIT = "22cd6a40d450b857ce49ea87a8a3ed3107f7c74a";
 const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "executeBackendRuntime31.cjs",
   "captureBackendRuntimePreparedInputs31.cjs", "runtimeDeploymentTransportGuard31.cjs", "backendRuntimeClosedReplay31.cjs",
   "backendRuntimeEvidenceAccess31.cjs", "backendRuntimeAdmission31.cjs", "backendRuntimeProof31.cjs",
@@ -19,7 +19,7 @@ const IMMUTABLE = Object.freeze(["backendRuntimeExecutionAdmission31.cjs", "exec
 const PRODUCERS = Object.freeze([...IMMUTABLE, "business31TrustedInput.cjs", "business31SourceAdmission.cjs",
   "business31BackendAuthority.cjs", "business31CaptureBootstrap.cjs", bins.SELF, toolchain.SELF, "clientBuildToolingCompatibility31.cjs", "business31ExecutionContract.cjs", "business31BackendClosure.cjs",
   ...execution.CONTROL_PRODUCERS, execution.CAPTURE,
-  "business31CaptureRecorder.cjs", "business31ServiceIdentityCapture.cjs", "business31CohortProcess.cjs", "business31IntentPreparation.cjs", "business31OperationalController.cjs", "captureBusiness31PreparedHook.cjs", "prepareBusinessIntent31.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
+  "business31CaptureRecorder.cjs", "business31PreservedControls31.cjs", "business31ServiceIdentityCapture.cjs", "business31CohortProcess.cjs", "business31IntentPreparation.cjs", "business31OperationalController.cjs", "captureBusiness31PreparedHook.cjs", "prepareBusinessIntent31.cjs", "collectBusinessRuntime31.cjs", "runtime_process_runner.py", "runtime_supervisor.py", "runtime_contract_bindings.json", "business31ToolchainProfiles.json"].map(v => v.startsWith("tools/") ? v : "tools/release/" + v).sort());
 const SCOPE = Object.freeze({buildNumber: 31, functionsOnly: true, existingFunctionCount: 19,
   businessLogicChanged: true, finiteSourceManifestRequired: true, firestoreRulesDeployment: false,
   firestoreIndexesDeployment: false, iamMutation: false, enforcementMutation: false,

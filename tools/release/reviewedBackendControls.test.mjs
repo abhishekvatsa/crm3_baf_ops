@@ -1,7 +1,11 @@
+// Pure preservation regressions run in the existing release-gate suite.
+import './business31PreservedControls31.test.cjs';
+import './business31RealPatchRegression.test.cjs';
+import './business31SourceOptions.test.cjs';
 import {createRequire} from 'node:module';
 const require=createRequire(import.meta.url);
 // Synthetic local checks only. Does not execute the live collector or assembler.
-const test=require('node:test'),assert=require('node:assert/strict'),cp=require('node:child_process');
+const test=require('node:test'),assert=require('node:assert/strict');
 const helper=require('./reviewedBackendControls.js');
 // These15-plus4 controls belong to the preserved historical deployment. New
 // source now has19 existing endpoints and must not reinterpret this fixture.

@@ -483,6 +483,14 @@ abstract class TemplateGovernanceRepository {
   Future<void> batchUpsertPackages(List<TemplatePackage> records);
 
   Future<List<TemplateVersion>> getVersionsByFirestoreIds(List<String> ids);
+
+  /// Reads server-confirmed version dependencies before a package is pushed.
+  /// Local state, cached snapshots and pending writes are not authoritative.
+  /// Local repositories deliberately do not support this remote-only method.
+  Future<List<TemplateVersion>> getAuthoritativeVersionsForPackagePush(
+    List<String> ids,
+  );
+
   Future<void> batchUpsertVersions(List<TemplateVersion> records);
 
   /// Creates the missing remote draft predecessor for a locally-published

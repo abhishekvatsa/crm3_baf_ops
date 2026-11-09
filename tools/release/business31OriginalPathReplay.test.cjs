@@ -31,8 +31,8 @@ test('required npm-bin materializer has exact executing bytes before any closure
  assert.equal(require.cache[modulePath],undefined);
 });
 
-test('closure population is precisely the complete composed45 subset, with unchanged digests',()=>{
-  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,45);
+test('closure population is precisely the complete composed47 subset, with unchanged digests',()=>{
+  const actual=require('./business31BackendAuthority.cjs').PRODUCERS;assert.deepEqual(actual,subject.CLOSURE_PRODUCERS);assert.equal(actual.length,47);
   const full={...bindings,'tools/release/another-controller.cjs':'F'.repeat(64)},subset=subject.deriveClosureProducerBindings31(full);
   assert.deepEqual(Object.keys(subset),actual);for(const file of actual)assert.equal(subset[file],full[file]);assert.equal(full['tools/release/another-controller.cjs'],'F'.repeat(64));
 });
@@ -40,7 +40,7 @@ test('the closure-only population cannot masquerade as complete descriptor autho
   const narrowed=Object.fromEntries(subject.CLOSURE_PRODUCERS.map(f=>[f,bindings[f]]));assert.throws(()=>subject.deriveClosureProducerBindings31(narrowed),/full wrapper\/descriptor\/bundle population/);
 });
 test('missing wrapper or closure binding is rejected',()=>{
-  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0],'tools/release/business31NpmBinMaterialization.cjs','tools/release/business31ToolchainIdentity.cjs','tools/release/business31CaptureBootstrap.cjs']){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
+  for(const file of [subject.SELF,subject.CLOSURE_PRODUCERS[0],'tools/release/business31NpmBinMaterialization.cjs','tools/release/business31ToolchainIdentity.cjs','tools/release/business31CaptureBootstrap.cjs','tools/release/business31SourceOptions.cjs']){const value={...bindings};delete value[file];assert.throws(()=>subject.deriveClosureProducerBindings31(value));}
 });
 test('changed executing producer bytes fail before they could become source authority',()=>{
   assert.throws(()=>subject.executingBindings31(bindings),/executing complete producer population differs/);
@@ -142,7 +142,7 @@ test('every new operational and hosted producer is mandatory before replay', () 
   const complete = Object.fromEntries(subject.REQUIRED_EXECUTING.map(file =>
     [file, sha(fs.readFileSync(path.join(__dirname, path.basename(file))))]));
   assert.equal(Object.keys(subject.executingBindings31(complete)).length, subject.REQUIRED_EXECUTING.length);
-  for (const file of supportFiles.concat(['business31CaptureRecorder.cjs','business31CohortProcess.cjs',
+  for (const file of supportFiles.concat(['business31SourceOptions.cjs','business31CaptureRecorder.cjs','business31PreservedControls31.cjs','business31CohortProcess.cjs',
     'business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs',
     'prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','business31HostedProtocol.cjs',
     'business31HostedReplay.cjs','business31HostedResult.cjs'].map(n => 'tools/release/' + n))) {

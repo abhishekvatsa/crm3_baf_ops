@@ -17,7 +17,7 @@ const resource="projects/crm3-baf-ops-b8638/locations/asia-south1/functions/";
 const ZIP=Buffer.from("synthetic retained ZIP bytes; archive parser qualified separately"),labels=Object.fromEntries(cohorts.fleet.map(n=>[n,hash(Buffer.from(n))]));
 const baseline=Object.fromEntries(cohorts.fleet.map(n=>[n,{name:resource+n,labels:{"firebase-functions-hash":"prior",preserved:"synthetic"},buildConfig:{source:{storageSource:{bucket:"old",object:"old",generation:"1"}}},serviceConfig:{maxInstanceCount:20}}]));
 function fixture(t,window){const dir=fs.mkdtempSync(path.join(os.tmpdir(),"business-capture-host-"));const epoch=Date.now(),clock=()=>new Date().toISOString();const writer=new BusinessCapture31({evidenceDirectory:dir,approvalPointer:APPROVAL,source:SOURCE,cohorts,now:clock});if(window!==false)writer.bindExecutionWindow(window??{notBeforeUtc:new Date(epoch-1000).toISOString(),notAfterUtc:new Date(epoch+3600000).toISOString()});t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return {dir,writer,clock};}
-function start(f,phase="callables") {const capture={schemaVersion:1,documentType:"firebase-cli-prepared-backend-hash-inputs",actualCliPreparationCaptured:true,approvalPointer:APPROVAL,phase,source:SOURCE,sourceArchiveHash:"synthetic",endpointRuntimeHashes:labels,archiveSha256:hash(ZIP),archiveBytes:ZIP.length,completedAtUtc:f.clock()};return f.writer.startCohort({phase,capture,archive:ZIP,guardInputs:{baselineFunctions:baseline,projectNumber:"123456789"}});}
+function start(f,phase="callables") {const capture={schemaVersion:1,documentType:"firebase-cli-prepared-backend-hash-inputs",actualCliPreparationCaptured:true,approvalPointer:APPROVAL,phase,source:SOURCE,sourceArchiveHash:"synthetic",endpointRuntimeHashes:labels,archiveSha256:hash(ZIP),archiveBytes:ZIP.length,completedAtUtc:f.clock()};return f.writer.startCohort({phase,capture,archive:ZIP,guardInputs:{baselineFunctions:f.baseline??baseline,projectNumber:"123456789"}});}
 function read(f,p){return JSON.parse(fs.readFileSync(path.join(f.dir,p.file)));}
 function injected(f,options={}) {
  const https=require("node:https"),http=require("node:http"),net=require("node:net"),tls=require("node:tls"),saved={https:https.request,http:http.request,net:net.Socket.prototype.connect,tls:tls.connect};
@@ -60,6 +60,39 @@ test("bounded gzip response retains raw bytes and exact decoded original body",a
 test("unfinished requests cannot produce completion",t=>{const f=fixture(t);start(f);f.writer.active.pending=1;assert.throws(()=>f.writer.finishCohort(),/unfinished/);});
 test("missing update remains incomplete even if guard observed other writes",async t=>{const f=fixture(t),s=start(f),env=injected(f);try{const cli=await firstTwo(f,env,s);await update(cli,cohorts.callables[0]);assert.equal(f.writer.finishCohort().complete,false);}finally{env.restore();}});
 test("wrong cohort order rejected without an attempt directory",t=>{const f=fixture(t);assert.throws(()=>start(f,"events"));assert.equal(fs.existsSync(path.join(f.writer.base,"events")),false);});
+test("preservation records original and effective HTTP request before forwarding the same effective bytes",async t=>{
+ const f=fixture(t),name=cohorts.callables[0];f.baseline=structuredClone(baseline);
+ f.baseline[name].serviceConfig.environmentVariables={APP_SETTING:"same",FUNCTION_SIGNATURE_TYPE:"http"};
+ const s=start(f);let admittedRequest;
+ const before=s.guard.before,begin=f.writer.begin;
+ s.guard.before=function(client,request){const operation=before.call(this,client,request);if(operation.kind==="function-update")admittedRequest=request;return operation;};
+ f.writer.begin=function(scope,operation,observation){if(operation.kind==="function-update")assert.equal(scope.request,admittedRequest);return begin.call(this,scope,operation,observation);};
+ const env=injected(f);
+ try{const cli=await firstTwo(f,env,s),body=structuredClone(f.baseline[name]);
+  delete body.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE;
+  body.buildConfig.source.storageSource={bucket:"synthetic",object:"source.zip",generation:"1"};body.labels["firebase-functions-hash"]=labels[name];
+  const original={method:"PATCH",path:resource+name,queryParams:{updateMask:"buildConfig.source,labels,serviceConfig.environmentVariables"},body};
+  await cli.request(original);const record=read(f,f.writer.active.records[2].pointer),trace=read(f,record.requestPreservation);
+  assert.equal(record.schemaVersion,4);assert.deepEqual(trace.effectiveRequest,record.request);
+  assert.equal(Object.hasOwn(original.body.serviceConfig.environmentVariables,"FUNCTION_SIGNATURE_TYPE"),false);
+  assert.equal(Object.hasOwn(read(f,trace.originalRequest).request.body.serviceConfig.environmentVariables,"FUNCTION_SIGNATURE_TYPE"),false);
+  const effective=read(f,record.request);assert.equal(effective.request.body.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE,"http");
+  assert.equal(trace.edits.length,1);assert.equal(trace.edits[0].kind,"restore-http-signature");
+  assert.deepEqual(fs.readFileSync(path.join(f.dir,record.wireBody.file)),Buffer.from(JSON.stringify(effective.request.body)));
+  assert.deepEqual(Buffer.concat(env.requests[2].bytes),Buffer.from(JSON.stringify(effective.request.body)));
+  const intent=read(f,{file:record.request.file.replace("-request.json","-intent.json")});assert.deepEqual(intent.requestPreservation,record.requestPreservation);
+ }finally{env.restore();}
+});
+test("a preservation refusal is sticky and cannot create an update capture or transport",async t=>{
+ const f=fixture(t),name=cohorts.callables[0];f.baseline=structuredClone(baseline);
+ f.baseline[name].serviceConfig.environmentVariables={APP_SETTING:"same",FUNCTION_SIGNATURE_TYPE:"http"};
+ const s=start(f),env=injected(f);
+ try{const cli=await firstTwo(f,env,s),body=structuredClone(f.baseline[name]);body.serviceConfig.environmentVariables.FUNCTION_SIGNATURE_TYPE="cloudevent";
+  await assert.rejects(cli.request({method:"PATCH",path:resource+name,body}),/environment change/);
+  assert.equal(f.writer.failed,true);assert.equal(f.writer.active.failed,true);assert.equal(env.requests.length,2);
+  assert.equal(f.writer.active.records.length,2);assert.equal(f.writer.active.refused,1);assert.equal(f.writer.finishCohort().complete,false);
+ }finally{env.restore();}
+});
 test("existing attempt is never overwritten",t=>{const f=fixture(t);assert.throws(()=>new BusinessCapture31({evidenceDirectory:f.dir,approvalPointer:APPROVAL,source:SOURCE,cohorts}));});
 test("overlapping cohort populations rejected",t=>{const f=fixture(t);const bad=structuredClone(cohorts);bad.callables[0]=bad.events[0];assert.throws(()=>new BusinessCapture31({evidenceDirectory:f.dir,approvalPointer:APPROVAL,source:SOURCE,cohorts:bad}));});
 test("retained original tampering prevents final complete measurement",async t=>{const f=fixture(t);for(const p of ["callables","events","fleet"])await all(f,p);fs.appendFileSync(path.join(f.dir,f.writer.allBindings[0].file),"tamper");assert.throws(()=>f.writer.finish(),/original changed/);});
@@ -107,7 +140,7 @@ for(const delay of ["observer","persistence","client","body"]){
    assert.equal(env.requests.length,delay==="body"?1:0);assert.equal(env.requests.reduce((n,r)=>n+r.bytes.length,0),0);
    assert.equal(f.writer.active.pending,0);assert.equal(f.writer.failed,true);
    const result=f.writer.finishCohort();assert.equal(result.complete,false);
-   for(const p of result.mutations.filter(Boolean)){const record=read(f,p);assert.equal(record.schemaVersion,3);assert.equal(record.response,null);assert.ok(record.error);}
+   for(const p of result.mutations.filter(Boolean)){const record=read(f,p);assert.equal(record.schemaVersion,4);assert.equal(record.response,null);assert.ok(record.error);}
   }finally{fs.writeFileSync=originalWrite;env.restore();}
  });
 }
@@ -141,7 +174,7 @@ for(const [name,edit]of [["missing",d=>delete d.executionWindow],["extra",d=>d.e
 test("deadline binding: changed decision bytes refuse before window binding",t=>{const f=boundDecisionFixture(t);fs.appendFileSync(path.join(f.dir,"decision.json")," ");assert.throws(()=>require("./captureBusiness31PreparedHook.cjs").bindIntent31(f));assert.throws(()=>f.writer.assertExecutionWindow(),/bound decision/);});
 test("deadline binding: missing live window refuses activation",t=>{const f=fixture(t,false);assert.throws(()=>start(f),/bound decision execution window/);assert.equal(f.writer.active,null);});
 test("deadline settlement: a request begun within window may settle after expiry without fake rollback",async t=>{
- const f=deadlineFixture(t);start(f);const env=injected(f,{beforeResponse:f.expire});try{await generate(env);assert.equal(env.requests.length,1);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);const record=read(f,result.mutations[0]);assert.equal(record.schemaVersion,3);require("./business31BackendClosure.cjs").verifyMutationInitiation31(record,f.window);assert.equal(read(f,record.response).httpStatus,200);assert.equal(record.error,null);assert.ok(record.startedAtUtc<=f.window.notAfterUtc&&record.completedAtUtc>f.window.notAfterUtc);}finally{env.restore();}
+ const f=deadlineFixture(t);start(f);const env=injected(f,{beforeResponse:f.expire});try{await generate(env);assert.equal(env.requests.length,1);assert.equal(f.writer.active.pending,0);const result=f.writer.finishCohort();assert.equal(result.complete,false);const record=read(f,result.mutations[0]);assert.equal(record.schemaVersion,4);require("./business31BackendClosure.cjs").verifyMutationInitiation31(record,f.window);assert.equal(read(f,record.response).httpStatus,200);assert.equal(record.error,null);assert.ok(record.startedAtUtc<=f.window.notAfterUtc&&record.completedAtUtc>f.window.notAfterUtc);}finally{env.restore();}
 });
 
 

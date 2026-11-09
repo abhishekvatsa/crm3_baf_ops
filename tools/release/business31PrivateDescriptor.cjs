@@ -18,12 +18,12 @@ const HISTORICAL = Object.freeze({commit:'2aa30de56cfdb960da3eeefd8956d8cbbae57b
 const CORE = Object.freeze([
   'business31PrivateDescriptor.cjs','business31TrustedInput.cjs',
   'business31SourceAdmission.cjs','business31BackendAuthority.cjs','business31NpmBinMaterialization.cjs','business31ToolchainIdentity.cjs',
-  'business31ExecutionContract.cjs','business31BackendClosure.cjs','business31ScopedCallableInvokerIam.cjs','business31BackendControls.cjs',
+  'business31ExecutionContract.cjs','business31SourceOptions.cjs','business31BackendClosure.cjs','business31ScopedCallableInvokerIam.cjs','business31BackendControls.cjs',
   'captureBusiness31PreparedInputs.cjs','business31CaptureBootstrap.cjs','privateEvidenceBundle31.cjs',
   'backendRuntimeEvidenceAccess31.cjs','backendRuntimeControls31.cjs',
   'backendRuntimeReadbacks31.cjs','backendRuntimeExecutionAdmission31.cjs',
   'runtimeDeploymentTransportGuard31.cjs',
-  'business31CaptureRecorder.cjs','business31ServiceIdentityCapture.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json','business31HostedProtocol.cjs','business31HostedReplay.cjs','business31HostedResult.cjs','business31HostedLauncher.py'
+  'business31CaptureRecorder.cjs','business31PreservedControls31.cjs','business31ServiceIdentityCapture.cjs','business31CohortProcess.cjs','business31IntentPreparation.cjs','business31OperationalController.cjs','captureBusiness31PreparedHook.cjs','prepareBusinessIntent31.cjs','collectBusinessRuntime31.cjs','runtime_process_runner.py','runtime_supervisor.py','runtime_contract_bindings.json','business31ToolchainProfiles.json','business31HostedProtocol.cjs','business31HostedReplay.cjs','business31HostedResult.cjs','business31HostedLauncher.py'
 ].map(file=>'tools/release/'+file));
 const sha = bytes=>crypto.createHash('sha256').update(bytes).digest('hex').toUpperCase();
 function need(ok,label){if(!ok)throw Error('Business descriptor: '+label);}
