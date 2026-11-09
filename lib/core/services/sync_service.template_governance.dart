@@ -147,6 +147,44 @@ extension _SyncServiceTemplateGovernance on SyncService {
         recordsToPush.add(record);
       }
 
+      // Publication can commit after this pass's version snapshot but before
+      // its package snapshot. Confirm each outgoing pointer on the server
+      // rather than turning that dependency gap into a permanent rejection.
+      final activeVersionIds = recordsToPush
+          .where((record) => !record.isDeleted)
+          .map((record) => _cleanText(record.activeVersionFirestoreId))
+          .whereType<String>()
+          .toSet()
+          .toList(growable: false);
+      if (activeVersionIds.isNotEmpty) {
+        final remoteVersions = await _firestoreTemplateGovernance
+            .getAuthoritativeVersionsForPackagePush(activeVersionIds);
+        _checkRunCurrent();
+        final remoteVersionById = <String, TemplateVersion>{
+          for (final version in remoteVersions)
+            if (version.firestoreId != null) version.firestoreId!: version,
+        };
+        recordsToPush.removeWhere((record) {
+          _checkRunCurrent();
+          if (record.isDeleted) return false;
+          final activeVersionId = _cleanText(record.activeVersionFirestoreId);
+          if (_templatePackageRemoteDependencySatisfied(
+            record,
+            remoteVersionById[activeVersionId],
+          )) {
+            return false;
+          }
+          lastDeferredPushRecordKeys.add(
+            'template_package/${record.firestoreId}',
+          );
+          debugPrint(
+            'Holding TemplatePackage until its published version is confirmed remotely: '
+            '${record.firestoreId} (version=$activeVersionId)',
+          );
+          return true;
+        });
+      }
+
       bool pushSuccess = false;
       if (recordsToPush.isNotEmpty) {
         try {
@@ -192,6 +230,20 @@ extension _SyncServiceTemplateGovernance on SyncService {
         _checkRunCurrent();
       }
     }
+  }
+
+  bool _templatePackageRemoteDependencySatisfied(
+    TemplatePackage package,
+    TemplateVersion? version,
+  ) {
+    final activeVersionId = _cleanText(package.activeVersionFirestoreId);
+    if (activeVersionId == null) return true;
+    return version != null &&
+        version.firestoreId == activeVersionId &&
+        version.packageFirestoreId == package.firestoreId &&
+        version.status == TemplateVersionStatus.published &&
+        !version.isDeleted &&
+        version.versionNumber == package.latestVersionNumber;
   }
 
   Future<void> _syncTemplateVersions() async {

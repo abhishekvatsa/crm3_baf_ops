@@ -750,6 +750,43 @@ class FirestoreTemplateGovernanceRepository
   }
 
   @override
+  Future<List<TemplateVersion>> getAuthoritativeVersionsForPackagePush(
+    List<String> ids,
+  ) async {
+    if (ids.isEmpty) return [];
+    final results = <TemplateVersion>[];
+    for (var i = 0; i < ids.length; i += 30) {
+      final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
+      final snap = await _versions
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get(authoritativeGlobalPullReadOptions);
+      if (snap.metadata.isFromCache || snap.metadata.hasPendingWrites) {
+        throw StateError(
+          'Template package dependencies require server-confirmed versions without pending writes.',
+        );
+      }
+      for (final doc in snap.docs) {
+        if (doc.metadata.isFromCache || doc.metadata.hasPendingWrites) {
+          throw StateError(
+            'Template package dependencies require server-confirmed versions without pending writes.',
+          );
+        }
+        final data = doc.data();
+        final version = TemplateVersion.fromMap(data, doc.id);
+        if (data['firestoreId'] != doc.id ||
+            data['packageFirestoreId'] != version.packageFirestoreId ||
+            data['status'] != version.status.name) {
+          throw StateError(
+            'Template package dependencies require exact persisted version identities and status.',
+          );
+        }
+        results.add(version);
+      }
+    }
+    return results;
+  }
+
+  @override
   Future<void> batchUpsertVersions(List<TemplateVersion> records) async {
     final batch = _firestore.batch();
     for (final record in records) {

@@ -1071,6 +1071,15 @@ class IsarTemplateGovernanceRepository implements TemplateGovernanceRepository {
   }
 
   @override
+  Future<List<TemplateVersion>> getAuthoritativeVersionsForPackagePush(
+    List<String> ids,
+  ) {
+    throw UnsupportedError(
+      'Local template versions cannot confirm remote package dependencies.',
+    );
+  }
+
+  @override
   Future<void> batchUpsertVersions(List<TemplateVersion> records) async {
     await isar.writeTxn(() => isar.templateVersions.putAll(records));
   }
