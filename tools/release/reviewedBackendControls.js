@@ -47,25 +47,12 @@ function explicitFleetMaxInstances(ts,texts,policy){
  }
  return {capPolicy:'explicit-literal20-v1',declaredMaxInstances:20,functionNames:names};
 }
-const PRESERVATION_PREFIX='import {setGlobalOptions} from "firebase-functions/v2";\n\nsetGlobalOptions({preserveExternalChanges: true});\n\n';
-function sourcePreservationPolicy(texts){
- const mentioned=Object.entries(texts).filter(([,text])=>/\b(?:setGlobalOptions|preserveExternalChanges)\b/.test(text));
- if(mentioned.length===0)return {sourcePreserveExternalChangesOmitted:true,sourceGlobalOptionsAbsent:true};
- eq(mentioned.map(([file])=>file),['functions/src/index.ts'],'Global runtime options outside the reviewed entrypoint');
- const text=mentioned[0][1].replace(/\r\n/g,'\n');
- assert.ok(text.startsWith(PRESERVATION_PREFIX),'Exact preservation call must precede every other entrypoint import or statement');
- assert.ok(!/\b(?:setGlobalOptions|preserveExternalChanges)\b/.test(text.slice(PRESERVATION_PREFIX.length)),'Additional global runtime option occurrence');
- return {sourcePreserveExternalChangesOmitted:false,sourceGlobalOptionsAbsent:false,
-  sourcePreserveExternalChangesDeclared:true,sourceGlobalOptionsPolicy:'entrypoint-preserve-external-changes-v1'};
-}
 function sourceOptions(repoRoot,sourceCommit){
  assert.ok(/^[a-f0-9]{40}$/.test(sourceCommit),'Exact source commit required');
  const globalOptions=spawnSync('git',['--no-replace-objects','-C',repoRoot,'grep','-l','-w','-e','setGlobalOptions','-e','preserveExternalChanges',sourceCommit,'--','functions/src'],{encoding:'utf8',windowsHide:true});
- assert.ok(globalOptions.status===0||(globalOptions.status===1&&globalOptions.stdout.trim()===''),'Global-options source search failed');
+ assert.ok(globalOptions.status===1 && globalOptions.stdout.trim()==='', 'Global runtime options require a separately reviewed creation-default policy');
  const ts=require(path.join(repoRoot,'functions/node_modules/typescript'));
  const files={},read=file=>{const bytes=execFileSync('git',['--no-replace-objects','-C',repoRoot,'show',`${sourceCommit}:${file}`],{windowsHide:true});files[file]=hash(bytes);return bytes.toString('utf8');};
- const globalFiles=globalOptions.status===0?globalOptions.stdout.trim().split(/\r?\n/).map(row=>row.slice(sourceCommit.length+1)):[];
- const preservation=sourcePreservationPolicy(Object.fromEntries(globalFiles.map(file=>[file,read(file)])));
  const policy=JSON.parse(read('release/function-fleet-runtime-identity-policy.json'));
  const maximums=spawnSync('git',['--no-replace-objects','-C',repoRoot,'grep','-l','-w','-e','maxInstances',sourceCommit,'--','functions/src'],{encoding:'utf8',windowsHide:true});
  assert.ok(maximums.status===0||maximums.status===1,'Maximum-options source search failed');
@@ -75,7 +62,6 @@ function sourceOptions(repoRoot,sourceCommit){
   eq(maximums.stdout.trim().split(/\r?\n/).map(row=>row.slice(sourceCommit.length+1)).sort(),capFiles,'Maximum options outside reviewed endpoint files');
   ({capPolicy,declaredMaxInstances}=explicitFleetMaxInstances(ts,Object.fromEntries(capFiles.map(file=>[file,read(file)])),policy));
  }
- if(preservation.sourcePreserveExternalChangesDeclared===true)equal(declaredMaxInstances,20,'Preservation requires the reviewed19 explicit endpoint caps');
  const runtime=`nodejs${JSON.parse(read('functions/package.json')).engines.node}`;
  const lock=JSON.parse(read('functions/package-lock.json'));
  const sdkPackage=JSON.parse(fs.readFileSync(path.join(repoRoot,'functions/node_modules/firebase-functions/package.json'),'utf8'));
@@ -85,7 +71,7 @@ function sourceOptions(repoRoot,sourceCommit){
  equal(manifest.initV2Endpoint({}).maxInstances?.toJSON(),null,'Installed SDK does not reset omitted maxInstances');
  equal(Object.hasOwn(manifest.initV2Endpoint({preserveExternalChanges:true}),'maxInstances'),false,'Installed SDK external-state preservation differs');
  const sdkReset={version:sdkPackage.version,manifestSha256:hash(fs.readFileSync(manifestPath)),maxInstancesResetVerified:true,
-  sourceMaxInstancesOmitted:declaredMaxInstances===null,...preservation,
+  sourceMaxInstancesOmitted:declaredMaxInstances===null,sourcePreserveExternalChangesOmitted:true,sourceGlobalOptionsAbsent:true,
   ...(declaredMaxInstances===null?{}:{sourceExplicitMaxInstanceCount:declaredMaxInstances,sourceExplicitMaxInstanceFunctionCount:19})};
  const parsed={};
  function source(file){return parsed[file]??=ts.createSourceFile(file,read(file),ts.ScriptTarget.Latest,true);}
@@ -294,4 +280,4 @@ function compareReviewedBackendControls({repoRoot,approval,approvalSha256,source
   iamScope:'Complete observed IAM and environment evidence is privately revalidated; private raw observations may contain sensitive environment/IAM values. Only approved new invoker bindings and sanitized control observations are public. Unavailable regions listed in the proof are excluded; no unchanged or absence claim is made there.',
   unavailableRunRegions:proof.before.measurement.unavailableRunRegions??[],controlPlaneMutationPerformedByThisReadback:false,businessPayloadsRead:false});
 }
-module.exports={sourceOptions,sourcePreservationPolicy,explicitFleetMaxInstances,compareFunctionViews,compareReviewedBackendControls,parsePrivateEvidenceJson,OBSERVED_CONTROL_MODE};
+module.exports={sourceOptions,explicitFleetMaxInstances,compareFunctionViews,compareReviewedBackendControls,parsePrivateEvidenceJson,OBSERVED_CONTROL_MODE};

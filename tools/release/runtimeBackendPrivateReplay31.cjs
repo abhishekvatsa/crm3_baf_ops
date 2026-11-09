@@ -28,7 +28,7 @@ const CORE_PRODUCERS = Object.freeze([
   'runtimeBackendPrivateReplay31.cjs','privateEvidenceBundle31.cjs','clientBackendCompatibility31.js','runtimePilotAuthority31.cjs',
   'stagedPromotionSourceAuthority.js','collectFunctionFleetRuntimeIdentityReadback.js',
   'collectFunctionsIamDependenciesReadback.js','collectFirestoreRulesIndexesReadback.js',
-  'reviewedBackendControls.js','collectProductionGlobalPullBackend.js',
+  'reviewedBackendControls.js','business31SourceOptions.cjs','collectProductionGlobalPullBackend.js',
   'scopedCallableInvokerIam.js','deploymentFleetContract.js',
   'Production-AppCheckPolicy.ps1','Runtime-BackendPrivateReplay31.ps1',
   'Test-ProductionReleasePolicy.ps1','New-ProductionArtifact.ps1',
