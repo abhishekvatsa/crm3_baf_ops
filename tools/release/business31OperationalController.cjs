@@ -16,6 +16,21 @@ const utc = () => new Date().toISOString();
 const read = (root,pointer) => json(privateBytes(root,pointer));
 const phases = custody.PHASES;
 
+// The pinned CLI's default-on build-reuse experiment makes every v2 update after the
+// first send buildConfig.sourceToken (fabricator updateV2Function/createV2Function).
+// The unchanged guard admits only the verified source location and hash label, so it
+// refused 11 of 13 callables on 10 Nov 2026. Disable reuse in this phase process only:
+// setEnabled changes the CLI's in-memory preference and never writes its configstore.
+const CLI_BUILD_REUSE_EXPERIMENT = "functionsv2deployoptimizations";
+function disableCliBuildReuse31(experiments) {
+  need(typeof experiments?.setEnabled === "function" && typeof experiments.isEnabled === "function"
+    && Object.hasOwn(experiments.ALL_EXPERIMENTS ?? {}, CLI_BUILD_REUSE_EXPERIMENT), "Pinned CLI build-reuse experiment required");
+  experiments.setEnabled(CLI_BUILD_REUSE_EXPERIMENT, false);
+  const assertDisabled = () => need(experiments.isEnabled(CLI_BUILD_REUSE_EXPERIMENT) === false, "CLI build-reuse token must stay disabled");
+  assertDisabled();
+  return {assertDisabled};
+}
+
 // Business collection uses the unchanged raw schema and comparators. The historical
 // collector remains frozen; live Run inventories now include two-digit region suffixes.
 async function collectCurrentBusinessControls31({sourceCommit,approvalSha256,read,unavailableRunRegion}){
@@ -252,6 +267,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
   try {
     verifySelection(configuration,common);lease.assertHealthy();
     const api=require(path.join(library,"apiv2.js")),slots=hookSlots(api.Client);
+    const buildReuse=disableCliBuildReuse31(require(path.join(library,"experiments.js")));
     credentialDebug=neutral.installCredentialRefreshDebugBoundary31(require(path.join(library,"logger.js")).logger);
     preparation=require(path.join(library,"deploy/functions/prepare.js"));originalPrepare=preparation.prepare;
     packaging=custody.isolateNativePackagingConfig31(require(path.join(library,"deploy/functions/prepareFunctionsUpload.js")));
@@ -263,7 +279,7 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
       archiveExpectedFiles:common.inventory,guardInputs});
     const actualHashWrapper=hook.module.applyBackendHashToBackends;
     const preparedTransition=function(...args){
-      need(!active&&currentControls!==null,"fresh controls must precede actual hash invocation");
+      need(!active&&currentControls!==null,"fresh controls must precede actual hash invocation");buildReuse.assertDisabled();
       need(nativeConfig,"governed native Config required before hash invocation");packaging.assertOwned();nativeConfig.assertUnchanged();
       discovery.assertOwned();unprepared.assertDiscoveryStopped31();boundary.assertOwned();serviceIdentities=identityCapture.finish();boundary.restore();boundary=null;
       try{const value=actualHashWrapper.apply(this,args);hook.module.applyBackendHashToBackends=actualHashWrapper;hook.restore();hook=null;
@@ -335,4 +351,4 @@ async function runPhaseChild31({contextFile,contextSha256,configuration}) {
     require(ctx.runtime.cliEntrypoint);
   }catch(error){fail();finished=true;try{cleanup();}catch(cleanupError){throw new AggregateError([error,cleanupError],"phase initialization and cleanup failed");}throw error;}
 }
-module.exports={runController31,runPhaseChild31,installOwned,denyParameterWrites,collectCurrentBusinessControls31};
+module.exports={runController31,runPhaseChild31,installOwned,denyParameterWrites,collectCurrentBusinessControls31,disableCliBuildReuse31,CLI_BUILD_REUSE_EXPERIMENT};

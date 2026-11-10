@@ -4,7 +4,7 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
   bootstrap.runComponentSuiteTest31("controller-primitives");
 } else {
   const test=require("node:test"),assert=require("node:assert/strict"),fs=require("node:fs"),path=require("node:path"),os=require("node:os"),cp=require("node:child_process"),crypto=require("node:crypto");
-  const {installOwned,runController31,runPhaseChild31,denyParameterWrites,collectCurrentBusinessControls31}=require("./business31OperationalController.cjs");
+  const {installOwned,runController31,runPhaseChild31,denyParameterWrites,collectCurrentBusinessControls31,disableCliBuildReuse31,CLI_BUILD_REUSE_EXPERIMENT}=require("./business31OperationalController.cjs");
   const custody=require("./business31CohortProcess.cjs");
   for(const rejects of [false,true])test("native packaging isolates only ignore while preserving arguments, result and rejection: "+rejects,async()=>{
     const config={source:"functions",ignore:["node_modules",".git"],other:{fixed:true}},before=structuredClone(config);
@@ -204,7 +204,12 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
     const bound=require("./business31CaptureFixture.cjs").createBoundCliFixture31(path.resolve(__dirname,"../.."),root);
     test.after(()=>{try{bound.assertOriginalUnchanged();}finally{try{bound.lease.release();}finally{denial.restore();}}});
     assert.equal(require(path.join(path.dirname(bound.cli),"package.json")).version,"15.22.4");
-    installed={Config:require(path.join(bound.cli,"config.js")).Config,env:require(path.join(bound.cli,"functions/env.js")),
+    // The bound CLI lease ends after the first caller's test; load every module the later build-reuse test drives now.
+    const cliModule=file=>require(path.join(bound.cli,file));
+    const releaseModules={experiments:cliModule("experiments.js"),fabricator:cliModule("deploy/functions/release/fabricator.js"),
+      scraper:cliModule("deploy/functions/release/sourceTokenScraper.js"),executor:cliModule("deploy/functions/release/executor.js"),
+      gcfV2:cliModule("gcp/cloudfunctionsv2.js"),poller:cliModule("operation-poller.js"),apiv2:cliModule("apiv2.js")};
+    installed={releaseModules,Config:require(path.join(bound.cli,"config.js")).Config,env:require(path.join(bound.cli,"functions/env.js")),
       projectConfig:require(path.join(bound.cli,"functions/projectConfig.js")),packaging:require(path.join(bound.cli,"deploy/functions/prepareFunctionsUpload.js"))};
     return installed;
   }
@@ -266,6 +271,76 @@ if(!bootstrap.isComponentChild31("controller-primitives")) {
       }finally{isolation?.restore();}
     }
     assert.equal(outputs[0],outputs[1],"native source hash is unchanged by ignore isolation");
+  });
+  // Real pinned fabricator, token scraper and v2 request builder feed the unchanged guard.
+  // Only the PATCH transport and operation polling are replaced; network and processes stay denied.
+  async function fabricateCallableUpdates(modules,names){
+    const {Fabricator}=modules.fabricator,{SourceTokenScraper}=modules.scraper,{InlineExecutor}=modules.executor;
+    const gcfV2=modules.gcfV2,poller=modules.poller,{Client}=modules.apiv2;
+    const {RuntimeDeploymentTransportGuard31}=require("./runtimeDeploymentTransportGuard31.cjs");
+    const hash=require("./backendRuntimeAdmission31.cjs").helpers.hash,zip=Buffer.from("synthetic archive"),label="c".repeat(40);
+    const location={bucket:"verified",object:"function-source.zip",generation:"2"};
+    const endpoint=name=>({platform:"gcfv2",id:name,region:"asia-south1",project:PROJECT,codebase:"default",entryPoint:name,runtime:"nodejs22",
+      callableTrigger:{},labels:{},hash:label,availableMemoryMb:256});
+    // Live state as previously deployed by this CLI: updateFunction's fixed build/runtime variables are already present.
+    const baselineFunctions=Object.fromEntries(names.map(name=>{const live=gcfV2.functionFromEndpoint({...endpoint(name),source:{storageSource:location}});
+      live.buildConfig.environmentVariables={...live.buildConfig.environmentVariables,GOOGLE_NODE_RUN_SCRIPTS:""};
+      live.serviceConfig.environmentVariables={...live.serviceConfig.environmentVariables,FUNCTION_TARGET:name,LOG_EXECUTION_ID:"true"};
+      live.buildConfig.source={storageSource:{bucket:"live",object:"previous.zip",generation:"1"}};live.labels["firebase-functions-hash"]="a".repeat(40);return [name,live];}));
+    const allNames=[...names,...Array.from({length:19-names.length},(_,i)=>"fleet"+i)];
+    const endpointRuntimeHashes=Object.fromEntries(allNames.map(name=>[name,label]));
+    const guard=new RuntimeDeploymentTransportGuard31({names,allNames,baselineFunctions,sourceArchiveHash:"b".repeat(40),endpointRuntimeHashes,phase:"callables"});
+    guard.preparedMatches({sourceArchiveHash:"b".repeat(40),endpointRuntimeHashes,archiveSha256:hash(zip),archiveBytes:zip.length});
+    guard.after({kind:"generate-upload"},{body:{uploadUrl:"https://storage.googleapis.com/synthetic?GoogleAccessId=x",storageSource:location}});
+    const sent=[],refused=[],original={request:Client.prototype.request,poll:poller.pollOperation};let operations=0;
+    Client.prototype.request=async function(options){
+      assert.equal(options.method,"PATCH","only Function updates reach this synthetic transport");
+      const name=options.path.split("/").pop();
+      try{assert.equal(guard.before(this,options).kind,"function-update");}catch(error){refused.push({name,message:error.message});throw error;}
+      sent.push({name,sourceToken:options.body.buildConfig?.sourceToken,mask:String(options.queryParams?.updateMask)});
+      return {status:200,response:{},body:{name:"operations/synthetic-"+(++operations)}};
+    };
+    poller.pollOperation=async options=>{
+      options.onPoll?.({name:options.operationResourceName,done:true,
+        metadata:{target:"projects/"+PROJECT+"/locations/asia-south1/functions/any",sourceToken:"synthetic-build-reuse-token"}});
+      return {serviceConfig:{uri:"https://synthetic.invalid",service:"projects/"+PROJECT+"/locations/asia-south1/services/any"}};
+    };
+    try{
+      const fabricator=new Fabricator({executor:new InlineExecutor(),functionExecutor:new InlineExecutor(),runFunctionExecutor:new InlineExecutor(),
+        sources:{default:{storage:location}},appEngineLocation:"asia-south1",projectNumber:"1"});
+      const scraper=new SourceTokenScraper(),results=await Promise.allSettled(names.map(name=>fabricator.updateV2Function(endpoint(name),scraper)));
+      return {sent,refused,rejected:results.filter(r=>r.status==="rejected").length};
+    }finally{Client.prototype.request=original.request;poller.pollOperation=original.poll;}
+  }
+  test("pinned CLI build reuse reproduces the 10 Nov sourceToken refusal and the phase disable admits every exact update",async()=>{
+    const modules=installedConfig().releaseModules,experiments=modules.experiments,names=["first","second","third"];
+    assert.equal(experiments.isEnabled(CLI_BUILD_REUSE_EXPERIMENT),true,"pinned CLI default reuses one build");
+    const reused=await fabricateCallableUpdates(modules,names);
+    assert.deepEqual(reused.sent.map(r=>[r.name,r.sourceToken]),[["first",undefined]]);
+    assert.deepEqual(reused.refused,[{name:"second",message:"Unapproved Function control mutation: buildConfig.sourceToken"},
+      {name:"third",message:"Unapproved Function control mutation: buildConfig.sourceToken"}]);
+    assert.equal(reused.rejected,2);
+    try{
+      const disabled=disableCliBuildReuse31(experiments);
+      assert.equal(experiments.isEnabled(CLI_BUILD_REUSE_EXPERIMENT),false);
+      const separate=await fabricateCallableUpdates(modules,names);
+      assert.deepEqual(separate.sent.map(r=>[r.name,r.sourceToken]),names.map(name=>[name,undefined]));
+      assert.ok(separate.sent.every(r=>!r.mask.includes("sourceToken")),"update masks never name the reuse token");
+      assert.deepEqual(separate.refused,[]);assert.equal(separate.rejected,0);
+      disabled.assertDisabled();
+      experiments.setEnabled(CLI_BUILD_REUSE_EXPERIMENT,true);
+      assert.throws(()=>disabled.assertDisabled(),/CLI build-reuse token must stay disabled/);
+    }finally{experiments.setEnabled(CLI_BUILD_REUSE_EXPERIMENT,null);}
+  });
+  test("phase child disables CLI build reuse before the CLI loads and rechecks it before the prepared hash transition",()=>{
+    const source=fs.readFileSync(path.join(__dirname,"business31OperationalController.cjs"),"utf8");
+    const child=source.indexOf("async function runPhaseChild31(");
+    const disable=source.indexOf("const buildReuse=disableCliBuildReuse31(require(path.join(library,\"experiments.js\")));",child);
+    const transition=source.indexOf("const preparedTransition=function(",disable);
+    const recheck=source.indexOf("buildReuse.assertDisabled();",transition);
+    const cliLoad=source.indexOf("require(ctx.runtime.cliEntrypoint);",recheck);
+    assert(child>0&&disable>child&&transition>disable&&recheck>transition&&cliLoad>recheck);
+    assert.equal(source.indexOf("flushToDisk"),-1,"the CLI configstore preference is never written");
   });
   test("actual installed Config/env consumes governed false with zero dotenv writes and source unchanged",t=>{
     const {Config,env}=installedConfig(),f=parameterFixture(t),config=new Config({functions:structuredClone(f.sourceFunctions)},{projectDir:f.ctx.repoRoot});
