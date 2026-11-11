@@ -18,30 +18,53 @@ function exactTime(left,right,message) { need(t(left) === t(right),message); }
 // candidate (10 Nov 2026: 2 of 13 callables at the candidate intent label). Each measured
 // Function may carry the historical Build 30 label or that exact candidate label; any
 // other label still maps to the historical label and is refused by the readback check.
-function expectedBeforeLabels31({functions,candidateLabels,historicalHash}) {
-  need(/^[0-9a-f]{40}$/.test(historicalHash) && Array.isArray(functions) && candidateLabels && typeof candidateLabels === "object",
+// The committed record of that partial attempt (priorLabels) additionally admits its listed
+// Functions at the recorded label.
+function expectedBeforeLabels31({functions,candidateLabels,historicalHash,priorLabels = {}}) {
+  need(/^[0-9a-f]{40}$/.test(historicalHash) && Array.isArray(functions) && candidateLabels && typeof candidateLabels === "object"
+    && priorLabels && typeof priorLabels === "object" && Object.values(priorLabels).every(v => /^[0-9a-f]{40}$/.test(v)),
     "before label inputs required");
   return Object.fromEntries(functions.map(row => {
     const candidate = Object.hasOwn(candidateLabels,row?.name) ? candidateLabels[row.name] : undefined;
+    const prior = Object.hasOwn(priorLabels,row?.name) ? priorLabels[row.name] : undefined;
     need(typeof row?.name === "string" && (candidate === undefined || /^[0-9a-f]{40}$/.test(candidate)), "before label inputs differ");
-    return [row.name, row.firebaseFunctionsHash === candidate ? candidate : historicalHash];
+    return [row.name, row.firebaseFunctionsHash === candidate ? candidate : row.firebaseFunctionsHash === prior ? prior : historicalHash];
   }));
+}
+// Committed, pinned record of the 10 Nov 2026 partial attempt. It admits only its listed Functions,
+// only at its recorded label, and (for the IAM replay) only with its recorded source's dependencies.
+const PARTIAL_DEPLOYMENT_FILE = "release/evidence/build31-partial-deployment-20261110.json";
+const PARTIAL_DEPLOYMENT_SHA256 = "3A028C0610D26E70D3DD3380C533664EC04E8E1C4EFC87A0705B30832DE1A4AF";
+function recordedPartialDeployment31({repository,sourceSnapshot,sourceCommit,fleet}) {
+  if (!Object.hasOwn(sourceSnapshot.files,PARTIAL_DEPLOYMENT_FILE)) return null;
+  const bytes = repository.readBlob(sourceCommit,PARTIAL_DEPLOYMENT_FILE);
+  need(sha(bytes) === PARTIAL_DEPLOYMENT_SHA256,"recorded partial deployment changed");
+  const record = JSON.parse(bytes.toString("utf8")), hex = (v,n) => typeof v === "string" && new RegExp(`^[0-9a-f]{${n}}$`).test(v);
+  need(record.schemaVersion === 1 && record.documentType === "build31-recorded-partial-business-backend-deployment" && record.deploymentAuthority === false
+    && hex(record.source?.commit,40) && hex(record.source?.tree,40) && hex(record.source?.functionsTree,40) && hex(record.sourceRuntimeHash,40)
+    && record.source.commit !== x.BASELINE && record.source.commit !== sourceCommit,"recorded partial deployment identity differs");
+  need(Array.isArray(record.functions) && record.functions.length > 0 && same([...new Set(record.functions)].sort(),record.functions)
+    && record.functions.every(name => fleet.includes(name)),"recorded partial deployment population differs");
+  repository.requireAncestor(record.source.commit,sourceCommit);
+  return Object.freeze({source:Object.freeze({...record.source}),sourceRuntimeHash:record.sourceRuntimeHash,functions:Object.freeze([...record.functions]),
+    labels:Object.freeze(Object.fromEntries(record.functions.map(name => [name,record.sourceRuntimeHash])))});
 }
 // Their deployed dependency inventory is then the candidate's, so the Build 30 replay holds.
 // That one hold is accepted only when every drifting Function carries its exact candidate
 // label and exactly the candidate inventory and selected versions.
-function candidateDependencyDriftOnly31({holds,functions,baselineDependencies,candidateDependencies,candidateLabels}) {
+function candidateDependencyDriftOnly31({holds,functions,baselineDependencies,candidateDependencies,candidateLabels,priorLabels = {},priorDependencies = null}) {
   if (!candidateLabels || typeof candidateLabels !== "object" || !same(holds,["deployedDependencyInventoryDiffersFromCurrentSource"])) return false;
   const matches = (record,deps) => record?.dependencies?.dependencyInventorySha256 === deps.dependencyInventorySha256
     && same(record.dependencies.selectedVersions,deps.selectedVersions);
+  const at = (labels,record) => Object.hasOwn(labels,record.name) && /^[0-9a-f]{40}$/.test(labels[record.name]) && record.firebaseFunctionsHash === labels[record.name];
   const drift = functions.filter(record => !matches(record,baselineDependencies));
-  return drift.length > 0 && drift.every(record => Object.hasOwn(candidateLabels,record.name) && /^[0-9a-f]{40}$/.test(candidateLabels[record.name])
-    && record.firebaseFunctionsHash === candidateLabels[record.name] && matches(record,candidateDependencies));
+  return drift.length > 0 && drift.every(record => (at(candidateLabels,record) && matches(record,candidateDependencies))
+    || (priorDependencies !== null && at(priorLabels,record) && matches(record,priorDependencies)));
 }
 // The immutable readback verifier runs unchanged. Only its final IAM dependency hold (raised after
 // every seal, source, label, chronology and strict-check assertion has passed) is re-adjudicated here
 // with the same committed collector and Build 30 policy; any other refusal is rethrown.
-function verifyIamBeforeWithCandidate31({repoRoot,source,child,collectionEnvelope,candidateLabels,verify}) {
+function verifyIamBeforeWithCandidate31({repoRoot,source,child,collectionEnvelope,candidateLabels,verify,partialDeployment = null}) {
   try { return verify(); }
   catch (error) {
     if (error?.message !== "IAM/dependency hold remains") throw error;
@@ -54,9 +77,10 @@ function verifyIamBeforeWithCandidate31({repoRoot,source,child,collectionEnvelop
     const replay = collector.adjudicateReadback({projectId:"crm3-baf-ops-b8638",region:"asia-south1",policy,sourceBefore:child.source.before,
       sourceAfter:child.source.after,project:outputs.project,iam:outputs.iam,functions:outputs.functions,
       discoveredSourceExports:[...policy.sourceFunctionExports].sort(),observe:false,currentDependencies:baselineDependencies});
+    const priorDependencies = partialDeployment === null ? null : summary(partialDeployment.source.commit);
     need(replay.failedChecks.length === 0 && Object.values(replay.evidence.checks).every(v => v === true)
       && candidateDependencyDriftOnly31({holds:replay.evidence.posture.holds,functions:outputs.functions,baselineDependencies,
-        candidateDependencies,candidateLabels}), "IAM/dependency hold remains");
+        candidateDependencies,candidateLabels,priorLabels:partialDeployment?.labels ?? {},priorDependencies}), "IAM/dependency hold remains");
     return {ok:true,observedAtUtc:collectionEnvelope.startedAtUtc,capturedAtUtc:child.capturedAtUtc};
   }
 }
@@ -70,11 +94,12 @@ function before(ctx,candidateLabels) {
       beforePointer:pointerView(evidenceDirectory,e.measurement),requiredProducerBindings:runtime.requiredProducerBindings,installedControlRuntime:runtime.installedControlRuntime});
     else { const historicalHash = ctx.historical.deployment.sourceRuntimeHash;
       const expectedRuntimeHash = kind === "firestoreRulesAndIndexes" ? historicalHash
-        : expectedBeforeLabels31({functions:raw[kind].outputs?.functions,candidateLabels,historicalHash});
+        : expectedBeforeLabels31({functions:raw[kind].outputs?.functions,candidateLabels,historicalHash,priorLabels:ctx.partialDeployment?.labels ?? {}});
       const collectionEnvelope = kind === "iamDependencies" ? read(evidenceDirectory,e.process) : undefined;
       const verify = () => readbacks.verifyMeasuredReadback31({repoRoot,candidateSource:source,backendCommit:x.BASELINE,child:raw[kind],key:kind,
         earliestUtc:ctx.lastCiAtUtc,latestUtc:decision.decidedAtUtc,expectedRuntimeHash,collectionEnvelope});
-      r = kind === "iamDependencies" ? verifyIamBeforeWithCandidate31({repoRoot,source,child:raw[kind],collectionEnvelope,candidateLabels,verify}) : verify(); }
+      r = kind === "iamDependencies" ? verifyIamBeforeWithCandidate31({repoRoot,source,child:raw[kind],collectionEnvelope,candidateLabels,verify,
+        partialDeployment:ctx.partialDeployment ?? null}) : verify(); }
     exactTime(e.observedAtUtc,r.observedAtUtc,"before raw observation differs from bound envelope");
     exactTime(e.capturedAtUtc,r.capturedAtUtc,"before raw capture differs from bound envelope");
   }
@@ -310,7 +335,8 @@ function prepareBusinessCaptureBase31(authorityOptions) {
   const release=read(evidenceDirectory,decision.mainCi), security=read(evidenceDirectory,decision.securityCi);
   const runtime=x.deriveRuntime31({proof,executionContract:contract,evidenceDirectory,read:p=>privateBytes(evidenceDirectory,p),repository,source:prepared.source,producerBindings:authorityOptions.trustedVerifier.files});
   const ctx={source:prepared.source,decision,contract,proof,evidenceDirectory,repoRoot:proof.buildRoot,runtime,cohorts,approvalPointer:prepared.decisionPointer,producerBindings:authorityOptions.trustedVerifier.files,
-    lastCiAtUtc:[release.capturedAtUtc,security.capturedAtUtc].sort((l,r)=>t(l)<t(r)?-1:1).at(-1),historical:json(historicalBytes),ownerReceivedAtUtc:originalOwner.receivedAtUtc,liveApproval:prepared.executionInputs.approval};
+    lastCiAtUtc:[release.capturedAtUtc,security.capturedAtUtc].sort((l,r)=>t(l)<t(r)?-1:1).at(-1),historical:json(historicalBytes),ownerReceivedAtUtc:originalOwner.receivedAtUtc,liveApproval:prepared.executionInputs.approval,
+    partialDeployment:recordedPartialDeployment31({repository,sourceSnapshot,sourceCommit:prepared.source.commit,fleet:cohorts.fleet})};
   return {prepared,evidenceDirectory,decision,contract,proof,owner,originalOwner,repository,sourceSnapshot,cohorts,runtime,ctx};
 }
 function finishBusinessCaptureContext31(common) {
@@ -404,4 +430,4 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
     platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
     privateHostedReplayAuthenticated:false,deploymentAuthorized:false,credentialAccessAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={CLOSURE_FILE,PHASES,expectedBeforeLabels31,candidateDependencyDriftOnly31,verifyIamBeforeWithCandidate31,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohort31,replayRecordedCohorts31,prepareBusinessCaptureContext31,prepareBusinessOperationalCaptureContext31,verifyBusiness31BackendClosure};
+module.exports={CLOSURE_FILE,PHASES,PARTIAL_DEPLOYMENT_FILE,PARTIAL_DEPLOYMENT_SHA256,expectedBeforeLabels31,recordedPartialDeployment31,candidateDependencyDriftOnly31,verifyIamBeforeWithCandidate31,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohort31,replayRecordedCohorts31,prepareBusinessCaptureContext31,prepareBusinessOperationalCaptureContext31,verifyBusiness31BackendClosure};

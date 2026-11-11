@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "documentType": "build31-recorded-partial-business-backend-deployment",
+  "summary": "Controller attempt controller-launch-1 stopped FAILED_STOPPED_NO_RETRY in the callables phase after two accepted Function updates; the CLI build-reuse buildConfig.sourceToken was refused for the other eleven.",
+  "attempt": {
+    "decisionEnvelopeSha256": "33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27",
+    "controllerFailedAtUtc": "2026-11-10T13:51:52.720Z",
+    "completedPhases": [],
+    "boundaryRefusals": 11,
+    "controllerFailure": {
+      "file": "deployment-attempts/33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27/controller-failed.json",
+      "sha256": "5790A7DC4C765E11CACAF67151E0EA91E7A95446A4DDACB356BBAACE5FEF47C2",
+      "bytes": 662
+    }
+  },
+  "source": {
+    "commit": "2441a167d3541606b8d5530079b2d2dc27e335a3",
+    "tree": "c304f8f74fc0689010651edd4c97416bad1ac3aa",
+    "functionsTree": "5ef6bdfde6f9414f907e2fed1c01d51d55ab85db"
+  },
+  "sourceRuntimeHash": "bf71c7fabff869900ac849cab8b3419e885123a6",
+  "intendedHashInputs": {
+    "file": "intent-attempt-1/intended-hash-inputs.json",
+    "sha256": "B476FEC07B70506863863E82F3A48C8C6C3049B02937B69AF73281859983C13A",
+    "bytes": 5507
+  },
+  "functions": [
+    "beginGlobalPullRun",
+    "completePlannedJobExecution"
+  ],
+  "updates": [
+    {
+      "name": "beginGlobalPullRun",
+      "mutation": {
+        "file": "deployment-attempts/33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27/callables/mutation-0004.json",
+        "sha256": "E1A8E89FF21BED24E21274C9CE333893E2BC2EDF9B0868F5549677CFFE2FE21A",
+        "bytes": 2011
+      },
+      "request": {
+        "file": "deployment-attempts/33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27/callables/mutation-0004-request.json",
+        "sha256": "BC82845643459E8D29F68D96976859DB4B8951C49392CC2BFD0623AC4D053153",
+        "bytes": 2240
+      },
+      "storageSource": {
+        "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+        "object": "0212152c-bf96-4eb6-8608-dba9debee3ba.zip"
+      }
+    },
+    {
+      "name": "completePlannedJobExecution",
+      "mutation": {
+        "file": "deployment-attempts/33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27/callables/mutation-0003.json",
+        "sha256": "CCAE094A59C4317A4B672468603C7D77B3BF70B1694BE7072DB513C2F65D5ED9",
+        "bytes": 2020
+      },
+      "request": {
+        "file": "deployment-attempts/33B5E72180AA43270B78A65A36E11E97E6E0E33EE0B22B5347C6E17B5B22AF27/callables/mutation-0003-request.json",
+        "sha256": "73D3542606838E0D15AB7C07DB23B048CA44FDA829900DEB0892EC64C9AC8F8F",
+        "bytes": 2282
+      },
+      "storageSource": {
+        "bucket": "gcf-v2-uploads-894346496105.asia-south1.cloudfunctions.appspot.com",
+        "object": "0212152c-bf96-4eb6-8608-dba9debee3ba.zip"
+      }
+    }
+  ],
+  "afterState": {
+    "capturedAtUtc": "2026-11-10T14:07:25.169Z",
+    "decision": "PASS_FUNCTION_FLEET_RUNTIME_IDENTITY_FINAL",
+    "receiptSha256": "26ab076ab1134e3c1e213c2cf61e5ddc46fffc665dd5a18790ce3c2286d0b0fb",
+    "functionFleet": {
+      "file": "before-state-read-2/functionFleet.original.json",
+      "sha256": "AA75D893257586CDA539F6226CB82D4417406EF29B7C815D0DAE36FD71BCF409",
+      "bytes": 23043
+    },
+    "unchangedFunctions": [
+      "assignPublishedTemplateVersion",
+      "assignPublishedTemplateVersionV2",
+      "executeMaintenanceWorkflowCommand",
+      "executeMaintenanceWorkflowCommandV2",
+      "getBackendReleaseIdentity",
+      "maintenanceWorkflowEscalationSweep",
+      "mutateAssetHierarchy",
+      "mutateAssetHierarchyV2",
+      "mutateChargeAbnormality",
+      "mutateChargeAbnormalityV2",
+      "mutateRuntimeJobModulePopulation",
+      "mutateUserAuthority",
+      "onJobAssigned",
+      "onMaintenanceWorkflowEventCreated",
+      "onTicketCreated",
+      "onTicketResolved",
+      "stampGlobalPullServerClock"
+    ]
+  },
+  "evidenceDirectory": "private: b31-2441a167-q1/a1/evidence (pointers are relative to it)",
+  "deploymentAuthority": false
+}
