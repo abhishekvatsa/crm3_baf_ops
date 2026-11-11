@@ -361,4 +361,47 @@ test("actual writer schema4 all25 records replay; final response settles late wi
  }finally{https.request=originalRequest;globalThis.Date=RealDate;}
 });
 
+// 10 Nov 2026 partial attempt: 2 of 13 callables already run the exact reviewed candidate.
+// Both helpers below are applied by the unchanged committed label rule and IAM hold rule.
+{
+const OLD="4".repeat(40),NEW="b".repeat(40),names=["alpha","beta","gamma"],candidate=Object.fromEntries(names.map(n=>[n,NEW]));
+const labelRule=(functions,labels)=>functions.every(r=>r.firebaseFunctionsHash===labels[r.name]);
+const fleet=live=>names.map(n=>({name:n,firebaseFunctionsHash:live[n]??OLD}));
+test("before labels admit Build 30 or the exact reviewed candidate per Function and refuse any other label",()=>{
+  const all=fleet({}),mixed=fleet({beta:NEW}),foreign=fleet({beta:"c".repeat(40)});
+  assert.deepEqual(closure.expectedBeforeLabels31({functions:all,candidateLabels:candidate,historicalHash:OLD}),{alpha:OLD,beta:OLD,gamma:OLD});
+  assert.equal(labelRule(all,closure.expectedBeforeLabels31({functions:all,candidateLabels:candidate,historicalHash:OLD})),true);
+  assert.deepEqual(closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:OLD}),{alpha:OLD,beta:NEW,gamma:OLD});
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:OLD})),true);
+  assert.equal(labelRule(foreign,closure.expectedBeforeLabels31({functions:foreign,candidateLabels:candidate,historicalHash:OLD})),false);
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{...candidate,beta:"d".repeat(40)},historicalHash:OLD})),false,"candidate label of another source refuses");
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{alpha:NEW,gamma:NEW},historicalHash:OLD})),false,"no candidate label for that Function refuses");
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:"short"}),/before label inputs required/);
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:undefined,candidateLabels:candidate,historicalHash:OLD}),/before label inputs required/);
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{...candidate,beta:"NOTHEX"},historicalHash:OLD}),/before label inputs differ/);
+});
+test("IAM dependency hold is accepted only for drift that is exactly the reviewed candidate label and inventory",()=>{
+  const base30={dependencyInventorySha256:"A".repeat(64),selectedVersions:{"firebase-functions":"6.0.0"}},cand={dependencyInventorySha256:"B".repeat(64),selectedVersions:{"firebase-functions":"7.2.5"}};
+  const row=(name,label,deps)=>({name,firebaseFunctionsHash:label,dependencies:structuredClone(deps)});
+  const holds=["deployedDependencyInventoryDiffersFromCurrentSource"],ok={holds,baselineDependencies:base30,candidateDependencies:cand,candidateLabels:candidate};
+  const good=[row("alpha",OLD,base30),row("beta",NEW,cand),row("gamma",OLD,base30)];
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good}),true);
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,candidateLabels:undefined}),false,"original rule without candidate labels");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,holds:[...holds,"functionsStillUseDefaultComputeIdentity"]}),false,"any other hold refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,cand),row("beta",NEW,cand),row("gamma",OLD,base30)]}),false,"candidate inventory under the Build 30 label refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",NEW,{...cand,dependencyInventorySha256:"C".repeat(64)}),row("gamma",OLD,base30)]}),false,"other inventory at the candidate label refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",NEW,{...cand,selectedVersions:{"firebase-functions":"7.2.6"}}),row("gamma",OLD,base30)]}),false,"other selected versions refuse");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",OLD,base30),row("gamma",OLD,base30)]}),false,"no drift is not this exception");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,candidateLabels:{...candidate,beta:"bad"}}),false,"malformed candidate label refuses");
+});
+test("controller baseline passes reviewed intent labels into before() and only the immutable verifier's final IAM hold is re-adjudicated",()=>{
+  const source=fs.readFileSync(path.join(base,"business31BackendClosure.cjs"),"utf8");
+  assert.ok(source.includes("const baseline=before(ctx,intentResult.labels);"));
+  assert.ok(source.includes('r = kind === "iamDependencies" ? verifyIamBeforeWithCandidate31({repoRoot,source,child:raw[kind],collectionEnvelope,candidateLabels,verify}) : verify();'));
+  assert.ok(source.includes('if (error?.message !== "IAM/dependency hold remains") throw error;'));
+  const immutable=fs.readFileSync(path.join(base,"backendRuntimeReadbacks31.cjs"),"utf8");assert.ok(!immutable.includes("candidateRuntimeHash")&&!immutable.includes("candidateDependencyDriftOnly31"),"immutable readback verifier stays unchanged");
+  assert.ok(source.includes('kind === "firestoreRulesAndIndexes" ? historicalHash'));
+});
+}
+
 }

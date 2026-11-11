@@ -14,7 +14,53 @@ const t = a.instant;
 const eq = (left,right,message) => need(same(left,right),message);
 function read(root,p) { return json(privateBytes(root,p)); }
 function exactTime(left,right,message) { need(t(left) === t(right),message); }
-function before(ctx) {
+// A recorded partial attempt can leave Functions already running the exact reviewed
+// candidate (10 Nov 2026: 2 of 13 callables at the candidate intent label). Each measured
+// Function may carry the historical Build 30 label or that exact candidate label; any
+// other label still maps to the historical label and is refused by the readback check.
+function expectedBeforeLabels31({functions,candidateLabels,historicalHash}) {
+  need(/^[0-9a-f]{40}$/.test(historicalHash) && Array.isArray(functions) && candidateLabels && typeof candidateLabels === "object",
+    "before label inputs required");
+  return Object.fromEntries(functions.map(row => {
+    const candidate = Object.hasOwn(candidateLabels,row?.name) ? candidateLabels[row.name] : undefined;
+    need(typeof row?.name === "string" && (candidate === undefined || /^[0-9a-f]{40}$/.test(candidate)), "before label inputs differ");
+    return [row.name, row.firebaseFunctionsHash === candidate ? candidate : historicalHash];
+  }));
+}
+// Their deployed dependency inventory is then the candidate's, so the Build 30 replay holds.
+// That one hold is accepted only when every drifting Function carries its exact candidate
+// label and exactly the candidate inventory and selected versions.
+function candidateDependencyDriftOnly31({holds,functions,baselineDependencies,candidateDependencies,candidateLabels}) {
+  if (!candidateLabels || typeof candidateLabels !== "object" || !same(holds,["deployedDependencyInventoryDiffersFromCurrentSource"])) return false;
+  const matches = (record,deps) => record?.dependencies?.dependencyInventorySha256 === deps.dependencyInventorySha256
+    && same(record.dependencies.selectedVersions,deps.selectedVersions);
+  const drift = functions.filter(record => !matches(record,baselineDependencies));
+  return drift.length > 0 && drift.every(record => Object.hasOwn(candidateLabels,record.name) && /^[0-9a-f]{40}$/.test(candidateLabels[record.name])
+    && record.firebaseFunctionsHash === candidateLabels[record.name] && matches(record,candidateDependencies));
+}
+// The immutable readback verifier runs unchanged. Only its final IAM dependency hold (raised after
+// every seal, source, label, chronology and strict-check assertion has passed) is re-adjudicated here
+// with the same committed collector and Build 30 policy; any other refusal is rethrown.
+function verifyIamBeforeWithCandidate31({repoRoot,source,child,collectionEnvelope,candidateLabels,verify}) {
+  try { return verify(); }
+  catch (error) {
+    if (error?.message !== "IAM/dependency hold remains") throw error;
+    const {git,object} = require("./backendRuntimeAdmission31.cjs").helpers;
+    const collector = readbacks.load(repoRoot,source.commit,"tools/release/collectFunctionsIamDependenciesReadback.js");
+    const policy = object(git(repoRoot,["show",x.BASELINE+":"+collector.POLICY_PATH])), outputs = child.outputs;
+    const summary = commit => collector.summarizePackageState({packageJsonRaw:git(repoRoot,["show",commit+":functions/package.json"]).toString("utf8"),
+      packageLockRaw:git(repoRoot,["show",commit+":functions/package-lock.json"]).toString("utf8"),trackedPackages:policy.trackedRuntimePackages});
+    const baselineDependencies = summary(x.BASELINE), candidateDependencies = summary(source.commit);
+    const replay = collector.adjudicateReadback({projectId:"crm3-baf-ops-b8638",region:"asia-south1",policy,sourceBefore:child.source.before,
+      sourceAfter:child.source.after,project:outputs.project,iam:outputs.iam,functions:outputs.functions,
+      discoveredSourceExports:[...policy.sourceFunctionExports].sort(),observe:false,currentDependencies:baselineDependencies});
+    need(replay.failedChecks.length === 0 && Object.values(replay.evidence.checks).every(v => v === true)
+      && candidateDependencyDriftOnly31({holds:replay.evidence.posture.holds,functions:outputs.functions,baselineDependencies,
+        candidateDependencies,candidateLabels}), "IAM/dependency hold remains");
+    return {ok:true,observedAtUtc:collectionEnvelope.startedAtUtc,capturedAtUtc:child.capturedAtUtc};
+  }
+}
+function before(ctx,candidateLabels) {
   const {decision,source,evidenceDirectory,repoRoot,runtime,approvalPointer,cohorts} = ctx;
   const raw = {};
   for (const [kind,p] of Object.entries(decision.preflightPointers)) {
@@ -22,9 +68,13 @@ function before(ctx) {
     let r;
     if (kind === "controls") r = controls.verifyPreservedControlsBefore31({repoRoot,sourceCommit:source.commit,evidenceDirectory,
       beforePointer:pointerView(evidenceDirectory,e.measurement),requiredProducerBindings:runtime.requiredProducerBindings,installedControlRuntime:runtime.installedControlRuntime});
-    else { r = readbacks.verifyMeasuredReadback31({repoRoot,candidateSource:source,backendCommit:x.BASELINE,child:raw[kind],key:kind,
-      earliestUtc:ctx.lastCiAtUtc,latestUtc:decision.decidedAtUtc,expectedRuntimeHash:ctx.historical.deployment.sourceRuntimeHash,
-      collectionEnvelope:kind === "iamDependencies" ? read(evidenceDirectory,e.process) : undefined}); }
+    else { const historicalHash = ctx.historical.deployment.sourceRuntimeHash;
+      const expectedRuntimeHash = kind === "firestoreRulesAndIndexes" ? historicalHash
+        : expectedBeforeLabels31({functions:raw[kind].outputs?.functions,candidateLabels,historicalHash});
+      const collectionEnvelope = kind === "iamDependencies" ? read(evidenceDirectory,e.process) : undefined;
+      const verify = () => readbacks.verifyMeasuredReadback31({repoRoot,candidateSource:source,backendCommit:x.BASELINE,child:raw[kind],key:kind,
+        earliestUtc:ctx.lastCiAtUtc,latestUtc:decision.decidedAtUtc,expectedRuntimeHash,collectionEnvelope});
+      r = kind === "iamDependencies" ? verifyIamBeforeWithCandidate31({repoRoot,source,child:raw[kind],collectionEnvelope,candidateLabels,verify}) : verify(); }
     exactTime(e.observedAtUtc,r.observedAtUtc,"before raw observation differs from bound envelope");
     exactTime(e.capturedAtUtc,r.capturedAtUtc,"before raw capture differs from bound envelope");
   }
@@ -277,7 +327,7 @@ function finishBusinessCaptureContext31(common) {
   const sourceNames=Object.keys(sourceSnapshot.files).filter(n=>n.startsWith("functions/src/")).map(n=>n.slice(10)); need(sourceNames.every(n=>Object.hasOwn(inventory,n)),"package omits M source");
   for(const name of ["package.json","package-lock.json"]) need(inventory[name]?.sha256===sha(repository.readBlob(ctx.source.commit,"functions/"+name)),"package dependencies do not bind M");
   const intent=read(evidenceDirectory,contract.intendedHashInputs), intentResult=verifyIntent31({ctx,intent,archiveExpectedFiles:inventory});
-  const baseline=before(ctx);
+  const baseline=before(ctx,intentResult.labels);
   return {prepared,evidenceDirectory,decision,contract,proof,owner,originalOwner,repository,sourceSnapshot,
     cohorts,runtime,ctx,inventory,intent,intentResult,baseline};
 }
@@ -354,4 +404,4 @@ function verifyBusiness31BackendClosure({authorityOptions,closurePointer}) {
     platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
     privateHostedReplayAuthenticated:false,deploymentAuthorized:false,credentialAccessAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={CLOSURE_FILE,PHASES,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohort31,replayRecordedCohorts31,prepareBusinessCaptureContext31,prepareBusinessOperationalCaptureContext31,verifyBusiness31BackendClosure};
+module.exports={CLOSURE_FILE,PHASES,expectedBeforeLabels31,candidateDependencyDriftOnly31,verifyIamBeforeWithCandidate31,verifyMutationInitiation31,verifyClosureExecutionWindow31,verifyMutationResponse31,verifyIntent31,verifyClosureChronology31,verifyOrderedIntent31,replayMutationTranscript31,replayRecordedCohort31,replayRecordedCohorts31,prepareBusinessCaptureContext31,prepareBusinessOperationalCaptureContext31,verifyBusiness31BackendClosure};
