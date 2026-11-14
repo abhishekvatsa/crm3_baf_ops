@@ -361,4 +361,87 @@ test("actual writer schema4 all25 records replay; final response settles late wi
  }finally{https.request=originalRequest;globalThis.Date=RealDate;}
 });
 
+// 10 Nov 2026 partial attempt: 2 of 13 callables already run the exact reviewed candidate.
+// Both helpers below are applied by the unchanged committed label rule and IAM hold rule.
+{
+const OLD="4".repeat(40),NEW="b".repeat(40),names=["alpha","beta","gamma"],candidate=Object.fromEntries(names.map(n=>[n,NEW]));
+const labelRule=(functions,labels)=>functions.every(r=>r.firebaseFunctionsHash===labels[r.name]);
+const fleet=live=>names.map(n=>({name:n,firebaseFunctionsHash:live[n]??OLD}));
+test("before labels admit Build 30 or the exact reviewed candidate per Function and refuse any other label",()=>{
+  const all=fleet({}),mixed=fleet({beta:NEW}),foreign=fleet({beta:"c".repeat(40)});
+  assert.deepEqual(closure.expectedBeforeLabels31({functions:all,candidateLabels:candidate,historicalHash:OLD}),{alpha:OLD,beta:OLD,gamma:OLD});
+  assert.equal(labelRule(all,closure.expectedBeforeLabels31({functions:all,candidateLabels:candidate,historicalHash:OLD})),true);
+  assert.deepEqual(closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:OLD}),{alpha:OLD,beta:NEW,gamma:OLD});
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:OLD})),true);
+  assert.equal(labelRule(foreign,closure.expectedBeforeLabels31({functions:foreign,candidateLabels:candidate,historicalHash:OLD})),false);
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{...candidate,beta:"d".repeat(40)},historicalHash:OLD})),false,"candidate label of another source refuses");
+  assert.equal(labelRule(mixed,closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{alpha:NEW,gamma:NEW},historicalHash:OLD})),false,"no candidate label for that Function refuses");
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:mixed,candidateLabels:candidate,historicalHash:"short"}),/before label inputs required/);
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:undefined,candidateLabels:candidate,historicalHash:OLD}),/before label inputs required/);
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:mixed,candidateLabels:{...candidate,beta:"NOTHEX"},historicalHash:OLD}),/before label inputs differ/);
+});
+test("IAM dependency hold is accepted only for drift that is exactly the reviewed candidate label and inventory",()=>{
+  const base30={dependencyInventorySha256:"A".repeat(64),selectedVersions:{"firebase-functions":"6.0.0"}},cand={dependencyInventorySha256:"B".repeat(64),selectedVersions:{"firebase-functions":"7.2.5"}};
+  const row=(name,label,deps)=>({name,firebaseFunctionsHash:label,dependencies:structuredClone(deps)});
+  const holds=["deployedDependencyInventoryDiffersFromCurrentSource"],ok={holds,baselineDependencies:base30,candidateDependencies:cand,candidateLabels:candidate};
+  const good=[row("alpha",OLD,base30),row("beta",NEW,cand),row("gamma",OLD,base30)];
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good}),true);
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,candidateLabels:undefined}),false,"original rule without candidate labels");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,holds:[...holds,"functionsStillUseDefaultComputeIdentity"]}),false,"any other hold refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,cand),row("beta",NEW,cand),row("gamma",OLD,base30)]}),false,"candidate inventory under the Build 30 label refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",NEW,{...cand,dependencyInventorySha256:"C".repeat(64)}),row("gamma",OLD,base30)]}),false,"other inventory at the candidate label refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",NEW,{...cand,selectedVersions:{"firebase-functions":"7.2.6"}}),row("gamma",OLD,base30)]}),false,"other selected versions refuse");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",OLD,base30),row("gamma",OLD,base30)]}),false,"no drift is not this exception");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:good,candidateLabels:{...candidate,beta:"bad"}}),false,"malformed candidate label refuses");
+});
+test("controller baseline passes reviewed intent labels into before() and only the immutable verifier's final IAM hold is re-adjudicated",()=>{
+  const source=fs.readFileSync(path.join(base,"business31BackendClosure.cjs"),"utf8");
+  assert.ok(source.includes("const baseline=before(ctx,intentResult.labels);"));
+  assert.ok(source.includes('r = kind === "iamDependencies" ? verifyIamBeforeWithCandidate31({repoRoot,source,child:raw[kind],collectionEnvelope,candidateLabels,verify,'));
+  assert.ok(source.includes("partialDeployment:ctx.partialDeployment ?? null}) : verify(); }"));
+  assert.ok(source.includes("historicalHash,priorLabels:ctx.partialDeployment?.labels ?? {}});"));
+  assert.ok(source.includes("partialDeployment:recordedPartialDeployment31({repository,sourceSnapshot,sourceCommit:prepared.source.commit,fleet:cohorts.fleet})};"));
+  assert.ok(source.includes('if (error?.message !== "IAM/dependency hold remains") throw error;'));
+  const immutable=fs.readFileSync(path.join(base,"backendRuntimeReadbacks31.cjs"),"utf8");assert.ok(!immutable.includes("candidateRuntimeHash")&&!immutable.includes("candidateDependencyDriftOnly31"),"immutable readback verifier stays unchanged");
+  assert.ok(source.includes('kind === "firestoreRulesAndIndexes" ? historicalHash'));
+});
+// The committed record of the 10 Nov partial deployment admits only its Functions, label and recorded source.
+{
+const PRIOR="e".repeat(40),record=closure.PARTIAL_DEPLOYMENT_FILE;
+test("recorded partial deployment admits its listed Functions only at the recorded label",()=>{
+  const live=fleet({beta:PRIOR}),priorLabels={beta:PRIOR},labels=functions=>closure.expectedBeforeLabels31({functions,candidateLabels:candidate,historicalHash:OLD,priorLabels});
+  assert.deepEqual(labels(live),{alpha:OLD,beta:PRIOR,gamma:OLD});assert.equal(labelRule(live,labels(live)),true);
+  assert.equal(labelRule(fleet({gamma:PRIOR}),labels(fleet({gamma:PRIOR}))),false,"recorded label on an unlisted Function refuses");
+  assert.equal(labelRule(fleet({beta:"f".repeat(40)}),labels(fleet({beta:"f".repeat(40)}))),false,"other label on a listed Function refuses");
+  assert.equal(labelRule(fleet({beta:NEW}),labels(fleet({beta:NEW}))),true,"the exact candidate stays admitted");
+  assert.throws(()=>closure.expectedBeforeLabels31({functions:live,candidateLabels:candidate,historicalHash:OLD,priorLabels:{beta:"bad"}}),/before label inputs required/);
+});
+test("IAM drift at the recorded label is admitted only with the recorded source dependencies",()=>{
+  const base30={dependencyInventorySha256:"A".repeat(64),selectedVersions:{x:"1"}},cand={dependencyInventorySha256:"B".repeat(64),selectedVersions:{x:"3"}},prior={dependencyInventorySha256:"C".repeat(64),selectedVersions:{x:"2"}};
+  const row=(name,label,deps)=>({name,firebaseFunctionsHash:label,dependencies:structuredClone(deps)});
+  const ok={holds:["deployedDependencyInventoryDiffersFromCurrentSource"],baselineDependencies:base30,candidateDependencies:cand,candidateLabels:candidate,priorLabels:{beta:PRIOR},priorDependencies:prior};
+  const drift=deps=>[row("alpha",OLD,base30),row("beta",PRIOR,deps),row("gamma",OLD,base30)];
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:drift(prior)}),true);
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:drift(cand)}),false,"recorded label with candidate dependencies refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:drift(prior),priorDependencies:null}),false,"no recorded deployment refuses");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",PRIOR,prior),row("beta",PRIOR,prior),row("gamma",OLD,base30)]}),false,"recorded dependencies on an unlisted Function refuse");
+  assert.equal(closure.candidateDependencyDriftOnly31({...ok,functions:[row("alpha",OLD,base30),row("beta",PRIOR,prior),row("gamma",NEW,cand)]}),true,"recorded and candidate Functions together");
+});
+test("committed partial deployment record is pinned, ancestral and limited to its two callables",()=>{
+  const bytes=fs.readFileSync(path.join(base,"../..",record)),value=JSON.parse(bytes),fleet19=[...value.functions,...value.afterState.unchangedFunctions].sort();
+  assert.equal(require("node:crypto").createHash("sha256").update(bytes).digest("hex").toUpperCase(),closure.PARTIAL_DEPLOYMENT_SHA256);
+  assert.deepEqual(value.functions,["beginGlobalPullRun","completePlannedJobExecution"]);assert.equal(fleet19.length,19);
+  const calls=[],repo=(b,ancestorOk=true)=>({readBlob:(c,f)=>{assert.equal(f,record);return b;},requireAncestor:(a,c)=>{calls.push([a,c]);if(!ancestorOk)throw Error("not an ancestor");}});
+  const snap={files:{[record]:{mode:"100644",oid:"0".repeat(40)}}},M="9".repeat(40);
+  const got=closure.recordedPartialDeployment31({repository:repo(bytes),sourceSnapshot:snap,sourceCommit:M,fleet:fleet19});
+  assert.deepEqual(got.labels,{beginGlobalPullRun:value.sourceRuntimeHash,completePlannedJobExecution:value.sourceRuntimeHash});assert.deepEqual(calls,[[value.source.commit,M]]);
+  assert.equal(closure.recordedPartialDeployment31({repository:repo(bytes),sourceSnapshot:{files:{}},sourceCommit:M,fleet:fleet19}),null,"absent record is no exception");
+  assert.throws(()=>closure.recordedPartialDeployment31({repository:repo(Buffer.concat([bytes,Buffer.from(" ")])),sourceSnapshot:snap,sourceCommit:M,fleet:fleet19}),/recorded partial deployment changed/);
+  assert.throws(()=>closure.recordedPartialDeployment31({repository:repo(bytes),sourceSnapshot:snap,sourceCommit:M,fleet:fleet19.filter(n=>n!=="beginGlobalPullRun")}),/population differs/);
+  assert.throws(()=>closure.recordedPartialDeployment31({repository:repo(bytes),sourceSnapshot:snap,sourceCommit:value.source.commit,fleet:fleet19}),/identity differs/);
+  assert.throws(()=>closure.recordedPartialDeployment31({repository:repo(bytes,false),sourceSnapshot:snap,sourceCommit:M,fleet:fleet19}),/not an ancestor/);
+});
+}
+}
+
 }
