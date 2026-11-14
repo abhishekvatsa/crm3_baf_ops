@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "documentType": "build31-business-private-record-custody",
+  "recordKind": "closure",
+  "source": {
+    "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
+    "tree": "abbaa5550cbe72f7c4716897925d1fbc4271c226",
+    "functionsTree": "4d385eb57db3ee24b0840554def0f24b678ddf10"
+  },
+  "recordedAtUtc": "2026-11-14T16:14:04.334Z",
+  "privateRecord": {
+    "file": "closure-record-approved-controls-20261114-v2/closure.json",
+    "sha256": "D8A4524FF276A1B1577716CE2A975480080FF21AFBA71E7B9C32DAAB703EA54F",
+    "bytes": 92706
+  }
+}
