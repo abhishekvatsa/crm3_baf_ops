@@ -198,7 +198,7 @@ export async function verifyInstalled(repository) {
   verifyGraph(repository, cli);
   const cliMetadata = readJson(path.join(cli, 'package.json'));
   assert.equal(cliMetadata.dependencies['firebase-tools'], '15.22.4');
-  assert.equal(cliMetadata.overrides['basic-ftp'], '6.2.1');
+  assert.equal(cliMetadata.overrides['basic-ftp'], '6.2.4');
   assert.equal(cliMetadata.overrides['@grpc/grpc-js'], '1.14.5');
   assert.equal(readJson(path.join(functions, 'package.json')).overrides['@grpc/grpc-js'], '1.14.5');
   const functionsRequire = createRequire(path.join(functions, 'package.json'));

@@ -174,14 +174,14 @@ def grpc_pin_matches(manifest_rel: str, version: str, integrity: str) -> bool:
 def basic_ftp_pin_matches() -> bool:
     package = data("tooling/firebase-cli/package.json")
     packages = data("tooling/firebase-cli/package-lock.json").get("packages", {})
-    if not isinstance(packages, dict) or package.get("overrides", {}).get("basic-ftp") != "6.2.1":
+    if not isinstance(packages, dict) or package.get("overrides", {}).get("basic-ftp") != "6.2.4":
         return False
     copies = [entry for key, entry in packages.items()
               if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")]
     return bool(copies) and all(
-        isinstance(entry, dict) and entry.get("version") == "6.2.1"
-        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
-        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        isinstance(entry, dict) and entry.get("version") == "6.2.4"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz"
+        and entry.get("integrity") == "sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw=="
         for entry in copies
     )
 
@@ -405,9 +405,9 @@ check(
     and tooling_versions["body-parser"] == "1.20.9"
     and tooling_versions["tar"] == "7.5.21"
     and tooling_versions["brace-expansion"] == "5.0.12"
-    and tooling_versions["@hono/node-server"] == "2.1.3"
+    and tooling_versions["@hono/node-server"] == "2.1.6"
     and tooling_versions["fast-uri"] == "3.1.9"
-    and tooling_versions["hono"] == "4.13.11"
+    and tooling_versions["hono"] == "4.13.16"
     and tooling_versions["ip-address"] == "10.7.4"
     and tooling_versions["js-yaml"] == "4.3.2"
     and tooling_versions["re2"] == "1.26.1"
