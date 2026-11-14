@@ -41,12 +41,12 @@ $expected = [ordered]@{
   npm = '10.9.8'
   javaPrefix = '21.0.11'
   firebaseTools = '15.22.4'
-  basicFtp = '6.2.1'
+  basicFtp = '6.2.4'
   grpcJs = '1.14.5'
   mcpSdk = '1.32.0'
-  honoNodeServer = '2.1.3'
+  honoNodeServer = '2.1.6'
   fastUri = '3.1.9'
-  honoRuntime = '4.13.11'
+  honoRuntime = '4.13.16'
   ipAddress = '10.7.4'
   jsYaml = '4.3.2'
   morgan = '1.12.1'
@@ -303,14 +303,14 @@ function Assert-FirebaseCliLockPolicy {
     grpcJsOverride = ($grpcJsOverride -eq $expected.grpcJs)
     basicFtpLocked = ($null -ne $basicFtpLock -and [string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'version') -eq $expected.basicFtp)
     grpcJsLocked = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'version') -eq $expected.grpcJs)
-    basicFtpResolved = ($null -ne $basicFtpLock -and [string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'resolved') -eq 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz')
+    basicFtpResolved = ($null -ne $basicFtpLock -and [string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'resolved') -eq 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz')
     grpcJsResolved = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'resolved') -eq 'https://registry.npmjs.org/@grpc/grpc-js/-/grpc-js-1.14.5.tgz')
-    basicFtpIntegrity = ($null -ne $basicFtpLock -and [string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'integrity') -eq 'sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA==')
+    basicFtpIntegrity = ($null -ne $basicFtpLock -and [string](Get-JsonPropertyValue -Object $basicFtpLock -Name 'integrity') -eq 'sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw==')
     grpcJsIntegrity = ($null -ne $grpcJsLock -and [string](Get-JsonPropertyValue -Object $grpcJsLock -Name 'integrity') -eq 'sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==')
     honoOverride = ($honoOverride -eq $expected.honoNodeServer)
     honoLocked = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'version') -eq $expected.honoNodeServer)
-    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.3.tgz')
-    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw==')
+    honoResolved = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'resolved') -eq 'https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.6.tgz')
+    honoIntegrity = ($null -ne $honoLock -and [string](Get-JsonPropertyValue -Object $honoLock -Name 'integrity') -eq 'sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==')
     mcpSdkOverride = ($mcpSdkOverride -eq $expected.mcpSdk)
     mcpSdkLocked = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'version') -eq $expected.mcpSdk)
     mcpSdkResolved = ($null -ne $mcpLock -and [string](Get-JsonPropertyValue -Object $mcpLock -Name 'resolved') -eq 'https://registry.npmjs.org/@modelcontextprotocol/sdk/-/sdk-1.32.0.tgz')
@@ -322,8 +322,8 @@ function Assert-FirebaseCliLockPolicy {
     fastUriIntegrity = ($null -ne $fastUriLock -and [string](Get-JsonPropertyValue -Object $fastUriLock -Name 'integrity') -eq 'sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==')
     honoRuntimeOverride = ($honoRuntimeOverride -eq $expected.honoRuntime)
     honoRuntimeLocked = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'version') -eq $expected.honoRuntime)
-    honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.13.11.tgz')
-    honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg==')
+    honoRuntimeResolved = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'resolved') -eq 'https://registry.npmjs.org/hono/-/hono-4.13.16.tgz')
+    honoRuntimeIntegrity = ($null -ne $honoRuntimeLock -and [string](Get-JsonPropertyValue -Object $honoRuntimeLock -Name 'integrity') -eq 'sha512-AOLOEhvrV+iH92xXCnFr/5+3KjPKcI3xP63XJtX5spAnkznPdHijlIsUTpi7/9EhWqrTCekw5c5zh1K+YsVw7A==')
     ipAddressOverride = ($ipAddressOverride -eq $expected.ipAddress)
     ipAddressLocked = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'version') -eq $expected.ipAddress)
     ipAddressResolved = ($null -ne $ipAddressLock -and [string](Get-JsonPropertyValue -Object $ipAddressLock -Name 'resolved') -eq 'https://registry.npmjs.org/ip-address/-/ip-address-10.7.4.tgz')
@@ -363,8 +363,8 @@ function Assert-FirebaseCliLockPolicy {
     $entry = $lockPackages[$key]
     $checks["basicFtpCopy:$key"] = (
       [string](Get-JsonPropertyValue -Object $entry -Name 'version') -eq $expected.basicFtp -and
-      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz' -and
-      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=='
+      [string](Get-JsonPropertyValue -Object $entry -Name 'resolved') -eq 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz' -and
+      [string](Get-JsonPropertyValue -Object $entry -Name 'integrity') -eq 'sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw=='
     )
   }
   foreach ($key in @($lockPackages.Keys | Where-Object { $_ -match '(^|/)node_modules/@grpc/grpc-js$' })) {

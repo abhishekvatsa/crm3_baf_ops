@@ -30,7 +30,7 @@ function writeJson(file, value) {
 }
 function graph(root, relative, dependencyPath) {
   const directory = path.join(root, relative);
-  writeJson(path.join(directory, 'package.json'), {name: 'fixture', dependencies: {braces: `file:${dependencyPath}`, 'firebase-tools':'15.22.4'}, overrides: {braces: '$braces', 'basic-ftp':'6.2.1', '@grpc/grpc-js':'1.14.5'}});
+  writeJson(path.join(directory, 'package.json'), {name: 'fixture', dependencies: {braces: `file:${dependencyPath}`, 'firebase-tools':'15.22.4'}, overrides: {braces: '$braces', 'basic-ftp':'6.2.4', '@grpc/grpc-js':'1.14.5'}});
   fs.cpSync(path.join(root, 'tooling/braces-depth-guard'), path.join(directory, 'node_modules/braces'), {recursive: true});
   writeJson(path.join(directory, 'package-lock.json'), {packages: {'node_modules/braces': {name: '@crm3/braces-depth-guard', version: '1.0.0'}}});
   return directory;

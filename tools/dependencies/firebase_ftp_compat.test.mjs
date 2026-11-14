@@ -90,17 +90,17 @@ async function fixture(t, {listFallback = false, missing = false, denyLogin = fa
 test('CLI FTP dependency retains exact patched registry bytes in every copy', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(cliRoot, 'package.json')));
   const lock = JSON.parse(fs.readFileSync(path.join(cliRoot, 'package-lock.json')));
-  assert.equal(packageJson.overrides['basic-ftp'], '6.2.1');
+  assert.equal(packageJson.overrides['basic-ftp'], '6.2.4');
   const copies = Object.entries(lock.packages).filter(([key]) => /(^|\/)node_modules\/basic-ftp$/.test(key));
   assert.ok(copies.length > 0);
   for (const [, entry] of copies) {
-    assert.equal(entry.version, '6.2.1');
-    assert.equal(entry.resolved, 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz');
-    assert.equal(entry.integrity, 'sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA==');
+    assert.equal(entry.version, '6.2.4');
+    assert.equal(entry.resolved, 'https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz');
+    assert.equal(entry.integrity, 'sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw==');
   }
-  assert.equal(require('basic-ftp/package.json').version, '6.2.1');
+  assert.equal(require('basic-ftp/package.json').version, '6.2.4');
   const consumerRequire = createRequire(require.resolve('get-uri'));
-  assert.equal(consumerRequire('basic-ftp/package.json').version, '6.2.1');
+  assert.equal(consumerRequire('basic-ftp/package.json').version, '6.2.4');
   for (const rel of ['package-lock.json', 'functions/package-lock.json']) {
     const other = JSON.parse(fs.readFileSync(path.join(root, rel)));
     assert.ok(!Object.keys(other.packages).some(key => /(^|\/)node_modules\/basic-ftp$/.test(key)));

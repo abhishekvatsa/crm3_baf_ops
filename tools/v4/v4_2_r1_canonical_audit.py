@@ -3465,14 +3465,14 @@ mcp_sdk = firebase_cli_packages.get("node_modules/@modelcontextprotocol/sdk", {}
 check(
     "Firebase CLI tooling pins only the bounded patched dependency versions",
     firebase_cli_package.get("dependencies", {}).get("firebase-tools") == "15.22.4"
-    and firebase_cli_package.get("overrides", {}).get("basic-ftp") == "6.2.1"
-    and basic_ftp.get("version") == "6.2.1"
-    and basic_ftp.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
-    and basic_ftp.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+    and firebase_cli_package.get("overrides", {}).get("basic-ftp") == "6.2.4"
+    and basic_ftp.get("version") == "6.2.4"
+    and basic_ftp.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz"
+    and basic_ftp.get("integrity") == "sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw=="
     and all(
-        entry.get("version") == "6.2.1"
-        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.1.tgz"
-        and entry.get("integrity") == "sha512-bK67isD+lKq46AU8vNtjvMaT2ZqAOAmNCbxUHlFBRD4k15NWxyEjmaKtZPlgce58So4BNTjITGQOVTjL9y0ECA=="
+        entry.get("version") == "6.2.4"
+        and entry.get("resolved") == "https://registry.npmjs.org/basic-ftp/-/basic-ftp-6.2.4.tgz"
+        and entry.get("integrity") == "sha512-6ACKOQxSlv5xka4i03ujfncNr9qp5yZNK3u0+yUFTAU4HfG5AeztCC9+R1I9dm8oq+1vt4RZ7cIRTBrdHqL2mw=="
         for key, entry in firebase_cli_packages.items()
         if key == "node_modules/basic-ftp" or key.endswith("/node_modules/basic-ftp")
     )
@@ -3487,7 +3487,7 @@ check(
         for key, entry in firebase_cli_packages.items()
         if key == "node_modules/@grpc/grpc-js" or key.endswith("/node_modules/@grpc/grpc-js")
     )
-    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.1.3"
+    and firebase_cli_package.get("overrides", {}).get("@hono/node-server") == "2.1.6"
     and firebase_cli_package.get("overrides", {}).get("fast-uri") == "3.1.9"
     and firebase_cli_package.get("overrides", {}).get("qs") == "6.16.1"
     and firebase_cli_package.get("dependencies", {}).get("stream-json") == "file:../stream-json-compat"
@@ -3496,7 +3496,7 @@ check(
     and firebase_cli_packages.get("node_modules/stream-json", {}).get("resolved") == "file:../stream-json-compat"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("version") == "3.7.0"
     and firebase_cli_packages.get("node_modules/stream-json-modern", {}).get("integrity") == "sha512-rCSBdcBP/bPk6T8QFcxAj1MSzAuc5i49cYW6IE7sYObNEPccBJIUiL6fU9c9BWt40aJK0siVynLX7lWaW8alXw=="
-    and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.11"
+    and firebase_cli_package.get("overrides", {}).get("hono") == "4.13.16"
     and firebase_cli_package.get("overrides", {}).get("ip-address") == "10.7.4"
     and firebase_cli_package.get("overrides", {}).get("js-yaml") == "4.3.2"
     and firebase_cli_package.get("overrides", {}).get("morgan") == "1.12.1"
@@ -3506,15 +3506,15 @@ check(
     and firebase_cli_package.get("overrides", {}).get("re2") == "1.26.1"
     and firebase_cli_package.get("overrides", {}).get("undici") == "8.12.2"
     and firebase_tools.get("version") == "15.22.4"
-    and hono.get("version") == "2.1.3"
-    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.3.tgz"
-    and hono.get("integrity") == "sha512-TA//nWMqPhbfdfneACk6t5a9eqbS9lABEPyKn0/xZTah3H3U2XaVg85rJFl0/Fyit0I552YDHgXGVSf3GwqbUw=="
+    and hono.get("version") == "2.1.6"
+    and hono.get("resolved") == "https://registry.npmjs.org/@hono/node-server/-/node-server-2.1.6.tgz"
+    and hono.get("integrity") == "sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ=="
     and fast_uri.get("version") == "3.1.9"
     and fast_uri.get("resolved") == "https://registry.npmjs.org/fast-uri/-/fast-uri-3.1.9.tgz"
     and fast_uri.get("integrity") == "sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ=="
-    and hono_runtime.get("version") == "4.13.11"
-    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.11.tgz"
-    and hono_runtime.get("integrity") == "sha512-/SMX/RQNJn7oNmFwH6DtwDqcrzZU2otm1FD6OJe2cWF6cfy/F8hq0XVBv7xW3FTJshRQwuBnXHDq2kNsdZnshg=="
+    and hono_runtime.get("version") == "4.13.16"
+    and hono_runtime.get("resolved") == "https://registry.npmjs.org/hono/-/hono-4.13.16.tgz"
+    and hono_runtime.get("integrity") == "sha512-AOLOEhvrV+iH92xXCnFr/5+3KjPKcI3xP63XJtX5spAnkznPdHijlIsUTpi7/9EhWqrTCekw5c5zh1K+YsVw7A=="
     and ip_address.get("version") == "10.7.4"
     and ip_address.get("resolved") == "https://registry.npmjs.org/ip-address/-/ip-address-10.7.4.tgz"
     and ip_address.get("integrity") == "sha512-DWBMKyeM25D70nrIiTkgQth59/G+naKOTep6huF9j+GmeK3DMD60Zvxg5d5qQnz+38AHgou6ean2LECX+lrKDg=="
@@ -3614,9 +3614,9 @@ check(
         "HOLD_FIREBASE_CLI_LOCK_POLICY",
         "HOLD_FIREBASE_CLI_DEPENDENCY_VERSION",
         "HOLD_FIREBASE_CLI_DEPENDENCY_AUDIT",
-        "2.1.3",
+        "2.1.6",
         "3.1.9",
-        "4.13.11",
+        "4.13.16",
         "10.7.4",
         "4.3.2",
         "1.12.1",
