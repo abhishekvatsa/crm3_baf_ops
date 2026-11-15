@@ -58,7 +58,7 @@ REPLAY_HELPERS = tuple("tools/release/" + name for name in (
 PROFILE_V1 = "build31-business-hosted-recorded-replay-v1"
 PROFILE_V2 = "build31-business-hosted-recorded-replay-v2"
 V2_CLIENT_HELPERS = tuple("tools/release/" + name for name in (
-    "business31TrustedInputV2.cjs", "business31PrivateDescriptorV2.cjs"))
+    "business31TrustedInputV2.cjs", "business31PrivateDescriptorV2.cjs", "privateEvidenceBundle31V2.cjs"))
 V2_REPLAY_HELPERS = V2_CLIENT_HELPERS + tuple("tools/release/" + name for name in (
     "business31OriginalPathReplayV2.cjs", "business31CoreWorkerV2.cjs"))
 

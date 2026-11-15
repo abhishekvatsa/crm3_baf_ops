@@ -122,8 +122,8 @@ async function replayHosted31(options) {
         p.same(second, first, 'ADMISSION_CHANGED');
         accessToken = await exchangeReadOnly31(trust, oidc);
         oidc = null;
-        const transport = require('./privateEvidenceBundle31.cjs');
         const v2 = p.isV2Trust31(trust);
+        const transport = v2 ? require('./privateEvidenceBundle31V2.cjs') : require('./privateEvidenceBundle31.cjs');
         bundle = await (v2 ? transport.downloadExactGenerationV2 : transport.downloadExactGeneration31)(first.descriptor, accessToken, 'business');
         accessToken = null;
         const parent = p.regular(privateParent, true);

@@ -24,7 +24,9 @@ historical pilot verifiers and unrelated policy/source/ledger gates still apply.
 ## Versioned client transport
 
 The client transport successor admits at most **53,000** regular-file members.
-The original transport remains limited to **50,000**. The successor retains the
+The original transport remains limited to **50,000**. Its
+`privateEvidenceBundle31.cjs` bytes and historical capture pins stay unchanged;
+`privateEvidenceBundle31V2.cjs` contains the separate successor. The successor retains the
 512 MiB serialized, 1 GiB expanded, 128 MiB per-member and compression-ratio
 limits, the 400-character member-path limit, and the relocation limits of
 16 roots and 50,000 individual files. A larger count is not permission to omit

@@ -40,9 +40,9 @@ function verifyBusiness31OriginalPathReplayV2(options){
  const map=envelope?.verifier?.files;initialBind(map,SELF);initialBind(map,'tools/release/business31TrustedInputV2.cjs');
  const trusted=require('./business31TrustedInputV2.cjs');
  trusted.bindLocal31(map,[WORKER,'tools/release/business31PrivateDescriptorV2.cjs','tools/release/business31PrivateDescriptor.cjs',
-  'tools/release/business31OriginalPathReplay.cjs','tools/release/privateEvidenceBundle31.cjs','tools/release/business31TrustedInput.cjs','tools/release/backendRuntimeEvidenceAccess31.cjs']);
+  'tools/release/business31OriginalPathReplay.cjs','tools/release/privateEvidenceBundle31.cjs','tools/release/privateEvidenceBundle31V2.cjs','tools/release/business31TrustedInput.cjs','tools/release/backendRuntimeEvidenceAccess31.cjs']);
  const legacy=require('./business31OriginalPathReplay.cjs');legacy.executingBindings31(map);
- const descriptorApi=require('./business31PrivateDescriptorV2.cjs'),transport=require('./privateEvidenceBundle31.cjs'),worker=require('./business31CoreWorkerV2.cjs');
+ const descriptorApi=require('./business31PrivateDescriptorV2.cjs'),transport=require('./privateEvidenceBundle31V2.cjs'),worker=require('./business31CoreWorkerV2.cjs');
  const proof=descriptorApi.verifyBusiness31DescriptorPreparationV2({repositoryRoot,gitExecutable,gitSha256,envelope,descriptorPointer,expectedSourceManifestSha256});
  const repository=require('./business31TrustedInput.cjs').openTrustedGitRepository31({repositoryRoot,gitExecutable,gitSha256});
  const descriptorBytes=repository.readBlob(descriptorPointer.commit,descriptorPointer.file);need(sha(descriptorBytes)===proof.descriptorSha256,'descriptor changed');

@@ -21,7 +21,7 @@ test('wrong core identity/hash and incomplete enrolled delta fail actual source 
 test('source integration is finite and excludes unrelated deployment/source controls',()=>{
  assert.equal(new Set(trusted.INTEGRATION_PATHS).size,trusted.INTEGRATION_PATHS.length);
  for(const file of ['tools/release/deploymentFleetContract.js','tools/release/reviewedBackendControls.js','tools/release/business31BackendAuthority.cjs',
-  'functions/src/index.ts','tools/release/unrelated-new-script.cjs']){
+  'functions/src/index.ts','tools/release/unrelated-new-script.cjs','tools/release/privateEvidenceBundle31.cjs']){
   assert.equal(trusted.INTEGRATION_PATHS.includes(file),false);const a=input();a.envelope.sourceIntegration[file]={mode:'100644',oid:'f'.repeat(40),sha256:'F'.repeat(64)};
   assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(a),/integration member invalid/);
  }

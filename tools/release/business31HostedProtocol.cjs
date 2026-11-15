@@ -364,7 +364,7 @@ function verifyClientHelpers31(t) {
     for (const name of ['business31HostedClient.cjs', 'business31ClientPolicy.cjs',
         'business31ClientCustody.cjs', 'business31ClientSemantics.cjs', 'business31TrustedInput.cjs',
         'business31PrivateDescriptor.cjs', 'privateEvidenceBundle31.cjs',
-        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs'] : [])]) {
+        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs', 'privateEvidenceBundle31V2.cjs'] : [])]) {
         const key = 'tools/release/' + name;
         need(Object.hasOwn(t.verifier.files, key) && digest(t.verifier.files[key]) &&
             sha(fs.readFileSync(regular(path.join(__dirname, name)))) === t.verifier.files[key], 'CLIENT_PRODUCER');
@@ -375,7 +375,7 @@ function verifyReplayHelpers31(t) {
     // complete Git producer population. An omitted digest must fail first.
     for (const name of ['business31SourceAdmission.cjs', 'business31PrivateDescriptor.cjs',
         'business31TrustedInput.cjs', 'privateEvidenceBundle31.cjs', 'business31OriginalPathReplay.cjs',
-        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs',
+        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs', 'privateEvidenceBundle31V2.cjs',
             'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs'] : [])]) {
         const file = 'tools/release/' + name;
         need(Object.hasOwn(t.verifier.files, file) && digest(t.verifier.files[file]) &&

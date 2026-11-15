@@ -24,8 +24,8 @@ function api(map){
  for(const part of physical.slice(cursor.length).split(path.sep).filter(Boolean)){cursor=path.join(cursor,part);need(!fs.lstatSync(cursor).isSymbolicLink(),'successor helper redirects');}
  need(fs.lstatSync(physical).isFile()&&sha(fs.readFileSync(physical))===map[file],'successor helper bytes differ');
  const trusted=require('./business31TrustedInputV2.cjs');
- trusted.bindLocal31(map,[SELF,'tools/release/business31PrivateDescriptor.cjs','tools/release/privateEvidenceBundle31.cjs']);
- return {trusted,legacy:require('./business31PrivateDescriptor.cjs'),transport:require('./privateEvidenceBundle31.cjs')};
+ trusted.bindLocal31(map,[SELF,'tools/release/business31PrivateDescriptor.cjs','tools/release/privateEvidenceBundle31V2.cjs']);
+ return {trusted,legacy:require('./business31PrivateDescriptor.cjs'),transport:require('./privateEvidenceBundle31V2.cjs')};
 }
 function validateBusiness31PrivateDescriptorV2(d){
  exact(d,['schemaVersion','documentType','profile','verifier','coreVerifier','sourceIntegration','source','sourceManifestSha256',

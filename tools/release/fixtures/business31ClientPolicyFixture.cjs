@@ -125,7 +125,7 @@ const closure = {commit: C.commit, file: subject.FILES.backendClosure, sha256: s
 const coreVerifier = {commit: M.commit, tree: M.tree, files: {...bindings}};
 const successorFiles = {};
 if (successor) for (const name of ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs',
-  'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs']) {
+  'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs', 'privateEvidenceBundle31V2.cjs']) {
   const file = 'tools/release/' + name;
   successorFiles[file] = fs.readFileSync(path.join(releaseRoot, name)); bindings[file] = sha(successorFiles[file]);
 }

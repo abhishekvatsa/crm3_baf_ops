@@ -64,7 +64,7 @@ test('map commitments are canonical and commit both independent populations', ()
 test('v2 imports require every new companion to be selected with its actual bytes', () => {
   const {trust} = fixture();
   const companions = ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs',
-    'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs'];
+    'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs', 'privateEvidenceBundle31V2.cjs'];
   const common = ['business31SourceAdmission.cjs', 'business31PrivateDescriptor.cjs', 'business31TrustedInput.cjs',
     'privateEvidenceBundle31.cjs', 'business31OriginalPathReplay.cjs', 'business31HostedClient.cjs',
     'business31ClientPolicy.cjs', 'business31ClientCustody.cjs', 'business31ClientSemantics.cjs'];

@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const {gzipSync}=require('node:zlib');
-const api=require('./privateEvidenceBundle31.cjs'),legacy=require('./business31OriginalPathReplay.cjs'),worker=require('./business31CoreWorkerV2.cjs');
+const api=require('./privateEvidenceBundle31V2.cjs'),oldTransport=require('./privateEvidenceBundle31.cjs'),legacy=require('./business31OriginalPathReplay.cjs'),worker=require('./business31CoreWorkerV2.cjs');
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex').toUpperCase(),canonical=worker.canonical;
 function fixture(count=1){
  const raw=Buffer.from('synthetic bytes'),z=gzipSync(raw),member={bytes:raw.length,sha256:sha(raw),encoding:'gzip',compressedBytes:z.length,compressedSha256:sha(z),base64:z.toString('base64')};
@@ -17,14 +17,14 @@ function bind(f){f.descriptor.expandedBytes=f.bundle.members.reduce((n,m)=>n+m.b
 test('explicit business successor accepts 53000 and legacy still refuses above 50000',()=>{
  const f=fixture(53000);assert.equal(api.verifyBundleBytesV2(f.bytes,f.descriptor,'business').records.length,53000);
  f.bundle.schemaVersion=2;f.bundle.encoding=f.descriptor.bundleEncoding='gzip-members-v1';bind(f);
- assert.throws(()=>api.verifyBundleBytes31(f.bytes,f.descriptor,'business'),/member population/);
+ assert.throws(()=>oldTransport.verifyBundleBytes31(f.bytes,f.descriptor,'business'),/member population/);
 });
 test('successor refuses 53001 before member decoding and never accepts runtime kind',()=>{
  const f=fixture(53001);assert.throws(()=>api.verifyBundleBytesV2(f.bytes,f.descriptor,'business'),/member population/);
  for(const kind of ['runtime',undefined,'constructor'])assert.throws(()=>api.verifyBundleBytesV2(f.bytes,f.descriptor,kind),/business-only/);
 });
 test('encoding/schema pairs are closed and have no legacy fallback',()=>{
- const f=fixture();assert.throws(()=>api.verifyBundleBytes31(f.bytes,f.descriptor,'business'));
+ const f=fixture();assert.throws(()=>oldTransport.verifyBundleBytes31(f.bytes,f.descriptor,'business'));
  for(const [version,encoding]of [[2,'gzip-members-v2'],[3,'gzip-members-v1'],[2,'gzip-members-v1']]){
   f.bundle.schemaVersion=version;f.bundle.encoding=encoding;bind(f);assert.throws(()=>api.verifyBundleBytesV2(f.bytes,f.descriptor,'business'),/Unsupported private bundle/);
  }

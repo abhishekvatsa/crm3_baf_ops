@@ -15,7 +15,7 @@ const INTEGRATION_PATHS=Object.freeze([
  'Initialize-Business31Controller.ps1','Initialize-Business31Controller.test.cjs',
  'Business-BackendPrivateReplay31.ps1','Production-AppCheckPolicy.ps1','Production-AppCheckPolicy.test.mjs',
  'Test-ProductionReleasePolicy.ps1','New-ProductionArtifact.ps1','Test-ProductionReleaseManifest.ps1',
- 'business31CallerIntegration.test.cjs','privateEvidenceBundle31.cjs','privateEvidenceBundle31.test.cjs',
+ 'business31CallerIntegration.test.cjs','privateEvidenceBundle31V2.cjs','privateEvidenceBundle31.test.cjs',
  'business31TrustedInputV2.cjs','business31PrivateDescriptorV2.cjs','business31OriginalPathReplayV2.cjs','business31CoreWorkerV2.cjs',
  'business31TransportV2.test.cjs','business31TrustedInputV2.test.cjs','business31OriginalPathReplayV2.test.cjs',
  'business31PrivateDescriptor.cjs','business31HostedProtocol.cjs','business31HostedProtocol.test.cjs',
