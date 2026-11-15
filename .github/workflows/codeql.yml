@@ -1,175 +1,110 @@
-name: CodeQL source security
+name: Build31 public controller runtime measurement
 
-# Kotlin needs a traced Flutter/Android build; build-mode:none omits Kotlin.
-# CRM3_CODEQL_PREVIEW is a temporary migration switch. With it absent, uploads
-# are enabled. Keep default setup active until all four preview jobs pass.
+# SOURCE ONLY. The pinned setup action may acquire/install/execute public Node.
+# The subsequent probe only hashes selected public files; no repository checkout.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: ["**"]
-  schedule:
-    - cron: '23 2 * * 1'
   workflow_dispatch: {}
-
-concurrency:
-  group: codeql-source-${{ github.ref }}
-  cancel-in-progress: true
 
 permissions:
   contents: read
 
+concurrency:
+  group: build31-public-controller-runtime-measurement-${{ github.run_id }}
+  cancel-in-progress: false
+
 jobs:
-  analyze:
-    name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: read
-      security-events: write
-      actions: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          - language: java-kotlin
-            build-mode: manual
-    env:
-      CRM3_CI_PACKAGE_PROOF: 'true'
+  measure:
+    name: Build31 public controller runtime hashes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Explain temporary preview
-        if: vars.CRM3_CODEQL_PREVIEW == 'true'
-        run: echo 'Preview analysis only. Default setup remains the active scanner until migration is verified.'
-
-      - name: Set up Java 21
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+      - name: Set up exact public controller Node 22.23.1
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          distribution: temurin
-          java-version: '21'
+          node-version: '22.23.1'
+          architecture: x64
+          check-latest: false
+          package-manager-cache: false
+          token: ''
 
-      - name: Set up Flutter 3.44.0
-        if: matrix.language == 'java-kotlin'
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          channel: stable
-          flutter-version: '3.44.0'
-          cache: true
-
-      - name: Prepare isolated Android compilation
-        if: matrix.language == 'java-kotlin'
-        shell: bash
+      - name: Hash only post-setup controller Node and Git files
+        shell: pwsh
         run: |
-          set -euo pipefail
-          echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
-          android_sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          "$android_sdk/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
-          # Cached JNI native metadata may invoke Ninja during clean, before
-          # Gradle has a chance to provision CMake for the new build.
-          test -x "$android_sdk/cmake/3.22.1/bin/cmake"
-          test -x "$android_sdk/cmake/3.22.1/bin/ninja"
-          "$android_sdk/cmake/3.22.1/bin/cmake" --version
-          "$android_sdk/cmake/3.22.1/bin/ninja" --version
-          flutter precache --android
-          flutter pub get
-          python3 tools/security/codeql/prepare_android.py
-          python3 -m unittest discover -s tools/security/codeql -p 'test_*.py'
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          if (-not $IsLinux -or $env:RUNNER_OS -cne 'Linux' -or $env:RUNNER_ARCH -cne 'X64' -or
+              $env:GITHUB_REPOSITORY -cne 'abhishekvatsa/crm3_baf_ops' -or
+              $env:GITHUB_EVENT_NAME -cne 'workflow_dispatch' -or $env:GITHUB_RUN_ATTEMPT -cne '1') {
+            throw 'Expected first-attempt public Linux x64 measurement.'
+          }
 
-      - name: Initialize CodeQL
-        id: init
-        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          function Get-RegularControllerPath([string]$Value) {
+            if ([string]::IsNullOrWhiteSpace($Value) -or -not [IO.Path]::IsPathFullyQualified($Value)) {
+              throw 'Absolute selected executable required.'
+            }
+            $item = Get-Item -LiteralPath $Value -Force
+            if ($item -isnot [IO.FileInfo]) { throw 'Selected executable must be a file.' }
+            $current = $item
+            while ($null -ne $current) {
+              if ($current.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Selected executable path redirects.' }
+              $current = if ($current -is [IO.DirectoryInfo]) { $current.Parent } else { $current.Directory }
+            }
+            $item.FullName
+          }
 
-      - name: Compile Kotlin inside CodeQL tracing
-        if: matrix.language == 'java-kotlin'
-        working-directory: android
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./gradlew --no-daemon --no-build-cache --no-configuration-cache \
-            --rerun-tasks \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -Pkotlin.incremental=false \
-            -Pdart-defines=Q1JNM19DSV9QQUNLQUdFX1BST09GPXRydWU= \
-            clean :app:assembleDebug
+          function Measure-ControllerBinary([string]$Selector) {
+            $file = Get-RegularControllerPath $Selector
+            $before = Get-Item -LiteralPath $file -Force
+            $length = $before.Length
+            $written = $before.LastWriteTimeUtc.Ticks
+            $created = $before.CreationTimeUtc.Ticks
+            $attributes = $before.Attributes
+            $mode = [IO.File]::GetUnixFileMode($file)
+            if ($length -le 0 -or $length -gt 268435456 -or ([int]$mode -band 73) -eq 0) {
+              throw 'Bounded executable file required.'
+            }
+            $digest = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+            $afterPath = Get-RegularControllerPath $Selector
+            $after = Get-Item -LiteralPath $afterPath -Force
+            if ($afterPath -cne $file -or $after.Length -ne $length -or
+                $after.LastWriteTimeUtc.Ticks -ne $written -or $after.CreationTimeUtc.Ticks -ne $created -or
+                $after.Attributes -ne $attributes -or [IO.File]::GetUnixFileMode($file) -ne $mode -or
+                $digest -cnotmatch '^[A-F0-9]{64}$') { throw 'Executable changed during hashing.' }
+            [ordered]@{pathSelector=$Selector; executable=$file; bytes=$length; sha256=$digest;
+              mode=[Convert]::ToString([int]$mode, 8); regularNoRedirectPath=$true}
+          }
 
-      - name: Analyze without implicit upload
-        id: analyze
-        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          category: /language:${{ matrix.language }}
-          output: ${{ runner.temp }}/codeql-sarif
-          # 'false' means failure-only in this action; 'never' is intentional.
-          upload: never
-          upload-database: false
+          # Exactly the application selection used by Initialize-Business31Controller.ps1.
+          $nodeCommand = @(Get-Command node -CommandType Application -ErrorAction Stop)[0]
+          $gitCommand = @(Get-Command git -CommandType Application -ErrorAction Stop)[0]
+          $node = Measure-ControllerBinary $nodeCommand.Source
+          $git = Measure-ControllerBinary $gitCommand.Source
+          if ($node.executable -cne '/opt/hostedtoolcache/node/22.23.1/x64/bin/node') {
+            throw 'PATH does not select the exact setup-node controller version path.'
+          }
 
-      - name: Prove app Kotlin method bodies were extracted
-        if: matrix.language == 'java-kotlin'
-        env:
-          CODEQL_BINARY: ${{ steps.init.outputs.codeql-path }}
-          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations || '{}').java }}
-          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/kotlin-extraction"
-          # Resolve java-all and its dependencies from this same CLI bundle.
-          # Do not install a separately versioned pack from a network registry.
-          CODEQL_BUNDLE="$(dirname "$CODEQL_BINARY")"
-          test -f "$CODEQL_BUNDLE/.codeqlmanifest.json"
-          test -d "$CODEQL_BUNDLE/qlpacks/codeql/java-all"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.bqrs" \
-            tools/security/codeql/MainActivityBodies.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/methods.bqrs"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs" \
-            tools/security/codeql/AppExtractionDiagnostics.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs"
-          python3 tools/security/codeql/verify_kotlin_extraction.py \
-            --csv "$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            --diagnostics "$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            --repository-root "$GITHUB_WORKSPACE" \
-            --commit "$(git rev-parse HEAD)" \
-            --codeql-version "$CODEQL_VERSION" \
-            --output "$RUNNER_TEMP/kotlin-extraction/proof.json"
-
-      - name: Upload accepted security analysis
-        if: vars.CRM3_CODEQL_PREVIEW != 'true'
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          sarif_file: ${{ steps.analyze.outputs.sarif-output }}
-          category: /language:${{ matrix.language }}
-          wait-for-processing: true
-
-      - name: Retain analysis and extraction evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: codeql-${{ matrix.language }}-evidence
-          path: |
-            ${{ runner.temp }}/codeql-sarif/*.sarif
-            ${{ runner.temp }}/kotlin-extraction/*.csv
-            ${{ runner.temp }}/kotlin-extraction/*.json
-          if-no-files-found: warn
-          retention-days: 14
+          $identity = [ordered]@{}
+          foreach ($key in @('GITHUB_REPOSITORY', 'GITHUB_EVENT_NAME', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA',
+              'GITHUB_SHA', 'GITHUB_REF', 'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'RUNNER_OS', 'RUNNER_ARCH', 'ImageOS', 'ImageVersion')) {
+            $identity[$key] = [Environment]::GetEnvironmentVariable($key)
+          }
+          $result = [ordered]@{schemaVersion=1; documentType='build31-public-controller-runtime-measurement';
+            recordedAtUtc=[DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ', [Globalization.CultureInfo]::InvariantCulture);
+            runsOn='ubuntu-24.04'; identity=$identity;
+            setup=[ordered]@{action='actions/setup-node@820762786026740c76f36085b0efc47a31fe5020'; requestedNodeVersion='22.23.1';
+              architecture='x64'; checkLatest=$false; packageManagerCache=$false; publicAcquisitionInstallationAndVersionExecutionMayOccur=$true};
+            runtimes=[ordered]@{node=$node; git=$git};
+            collector=[ordered]@{shell='pwsh'; version=$PSVersionTable.PSVersion.ToString(); selector='Get-Command -CommandType Application first.Source';
+              nodeOrGitExecutedByProbe=$false};
+            limits=[ordered]@{binaryFilesMeasuredOnly=$true; setupActionExecuted=$true; repositoryCheckout=$false; repositoryCodeExecuted=$false;
+              privateInputsOrEvidenceAccessed=$false; runtimeEnrolled=$false; compatibilityOrPrivateReplayProved=$false;
+              futureImageBytesAssumed=$false; constructionAuthorized=$false; signingAuthorized=$false; distributionAuthorized=$false}}
+          $raw = ($result | ConvertTo-Json -Depth 12 -Compress) + "`n"
+          $rawBytes = [Text.UTF8Encoding]::new($false).GetBytes($raw)
+          if ($rawBytes.Length -gt 32768) { throw 'Public measurement output exceeds bound.' }
+          [Console]::Out.WriteLine('BUILD31_CONTROLLER_RUNTIME_MEASUREMENT_JSON_BEGIN')
+          [Console]::Out.Write($raw)
+          [Console]::Out.WriteLine('BUILD31_CONTROLLER_RUNTIME_MEASUREMENT_JSON_END')
+          [Console]::Out.WriteLine('BUILD31_CONTROLLER_RUNTIME_MEASUREMENT_SHA256=' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($rawBytes)))
+          $summary = '```json' + "`n" + $raw + '```' + "`n"
+          [IO.File]::AppendAllText($env:GITHUB_STEP_SUMMARY, $summary, [Text.UTF8Encoding]::new($false))
