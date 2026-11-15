@@ -31,33 +31,41 @@ function measureClient31(options) {
 function admit31({ trust, request, repositoryRoot, gitExecutable, sourceManifest }) {
     p.validateTrust31(trust);
     p.validateRequest31(request);
+    const v2 = p.isV2Trust31(trust);
+    p.need(!v2 || request.schemaVersion === 2, 'V2_CHALLENGE_REQUIRED');
     p.verifyExecuting31(trust, SOURCE_ROOT);
     p.verifyReplayHelpers31(trust);
     p.need(p.sha(fs.readFileSync(p.regular(gitExecutable))) === trust.gitSha256, 'GIT_IDENTITY');
     const source = require('./business31SourceAdmission.cjs');
     p.need(p.sha(source.canonical(sourceManifest)) === trust.sourceManifestSha256, 'SOURCE_MANIFEST');
-    const envelope = {
+    const candidate = {commit: request.candidate.commit, tree: request.candidate.tree,
+        ref: 'refs/heads/business31-admitted-' + request.candidate.commit};
+    const envelope = v2 ? require('./business31TrustedInputV2.cjs').createTrustedEnvelopeV2(trust, candidate) : {
         schemaVersion: 1, profile: 'build31-business-trusted-input-v1', verifier: trust.verifier,
         source: {
             commit: trust.source.commit, tree: trust.source.tree
-        }, candidate: {
-            commit: request.candidate.commit, tree: request.candidate.tree, ref: 'refs/heads/business31-admitted-' + request.candidate.commit
-        }
+        }, candidate
     };
-    const api = require('./business31PrivateDescriptor.cjs');
-    const proof = api.verifyBusiness31DescriptorPreparation({
+    const api = v2 ? require('./business31PrivateDescriptorV2.cjs') : require('./business31PrivateDescriptor.cjs');
+    const verify = v2 ? api.verifyBusiness31DescriptorPreparationV2 : api.verifyBusiness31DescriptorPreparation;
+    const proof = verify({
         repositoryRoot, gitExecutable, gitSha256: trust.gitSha256, envelope,
         descriptorPointer: request.descriptorPointer, expectedSourceManifestSha256: trust.sourceManifestSha256
     });
     const repo = require('./business31TrustedInput.cjs').openTrustedGitRepository31({
         repositoryRoot, gitExecutable, gitSha256: trust.gitSha256
     });
-    const descriptor = api.validateBusiness31PrivateDescriptor(api.json(repo.readBlob(request.descriptorPointer.commit, request.descriptorPointer.file)));
+    const validate = v2 ? api.validateBusiness31PrivateDescriptorV2 : api.validateBusiness31PrivateDescriptor;
+    const descriptor = validate(api.json(repo.readBlob(request.descriptorPointer.commit, request.descriptorPointer.file)));
     p.same(descriptor.source, trust.source, 'ADMITTED_SOURCE');
     p.same(descriptor.verifier, {
         commit: trust.verifier.commit, tree: trust.verifier.tree
     }, 'ADMITTED_VERIFIER');
     p.same(descriptor.producerBindings, trust.verifier.files, 'ADMITTED_PRODUCERS');
+    if (v2) {
+        p.same(descriptor.coreVerifier, trust.coreVerifier, 'ADMITTED_CORE_VERIFIER');
+        p.same(descriptor.sourceIntegration, trust.sourceIntegration, 'ADMITTED_SOURCE_INTEGRATION');
+    }
     p.need(proof.inputBoundaryVerified === true, 'INPUT_BOUNDARY');
     return {
         envelope, descriptor
@@ -114,15 +122,20 @@ async function replayHosted31(options) {
         p.same(second, first, 'ADMISSION_CHANGED');
         accessToken = await exchangeReadOnly31(trust, oidc);
         oidc = null;
-        bundle = await require('./privateEvidenceBundle31.cjs').downloadExactGeneration31(first.descriptor, accessToken, 'business');
+        const transport = require('./privateEvidenceBundle31.cjs');
+        const v2 = p.isV2Trust31(trust);
+        bundle = await (v2 ? transport.downloadExactGenerationV2 : transport.downloadExactGeneration31)(first.descriptor, accessToken, 'business');
         accessToken = null;
         const parent = p.regular(privateParent, true);
         owned = fs.mkdtempSync(path.join(parent, 'business31-hosted-'));
         fs.chmodSync(owned, 0o700);
-        const replay = require('./business31OriginalPathReplay.cjs').verifyBusiness31OriginalPathReplay({
+        const replayApi = v2 ? require('./business31OriginalPathReplayV2.cjs') : require('./business31OriginalPathReplay.cjs');
+        const verify = v2 ? replayApi.verifyBusiness31OriginalPathReplayV2 : replayApi.verifyBusiness31OriginalPathReplay;
+        const replay = verify({
             repositoryRoot, gitExecutable, gitSha256: trust.gitSha256,
             envelope: first.envelope, descriptorPointer: request.descriptorPointer, sourceManifest, expectedSourceManifestSha256: trust.sourceManifestSha256,
-            bundleBytes: bundle, extractionRoot: path.join(owned, 'evidence'), nowUtc: new Date().toISOString()
+            bundleBytes: bundle, extractionRoot: path.join(owned, 'evidence'), nowUtc: new Date().toISOString(),
+            ...(v2 ? {nodeSha256: trust.nodeSha256} : {})
         });
         p.need(replay.recordedSemanticsReplayed === true && replay.originalPathsUnavailable === true, 'REPLAY_INCOMPLETE');
         p.same(replay.source, trust.source, 'REPLAY_SOURCE');
@@ -133,13 +146,15 @@ async function replayHosted31(options) {
         await p.observe31(trust, request, process.env.GITHUB_TOKEN, false);
         if (client) p.same(measureClient31(options), client, 'FINAL_CLIENT_MEASUREMENT_CHANGED');
         const result = {
-            schemaVersion: request.schemaVersion, documentType: 'build31-business-hosted-result', profile: p.PROFILE,
+            schemaVersion: request.schemaVersion, documentType: 'build31-business-hosted-result', profile: trust.profile,
             verifier: {
                 commit: trust.verifier.commit, tree: trust.verifier.tree
-            }, source: trust.source, candidate: request.candidate, descriptorPointer: request.descriptorPointer,
+            }, ...(v2 ? {coreVerifier: p.coreVerifierSummary31(trust)} : {}),
+            source: trust.source, candidate: request.candidate, descriptorPointer: request.descriptorPointer,
             closurePointer: first.descriptor.closurePointer, commitments: {
                 bundleSha256: first.descriptor.custody.sha256, membersSha256: replay.membersSha256,
-                relocationSha256: replay.relocationSha256, sourceManifestSha256: trust.sourceManifestSha256
+                relocationSha256: replay.relocationSha256, sourceManifestSha256: trust.sourceManifestSha256,
+                ...p.transportCommitments31(trust)
             },
             platform: {
                 repositoryId: trust.repository.id, workflowId: trust.workflow.id, workflowCommit: trust.verifier.commit, runId: request.runId, runAttempt: request.runAttempt, environment: trust.workflow.environment

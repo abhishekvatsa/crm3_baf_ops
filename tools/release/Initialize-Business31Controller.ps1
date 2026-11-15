@@ -56,7 +56,17 @@ $raw = [Text.UTF8Encoding]::new($false).GetBytes($ConfigJson)
 if ($raw.Length -eq 0 -or $raw.Length -gt 2097152 -or $ConfigSha256 -cnotmatch '^[A-F0-9]{64}$' -or
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($raw)) -cne $ConfigSha256) { throw 'Controller enrollment bytes differ.' }
 $config = $ConfigJson | ConvertFrom-Json -AsHashtable -Depth 100
-if ($config.schemaVersion -cne 1 -or $config.profile -cne 'build31-business-prerequisite-controller-v1') { throw 'Controller enrollment is unsupported.' }
+$transportV2 = $config.schemaVersion -ceq 2 -and $config.profile -ceq 'build31-business-prerequisite-controller-v2'
+if (-not $transportV2 -and ($config.schemaVersion -cne 1 -or $config.profile -cne 'build31-business-prerequisite-controller-v1')) { throw 'Controller enrollment is unsupported.' }
+if ($transportV2 -and ($config.replayTrust.schemaVersion -cne 2 -or $config.replayTrust.profile -cne 'build31-business-hosted-recorded-replay-v2' -or
+    $config.replayTrust.coreVerifier.commit -cne $config.replayTrust.source.commit -or $config.replayTrust.coreVerifier.tree -cne $config.replayTrust.source.tree)) {
+  throw 'Controller outer and recorded verifier selection differs.'
+}
+if (-not $transportV2 -and ($config.replayTrust.Contains('coreVerifier') -or $config.replayTrust.Contains('sourceIntegration') -or
+    ($config.replayTrust.Contains('schemaVersion') -and $config.replayTrust.schemaVersion -cne 1) -or
+    ($config.replayTrust.Contains('profile') -and $config.replayTrust.profile -cne 'build31-business-hosted-recorded-replay-v1'))) {
+  throw 'Legacy controller enrollment cannot select a versioned replay.'
+}
 $selfName = 'tools/release/Initialize-Business31Controller.ps1'
 if ($config.controller.files[$selfName] -cnotmatch '^[A-F0-9]{64}$' -or
     (Get-FileHash -LiteralPath $PSCommandPath -Algorithm SHA256).Hash -cne $config.controller.files[$selfName]) { throw 'Bootstrap source differs from enrolled verifier.' }

@@ -410,6 +410,111 @@ class LauncherPlan(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     launcher.sanitized_replay_output(self.projection_bytes(value), trust, request, client_input)
 
+    def transport_v2_fixture(self):
+        """Synthetic public projections; no original evidence or hosted authority."""
+        trust, request, artifact, public, client_input = self.artifact_fixture()
+        trust.update(schemaVersion=2, profile=launcher.PROFILE_V2,
+                     nodeSha256="A" * 64, gitSha256="B" * 64, launcherSha256="C" * 64,
+                     pythonSha256="D" * 64, wifAudience="synthetic-unused-audience")
+        trust["verifier"]["files"] = {}
+        trust["coreVerifier"] = {"commit": trust["source"]["commit"], "tree": trust["source"]["tree"],
+            "files": {"tools/release/" + name: "E" * 64 for name in
+                      ("business31BackendAuthority.cjs", "business31BackendClosure.cjs", "backendRuntimeEvidenceAccess31.cjs")}}
+        trust["sourceIntegration"] = {"tools/release/business31HostedProtocol.cjs":
+            {"mode": "100644", "oid": "8" * 40, "sha256": "F" * 64}}
+        core = launcher.core_summary(trust)
+        for value in (artifact, public):
+            value.update(profile=launcher.PROFILE_V2, coreVerifier=dict(core))
+            value["commitments"].update(launcher.transport_commitments(trust))
+            value["client"].update(schemaVersion=3, profile="build31-business-client-compatibility-v2", coreVerifier=dict(core))
+            value["client"]["policy"].update(schemaVersion=2, profile="build31-business-client-policy-v2", coreVerifier=dict(core))
+        return trust, request, artifact, public, client_input
+
+    def test_v2_public_projections_preserve_separate_core_and_outer_identities(self):
+        trust, request, artifact, public, client_input = self.transport_v2_fixture()
+        self.assertNotEqual(trust["verifier"]["commit"], trust["coreVerifier"]["commit"])
+        self.assertEqual(launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input),
+                         self.projection_bytes(artifact))
+        self.assertEqual(launcher.sanitized_client_output(self.projection_bytes(public), trust, request),
+                         self.projection_bytes(public))
+        self.assertNotIn("files", public["coreVerifier"])
+        self.assertNotIn("sourceIntegration", public)
+
+    def test_v2_launch_plan_requires_all_new_helpers_and_independent_client_selection(self):
+        trust, _, _, _, _ = self.transport_v2_fixture()
+        trust.update(nodeSha256=launcher.digest(self.node), launcherSha256=launcher.digest(FILE),
+                     pythonSha256=launcher.digest(Path(sys.executable)))
+        names = set(self.data['verifier']['files']) | set(launcher.CLIENT_HELPERS) | set(launcher.V2_REPLAY_HELPERS)
+        trust['verifier']['files'] = {name: launcher.digest(FILE.parents[2] / name) for name in names}
+        self.data = trust
+        self.write_trust()
+        with self.assertRaisesRegex(ValueError, 'V2_CLIENT_SELECTION_REQUIRED'):
+            self.plan('replay')
+        def selected_plan():
+            with patch.dict(os.environ, {'GITHUB_TOKEN': 'synthetic',
+                    'ACTIONS_ID_TOKEN_REQUEST_URL': 'https://synthetic.actions.githubusercontent.com/token',
+                    'ACTIONS_ID_TOKEN_REQUEST_TOKEN': 'synthetic'}):
+                return launcher.launch_plan('replay', str(self.node), str(self.trust), self.digest,
+                    str(self.input), str(self.root / 'business31-hosted-result.json'), str(self.root),
+                    str(self.input), launcher.digest(self.input))
+        argv, env = selected_plan()
+        self.assertEqual(argv[2], str(FILE.with_name('business31HostedReplay.cjs')))
+        self.assertNotIn('NODE_OPTIONS', env)
+        original = dict(self.data['verifier']['files'])
+        for name in launcher.V2_REPLAY_HELPERS:
+            with self.subTest(missing=name):
+                self.data['verifier']['files'] = dict(original)
+                del self.data['verifier']['files'][name]
+                self.write_trust()
+                with self.assertRaisesRegex(ValueError, 'REPLAY_PRODUCER'):
+                    selected_plan()
+
+    def test_v2_public_route_refuses_mixed_versions_maps_and_core_relabelling(self):
+        trust, request, original, _, client_input = self.transport_v2_fixture()
+        cases = [(("profile",), launcher.PROFILE_V1),
+                 (("coreVerifier", "commit"), trust["verifier"]["commit"]),
+                 (("coreVerifier", "files"), trust["coreVerifier"]["files"]),
+                 (("commitments", "coreProducerBindingsSha256"), "0" * 64),
+                 (("commitments", "sourceIntegrationSha256"), "0" * 64),
+                 (("client", "schemaVersion"), 2),
+                 (("client", "profile"), "build31-business-client-compatibility-v1"),
+                 (("client", "coreVerifier", "tree"), "0" * 40),
+                 (("client", "policy", "schemaVersion"), 1),
+                 (("client", "policy", "profile"), "build31-business-client-policy-v1"),
+                 (("client", "policy", "coreVerifier", "tree"), "0" * 40),
+                 (("platform", "workflowCommit"), trust["coreVerifier"]["commit"]),
+                 (("limits", "deploymentAuthorized"), True),
+                 (("challenge", "purpose"), "construction")]
+        for keys, replacement in cases:
+            with self.subTest(field=".".join(keys)):
+                value = json.loads(json.dumps(original))
+                target = value
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = replacement
+                with self.assertRaises(ValueError):
+                    launcher.sanitized_replay_output(self.projection_bytes(value), trust, request, client_input)
+
+    def test_v2_trust_has_no_legacy_fallback_and_map_changes_invalidate_result(self):
+        trust, request, artifact, _, client_input = self.transport_v2_fixture()
+        cases = [(('schemaVersion',), 1), (('schemaVersion',), 2.0), (('profile',), launcher.PROFILE_V1),
+                 (('coreVerifier', 'commit'), '0' * 40),
+                 (('sourceIntegration', 'tools/release/business31HostedProtocol.cjs', 'mode'), '100755'),
+                 (('sourceIntegration', 'tools/release/business31HostedProtocol.cjs', 'oid'), '9' * 40),
+                 (('coreVerifier', 'files', 'tools/release/business31BackendClosure.cjs'), '0' * 64)]
+        for keys, replacement in cases:
+            with self.subTest(field=".".join(keys)):
+                selected = json.loads(json.dumps(trust))
+                target = selected
+                for key in keys[:-1]:
+                    target = target[key]
+                target[keys[-1]] = replacement
+                with self.assertRaises(ValueError):
+                    launcher.sanitized_replay_output(self.projection_bytes(artifact), selected, request, client_input)
+        request['schemaVersion'] = 1
+        with self.assertRaisesRegex(ValueError, 'V2_CHALLENGE_REQUIRED'):
+            launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input)
+
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()
         past = datetime.now(timezone.utc) - timedelta(seconds=1)

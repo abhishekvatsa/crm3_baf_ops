@@ -17,6 +17,8 @@ const CONTROLLER = 'tools/release/business31Controller.cjs';
 const PROTOCOL = 'tools/release/business31HostedProtocol.cjs';
 const INPUT_PROFILE = 'build31-business-policy-result-input-v1';
 const PROFILE = 'build31-business-policy-result-v1';
+const INPUT_PROFILE_V2 = 'build31-business-policy-result-input-v2';
+const PROFILE_V2 = 'build31-business-policy-result-v2';
 const FALSE_FLAGS = Object.freeze(['independentlySelectedInputsAuthenticated',
   'executingHostAuthenticated', 'humanIdentityAuthenticated', 'trustedClockAuthenticated',
   'originalProcessExecutionAuthenticated', 'credentialAccessAuthorized',
@@ -71,7 +73,9 @@ async function main() {
   const p = require('./business31HostedProtocol.cjs');
   const inputBytes = read(inputFile, 128 * 1024), input = p.json(inputBytes, 128 * 1024);
   p.exact(input, ['schemaVersion', 'profile', 'repositoryRoot', 'gitExecutable', 'request'], 'POLICY_INPUT');
-  p.need(input.schemaVersion === 1 && input.profile === INPUT_PROFILE, 'POLICY_INPUT_PROFILE');
+  const successor = p.isV2Trust31(config.replayTrust);
+  p.need(input.schemaVersion === (successor ? 2 : 1) &&
+    input.profile === (successor ? INPUT_PROFILE_V2 : INPUT_PROFILE), 'POLICY_INPUT_PROFILE');
   const request = p.validateRequest31(input.request);
   p.need(request.schemaVersion === 2 && request.challenge.purpose === 'policy', 'POLICY_PURPOSE');
   p.same(request.candidate, config.selected.candidate, 'POLICY_SELECTED_S');
@@ -81,7 +85,7 @@ async function main() {
   // The explicit locator is data, not proof. Only the completed pinned-V run's
   // actual artifact can authenticate its contents. No discovery or dispatch.
   const retrieved = await p.retrieveResult31(config.replayTrust, request, process.env.GITHUB_TOKEN);
-  p.need(retrieved.value.schemaVersion === 2 && retrieved.value.client?.schemaVersion === 2,
+  p.need(retrieved.value.schemaVersion === 2 && retrieved.value.client?.schemaVersion === (successor ? 3 : 2),
     'POLICY_CLIENT_SCHEMA');
   controller.verifyCommittedPolicy31(config, {
     repositoryRoot: input.repositoryRoot, gitExecutable: input.gitExecutable
@@ -94,7 +98,8 @@ async function main() {
   need(read(configFile, 2 * 1024 * 1024).equals(configBytes) &&
     read(inputFile, 128 * 1024).equals(inputBytes));
   const value = retrieved.value;
-  process.stdout.write(JSON.stringify({schemaVersion: 1, profile: PROFILE, purpose: 'policy',
+  process.stdout.write(JSON.stringify({schemaVersion: successor ? 2 : 1, profile: successor ? PROFILE_V2 : PROFILE, purpose: 'policy',
+    ...(successor ? {coreVerifier: value.coreVerifier} : {}),
     verifier: value.verifier, source: value.source, candidate: value.candidate,
     descriptorPointer: value.descriptorPointer, closurePointer: value.closurePointer,
     commitments: value.commitments, runId: request.runId, runAttempt: request.runAttempt,

@@ -12,9 +12,13 @@ const {isDeepStrictEqual} = require('node:util');
 const BUCKET = 'crm3-baf-ops-b8638-firestore-restore';
 const MAX_BUNDLE = 512 * 1024 * 1024;
 const MAX_MEMBERS = 50000;
+const MAX_MEMBERS_V2 = 53000;
 const MAX_EXPANDED = 1024 * 1024 * 1024;
 const MAX_MEMBER = 128 * 1024 * 1024;
 const BUNDLE_ENCODING = 'gzip-members-v1';
+const BUNDLE_ENCODING_V2 = 'gzip-members-v2';
+const LEGACY_FORMAT = Object.freeze({schemaVersion:2,encoding:BUNDLE_ENCODING,maxMembers:MAX_MEMBERS});
+const V2_FORMAT = Object.freeze({schemaVersion:3,encoding:BUNDLE_ENCODING_V2,maxMembers:MAX_MEMBERS_V2});
 const KINDS = Object.freeze({
   runtime: Object.freeze({namespace:'runtime-backend', documentType:'build31-private-runtime-evidence-bundle'}),
   business: Object.freeze({namespace:'business-backend', documentType:'build31-private-business-evidence-bundle'}),
@@ -38,10 +42,10 @@ function relative(value) {
   return value;
 }
 
-function validateTransportDescriptor31(value,kind) {
+function validateTransportDescriptor(value,kind,format) {
   need(typeof kind==='string' && Object.hasOwn(KINDS,kind),'Unsupported private bundle kind');
   need(value && typeof value==='object' && !Array.isArray(value),'Private transport descriptor required');
-  need(value.bundleEncoding===BUNDLE_ENCODING && Number.isSafeInteger(value.expandedBytes) &&
+  need(value.bundleEncoding===format.encoding && Number.isSafeInteger(value.expandedBytes) &&
     value.expandedBytes>=0 && value.expandedBytes<=MAX_EXPANDED,'Invalid expanded private bundle bound');
   keys(value.source,['commit','tree','functionsTree'],'Source');
   for(const hash of Object.values(value.source)) need(typeof hash==='string' && /^[a-f0-9]{40}$/.test(hash),'Invalid immutable source identity');
@@ -55,16 +59,21 @@ function validateTransportDescriptor31(value,kind) {
   for(const key of ['membersSha256','relocationSha256']) need(typeof value[key]==='string' && /^[A-F0-9]{64}$/.test(value[key]),'Invalid bundle commitment');
   return value;
 }
-function verifyBundleBytes31(bytes,descriptor,kind) {
-  validateTransportDescriptor31(descriptor,kind);
+function validateTransportDescriptor31(value,kind) { return validateTransportDescriptor(value,kind,LEGACY_FORMAT); }
+function validateTransportDescriptorV2(value,kind) {
+  need(kind==='business','Successor transport is business-only');
+  return validateTransportDescriptor(value,kind,V2_FORMAT);
+}
+function verifyBundleBytes(bytes,descriptor,kind,format) {
+  validateTransportDescriptor(descriptor,kind,format);
   need(Buffer.isBuffer(bytes) && bytes.length===descriptor.custody.bytes && sha(bytes)===descriptor.custody.sha256,
     'Private bundle bytes differ from immutable custody');
   const bundle=JSON.parse(bytes.toString('utf8'));
   keys(bundle,['schemaVersion','documentType','encoding','source','members','relocation'],'Private bundle');
-  need(bundle.schemaVersion===2 && bundle.encoding===BUNDLE_ENCODING && bundle.documentType===KINDS[kind].documentType,
+  need(bundle.schemaVersion===format.schemaVersion && bundle.encoding===format.encoding && bundle.documentType===KINDS[kind].documentType,
     'Unsupported private bundle; no encoding fallback is permitted');
   same(bundle.source,descriptor.source,'Private bundle source differs');
-  need(Array.isArray(bundle.members) && bundle.members.length>0 && bundle.members.length<=MAX_MEMBERS,'Invalid private member population');
+  need(Array.isArray(bundle.members) && bundle.members.length>0 && bundle.members.length<=format.maxMembers,'Invalid private member population');
   const seen=new Set(), prefixes=new Map(), inventory={}, records=[], compressed=[];
   let declaredTotal=0;
   // Validate the entire declared population before any decompression.
@@ -111,8 +120,13 @@ function verifyBundleBytes31(bytes,descriptor,kind) {
   need(actualTotal===descriptor.expandedBytes,'Actual expanded population differs');
   return {records,inventory,relocation:bundle.relocation};
 }
-function extractVerifiedBundle31(bytes,descriptor,destination,kind) {
-  const verified=verifyBundleBytes31(bytes,descriptor,kind);
+function verifyBundleBytes31(bytes,descriptor,kind) { return verifyBundleBytes(bytes,descriptor,kind,LEGACY_FORMAT); }
+function verifyBundleBytesV2(bytes,descriptor,kind) {
+  need(kind==='business','Successor transport is business-only');
+  return verifyBundleBytes(bytes,descriptor,kind,V2_FORMAT);
+}
+function extractVerifiedBundle(bytes,descriptor,destination,kind,format) {
+  const verified=verifyBundleBytes(bytes,descriptor,kind,format);
   need(path.isAbsolute(destination) && !fs.existsSync(destination),'Private extraction requires a fresh absolute directory');
   const parent=fs.realpathSync(path.dirname(destination));
   need(path.dirname(path.resolve(destination))===parent,'Private extraction parent must not be a symlink');
@@ -145,6 +159,11 @@ function extractVerifiedBundle31(bytes,descriptor,destination,kind) {
   }
   return {...verified,root};
 }
+function extractVerifiedBundle31(bytes,descriptor,destination,kind) { return extractVerifiedBundle(bytes,descriptor,destination,kind,LEGACY_FORMAT); }
+function extractVerifiedBundleV2(bytes,descriptor,destination,kind) {
+  need(kind==='business','Successor transport is business-only');
+  return extractVerifiedBundle(bytes,descriptor,destination,kind,V2_FORMAT);
+}
 function getGoogleStorage(pathname,token,maxBytes) {
   need(typeof token==='string' && token.length>20 && token.length<16384 && !/[\r\n]/.test(token),'Authorized private-evidence read credential is unavailable');
   need(pathname.startsWith('/storage/v1/b/'+BUCKET+'/o/'),'Unsupported evidence host/path');
@@ -161,8 +180,8 @@ function getGoogleStorage(pathname,token,maxBytes) {
     request.on('error',()=>reject(new Error('Private evidence read failed')));
   });
 }
-async function downloadExactGeneration31(descriptor,token,kind) {
-  validateTransportDescriptor31(descriptor,kind);const c=descriptor.custody;
+async function downloadExactGeneration(descriptor,token,kind,format) {
+  validateTransportDescriptor(descriptor,kind,format);const c=descriptor.custody;
   const base='/storage/v1/b/'+BUCKET+'/o/'+encodeURIComponent(c.objectName)+'?generation='+c.generation;
   const metadata=JSON.parse((await getGoogleStorage(base,token,1024*1024)).toString('utf8'));
   need(metadata.bucket===BUCKET && metadata.name===c.objectName && metadata.generation===c.generation &&
@@ -171,6 +190,12 @@ async function downloadExactGeneration31(descriptor,token,kind) {
   need(raw.length===c.bytes && sha(raw)===c.sha256,'Google generation bytes differ from immutable custody');
   return raw;
 }
+async function downloadExactGeneration31(descriptor,token,kind) { return downloadExactGeneration(descriptor,token,kind,LEGACY_FORMAT); }
+async function downloadExactGenerationV2(descriptor,token,kind) {
+  need(kind==='business','Successor transport is business-only');
+  return downloadExactGeneration(descriptor,token,kind,V2_FORMAT);
+}
 
 module.exports={BUCKET,MAX_BUNDLE,MAX_MEMBERS,MAX_EXPANDED,MAX_MEMBER,BUNDLE_ENCODING,
-  validateTransportDescriptor31,verifyBundleBytes31,extractVerifiedBundle31,downloadExactGeneration31};
+  validateTransportDescriptor31,verifyBundleBytes31,extractVerifiedBundle31,downloadExactGeneration31,
+  MAX_MEMBERS_V2,BUNDLE_ENCODING_V2,validateTransportDescriptorV2,verifyBundleBytesV2,extractVerifiedBundleV2,downloadExactGenerationV2};

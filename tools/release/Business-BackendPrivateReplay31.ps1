@@ -112,15 +112,17 @@ function Read-Business31Json {
 }
 
 function ConvertTo-Business31CanonicalJson {
-  param([AllowNull()][object]$Value)
+  param([AllowNull()][object]$Value, [switch]$Ordinal)
   if ($Value -is [Collections.IDictionary]) {
-    $parts = foreach ($key in @($Value.Keys | Sort-Object -CaseSensitive)) {
-      ($key | ConvertTo-Json -Compress) + ':' + (ConvertTo-Business31CanonicalJson $Value[$key])
+    $keys = @($Value.Keys | Sort-Object -CaseSensitive)
+    if ($Ordinal) { $keys = [string[]]@($Value.Keys); [Array]::Sort($keys, [StringComparer]::Ordinal) }
+    $parts = foreach ($key in $keys) {
+      ($key | ConvertTo-Json -Compress) + ':' + (ConvertTo-Business31CanonicalJson $Value[$key] -Ordinal:$Ordinal)
     }
     return '{' + ($parts -join ',') + '}'
   }
   if ($Value -is [Array]) {
-    $parts = foreach ($item in $Value) { ConvertTo-Business31CanonicalJson $item }
+    $parts = foreach ($item in $Value) { ConvertTo-Business31CanonicalJson $item -Ordinal:$Ordinal }
     return '[' + ($parts -join ',') + ']'
   }
   return ConvertTo-Json -InputObject $Value -Compress -Depth 50
@@ -221,8 +223,11 @@ function Invoke-ProductionBusiness31PrerequisiteReplay {
       ($policyData.versionPolicy.buildNumber -isnot [int] -and $policyData.versionPolicy.buildNumber -isnot [long]) -or
       $policyData.release.buildNumber -cne 31 -or $policyData.versionPolicy.buildNumber -cne 31 -or
       $policyData.Contains('runtimeBackendPrivateReplay')) { throw 'Business31 policy is partial or mixed with a legacy route.' }
-  Assert-Business31Pointer $policyData.clientBackendCompatibility 'build31-business-client-compatibility-v1' 'release/approvals/build31-business-client-compatibility-approval.json'
-  Assert-Business31Pointer $policyData.businessBackendPrivateReplay 'build31-exact-business-backend-v1' 'release/evidence/build31-business-private-replay.json'
+  $transportV2 = $policyData.businessBackendPrivateReplay.profile -ceq 'build31-exact-business-backend-v2'
+  $clientPointerProfile = if ($transportV2) { 'build31-business-client-compatibility-v2' } else { 'build31-business-client-compatibility-v1' }
+  Assert-Business31Pointer $policyData.clientBackendCompatibility $clientPointerProfile 'release/approvals/build31-business-client-compatibility-approval.json'
+  $descriptorProfile = if ($transportV2) { 'build31-exact-business-backend-v2' } else { 'build31-exact-business-backend-v1' }
+  Assert-Business31Pointer $policyData.businessBackendPrivateReplay $descriptorProfile 'release/evidence/build31-business-private-replay.json'
   $repo = Get-Business31RegularPath $RepositoryRoot -Directory
   $policyPath = Join-Path $repo 'release/production-release-policy.json'
   Assert-Business31Same $policyData (Read-Business31Json $policyPath) 'Passed and repository policy'
@@ -238,13 +243,22 @@ function Invoke-ProductionBusiness31PrerequisiteReplay {
   Assert-Business31Keys $config @('schemaVersion', 'profile', 'replayTrust', 'controller', 'selected', 'requester', 'maximumWaitSeconds') 'Business31 controller configuration'
   Assert-Business31Keys $config.controller @('nodeSha256', 'gitSha256', 'files') 'Business31 controller runtime'
   Assert-Business31Keys $config.selected @('candidate', 'descriptorPointer', 'clientSelectionSha256') 'Business31 independent selection'
-  if ($config.schemaVersion -cne 1 -or $config.profile -cne 'build31-business-prerequisite-controller-v1' -or
+  $configVersion = if ($transportV2) { 2 } else { 1 }
+  $configProfile = if ($transportV2) { 'build31-business-prerequisite-controller-v2' } else { 'build31-business-prerequisite-controller-v1' }
+  if ($config.schemaVersion -cne $configVersion -or $config.profile -cne $configProfile -or
       ($config.maximumWaitSeconds -isnot [int] -and $config.maximumWaitSeconds -isnot [long]) -or
       $config.maximumWaitSeconds -lt 60 -or $config.maximumWaitSeconds -gt 9000 -or
       $config.controller.nodeSha256 -cnotmatch '^[A-F0-9]{64}$' -or
       $config.controller.gitSha256 -cnotmatch '^[A-F0-9]{64}$' -or
       (Get-Business31FileHash $node) -cne $config.controller.nodeSha256 -or
       (Get-Business31FileHash $git) -cne $config.controller.gitSha256) { throw 'Business31 selected runtime/configuration differs.' }
+  if ($transportV2) {
+    if ($config.replayTrust.schemaVersion -cne 2 -or $config.replayTrust.profile -cne 'build31-business-hosted-recorded-replay-v2') { throw 'Business31 transport profile differs.' }
+    Assert-Business31Same ([ordered]@{commit=$config.replayTrust.coreVerifier.commit; tree=$config.replayTrust.coreVerifier.tree}) `
+      ([ordered]@{commit=$config.replayTrust.source.commit; tree=$config.replayTrust.source.tree}) 'Recorded verifier M'
+  } elseif ($config.replayTrust.Contains('coreVerifier') -or $config.replayTrust.Contains('sourceIntegration') -or
+      ($config.replayTrust.Contains('schemaVersion') -and $config.replayTrust.schemaVersion -cne 1) -or
+      ($config.replayTrust.Contains('profile') -and $config.replayTrust.profile -cne 'build31-business-hosted-recorded-replay-v1')) { throw 'Business31 legacy transport profile differs.' }
   Assert-Business31Same $config.controller.files $config.replayTrust.verifier.files 'Controller and replay verifier selection'
   Assert-Business31SelectedFiles $root $config.controller.files
   $descriptor = [ordered]@{commit=$policyData.businessBackendPrivateReplay.commit; file=$policyData.businessBackendPrivateReplay.file; sha256=$policyData.businessBackendPrivateReplay.sha256}
@@ -341,21 +355,27 @@ function Invoke-ProductionBusiness31PrerequisiteReplay {
   foreach ($file in $bindings.Keys) { if ((Get-Business31FileHash $file 4294967296) -cne $bindings[$file]) { throw 'Business31 invocation input changed.' } }
   Assert-Business31SelectedFiles $root $config.controller.files
   $result = Read-Business31Json $outputPath 131072
-  Assert-Business31Keys $result @('schemaVersion', 'profile', 'purpose', 'verifier', 'source', 'candidate', 'descriptorPointer',
+  $resultFields = @('schemaVersion', 'profile', 'purpose', 'verifier', 'source', 'candidate', 'descriptorPointer',
     'closurePointer', 'commitments', 'client', 'challenge', 'runId', 'runAttempt', 'artifactId', 'resultSha256',
-    'replayMode', 'freshHostedReplayVerified', 'limits') 'Business31 fresh result'
+    'replayMode', 'freshHostedReplayVerified', 'limits')
+  if ($transportV2) { $resultFields += 'coreVerifier' }
+  Assert-Business31Keys $result $resultFields 'Business31 fresh result'
   $expectedMode = if ($resumePath) { 'same-parent-reauthentication' } else { 'fresh-dispatch' }
-  if ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-prerequisite-measurement-v1' -or
+  $resultProfile = if ($transportV2) { 'build31-business-prerequisite-measurement-v2' } else { 'build31-business-prerequisite-measurement-v1' }
+  if ($result.schemaVersion -cne $configVersion -or $result.profile -cne $resultProfile -or
       $result.purpose -cne $kind -or $result.replayMode -cne $expectedMode -or $result.freshHostedReplayVerified -isnot [bool] -or
       $result.freshHostedReplayVerified -cne $true) { throw 'Business31 fresh result scope differs.' }
   Assert-Business31Same $result.verifier ([ordered]@{commit=$config.replayTrust.verifier.commit; tree=$config.replayTrust.verifier.tree}) 'Result verifier V'
   Assert-Business31Same $result.source $config.replayTrust.source 'Result source M'
+  if ($transportV2) { Assert-Business31Same $result.coreVerifier ([ordered]@{commit=$config.replayTrust.coreVerifier.commit; tree=$config.replayTrust.coreVerifier.tree}) 'Result recorded verifier M' }
   Assert-Business31Same $result.candidate $config.selected.candidate 'Result candidate S'
   Assert-Business31Same $result.descriptorPointer $descriptor 'Result descriptor'
   if ($result.closurePointer.file -cne $policyData.finalization.exactFunctionFleetDeploymentReceiptFile -or
       $result.closurePointer.sha256 -cne $policyData.finalization.exactFunctionFleetDeploymentReceiptSha256) { throw 'Business31 result closure differs from policy.' }
   Assert-Business31Same $result.client.decisionPointer ([ordered]@{commit=$policyData.clientBackendCompatibility.commit; file=$policyData.clientBackendCompatibility.file; sha256=$policyData.clientBackendCompatibility.sha256}) 'Result client decision'
-  if ($result.client.schemaVersion -cne 2 -or $result.client.profile -cne 'build31-business-client-compatibility-v1' -or
+  $clientVersion = if ($transportV2) { 3 } else { 2 }
+  $clientProfile = if ($transportV2) { 'build31-business-client-compatibility-v2' } else { 'build31-business-client-compatibility-v1' }
+  if ($result.client.schemaVersion -cne $clientVersion -or $result.client.profile -cne $clientProfile -or
       $result.client.appCheckSourcePolicyVerified -isnot [bool] -or
       $result.client.appCheckSourcePolicyVerified -cne $true) { throw 'Business31 client source/policy measurement is incomplete.' }
   Assert-Business31Keys $result.limits @('deploymentAuthorized', 'constructionAuthorized', 'signingAuthorized', 'distributionAuthorized') 'Business31 authority limits'
@@ -367,7 +387,15 @@ function Invoke-ProductionBusiness31PrerequisiteReplay {
   }
   foreach ($name in @('runId', 'runAttempt', 'artifactId')) { if ($result[$name] -isnot [string] -or $result[$name] -cnotmatch '^[1-9][0-9]{0,19}$') { throw 'Business31 result platform identity is malformed.' } }
   if ($result.resultSha256 -cnotmatch '^[A-F0-9]{64}$' -or $result.challenge.purpose -cne $kind) { throw 'Business31 result challenge is malformed.' }
-  Assert-Business31Keys $result.commitments @('bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256') 'Business31 commitments'
+  $commitmentFields = @('bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256')
+  if ($transportV2) { $commitmentFields += @('coreProducerBindingsSha256', 'sourceIntegrationSha256') }
+  Assert-Business31Keys $result.commitments $commitmentFields 'Business31 commitments'
+  if ($transportV2) {
+    foreach ($entry in @(@('coreProducerBindingsSha256', $config.replayTrust.coreVerifier.files), @('sourceIntegrationSha256', $config.replayTrust.sourceIntegration))) {
+      $canonicalBytes = [Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Business31CanonicalJson $entry[1] -Ordinal))
+      if ($result.commitments[$entry[0]] -cne [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($canonicalBytes))) { throw 'Business31 versioned verifier commitment differs.' }
+    }
+  }
   foreach ($name in $result.commitments.Keys) { if ($result.commitments[$name] -isnot [string] -or $result.commitments[$name] -cnotmatch '^[A-F0-9]{64}$') { throw 'Business31 commitment digest is malformed.' } }
   if ($result.commitments.sourceManifestSha256 -cne $config.replayTrust.sourceManifestSha256) { throw 'Business31 source manifest differs.' }
   $challenge = $result.challenge

@@ -656,9 +656,13 @@ if ($business31Selected) {
   $fresh = Invoke-ProductionBusiness31PrerequisiteReplay -Purpose PackageVerification -RepositoryRoot $RepositoryRoot `
     -Policy $policy -SourceArchivePath $sourceArchivePath -ManifestPath $ManifestPath
   if ($fresh.replayMode -cne 'fresh-dispatch') { throw 'Package verification requires a new full private replay.' }
+  $transportV2 = $fresh.schemaVersion -ceq 2 -and $fresh.profile -ceq 'build31-business-prerequisite-measurement-v2'
+  $recordVersion = if ($transportV2) { 2 } else { 1 }
+  $recordProfile = if ($transportV2) { 'build31-business-construction-record-v2' } else { 'build31-business-construction-record-v1' }
+  $measurementProfile = if ($transportV2) { 'build31-business-prerequisite-measurement-v2' } else { 'build31-business-prerequisite-measurement-v1' }
   $record = (Read-Business31Json $ManifestPath 2097152).businessBackend31
   Assert-Business31Keys $record @('schemaVersion', 'profile', 'constructionObservationFile', 'constructionObservationSha256') 'Business31 construction record'
-  if ($record.schemaVersion -cne 1 -or $record.profile -cne 'build31-business-construction-record-v1' -or
+  if ($record.schemaVersion -cne $recordVersion -or $record.profile -cne $recordProfile -or
       $record.constructionObservationFile -cne 'business31-construction-observation.json' -or
       $record.constructionObservationSha256 -cnotmatch '^[A-F0-9]{64}$') { throw 'Business31 construction record is malformed.' }
   $observationPath = Resolve-ContainedFile -Root $packageDirectory -RelativePath $record.constructionObservationFile
@@ -668,7 +672,7 @@ if ($business31Selected) {
     throw 'Business31 retained construction route differs.'
   }
   $observed = $retained.businessBackend31.prerequisiteResult
-  if ($observed.profile -cne 'build31-business-prerequisite-measurement-v1' -or $observed.purpose -cne 'construction' -or
+  if ($observed.schemaVersion -cne $recordVersion -or $observed.profile -cne $measurementProfile -or $observed.purpose -cne 'construction' -or
       $observed.replayMode -cne 'same-parent-reauthentication' -or
       $observed.challenge.requester.kind -cne 'github-actions' -or
       $observed.challenge.requester.runId -cne [string]$manifest.ciAuthority.runId -or
@@ -680,6 +684,10 @@ if ($business31Selected) {
   foreach ($field in @('verifier', 'source', 'candidate', 'descriptorPointer', 'closurePointer', 'commitments', 'client', 'limits')) {
     Assert-Business31Same $observed[$field] $fresh.$field "Business31 construction/package $field"
   }
+  if ($transportV2) {
+    Assert-Business31Same $observed.coreVerifier $fresh.coreVerifier 'Business31 construction/package recorded verifier'
+    Assert-Business31Same $fresh.coreVerifier ([ordered]@{commit=$fresh.source.commit; tree=$fresh.source.tree}) 'Business31 package recorded verifier M'
+  } elseif ($observed.Contains('coreVerifier')) { throw 'Business31 legacy construction observation contains a versioned verifier.' }
   $descriptor = (Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $fresh.descriptorPointer.file) | ConvertFrom-Json -Depth 100
   $backend = (Get-ZipEntryText -ArchivePath $sourceArchivePath -EntryPath $fresh.closurePointer.file) | ConvertFrom-Json -Depth 100
   if ((Get-ZipEntrySha256 -ArchivePath $sourceArchivePath -EntryPath $fresh.descriptorPointer.file) -cne $fresh.descriptorPointer.sha256 -or

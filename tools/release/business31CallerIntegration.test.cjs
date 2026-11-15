@@ -83,7 +83,7 @@ test('builder retains the original observed output separately from manifest comm
   const body = between(builder, "if ($null -ne $business31Proof) {\n  # A retained observation".replaceAll('\n', builder.includes('\r\n') ? '\r\n' : '\n'),
     'Write-Utf8NoBom `');
   ordered(body, ["'business31-construction-observation.json'", '([string]$businessOutput[0]',
-    "profile = 'build31-business-construction-record-v1'", 'constructionObservationSha256 = Get-Sha256']);
+    "'build31-business-construction-record-v2'", "'build31-business-construction-record-v1'", 'constructionObservationSha256 = Get-Sha256']);
   assert.doesNotMatch(body, /constructionAuthorized\s*=\s*\$true|signingAuthorized\s*=\s*\$true/);
 });
 
@@ -162,4 +162,24 @@ Write-Output 'PARSED_ONLY'
     windowsHide: true, timeout: 15000, maxBuffer: 1024 * 1024});
   assert.equal(run.error, undefined); assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout.trim(), 'PARSED_ONLY');
+});
+
+test('v2 construction and package record retain distinct core-verifier comparison',()=>{
+ assert.match(builder,/build31-business-construction-record-v2/);
+ assert.match(manifest,/\$record\.schemaVersion -cne \$recordVersion/);
+ assert.match(manifest,/\$observed\.schemaVersion -cne \$recordVersion/);
+ assert.match(manifest,/Assert-Business31Same \$observed\.coreVerifier \$fresh\.coreVerifier/);
+ assert.match(manifest,/legacy construction observation contains a versioned verifier/);
+});
+
+test('versioned verifier-map hashes use ordinal key ordering across Node and PowerShell',()=>{
+ const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'b31-map-order-'));
+ const sample={'tools/release/a.cjs':{sha256:'B'.repeat(64),oid:'b'.repeat(40),mode:'100644'},
+  'tools/release/Z.cjs':{oid:'a'.repeat(40),mode:'100644',sha256:'A'.repeat(64)}};
+ const canonical=v=>v&&typeof v==='object'?'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}':JSON.stringify(v);
+ const input=path.join(temporary,'map.json'),script=path.join(temporary,'check.ps1');fs.writeFileSync(input,JSON.stringify(sample));
+ const q=v=>"'"+v.replaceAll("'","''")+"'";
+ fs.writeFileSync(script,"$ErrorActionPreference='Stop'\n. "+q(path.join(root,'tools/release/Business-BackendPrivateReplay31.ps1'))+"\n$m=Get-Content -LiteralPath "+q(input)+" -Raw|ConvertFrom-Json -AsHashtable\nConvertTo-Business31CanonicalJson $m -Ordinal\n");
+ const run=spawnSync(process.env.BUSINESS31_TEST_PWSH||'pwsh',['-NoProfile','-File',script],{encoding:'utf8',windowsHide:true,timeout:15000});
+ assert.equal(run.error,undefined);assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),canonical(sample));
 });

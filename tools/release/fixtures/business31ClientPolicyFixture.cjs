@@ -14,7 +14,8 @@ const hostedClient = require('../business31HostedClient.cjs');
 const policySubject = require('../business31ClientPolicy.cjs');
 const hostedFixture = require('./business31HostedFixture.cjs');
 const releaseRoot = path.resolve(__dirname, '..');
-function createFixture({mutations = [], identityBytes, extraProducers = [], publicApprovalEnvelope = false} = {}) {
+function createFixture({mutations = [], identityBytes, extraProducers = [], publicApprovalEnvelope = false, successor = false} = {}) {
+if (typeof successor !== 'boolean') throw Error('successor must be a boolean');
 if (typeof publicApprovalEnvelope !== 'boolean') throw Error('publicApprovalEnvelope must be a boolean');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'business31-client-policy-'));
 process.stdout.write('Retained synthetic client policy fixture: ' + temporary + '\n');
@@ -90,7 +91,7 @@ if (!Array.isArray(extraProducers) || extraProducers.length > 32 ||
     extraProducers.some(file => typeof file !== 'string' ||
       (!/^tools\/release\/business31[A-Za-z]+\.(?:cjs|py)$/.test(file) && !pilotProducers.has(file))))
   throw Error('Only bounded literal local producer filenames are admitted in this test fixture');
-for (const file of [...new Set([...descriptor.CORE, ...subject.HELPERS, ...hostedClient.HELPERS, ...policySubject.HELPERS, ...extraProducers])]) {
+for (const file of [...new Set([...descriptor.CORE, ...subject.HELPERS, ...hostedClient.HELPERS, ...policySubject.HELPERS, ...(successor ? ['tools/release/business31OriginalPathReplay.cjs'] : []), ...extraProducers])]) {
   files[file] = fs.readFileSync(path.join(releaseRoot, path.basename(file))); bindings[file] = sha(files[file]);
 }
 files['tools/v4/v4_2_r1_canonical_audit.py'] = fs.readFileSync(
@@ -111,7 +112,7 @@ const right = add(V, 'functions/index.js', Buffer.from('// never executed fixtur
 const M = commit({...left.files, 'functions/index.js': right.files['functions/index.js']}, [left, right]);
 const source = {commit: M.commit, tree: M.tree,
   functionsTree: tree(Object.fromEntries(Object.entries(M.files).filter(([name]) => name.startsWith('functions/')).map(([name, bytes]) => [name.slice(10), bytes])))};
-const approvalBytes = raw(publicApprovalEnvelope ? {schemaVersion: 1,
+const approvalBytes = raw(publicApprovalEnvelope || successor ? {schemaVersion: 1,
   documentType: 'build31-business-private-record-custody', recordKind: 'decision', source,
   recordedAtUtc: '2026-01-01T00:00:00Z', privateRecord: {file: 'synthetic/private-approval.json',
     sha256: 'E'.repeat(64), bytes: 1}} : {synthetic: true, operationalAuthority: false});
@@ -121,14 +122,26 @@ const closureBytes = raw({schemaVersion: 1, documentType: 'build31-business-priv
   source, recordedAtUtc: '2026-01-01T00:00:00Z', privateRecord: {file: 'synthetic/private-closure.json', sha256: 'C'.repeat(64), bytes: 1}});
 const C = add(A, subject.FILES.backendClosure, closureBytes);
 const closure = {commit: C.commit, file: subject.FILES.backendClosure, sha256: sha(closureBytes)};
-const descriptorBytes = raw({schemaVersion: 2, documentType: 'build31-business-backend-private-replay', profile: descriptor.PROFILE,
-  verifier: {commit: V.commit, tree: V.tree}, source, sourceManifestSha256: 'A'.repeat(64),
+const coreVerifier = {commit: M.commit, tree: M.tree, files: {...bindings}};
+const successorFiles = {};
+if (successor) for (const name of ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs',
+  'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs']) {
+  const file = 'tools/release/' + name;
+  successorFiles[file] = fs.readFileSync(path.join(releaseRoot, name)); bindings[file] = sha(successorFiles[file]);
+}
+const Vnew = successor ? commit({...C.files, ...successorFiles}, [C]) : V;
+const sourceIntegration = Object.fromEntries(Object.entries(successorFiles).map(([file, bytes]) =>
+  [file, {mode: '100644', oid: object('blob', bytes), sha256: sha(bytes)}]));
+const descriptorBytes = raw({schemaVersion: successor ? 3 : 2, documentType: 'build31-business-backend-private-replay',
+  profile: successor ? 'build31-exact-business-backend-v2' : descriptor.PROFILE,
+  ...(successor ? {coreVerifier, sourceIntegration} : {}),
+  verifier: {commit: Vnew.commit, tree: Vnew.tree}, source, sourceManifestSha256: 'A'.repeat(64),
   approvalPointer: approval, closurePointer: closure,
   custody: {provider: 'gcs', bucket: 'crm3-baf-ops-b8638-firestore-restore',
     objectName: 'release-custody/build-31/business-backend/' + M.commit + '/synthetic/private-replay-bundle.json',
-    generation: '1', bytes: 1, sha256: 'B'.repeat(64)}, bundleEncoding: 'gzip-members-v1', expandedBytes: 1,
+    generation: '1', bytes: 1, sha256: 'B'.repeat(64)}, bundleEncoding: successor ? 'gzip-members-v2' : 'gzip-members-v1', expandedBytes: 1,
   membersSha256: 'C'.repeat(64), relocationSha256: 'D'.repeat(64), producerBindings: bindings, historicalBaseline: descriptor.HISTORICAL});
-const B = add(C, subject.FILES.descriptor, descriptorBytes);
+const B = add(successor ? Vnew : C, subject.FILES.descriptor, descriptorBytes);
 const descriptorPointer = {commit: B.commit, file: subject.FILES.descriptor, sha256: sha(descriptorBytes)};
 const appCheck = {releaseId: 'synthetic-release', reservationId: 'synthetic-reservation', clientEnabled: true,
   androidProvider: 'playIntegrity', mutatingDefaultEnforced: false,
@@ -188,8 +201,8 @@ const currentSuccessor = {schemaVersion: 2, authorityPlanes: {
     rulesAndIndexesReadbackDecision: 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
     currentSourceRulesAndIndexesDeployment: 'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK', productionBackendRuntimeAuthorized: true}}};
 const policy = {...baselinePolicy, release, versionPolicy,
-  clientBackendCompatibility: {...decisionPointer, profile: 'build31-business-client-compatibility-v1'},
-  businessBackendPrivateReplay: {...descriptorPointer, profile: 'build31-exact-business-backend-v1'},
+  clientBackendCompatibility: {...decisionPointer, profile: successor ? 'build31-business-client-compatibility-v2' : 'build31-business-client-compatibility-v1'},
+  businessBackendPrivateReplay: {...descriptorPointer, profile: successor ? 'build31-exact-business-backend-v2' : 'build31-exact-business-backend-v1'},
   finalization: {...baselinePolicy.finalization, exactFunctionFleetDeploymentReceiptFile: closure.file,
     exactFunctionFleetDeploymentReceiptSha256: closure.sha256},
   appCheckBuild: {clientEnabled: true, androidProvider: 'playIntegrity', approvalFile: policySubject.FILES.appCheckApproval,
@@ -227,7 +240,7 @@ function setCandidate(candidate = S) {
   fs.writeFileSync(path.join(directory, 'business31-admitted-' + S.commit), candidate.commit + '\n');
 }
 function clientInput() {
-  return {schemaVersion: 1, profile: hostedClient.PROFILE, repositoryRoot: root, gitExecutable,
+  return {schemaVersion: successor ? 2 : 1, profile: successor ? hostedClient.PROFILE_V2 : hostedClient.PROFILE, repositoryRoot: root, gitExecutable,
     selected: {source: {...source}, sourceManifestSha256: 'A'.repeat(64), backendApproval: {...approval},
       backendClosure: {...closure}, descriptor: {...descriptorPointer}, ownerPointer: {...ownerPointer},
       decisionPointer: {...decisionPointer}, originalMessage: {...originalMessage}, appCheck: structuredClone(appCheck)},
@@ -235,22 +248,35 @@ function clientInput() {
 }
 function platformFixture() {
   const f = hostedFixture.fixture();
-  f.trust.verifier = {commit: V.commit, tree: V.tree, files: {...bindings}};
+  f.trust.verifier = {commit: Vnew.commit, tree: Vnew.tree, files: {...bindings}};
+  if (successor) {
+    f.trust.schemaVersion = 2; f.trust.profile = 'build31-business-hosted-recorded-replay-v2';
+    f.trust.coreVerifier = structuredClone(coreVerifier); f.trust.sourceIntegration = structuredClone(sourceIntegration);
+    f.request.schemaVersion = 2;
+    f.request.challenge = {schemaVersion: 1, nonce: 'a'.repeat(64), purpose: 'policy',
+      requestedAtUtc: new Date(Date.parse(f.result.startedAtUtc) - 1000).toISOString(),
+      expiresAtUtc: new Date(Date.now() + 3600000).toISOString(),
+      requester: {kind: 'local', runId: null, runAttempt: null, invocationId: 'b'.repeat(64)},
+      clientSelectionSha256: 'C'.repeat(64), fileBindings: []};
+  }
   f.trust.source = {...source}; f.trust.gitSha256 = gitSha256;
   f.trust.launcherSha256 = bindings['tools/release/business31HostedLauncher.py'];
   f.request.candidate = {...f.request.candidate, commit: S.commit, tree: S.tree};
   f.request.descriptorPointer = {...descriptorPointer};
-  f.run.head_sha = V.commit; f.job.head_sha = V.commit; f.candidate.head.sha = S.commit;
-  f.result = {...f.result, verifier: {commit: V.commit, tree: V.tree}, source: {...source},
+  f.run.head_sha = Vnew.commit; f.job.head_sha = Vnew.commit; f.candidate.head.sha = S.commit;
+  f.result = {...f.result, profile: f.trust.profile, verifier: {commit: Vnew.commit, tree: Vnew.tree}, source: {...source},
+    ...(successor ? {schemaVersion: 2, coreVerifier: {commit: M.commit, tree: M.tree},
+      challenge: structuredClone(f.request.challenge)} : {}),
     candidate: structuredClone(f.request.candidate), descriptorPointer: {...descriptorPointer},
     closurePointer: {...closure}, commitments: {bundleSha256: 'B'.repeat(64), membersSha256: 'C'.repeat(64),
-      relocationSha256: 'D'.repeat(64), sourceManifestSha256: 'A'.repeat(64)},
-    platform: {...f.result.platform, workflowCommit: V.commit}};
+      relocationSha256: 'D'.repeat(64), sourceManifestSha256: 'A'.repeat(64),
+      ...require('../business31HostedProtocol.cjs').transportCommitments31(f.trust)},
+    platform: {...f.result.platform, workflowCommit: Vnew.commit}};
   return f;
 }
 function reset() { setCandidate(S); fs.writeFileSync(originalMessageFile, originalMessageBytes); }
 reset();
 return {root, temporary, originalMessageFile, originalMessageBytes, clientInput, platformFixture,
-  setCandidate, reset, S, M, records, sourceEdit};
+  setCandidate, reset, S, M, Vnew, B, C, coreVerifier, sourceIntegration, records, sourceEdit};
 }
 module.exports = Object.freeze({createFixture});

@@ -21,8 +21,9 @@ async function consumeHostedResult31({ trust, request }) {
     // Legacy artifact1 projects to consumer2. Challenge-bound artifact2 carries
     // the measured client directly; no private original message is read here.
     return Object.freeze({
-        schemaVersion: request.schemaVersion === 2 ? 3 : 2, profile: p.PROFILE,
+        schemaVersion: request.schemaVersion === 2 ? 3 : 2, profile: trust.profile,
         verifier: structuredClone(value.verifier), source: structuredClone(value.source),
+        ...(p.isV2Trust31(trust) ? {coreVerifier: structuredClone(value.coreVerifier)} : {}),
         candidate: structuredClone(value.candidate), descriptorPointer: structuredClone(value.descriptorPointer),
         closurePointer: structuredClone(value.closurePointer), commitments: structuredClone(value.commitments),
         runId: request.runId, runAttempt: request.runAttempt, artifactId, resultSha256,

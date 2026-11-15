@@ -143,3 +143,25 @@ test('rejects obsolete or oversized locator and refuses Actions export outside A
   refused({locator: JSON.stringify({schemaVersion: 2, excess: 'x'.repeat(131072)})}, /exceeds its bound/);
   refused({export: true}, /GitHub environment export requires Actions/);
 });
+
+function selectTransportV2(c) {
+  c.schemaVersion=2; c.profile='build31-business-prerequisite-controller-v2';
+  Object.assign(c.replayTrust,{schemaVersion:2,profile:'build31-business-hosted-recorded-replay-v2',
+    source:{commit:'1'.repeat(40),tree:'2'.repeat(40)},coreVerifier:{commit:'1'.repeat(40),tree:'2'.repeat(40),files:{}}});
+}
+test('v2 bootstrap preserves separately enrolled outer and recorded verifier identities',()=>{
+  const result=invoke({config:selectTransportV2});assert.equal(result.status,0,result.stderr);
+  const out=JSON.parse(result.stdout),saved=JSON.parse(fs.readFileSync(out.BUSINESS31_CONTROLLER_CONFIG,'utf8'));
+  assert.equal(saved.replayTrust.coreVerifier.commit,'1'.repeat(40));
+  assert.equal(saved.replayTrust.verifier.commit,fixture.config.replayTrust.verifier.commit);
+  assert.notEqual(saved.replayTrust.coreVerifier.commit,saved.replayTrust.verifier.commit);
+});
+for(const [label,change]of[
+ ['mixed controller profile',c=>{c.profile='build31-business-prerequisite-controller-v1';}],
+ ['legacy trust in v2',c=>{c.replayTrust.schemaVersion=1;}],
+ ['recorded source changed',c=>{c.replayTrust.coreVerifier.commit='3'.repeat(40);}]
+])test('v2 bootstrap refuses '+label,()=>refused({config:c=>{selectTransportV2(c);change(c);}},/unsupported|selection differs/));
+
+test('legacy bootstrap rejects successor trust even before full controller admission',()=>{
+ refused({config:c=>{selectTransportV2(c);c.schemaVersion=1;c.profile='build31-business-prerequisite-controller-v1';}},/Legacy controller enrollment/);
+});

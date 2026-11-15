@@ -32,7 +32,9 @@ test.before(() => {
 });
 test.beforeEach(() => valid.reset());
 function configuration(f) {
-  return {schemaVersion: 1, profile: 'build31-business-prerequisite-controller-v1',
+  const successor = f.trust.schemaVersion === 2;
+  return {schemaVersion: successor ? 2 : 1,
+    profile: successor ? 'build31-business-prerequisite-controller-v2' : 'build31-business-prerequisite-controller-v1',
     replayTrust: structuredClone(f.trust), controller: {
       nodeSha256: sha(fs.readFileSync(process.execPath)), gitSha256: f.trust.gitSha256,
       files: {...f.trust.verifier.files}},
@@ -43,7 +45,9 @@ function configuration(f) {
       jobName: 'Governed production APK', actorIds: ['9']}, maximumWaitSeconds: 9000};
 }
 function input(f) {
-  return {schemaVersion: 1, profile: 'build31-business-policy-result-input-v1',
+  const successor = f.trust.schemaVersion === 2;
+  return {schemaVersion: successor ? 2 : 1,
+    profile: successor ? 'build31-business-policy-result-input-v2' : 'build31-business-policy-result-input-v1',
     repositoryRoot: valid.root, gitExecutable: valid.clientInput().gitExecutable,
     request: structuredClone(f.request)};
 }
@@ -212,4 +216,24 @@ test('a completed but expired policy challenge is not a reusable grant', async (
   f.request.challenge.expiresAtUtc = end;
   f.result.challenge.expiresAtUtc = end;
   await refuses(f);
+});
+
+test('v2 policy entry closes the dual-core/config/result tuple and rejects a legacy config', async () => {
+  const original = valid;
+  valid = createFixture({successor: true, extraProducers: ['tools/release/business31Controller.cjs',
+    'tools/release/business31Prerequisite.cjs', 'tools/release/business31PolicyResult.cjs']});
+  try {
+    const f = valid.platformFixture();
+    f.result.client = client.measureBusinessHostedClient31({trust: f.trust, request: f.request, input: valid.clientInput()});
+    const {result, requests} = await run(f);
+    assert.equal(result.schemaVersion, 2); assert.equal(result.profile, 'build31-business-policy-result-v2');
+    assert.deepEqual(result.coreVerifier, {commit: valid.M.commit, tree: valid.M.tree});
+    assert.equal(result.verifier.commit, valid.Vnew.commit);
+    assert.equal(result.client.schemaVersion, 3); assert.equal(result.client.policy.schemaVersion, 2);
+    assert.equal(result.commitments.coreProducerBindingsSha256, f.result.commitments.coreProducerBindingsSha256);
+    assert.equal(result.commitments.sourceIntegrationSha256, f.result.commitments.sourceIntegrationSha256);
+    assert.ok(requests.every(row => row.method === 'GET'));
+    await refuses(f, {config(c) {c.schemaVersion = 1; c.profile = 'build31-business-prerequisite-controller-v1';}});
+    await refuses(structuredClone(base), {config(c) {c.schemaVersion = 2; c.profile = 'build31-business-prerequisite-controller-v2';}}, message, 0);
+  } finally {valid = original;}
 });

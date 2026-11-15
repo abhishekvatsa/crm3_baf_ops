@@ -13,6 +13,9 @@ const HELPERS = Object.freeze([
   'business31TrustedInput.cjs', 'business31PrivateDescriptor.cjs',
   'privateEvidenceBundle31.cjs'
 ].map(name => 'tools/release/' + name));
+const PROFILE_V2 = 'build31-business-client-custody-v2';
+const HELPERS_V2 = Object.freeze([...HELPERS, 'tools/release/business31TrustedInputV2.cjs',
+  'tools/release/business31PrivateDescriptorV2.cjs']);
 const FILES = Object.freeze({
   backendApproval: 'release/approvals/build31-business-backend-deployment-approval.json',
   backendClosure: 'release/evidence/build31-business-backend-deployment-closure.json',
@@ -57,8 +60,8 @@ function pointer(value, name) {
   exact(value, ['commit', 'file', 'sha256'], name);
   need(oid(value.commit) && value.file === FILES[name] && digest(value.sha256), name + ' invalid');
 }
-function bindHelpers(bindings) {
-  for (const file of HELPERS) {
+function bindHelpers(bindings, successor = false) {
+  for (const file of successor ? HELPERS_V2 : HELPERS) {
     need(Object.hasOwn(bindings, file) && digest(bindings[file]), 'fixed helper selection absent: ' + file);
     const local = path.join(__dirname, path.basename(file));
     let current = path.parse(local).root;
@@ -102,11 +105,14 @@ function verifyBusinessClientCustody31(input) {
   exact(selected.originalMessage, ['sha256', 'bytes'], 'selected original message');
   need(digest(selected.originalMessage.sha256) && selected.originalMessage.bytes === originalMessageBytes.length &&
     sha(originalMessageBytes) === selected.originalMessage.sha256, 'selected original message bytes differ');
-  exact(envelope, ['schemaVersion', 'profile', 'verifier', 'source', 'candidate'], 'envelope');
+  const successor = envelope.schemaVersion === 2;
+  exact(envelope, ['schemaVersion', 'profile', 'verifier', 'source', 'candidate',
+    ...(successor ? ['coreVerifier', 'sourceIntegration'] : [])], 'envelope');
   exact(envelope.verifier, ['commit', 'tree', 'files'], 'verifier');
   exact(envelope.source, ['commit', 'tree'], 'source');
   exact(envelope.candidate, ['commit', 'tree', 'ref'], 'candidate');
-  need(envelope.schemaVersion === 1 && envelope.profile === 'build31-business-trusted-input-v1' &&
+  need(envelope.schemaVersion === (successor ? 2 : 1) &&
+    envelope.profile === (successor ? 'build31-business-trusted-input-v2' : 'build31-business-trusted-input-v1') &&
     [envelope.verifier.commit, envelope.verifier.tree, envelope.source.commit, envelope.source.tree,
       envelope.candidate.commit, envelope.candidate.tree].every(oid), 'envelope identity invalid');
   need(equal(envelope.source, {commit: selected.source.commit, tree: selected.source.tree}), 'selected source/envelope differs');
@@ -114,10 +120,10 @@ function verifyBusinessClientCustody31(input) {
     Object.keys(envelope.verifier.files).length <= 256, 'finite selected helper population required');
   // These fixed local imports precede no credential use or candidate-code load.
   // The later full verifier proves this selected population against real V/M/S.
-  bindHelpers(envelope.verifier.files);
+  bindHelpers(envelope.verifier.files, successor);
   const semantics = require('./business31ClientSemantics.cjs');
   const trusted = require('./business31TrustedInput.cjs');
-  const descriptor = require('./business31PrivateDescriptor.cjs');
+  const descriptor = successor ? require('./business31PrivateDescriptorV2.cjs') : require('./business31PrivateDescriptor.cjs');
   const repository = trusted.openTrustedGitRepository31({repositoryRoot, gitExecutable, gitSha256});
   need(repository.readRef(envelope.candidate.ref) === envelope.candidate.commit, 'candidate reference differs');
   const snapshots = new Map();
@@ -168,7 +174,7 @@ function verifyBusinessClientCustody31(input) {
   });
   // Every success runs the complete existing descriptor/Git preparation check.
   // No callback or caller-provided PASS can substitute for these measurements.
-  const prepared = descriptor.verifyBusiness31DescriptorPreparation({
+  const prepared = (successor ? descriptor.verifyBusiness31DescriptorPreparationV2 : descriptor.verifyBusiness31DescriptorPreparation)({
     repositoryRoot, gitExecutable, gitSha256, envelope,
     descriptorPointer: selected.descriptor, expectedSourceManifestSha256: selected.sourceManifestSha256
   });
@@ -184,9 +190,11 @@ function verifyBusinessClientCustody31(input) {
   need(repository.readRef(envelope.candidate.ref) === S.commit &&
     repository.snapshot(M.commit).tree === M.tree && repository.snapshot(S.commit).tree === S.tree,
   'source/candidate changed during custody checks');
-  bindHelpers(envelope.verifier.files);
+  bindHelpers(envelope.verifier.files, successor);
   return freeze({
-    schemaVersion: 1, documentType: 'build31-business-client-public-custody', profile: PROFILE,
+    schemaVersion: successor ? 2 : 1, documentType: 'build31-business-client-public-custody',
+    profile: successor ? PROFILE_V2 : PROFILE,
+    ...(successor ? {coreVerifier: {commit: envelope.coreVerifier.commit, tree: envelope.coreVerifier.tree}} : {}),
     source: selected.source, sourceManifestSha256: selected.sourceManifestSha256, appCheck: selected.appCheck,
     verifier: {commit: envelope.verifier.commit, tree: envelope.verifier.tree},
     candidate: {commit: S.commit, tree: S.tree, parents: [...S.parents]},
@@ -203,4 +211,4 @@ function verifyBusinessClientCustody31(input) {
   });
 }
 
-module.exports = Object.freeze({PROFILE, HELPERS, FILES, verifyBusinessClientCustody31});
+module.exports = Object.freeze({PROFILE, PROFILE_V2, HELPERS, HELPERS_V2, FILES, verifyBusinessClientCustody31});

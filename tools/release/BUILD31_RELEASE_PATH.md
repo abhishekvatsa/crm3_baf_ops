@@ -21,6 +21,29 @@ The historical runtime-only route remains separate. Business selection, includin
 a malformed business signal, cannot fall through to a legacy route. Existing
 historical pilot verifiers and unrelated policy/source/ledger gates still apply.
 
+## Versioned client transport
+
+The client transport successor admits at most **53,000** regular-file members.
+The original transport remains limited to **50,000**. The successor retains the
+512 MiB serialized, 1 GiB expanded, 128 MiB per-member and compression-ratio
+limits, the 400-character member-path limit, and the relocation limits of
+16 roots and 50,000 individual files. A larger count is not permission to omit
+required files, include unrelated files or weaken a byte or path check.
+
+The independently enrolled outer verifier and the recorded backend verifier
+have separate identities. The outer verifier authenticates the transport and
+the exact reviewed release-integration changes in S. The recorded verifier is
+the unchanged qualified M source; it replays the original backend approval,
+qualification and closure in an isolated Node 22 process. Updating the outer
+verifier neither changes deployed Functions nor requalifies the backend.
+
+Both identities and their complete source commitments must survive the hosted,
+policy, construction and package-verification boundaries. A malformed or mixed
+version is refused. The new route cannot reinterpret old records, inject a
+replacement into the recorded verifier, or treat a retained result as a fresh
+replay. Package verification still requires its own fresh challenge and compares
+the stable commitments with the retained construction observation.
+
 ## Public source gates
 
 `Initialize-Business31Controller.ps1` provisions only the independently selected

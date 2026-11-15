@@ -20,6 +20,19 @@ public caller. Its `selected` record fixes the full candidate, descriptor pointe
 and `clientSelectionSha256`. Controller producer bytes equal the selected V map;
 the controller Node/Git binary hashes need not equal the remote Linux binaries.
 
+The explicit transport successor uses controller schema 2 and
+`build31-business-prerequisite-controller-v2`. Its replay trust has schema 2 and
+`build31-business-hosted-recorded-replay-v2`, with separate `verifier` (the
+reviewed outer code), `coreVerifier` (unchanged recorded M) and `sourceIntegration`
+(the exact reviewed release-file delta). Its input uses schema 2 and
+`build31-business-policy-result-input-v2`. Its result uses schema 2 and
+`build31-business-policy-result-v2`, carries the recorded verifier identity, and
+binds both maps through `coreProducerBindingsSha256` and
+`sourceIntegrationSha256`. The client projection is schema 3/compatibility-v2;
+the measured client policy is schema 2/policy-v2. Candidate policy pointers must
+pair backend-v2 with compatibility-v2. The original owner/message/decision
+semantics remain v1. Mixed versions are refused; the original route is unchanged.
+
 The bounded JSON input has exactly these fields:
 
 ```

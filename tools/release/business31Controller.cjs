@@ -4,12 +4,15 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 const p = require('./business31HostedProtocol.cjs');
 const PROFILE = 'build31-business-prerequisite-controller-v1';
+const PROFILE_V2 = 'build31-business-prerequisite-controller-v2';
 const ENTRY = 'tools/release/business31Prerequisite.cjs';
 const REQUIRED = Object.freeze(['business31Controller.cjs', 'business31Prerequisite.cjs',
   'business31PolicyResult.cjs', 'business31HostedProtocol.cjs', 'business31HostedClient.cjs',
   'business31ClientPolicy.cjs', 'business31ClientCustody.cjs', 'business31ClientSemantics.cjs',
   'business31TrustedInput.cjs', 'business31PrivateDescriptor.cjs', 'privateEvidenceBundle31.cjs',
   'business31SourceAdmission.cjs'].map(name => 'tools/release/' + name));
+const REQUIRED_V2 = Object.freeze([...REQUIRED, 'tools/release/business31TrustedInputV2.cjs',
+  'tools/release/business31PrivateDescriptorV2.cjs']);
 const isDigest = value => typeof value === 'string' && /^[A-F0-9]{64}$/.test(value);
 const isId = value => typeof value === 'string' && /^[1-9][0-9]{0,19}$/.test(value);
 function readController31(file, expectedSha256) {
@@ -23,12 +26,14 @@ function readController31(file, expectedSha256) {
 function validateController31(c) {
   p.exact(c, ['schemaVersion', 'profile', 'replayTrust', 'controller', 'selected', 'requester',
     'maximumWaitSeconds'], 'CONTROLLER_CONFIG');
-  p.need(c.schemaVersion === 1 && c.profile === PROFILE, 'CONTROLLER_PROFILE');
   p.validateTrust31(c.replayTrust);
+  const successor = p.isV2Trust31(c.replayTrust);
+  p.need(c.schemaVersion === (successor ? 2 : 1) && c.profile === (successor ? PROFILE_V2 : PROFILE),
+    'CONTROLLER_PROFILE');
   p.exact(c.controller, ['nodeSha256', 'gitSha256', 'files'], 'CONTROLLER_RUNTIME');
   p.need(isDigest(c.controller.nodeSha256) && isDigest(c.controller.gitSha256), 'CONTROLLER_RUNTIME');
   p.same(c.controller.files, c.replayTrust.verifier.files, 'CONTROLLER_VERIFIER_POPULATION');
-  p.need(REQUIRED.every(file => Object.hasOwn(c.controller.files, file)), 'CONTROLLER_REQUIRED_PRODUCERS');
+  p.need((successor ? REQUIRED_V2 : REQUIRED).every(file => Object.hasOwn(c.controller.files, file)), 'CONTROLLER_REQUIRED_PRODUCERS');
   p.exact(c.selected, ['candidate', 'descriptorPointer', 'clientSelectionSha256'], 'CONTROLLER_SELECTION');
   p.validateRequest31({schemaVersion: 1, candidate: c.selected.candidate,
     descriptorPointer: c.selected.descriptorPointer, runId: '1', runAttempt: '1'});
@@ -85,9 +90,13 @@ function verifyCommittedPolicy31(c, input, measured) {
   p.same(repo.snapshot(S.commit).tree, S.tree, 'CONTROLLER_LOCAL_S');
   p.same(repo.snapshot(M.commit).tree, M.tree, 'CONTROLLER_LOCAL_M');
   repo.requireAncestor(M.commit, S.commit);
-  p.need(measured?.schemaVersion === 1 && measured.profile === 'build31-business-client-policy-v1' &&
+  const successor = p.isV2Trust31(c.replayTrust);
+  p.need(measured?.schemaVersion === (successor ? 2 : 1) &&
+    measured.profile === (successor ? 'build31-business-client-policy-v2' : 'build31-business-client-policy-v1') &&
     measured.policySourceVerified === true && measured.appCheckSourcePolicyVerified === true,
   'CONTROLLER_POLICY_MEASUREMENT');
+  if (successor) p.same(measured.coreVerifier, p.coreVerifierSummary31(c.replayTrust), 'CONTROLLER_POLICY_CORE');
+  else p.need(!Object.hasOwn(measured, 'coreVerifier'), 'CONTROLLER_POLICY_CORE');
   p.same(measured.source, M, 'CONTROLLER_POLICY_SOURCE');
   p.same(measured.candidate, S, 'CONTROLLER_POLICY_CANDIDATE');
   p.same(measured.descriptorPointer, c.selected.descriptorPointer, 'CONTROLLER_POLICY_DESCRIPTOR');
@@ -157,5 +166,5 @@ function measureFiles31(input) {
     return hashFile31(file, role);
   });
 }
-module.exports = Object.freeze({PROFILE, ENTRY, REQUIRED, readController31, validateController31,
+module.exports = Object.freeze({PROFILE, PROFILE_V2, ENTRY, REQUIRED, REQUIRED_V2, readController31, validateController31,
   verifyController31, selectedRequest31, verifyLocalSelection31, verifyCommittedPolicy31, hashFile31, measureFiles31});

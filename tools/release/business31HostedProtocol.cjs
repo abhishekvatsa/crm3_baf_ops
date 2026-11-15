@@ -4,6 +4,7 @@
 const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto'), https = require('node:https'), zlib = require('node:zlib');
 const { isDeepStrictEqual, TextDecoder } = require('node:util');
 const PROFILE = 'build31-business-hosted-recorded-replay-v1';
+const PROFILE_V2 = 'build31-business-hosted-recorded-replay-v2';
 const ISSUER = 'https://token.actions.githubusercontent.com';
 const RESULT_NAME = 'business31-hosted-result.json';
 const SELF = 'tools/release/business31HostedProtocol.cjs';
@@ -49,11 +50,28 @@ function regular(file, directory = false) {
 }
 function source(v, functions = false) { exact(v, functions ? ['commit', 'tree', 'functionsTree'] : ['commit', 'tree'], 'SOURCE'); need(Object.values(v).every(oid), 'SOURCE_ID'); }
 function pointer(v) { exact(v, ['commit', 'file', 'sha256'], 'DESCRIPTOR_POINTER'); need(oid(v.commit) && v.file === 'release/evidence/build31-business-private-replay.json' && digest(v.sha256), 'DESCRIPTOR_POINTER'); }
+function isV2Trust31(t) { return t?.schemaVersion === 2 && t?.profile === PROFILE_V2; }
+function canonical31(value) {
+    if (Array.isArray(value)) return '[' + value.map(canonical31).join(',') + ']';
+    if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical31(value[key])).join(',') + '}';
+    return JSON.stringify(value);
+}
+function coreVerifierSummary31(t) {
+    need(isV2Trust31(t), 'CORE_ROUTE');
+    return {commit: t.coreVerifier.commit, tree: t.coreVerifier.tree};
+}
+function transportCommitments31(t) {
+    if (!isV2Trust31(t)) return {};
+    return {coreProducerBindingsSha256: sha(Buffer.from(canonical31(t.coreVerifier.files))),
+        sourceIntegrationSha256: sha(Buffer.from(canonical31(t.sourceIntegration)))};
+}
 function validateTrust31(t) {
+    const v2 = isV2Trust31(t);
     exact(t, [
-        'schemaVersion', 'profile', 'repository', 'workflow', 'verifier', 'source', 'sourceManifestSha256', 'nodeSha256', 'gitSha256', 'launcherSha256', 'pythonSha256', 'wifAudience', 'maximumResultAgeSeconds'
+        'schemaVersion', 'profile', 'repository', 'workflow', 'verifier', 'source', 'sourceManifestSha256', 'nodeSha256', 'gitSha256', 'launcherSha256', 'pythonSha256', 'wifAudience', 'maximumResultAgeSeconds',
+        ...(v2 ? ['coreVerifier', 'sourceIntegration'] : [])
     ], 'TRUST_FIELDS');
-    need(t.schemaVersion === 1 && t.profile === PROFILE, 'TRUST_PROFILE');
+    need(v2 || (t.schemaVersion === 1 && t.profile === PROFILE), 'TRUST_PROFILE');
     exact(t.repository, ['name', 'id', 'ownerId'], 'REPOSITORY');
     need(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(t.repository.name) && id(t.repository.id) && id(t.repository.ownerId), 'REPOSITORY');
     exact(t.workflow, [
@@ -67,6 +85,29 @@ function validateTrust31(t) {
     need(t.verifier.files && typeof t.verifier.files === 'object' && !Array.isArray(t.verifier.files) && Object.keys(t.verifier.files).length <= 256 && ENTRIES.every(f => Object.hasOwn(t.verifier.files, f)), 'VERIFIER_POPULATION');
     for (const [f, h] of Object.entries(t.verifier.files))
         need((/^tools\/release\/[A-Za-z0-9_+./-]+\.(js|cjs|ps1)$/.test(f) || f === 'tools/v4/v4_2_r1_canonical_audit.py' || SUPPORT_PRODUCERS.includes(f)) && f.split('/').every(p => p && p !== '.' && p !== '..') && digest(h), 'VERIFIER_MEMBER');
+    if (v2) {
+        exact(t.coreVerifier, ['commit', 'tree', 'files'], 'CORE_VERIFIER');
+        need(t.coreVerifier.commit === t.source.commit && t.coreVerifier.tree === t.source.tree &&
+            t.verifier.commit !== t.coreVerifier.commit, 'CORE_SOURCE');
+        const files = t.coreVerifier.files;
+        need(files && typeof files === 'object' && !Array.isArray(files) &&
+            Object.keys(files).length > 0 && Object.keys(files).length <= 256 &&
+            ['business31BackendAuthority.cjs', 'business31BackendClosure.cjs', 'backendRuntimeEvidenceAccess31.cjs']
+                .every(name => Object.hasOwn(files, 'tools/release/' + name)), 'CORE_POPULATION');
+        for (const [file, hash] of Object.entries(files))
+            need((/^tools\/release\/[A-Za-z0-9_+./-]+\.(js|cjs|ps1)$/.test(file) ||
+                file === 'tools/v4/v4_2_r1_canonical_audit.py' || SUPPORT_PRODUCERS.includes(file)) &&
+                file.split('/').every(part => part && part !== '.' && part !== '..') && digest(hash), 'CORE_MEMBER');
+        need(t.sourceIntegration && typeof t.sourceIntegration === 'object' && !Array.isArray(t.sourceIntegration) &&
+            Object.keys(t.sourceIntegration).length > 0 && Object.keys(t.sourceIntegration).length <= 256,
+        'SOURCE_INTEGRATION');
+        for (const [file, binding] of Object.entries(t.sourceIntegration)) {
+            need(/^[A-Za-z0-9_+./-]+$/.test(file) && file.split('/').every(part => part && part !== '.' && part !== '..'),
+                'SOURCE_INTEGRATION_PATH');
+            exact(binding, ['mode', 'oid', 'sha256'], 'SOURCE_INTEGRATION_BINDING');
+            need(binding.mode === '100644' && oid(binding.oid) && digest(binding.sha256), 'SOURCE_INTEGRATION_BINDING');
+        }
+    }
     need([
         t.sourceManifestSha256, t.nodeSha256, t.gitSha256, t.launcherSha256, t.pythonSha256
     ].every(digest), 'TRUST_DIGEST');
@@ -131,6 +172,7 @@ function validateRequest31(r) {
 }
 function verifyExecuting31(t, root) {
     regular(root, true);
+    need(!isV2Trust31(t) || Number(process.versions.node.split('.')[0]) === 22, 'CORE_NODE22');
     need(sha(fs.readFileSync(regular(process.execPath))) === t.nodeSha256, 'NODE_IDENTITY');
     for (const [f, h] of Object.entries(t.verifier.files))
         need(sha(fs.readFileSync(regular(path.join(root, ...f.split('/'))))) === h, 'EXECUTING_PRODUCER');
@@ -233,6 +275,7 @@ function artifactName31(r) { return 'business31-hosted-' + r.candidate.commit + 
 // independent configuration and any operational prerequisite/authority checks.
 async function retrieveResult31(trust, request, accessToken) {
     validateTrust31(trust); validateRequest31(request);
+    need(!isV2Trust31(trust) || request.schemaVersion === 2, 'V2_CHALLENGE_REQUIRED');
     const observed = await observe31(trust, request, accessToken, true);
     const rows = await github31(trust, '/actions/runs/' + request.runId + '/artifacts?per_page=100', accessToken);
     need(rows.total_count === 1 && Array.isArray(rows.artifacts) && rows.artifacts.length === 1, 'ARTIFACT_POPULATION');
@@ -265,23 +308,31 @@ async function retrieveResult31(trust, request, accessToken) {
     return {value, artifactId: String(a.id), resultSha256: sha(resultBytes)};
 }
 function validateResult31(v, t, r, now = Date.now()) {
+    const v2 = isV2Trust31(t);
+    if (v2) { validateTrust31(t); need(r.schemaVersion === 2, 'V2_CHALLENGE_REQUIRED'); }
     exact(v, [
         'schemaVersion', 'documentType', 'profile', 'verifier', 'source', 'candidate', 'descriptorPointer', 'closurePointer', 'commitments', 'platform', 'startedAtUtc', 'completedAtUtc', 'recordedSemanticsReplayed', 'limits',
+        ...(v2 ? ['coreVerifier'] : []),
         ...(r.schemaVersion === 2 ? ['challenge', 'client'] : [])
     ], 'RESULT_FIELDS');
-    need(v.schemaVersion === r.schemaVersion && v.documentType === 'build31-business-hosted-result' && v.profile === PROFILE && v.recordedSemanticsReplayed === true, 'RESULT_PROFILE');
+    need(v.schemaVersion === r.schemaVersion && v.documentType === 'build31-business-hosted-result' &&
+        v.profile === (v2 ? PROFILE_V2 : PROFILE) && v.recordedSemanticsReplayed === true, 'RESULT_PROFILE');
     same(v.verifier, {
         commit: t.verifier.commit, tree: t.verifier.tree
     }, 'RESULT_V');
+    if (v2) same(v.coreVerifier, coreVerifierSummary31(t), 'RESULT_CORE_VERIFIER');
     same(v.source, t.source, 'RESULT_M');
     same(v.candidate, r.candidate, 'RESULT_S');
     same(v.descriptorPointer, r.descriptorPointer, 'RESULT_DESCRIPTOR');
     exact(v.closurePointer, ['commit', 'file', 'sha256'], 'RESULT_CLOSURE');
     need(oid(v.closurePointer.commit) && v.closurePointer.file === 'release/evidence/build31-business-backend-deployment-closure.json' && digest(v.closurePointer.sha256), 'RESULT_CLOSURE');
     exact(v.commitments, [
-        'bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256'
+        'bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256',
+        ...(v2 ? ['coreProducerBindingsSha256', 'sourceIntegrationSha256'] : [])
     ], 'RESULT_COMMITMENTS');
     need(Object.values(v.commitments).every(digest) && v.commitments.sourceManifestSha256 === t.sourceManifestSha256, 'RESULT_COMMITMENTS');
+    if (v2) for (const [field, hash] of Object.entries(transportCommitments31(t)))
+        need(v.commitments[field] === hash, 'RESULT_TRANSPORT_COMMITMENT');
     same(v.platform, {
         repositoryId: t.repository.id, workflowId: t.workflow.id, workflowCommit: t.verifier.commit, runId: r.runId, runAttempt: r.runAttempt, environment: t.workflow.environment
     }, 'RESULT_PLATFORM');
@@ -302,13 +353,18 @@ function validateResult31(v, t, r, now = Date.now()) {
         verifyClientHelpers31(t);
         require('./business31HostedClient.cjs').validateBusinessHostedClientMeasurement31({trust: t, request: r, client: v.client});
         same(v.client.policy.closurePointer, v.closurePointer, 'RESULT_CLIENT_CLOSURE');
+        if (v2) {
+            same(v.client.coreVerifier, v.coreVerifier, 'RESULT_CLIENT_CORE');
+            same(v.client.policy.coreVerifier, v.coreVerifier, 'RESULT_POLICY_CORE');
+        }
     }
     return v;
 }
 function verifyClientHelpers31(t) {
     for (const name of ['business31HostedClient.cjs', 'business31ClientPolicy.cjs',
         'business31ClientCustody.cjs', 'business31ClientSemantics.cjs', 'business31TrustedInput.cjs',
-        'business31PrivateDescriptor.cjs', 'privateEvidenceBundle31.cjs']) {
+        'business31PrivateDescriptor.cjs', 'privateEvidenceBundle31.cjs',
+        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs'] : [])]) {
         const key = 'tools/release/' + name;
         need(Object.hasOwn(t.verifier.files, key) && digest(t.verifier.files[key]) &&
             sha(fs.readFileSync(regular(path.join(__dirname, name)))) === t.verifier.files[key], 'CLIENT_PRODUCER');
@@ -318,7 +374,9 @@ function verifyReplayHelpers31(t) {
     // These modules execute before descriptor preparation can establish the
     // complete Git producer population. An omitted digest must fail first.
     for (const name of ['business31SourceAdmission.cjs', 'business31PrivateDescriptor.cjs',
-        'business31TrustedInput.cjs', 'privateEvidenceBundle31.cjs', 'business31OriginalPathReplay.cjs']) {
+        'business31TrustedInput.cjs', 'privateEvidenceBundle31.cjs', 'business31OriginalPathReplay.cjs',
+        ...(isV2Trust31(t) ? ['business31TrustedInputV2.cjs', 'business31PrivateDescriptorV2.cjs',
+            'business31OriginalPathReplayV2.cjs', 'business31CoreWorkerV2.cjs'] : [])]) {
         const file = 'tools/release/' + name;
         need(Object.hasOwn(t.verifier.files, file) && digest(t.verifier.files[file]) &&
             sha(fs.readFileSync(regular(path.join(__dirname, name)))) === t.verifier.files[file], 'REPLAY_PRODUCER');
@@ -361,5 +419,5 @@ function singleResultZip31(raw) {
     return bytes;
 }
 module.exports = Object.freeze({
-    PROFILE, ISSUER, RESULT_NAME, SELF, ENTRIES, sha, need, same, exact, json, regular, validateTrust31, readTrustedConfiguration31, validateRequest31, validateChallenge31, verifyClientHelpers31, verifyReplayHelpers31, verifyExecuting31, validateRepository31, validateCandidate31, validateRun31, validateJobs31, verifyOidc31, request31, token, github31, observe31, artifactName31, retrieveResult31, validateResult31, singleResultZip31
+    PROFILE, PROFILE_V2, isV2Trust31, coreVerifierSummary31, transportCommitments31, ISSUER, RESULT_NAME, SELF, ENTRIES, sha, need, same, exact, json, regular, validateTrust31, readTrustedConfiguration31, validateRequest31, validateChallenge31, verifyClientHelpers31, verifyReplayHelpers31, verifyExecuting31, validateRepository31, validateCandidate31, validateRun31, validateJobs31, verifyOidc31, request31, token, github31, observe31, artifactName31, retrieveResult31, validateResult31, singleResultZip31
 });

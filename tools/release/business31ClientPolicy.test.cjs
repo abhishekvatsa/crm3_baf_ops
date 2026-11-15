@@ -129,3 +129,31 @@ test('accessors, callbacks and custom array maps are refused without execution',
   assert.throws(() => subject.verifyBusinessClientPolicy31(inherited), /plain bounded array/);
   assert.equal(called, 0);
 });
+
+let successorFixture;
+function successorArgs() {
+  if (!successorFixture) successorFixture = createFixture({successor: true});
+  successorFixture.reset();
+  return args(successorFixture);
+}
+test('v2 measures the separately enrolled outer verifier and unchanged M core', () => {
+  const input = successorArgs(), result = subject.verifyBusinessClientPolicy31(input);
+  assert.equal(result.schemaVersion, 2);
+  assert.equal(result.profile, subject.PROFILE_V2);
+  assert.deepEqual(result.coreVerifier, {commit: successorFixture.M.commit, tree: successorFixture.M.tree});
+  assert.equal(result.verifier.commit, successorFixture.Vnew.commit);
+  assert.notEqual(result.verifier.commit, result.coreVerifier.commit);
+  assert.equal(result.policySourceVerified, true);
+  assert.equal(result.appCheckSourcePolicyVerified, true);
+  for (const name of subject.FALSE_FLAGS) assert.equal(result[name], false, name);
+});
+test('v2 refuses mixed input, incomplete integration, altered core and absent successor helper', () => {
+  const mixed = successorArgs(); mixed.input.profile = 'build31-business-hosted-client-input-v1';
+  assert.throws(() => subject.verifyBusinessClientPolicy31(mixed), /input profile differs/);
+  const omitted = successorArgs(); delete omitted.trust.sourceIntegration[Object.keys(omitted.trust.sourceIntegration)[0]];
+  assert.throws(() => subject.verifyBusinessClientPolicy31(omitted));
+  const changed = successorArgs(); changed.trust.coreVerifier.tree = 'f'.repeat(40);
+  assert.throws(() => subject.verifyBusinessClientPolicy31(changed));
+  const unbound = successorArgs(); delete unbound.trust.verifier.files['tools/release/business31TrustedInputV2.cjs'];
+  assert.throws(() => subject.verifyBusinessClientPolicy31(unbound), /fixed helper missing/);
+});

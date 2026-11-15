@@ -240,17 +240,25 @@ function Assert-ProductionAppCheckBusiness31Binding {
   # This pure join never turns a supplied object into private replay authority.
   if ($null -eq $Proof -or $Proof.ok -isnot [bool] -or -not $Proof.ok -or
       $Proof.route -cne 'business-backend31' -or $Policy.versionPolicy.buildNumber -cne 31 -or
-      $Policy.businessBackendPrivateReplay.profile -cne 'build31-exact-business-backend-v1' -or
-      $Policy.clientBackendCompatibility.profile -cne 'build31-business-client-compatibility-v1') {
+      $Policy.businessBackendPrivateReplay.profile -cnotin @('build31-exact-business-backend-v1', 'build31-exact-business-backend-v2') -or
+      $Policy.clientBackendCompatibility.profile -cnotin @('build31-business-client-compatibility-v1', 'build31-business-client-compatibility-v2')) {
     throw 'App Check business31 requires the exact authenticated policy measurement.'
   }
   $business = $Proof.businessBackend31
   $result = Get-ProductionAppCheckBusiness31Measurement $Proof
+  $transportV2 = $result.schemaVersion -ceq 2
+  $descriptorProfile = if ($transportV2) { 'build31-exact-business-backend-v2' } else { 'build31-exact-business-backend-v1' }
+  $pointerProfile = if ($transportV2) { 'build31-business-client-compatibility-v2' } else { 'build31-business-client-compatibility-v1' }
+  if ($Policy.businessBackendPrivateReplay.profile -cne $descriptorProfile -or $Policy.clientBackendCompatibility.profile -cne $pointerProfile) { throw 'App Check business31 transport versions are mixed.' }
   $client = $result.client
   $measured = $client.policy
-  if ($client.schemaVersion -cne 2 -or $client.profile -cne 'build31-business-client-compatibility-v1' -or
+  $clientVersion = if ($transportV2) { 3 } else { 2 }
+  $clientProfile = if ($transportV2) { 'build31-business-client-compatibility-v2' } else { 'build31-business-client-compatibility-v1' }
+  $policyVersion = if ($transportV2) { 2 } else { 1 }
+  $policyProfile = if ($transportV2) { 'build31-business-client-policy-v2' } else { 'build31-business-client-policy-v1' }
+  if ($client.schemaVersion -cne $clientVersion -or $client.profile -cne $clientProfile -or
       $client.appCheckSourcePolicyVerified -isnot [bool] -or -not $client.appCheckSourcePolicyVerified -or
-      $measured.schemaVersion -cne 1 -or $measured.profile -cne 'build31-business-client-policy-v1' -or
+      $measured.schemaVersion -cne $policyVersion -or $measured.profile -cne $policyProfile -or
       $measured.policySourceVerified -isnot [bool] -or -not $measured.policySourceVerified -or
       $measured.appCheckSourcePolicyVerified -isnot [bool] -or -not $measured.appCheckSourcePolicyVerified -or
       $BackendReceipt.schemaVersion -cne 1 -or $BackendReceipt.documentType -cne 'build31-business-private-record-custody' -or
@@ -266,6 +274,10 @@ function Assert-ProductionAppCheckBusiness31Binding {
       $measured.platformIdentityAuthenticated -isnot [bool] -or $measured.platformIdentityAuthenticated -ne $false -or
       $measured.privateReplayVerified -isnot [bool] -or $measured.privateReplayVerified -ne $false) {
     throw 'App Check business31 source measurement cannot authenticate processes or private execution.'
+  }
+  if ($transportV2) {
+    Assert-ProductionAppCheckSameValue $client.coreVerifier $result.coreVerifier 'Business31 client recorded verifier'
+    Assert-ProductionAppCheckSameValue $measured.coreVerifier $result.coreVerifier 'Business31 policy recorded verifier'
   }
   Assert-ProductionAppCheckSameValue $BackendReceipt $business.currentBackend 'Business31 actual closure bytes'
   foreach ($source in @($BackendReceipt.source, $result.source, $measured.source)) {
@@ -313,7 +325,8 @@ function Get-ProductionAppCheckBusiness31Measurement {
   if ($hasPolicy -eq $hasPrerequisite) { throw 'App Check requires exactly one authenticated measurement route.' }
   if ($hasPolicy) {
     $result = $business.policyResult
-    if ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-policy-result-v1' -or
+    $versioned = $result.schemaVersion -ceq 2 -and $result.profile -ceq 'build31-business-policy-result-v2'
+    if ((-not $versioned -and ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-policy-result-v1')) -or
         $result.purpose -cne 'policy' -or $result.policyMeasurementVerified -isnot [bool] -or -not $result.policyMeasurementVerified) {
       throw 'App Check policy measurement is incomplete.'
     }
@@ -324,7 +337,8 @@ function Get-ProductionAppCheckBusiness31Measurement {
     }
   } else {
     $result = $business.prerequisiteResult
-    if ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-prerequisite-measurement-v1' -or
+    $versioned = $result.schemaVersion -ceq 2 -and $result.profile -ceq 'build31-business-prerequisite-measurement-v2'
+    if ((-not $versioned -and ($result.schemaVersion -cne 1 -or $result.profile -cne 'build31-business-prerequisite-measurement-v1')) -or
         $result.purpose -cnotin @('construction', 'package-verification') -or
         $result.replayMode -cnotin @('fresh-dispatch', 'same-parent-reauthentication') -or
         ($result.purpose -ceq 'package-verification' -and $result.replayMode -cne 'fresh-dispatch') -or
@@ -334,6 +348,13 @@ function Get-ProductionAppCheckBusiness31Measurement {
     Assert-ProductionAppCheckSameValue $result.limits ([ordered]@{deploymentAuthorized=$false; constructionAuthorized=$false;
       signingAuthorized=$false; distributionAuthorized=$false}) 'App Check prerequisite limits'
   }
+  if ($versioned) {
+    if ($null -eq $result.PSObject.Properties['coreVerifier'] -or
+        $result.coreVerifier.commit -cnotmatch '^[a-f0-9]{40}$' -or $result.coreVerifier.tree -cnotmatch '^[a-f0-9]{40}$' -or
+        $result.commitments.coreProducerBindingsSha256 -cnotmatch '^[A-F0-9]{64}$' -or
+        $result.commitments.sourceIntegrationSha256 -cnotmatch '^[A-F0-9]{64}$') { throw 'App Check recorded verifier binding is incomplete.' }
+    Assert-ProductionAppCheckSameValue $result.coreVerifier ([ordered]@{commit=$result.source.commit; tree=$result.source.tree}) 'Business31 recorded verifier M'
+  } elseif ($null -ne $result.PSObject.Properties['coreVerifier']) { throw 'App Check legacy measurement cannot contain a versioned verifier.' }
   $result
 }
 

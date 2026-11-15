@@ -1286,9 +1286,10 @@ if ($null -ne $business31Proof) {
   # distribution authority. Every package verification performs a fresh replay.
   $constructionObservation = Join-Path $releaseDirectory 'business31-construction-observation.json'
   Write-Utf8NoBom -Path $constructionObservation -Text ([string]$businessOutput[0] + "`n")
+  $transportV2 = $business31Proof.businessBackend31.prerequisiteResult.schemaVersion -ceq 2
   $manifest['businessBackend31'] = [ordered]@{
-    schemaVersion = 1
-    profile = 'build31-business-construction-record-v1'
+    schemaVersion = $(if ($transportV2) { 2 } else { 1 })
+    profile = $(if ($transportV2) { 'build31-business-construction-record-v2' } else { 'build31-business-construction-record-v1' })
     constructionObservationFile = 'business31-construction-observation.json'
     constructionObservationSha256 = Get-Sha256 $constructionObservation
   }

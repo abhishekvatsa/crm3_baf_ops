@@ -148,7 +148,10 @@ async function main() {
   p.same(c.readController31(process.argv[3], process.argv[5]), config, 'CONTROLLER_FINAL_CONFIG_CHANGED');
   if (resumed) p.need(initialRead(process.argv[11], 128 * 1024).equals(resumeBytes), 'RESUME_LOCATOR_CHANGED');
   p.need(performance.now() < deadline && Date.now() < Date.parse(challenge.expiresAtUtc), 'PREREQUISITE_DEADLINE');
-  const result = {schemaVersion: 1, profile: 'build31-business-prerequisite-measurement-v1', purpose: input.purpose,
+  const successor = p.isV2Trust31(trust);
+  const result = {schemaVersion: successor ? 2 : 1,
+    profile: successor ? 'build31-business-prerequisite-measurement-v2' : 'build31-business-prerequisite-measurement-v1',
+    purpose: input.purpose, ...(successor ? {coreVerifier: value.coreVerifier} : {}),
     verifier: value.verifier, source: value.source, candidate: value.candidate, descriptorPointer: value.descriptorPointer,
     closurePointer: value.closurePointer, commitments: value.commitments, client: value.client, challenge,
     runId, runAttempt: request.runAttempt, artifactId: authenticated.artifactId, resultSha256: authenticated.resultSha256,
