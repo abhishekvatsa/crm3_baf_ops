@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import path from "node:path";
+import os from "node:os";
 import {fileURLToPath} from "node:url";
 import {createRequire} from "node:module";
 import {execFileSync} from "node:child_process";
@@ -52,16 +53,97 @@ const backendClosureDecisions = [
   ['cleanMainLiveReadbacks.firestoreRulesAndIndexes.allIndexesReady', true],
 ];
 
+// This historical positive uses genuine immutable V inputs, never the current
+// candidate policy/state. Only the authority's named read sites are materialized.
+const historicalFixtureCommit = 'feebbe88cf5b45694b9b7582edacbb37478dae74';
+const historicalFixtureFiles = [
+  'release/approvals/build-number-30-successor-approval.json',
+  'release/approvals/build27-backend-deployment-approval.json',
+  'release/approvals/build27-staged-controlled-pilot-approval.json',
+  'release/approvals/build30-backend-owner-authorization.json',
+  'release/approvals/build30-current-source-backend-deployment-approval.json',
+  'release/build-number-ledger.json',
+  'release/current-successor-state.json',
+  'release/evidence/build-27-device-acceptance.json',
+  'release/evidence/build-27-finalization-closure.json',
+  'release/evidence/build-27-staged-controlled-pilot-authorization.json',
+  'release/evidence/build27-backend-deployment-closure.json',
+  'release/evidence/build27-firestore-rules-indexes-live-readback.json',
+  'release/evidence/build27-function-fleet-runtime-identity-readback.json',
+  'release/evidence/build27-functions-iam-dependencies-readback.json',
+  'release/evidence/build30-current-source-backend-ci.json',
+  'release/evidence/build30-current-source-backend-deployment-closure.json',
+  'release/evidence/build30-current-source-firestore-rules-indexes-live-readback.json',
+  'release/evidence/build30-current-source-function-fleet-runtime-identity-readback.json',
+  'release/evidence/build30-current-source-functions-iam-dependencies-readback.json',
+  'release/evidence/build30-current-source-rules-preflight.json',
+  'release/evidence/build30-current-source-rules-runtime-install-stdout.json',
+  'release/evidence/build30-current-source-rules-runtime-install.json',
+  'release/evidence/build30-rules-attempt13-before-readback.json',
+  'release/evidence/build30-rules-attempt13-cli-result.json',
+  'release/evidence/build30-rules-attempt13-failed-command.json',
+  'release/evidence/build30-rules-attempt13-measurements-public.json',
+  'release/evidence/build30-rules-attempt13-process-result.json',
+  'release/evidence/build30-rules-observed-state-reconciliation.json',
+  'release/lr07-distribution-installation-readback-policy.json',
+  'release/production-release-policy.json',
+  'tools/release/collectFirestoreRulesIndexesReadback.js',
+  'tools/release/collectFunctionFleetRuntimeIdentityReadback.js',
+  'tools/release/collectFunctionsIamDependenciesReadback.js',
+  'tools/release/collectProductionGlobalPullBackend.js',
+  'tools/release/deploymentFleetContract.js',
+  'tools/release/reviewedBackendControls.js',
+  'tools/release/reviewedBackendVerifierAuthority.js',
+  'tools/release/reviewedFirestoreRulesDeployment.js',
+  'tools/release/reviewedRulesReconciliation.js',
+  'tools/release/reviewedRulesRuntime.js',
+  'tools/release/reviewedRulesRuntimeCollector.js',
+  'tools/release/scopedCallableInvokerIam.js',
+  'tools/release/scopedCallableInvokerIamPublic.js',
+  'tools/release/stagedPromotionSourceAuthority.js',
+ ];
+let historicalFixtureRoot;
+let historicalCleanupRoot;
+test.after(() => {
+  if (!historicalCleanupRoot) return;
+  assert.equal(path.dirname(fs.realpathSync(historicalCleanupRoot)), fs.realpathSync(os.tmpdir()));
+  assert.ok(path.basename(historicalCleanupRoot).startsWith('crm3-historical-promotion-'));
+  fs.rmSync(historicalCleanupRoot, {recursive: true, force: true});
+});
+function historicalPromotionRepository() {
+  if (historicalFixtureRoot) return historicalFixtureRoot;
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'crm3-historical-promotion-'));
+  historicalCleanupRoot = directory;
+  const git = (...args) => execFileSync('git', ['--no-replace-objects', '-C', directory, ...args],
+    {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024});
+  git('init', '--quiet');
+  const objects = execFileSync('git', ['--no-replace-objects', '-C', repositoryRoot,
+    'rev-parse', '--path-format=absolute', '--git-path', 'objects'], {encoding: 'utf8', windowsHide: true}).trim();
+  fs.mkdirSync(path.join(directory, '.git/objects/info'), {recursive: true});
+  fs.writeFileSync(path.join(directory, '.git/objects/info/alternates'), `${objects.replaceAll('\\', '/')}\n`);
+  git('update-ref', 'refs/heads/historical-fixture', historicalFixtureCommit);
+  git('symbolic-ref', 'HEAD', 'refs/heads/historical-fixture');
+  for (const file of historicalFixtureFiles) {
+    const bytes = git('show', `${historicalFixtureCommit}:${file}`);
+    fs.mkdirSync(path.dirname(path.join(directory, file)), {recursive: true});
+    fs.writeFileSync(path.join(directory, file), bytes);
+  }
+  historicalFixtureRoot = directory;
+  return directory;
+}
 let measuredStagedSourceAuthorityProof;
 function measuredPromotionFixture() {
-  const read = (file) => JSON.parse(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'));
+  const fixtureRoot = historicalPromotionRepository();
+  const read = (file) => JSON.parse(fs.readFileSync(path.join(fixtureRoot, file), 'utf8'));
   const hashFile = (file) => createHash('sha256')
-    .update(fs.readFileSync(path.join(repositoryRoot, file))).digest('hex').toUpperCase();
+    .update(fs.readFileSync(path.join(fixtureRoot, file))).digest('hex').toUpperCase();
   const input = {policy: read('release/lr07-distribution-installation-readback-policy.json'),
     releasePolicy: read('release/production-release-policy.json'),
     buildLedger: read('release/build-number-ledger.json')};
+  assert.equal(input.releasePolicy.release.buildNumber, 30, 'Historical promotion positive must retain the genuine pre-Build31 policy');
+  assert.equal(Object.hasOwn(input.releasePolicy, 'businessBackendPrivateReplay'), false, 'Current business selection must not enter the historical fixture');
   measuredStagedSourceAuthorityProof ??= verifyStagedPromotionSourceAuthority({
-    repoRoot: repositoryRoot, releasePolicy: input.releasePolicy,
+    repoRoot: fixtureRoot, releasePolicy: input.releasePolicy,
   });
   assert.equal(measuredStagedSourceAuthorityProof.ok, true, JSON.stringify(measuredStagedSourceAuthorityProof.reasons));
   input.stagedSourceAuthorityProof = structuredClone(measuredStagedSourceAuthorityProof);
@@ -1802,8 +1884,26 @@ test("the fixed Build 11 exception cannot relabel a later promotion", () => {
 });
 
 test("source summary semantically revalidates mutable authority after byte drift", () => {
+  const fixtureRoot = historicalPromotionRepository();
+  // Additional unconditional summarizeSource read sites; no whole release copy.
+  const summaryInputs = [
+    "release/stage2d-f-internal-controlled-deployment-scope.json",
+    "release/client-platform-scope.prod.json",
+    "release/evidence/build-8-finalization-closure.json",
+    "release/evidence/build-30-finalization-closure.json",
+    "release/evidence/build-8-f4-intermittent-connectivity-adjudication.json",
+    ".github/workflows/production-artifact.yml",
+  ];
+  for (const file of summaryInputs) {
+    const bytes = execFileSync('git', ['--no-replace-objects', '-C', fixtureRoot, 'show',
+      `${historicalFixtureCommit}:${file}`],
+    {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024});
+    fs.mkdirSync(path.dirname(path.join(fixtureRoot, file)), {recursive: true});
+    fs.writeFileSync(path.join(fixtureRoot, file), bytes);
+  }
   const policy = structuredClone(
-    require("../../release/lr07-distribution-installation-readback-policy.json"),
+    JSON.parse(fs.readFileSync(path.join(fixtureRoot,
+      "release/lr07-distribution-installation-readback-policy.json"), 'utf8')),
   );
   const mutablePaths = new Set([
     "release/production-release-policy.json",
@@ -1815,7 +1915,7 @@ test("source summary semantically revalidates mutable authority after byte drift
     entry.sha256 = "0".repeat(64);
   }
 
-  const source = summarizeSource(repositoryRoot, policy);
+  const source = summarizeSource(fixtureRoot, policy);
   const mutableEvidence = source.files.filter((entry) =>
     mutablePaths.has(entry.path),
   );

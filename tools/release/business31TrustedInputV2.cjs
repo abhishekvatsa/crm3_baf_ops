@@ -27,7 +27,8 @@ const INTEGRATION_PATHS=Object.freeze([
  'business31ClientPolicy.cjs','business31ClientPolicy.test.cjs','business31Controller.cjs','business31Controller.test.cjs',
  'business31Prerequisite.cjs','business31Prerequisite.test.cjs','business31PolicyResult.cjs','business31PolicyResult.test.cjs',
  'business31PolicyInvocation.cjs','business31PolicyInvocation.test.cjs','business31ClientRoute.test.cjs',
- 'clientBackendCompatibility31.js','clientBackendCompatibility31.test.cjs',
+ 'clientBackendCompatibility31.js','clientBackendCompatibility31.test.cjs','clientBackendCompatibility31.test.mjs',
+ 'collectDistributionInstallationReadback.test.mjs',
  'fixtures/business31ClientPolicyFixture.cjs','fixtures/business31HostedFixture.cjs'
  ].map(file=>'tools/release/'+file)
 ]);
