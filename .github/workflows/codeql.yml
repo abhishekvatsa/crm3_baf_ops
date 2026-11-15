@@ -1,175 +1,364 @@
-name: CodeQL source security
+name: Build31 public child dispatch actor measurement
+run-name: Build31 public actor ${{ inputs.mode }} ${{ inputs.nonce }}
 
-# Kotlin needs a traced Flutter/Android build; build-mode:none omits Kotlin.
-# CRM3_CODEQL_PREVIEW is a temporary migration switch. With it absent, uploads
-# are enabled. Keep default setup active until all four preview jobs pass.
+# Public preparation only. Never merge this measurement branch.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: ["**"]
-  schedule:
-    - cron: '23 2 * * 1'
-  workflow_dispatch: {}
-
-concurrency:
-  group: codeql-source-${{ github.ref }}
-  cancel-in-progress: true
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Closed parent or child mode
+        required: true
+        type: choice
+        options: [parent, child]
+        default: parent
+      nonce:
+        description: One fresh public uppercase32hex nonce
+        required: true
+        type: string
+      source_commit:
+        description: Actual published measurement commit; no guessed future identity
+        required: true
+        type: string
+      parent_run_id:
+        description: Parent uses0; child receives actual parent run ID
+        required: true
+        type: string
+        default: '0'
+      parent_run_attempt:
+        description: Parent uses0; child receives1
+        required: true
+        type: string
+        default: '0'
+      parent_actor_id:
+        description: Parent uses0; child receives actual guarded parent actor ID
+        required: true
+        type: string
+        default: '0'
+      parent_triggering_actor_id:
+        description: Parent uses0; child receives actual guarded triggering actor ID
+        required: true
+        type: string
+        default: '0'
 
 permissions:
   contents: read
 
+concurrency:
+  group: build31-public-child-actor-${{ github.run_id }}
+  cancel-in-progress: false
+
 jobs:
-  analyze:
-    name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+  parent:
+    # Invalid modes enter the parent guard and fail before any POST.
+    if: ${{ inputs.mode != 'child' }}
+    name: Build31 public dispatch parent
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
-      security-events: write
-      actions: read
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: actions
-            build-mode: none
-          - language: javascript-typescript
-            build-mode: none
-          - language: python
-            build-mode: none
-          - language: java-kotlin
-            build-mode: manual
+      actions: write
     env:
-      CRM3_CI_PACKAGE_PROOF: 'true'
+      INPUT_MODE: ${{ inputs.mode }}
+      INPUT_NONCE: ${{ inputs.nonce }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+      INPUT_PARENT_RUN_ATTEMPT: ${{ inputs.parent_run_attempt }}
+      INPUT_PARENT_ACTOR_ID: ${{ inputs.parent_actor_id }}
+      INPUT_PARENT_TRIGGERING_ACTOR_ID: ${{ inputs.parent_triggering_actor_id }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-
-      - name: Explain temporary preview
-        if: vars.CRM3_CODEQL_PREVIEW == 'true'
-        run: echo 'Preview analysis only. Default setup remains the active scanner until migration is verified.'
-
-      - name: Set up Java 21
-        if: matrix.language == 'java-kotlin'
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      - name: Set up Flutter 3.44.0
-        if: matrix.language == 'java-kotlin'
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          channel: stable
-          flutter-version: '3.44.0'
-          cache: true
-
-      - name: Prepare isolated Android compilation
-        if: matrix.language == 'java-kotlin'
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo "GRADLE_USER_HOME=$RUNNER_TEMP/codeql-gradle" >> "$GITHUB_ENV"
-          android_sdk="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
-          "$android_sdk/cmdline-tools/latest/bin/sdkmanager" \
-            "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;28.2.13676358" "cmake;3.22.1"
-          # Cached JNI native metadata may invoke Ninja during clean, before
-          # Gradle has a chance to provision CMake for the new build.
-          test -x "$android_sdk/cmake/3.22.1/bin/cmake"
-          test -x "$android_sdk/cmake/3.22.1/bin/ninja"
-          "$android_sdk/cmake/3.22.1/bin/cmake" --version
-          "$android_sdk/cmake/3.22.1/bin/ninja" --version
-          flutter precache --android
-          flutter pub get
-          python3 tools/security/codeql/prepare_android.py
-          python3 -m unittest discover -s tools/security/codeql -p 'test_*.py'
-
-      - name: Initialize CodeQL
-        id: init
-        uses: github/codeql-action/init@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
-
-      - name: Compile Kotlin inside CodeQL tracing
-        if: matrix.language == 'java-kotlin'
-        working-directory: android
-        shell: bash
-        run: |
-          set -euo pipefail
-          ./gradlew --no-daemon --no-build-cache --no-configuration-cache \
-            --rerun-tasks \
-            -Pkotlin.compiler.execution.strategy=in-process \
-            -Pkotlin.incremental=false \
-            -Pdart-defines=Q1JNM19DSV9QQUNLQUdFX1BST09GPXRydWU= \
-            clean :app:assembleDebug
-
-      - name: Analyze without implicit upload
-        id: analyze
-        uses: github/codeql-action/analyze@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          category: /language:${{ matrix.language }}
-          output: ${{ runner.temp }}/codeql-sarif
-          # 'false' means failure-only in this action; 'never' is intentional.
-          upload: never
-          upload-database: false
-
-      - name: Prove app Kotlin method bodies were extracted
-        if: matrix.language == 'java-kotlin'
+      - name: Dispatch exactly one public child with the production token route
+        shell: pwsh
         env:
-          CODEQL_BINARY: ${{ steps.init.outputs.codeql-path }}
-          CODEQL_DATABASE: ${{ fromJSON(steps.analyze.outputs.db-locations || '{}').java }}
-          CODEQL_VERSION: ${{ steps.init.outputs.codeql-version }}
-        shell: bash
+          DISPATCH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/kotlin-extraction"
-          # Resolve java-all and its dependencies from this same CLI bundle.
-          # Do not install a separately versioned pack from a network registry.
-          CODEQL_BUNDLE="$(dirname "$CODEQL_BINARY")"
-          test -f "$CODEQL_BUNDLE/.codeqlmanifest.json"
-          test -d "$CODEQL_BUNDLE/qlpacks/codeql/java-all"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.bqrs" \
-            tools/security/codeql/MainActivityBodies.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/methods.bqrs"
-          "$CODEQL_BINARY" query run \
-            --search-path="$CODEQL_BUNDLE" \
-            --database="$CODEQL_DATABASE" \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs" \
-            tools/security/codeql/AppExtractionDiagnostics.ql
-          "$CODEQL_BINARY" bqrs decode --format=csv \
-            --output="$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            "$RUNNER_TEMP/kotlin-extraction/diagnostics.bqrs"
-          python3 tools/security/codeql/verify_kotlin_extraction.py \
-            --csv "$RUNNER_TEMP/kotlin-extraction/methods.csv" \
-            --diagnostics "$RUNNER_TEMP/kotlin-extraction/diagnostics.csv" \
-            --repository-root "$GITHUB_WORKSPACE" \
-            --commit "$(git rev-parse HEAD)" \
-            --codeql-version "$CODEQL_VERSION" \
-            --output "$RUNNER_TEMP/kotlin-extraction/proof.json"
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $client = $null
+          try {
+            function Need([bool]$ok) { if (-not $ok) { throw 'Public actor measurement refused.' } }
+            function Same([object]$value, [string]$expected) { Need ($value -is [string] -and $value -ceq $expected) }
+            function Id([object]$value) {
+              Need (($value -is [int] -or $value -is [long]) -and $value -gt 0 -and $value -le 9007199254740991)
+              $value.ToString([Globalization.CultureInfo]::InvariantCulture)
+            }
+            function Exact([object]$value, [string[]]$keys) {
+              Need ($value -is [Collections.IDictionary])
+              Need ((ConvertTo-Json -InputObject @($value.Keys | Sort-Object) -Compress) -ceq
+                (ConvertTo-Json -InputObject @($keys | Sort-Object) -Compress))
+            }
+            function Read-ApiBody($response, $cancel, [int]$limit) {
+              Need ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 300)
+              if ($null -ne $response.Content.Headers.ContentLength) { Need ($response.Content.Headers.ContentLength -le $limit) }
+              $stream = $response.Content.ReadAsStreamAsync($cancel.Token).GetAwaiter().GetResult()
+              $memory = [IO.MemoryStream]::new()
+              try {
+                $buffer = [byte[]]::new(4096)
+                while (($count = $stream.ReadAsync($buffer, 0, $buffer.Length, $cancel.Token).GetAwaiter().GetResult()) -gt 0) {
+                  Need ($memory.Length + $count -le $limit)
+                  $memory.Write($buffer, 0, $count)
+                }
+                $bytes = $memory.ToArray()
+                $raw = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+                $value = ConvertFrom-Json -InputObject $raw -AsHashtable -NoEnumerate -Depth 40 -DateKind String
+                Need ($value -is [Collections.IDictionary])
+                [pscustomobject]@{value=$value;raw=$raw;sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes));bytes=$bytes.Length;status=[int]$response.StatusCode}
+              } finally { $stream.Dispose(); $memory.Dispose() }
+            }
+            function Get-PublicRun([string]$runId) {
+              Need ($runId -cmatch '^[1-9][0-9]{0,15}$')
+              $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,
+                ('https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/actions/runs/' + $runId))
+              $cancel = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(45))
+              $response = $null
+              try {
+                $response = $client.SendAsync($request, [Net.Http.HttpCompletionOption]::ResponseHeadersRead, $cancel.Token).GetAwaiter().GetResult()
+                Need ([int]$response.StatusCode -eq 200)
+                $body = Read-ApiBody $response $cancel 65536
+                $run = $body.value
+                Same (Id $run.id) $runId
+                Same (Id $run.workflow_id) '362994469'
+                Same (Id $run.run_attempt) '1'
+                Same $run.event 'workflow_dispatch'
+                Same $run.head_sha $env:INPUT_SOURCE_COMMIT
+                Same $run.head_branch 'codex/build31-child-dispatch-actor-measure-20261115'
+                Same $run.path '.github/workflows/codeql.yml'
+                Same $run.repository.full_name 'abhishekvatsa/crm3_baf_ops'
+                Same (Id $run.repository.id) '1248257593'
+                Same (Id $run.repository.owner.id) '213690022'
+                Need ($run.repository.private -is [bool] -and $run.repository.private -eq $false)
+                $null = Id $run.actor.id
+                $null = Id $run.triggering_actor.id
+                Need ($run.actor.login -is [string] -and $run.triggering_actor.login -is [string])
+                $run
+              } finally { if ($null -ne $response) { $response.Dispose() }; $cancel.Dispose(); $request.Dispose() }
+            }
+            function Public-Run($run) {
+              [ordered]@{id=(Id $run.id);attempt=(Id $run.run_attempt);workflowId=(Id $run.workflow_id);
+                headSha=$run.head_sha;headBranch=$run.head_branch;path=$run.path;event=$run.event;
+                actor=[ordered]@{id=(Id $run.actor.id);login=$run.actor.login};
+                triggeringActor=[ordered]@{id=(Id $run.triggering_actor.id);login=$run.triggering_actor.login}}
+            }
+            function Emit([string]$prefix, [object]$value) {
+              $raw = (ConvertTo-Json -InputObject $value -Depth 20 -Compress) + "`n"
+              $bytes = [Text.UTF8Encoding]::new($false).GetBytes($raw)
+              Need ($bytes.Length -gt 0 -and $bytes.Length -le 16384)
+              [Console]::Out.WriteLine($prefix + '_JSON_BEGIN')
+              [Console]::Out.Write($raw)
+              [Console]::Out.WriteLine($prefix + '_JSON_END')
+              [Console]::Out.WriteLine($prefix + '_SHA256=' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)))
+            }
+            Need ($IsLinux -and $env:RUNNER_OS -ceq 'Linux' -and $env:RUNNER_ARCH -ceq 'X64')
+            Same $env:GITHUB_REPOSITORY 'abhishekvatsa/crm3_baf_ops'
+            Same $env:GITHUB_REPOSITORY_ID '1248257593'
+            Same $env:GITHUB_REPOSITORY_OWNER_ID '213690022'
+            Same $env:GITHUB_EVENT_NAME 'workflow_dispatch'
+            Same $env:GITHUB_RUN_ATTEMPT '1'
+            Same $env:GITHUB_REF 'refs/heads/codex/build31-child-dispatch-actor-measure-20261115'
+            Same $env:GITHUB_WORKFLOW_REF 'abhishekvatsa/crm3_baf_ops/.github/workflows/codeql.yml@refs/heads/codex/build31-child-dispatch-actor-measure-20261115'
+            Need ($env:INPUT_SOURCE_COMMIT -cmatch '^[0-9a-f]{40}$' -and $env:INPUT_NONCE -cmatch '^[A-F0-9]{32}$')
+            Same $env:GITHUB_SHA $env:INPUT_SOURCE_COMMIT
+            Same $env:GITHUB_WORKFLOW_SHA $env:INPUT_SOURCE_COMMIT
+            Need ($env:GITHUB_RUN_ID -cmatch '^[1-9][0-9]{0,15}$')
+            $event = ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($env:GITHUB_EVENT_PATH, [Text.UTF8Encoding]::new($false, $true))) -AsHashtable -NoEnumerate -Depth 40 -DateKind String
+            Exact $event.inputs @('mode','nonce','source_commit','parent_run_id','parent_run_attempt','parent_actor_id','parent_triggering_actor_id')
+            foreach ($key in $event.inputs.Keys) { Need ($event.inputs[$key] -is [string]) }
+            Same $event.inputs.mode $env:INPUT_MODE
+            Same $event.inputs.nonce $env:INPUT_NONCE
+            Same $event.inputs.source_commit $env:INPUT_SOURCE_COMMIT
+            Same $event.inputs.parent_run_id $env:INPUT_PARENT_RUN_ID
+            Same $event.inputs.parent_run_attempt $env:INPUT_PARENT_RUN_ATTEMPT
+            Same $event.inputs.parent_actor_id $env:INPUT_PARENT_ACTOR_ID
+            Same $event.inputs.parent_triggering_actor_id $env:INPUT_PARENT_TRIGGERING_ACTOR_ID
+            $handler = [Net.Http.HttpClientHandler]::new()
+            $handler.AllowAutoRedirect = $false
+            $handler.UseCookies = $false
+            $handler.UseDefaultCredentials = $false
+            $handler.Credentials = $null
+            $client = [Net.Http.HttpClient]::new($handler)
+            $client.DefaultRequestHeaders.Accept.ParseAdd('application/vnd.github+json')
+            $client.DefaultRequestHeaders.Add('X-GitHub-Api-Version','2026-03-10')
+            $client.DefaultRequestHeaders.UserAgent.ParseAdd('business31-prerequisite')
+            Same $env:INPUT_MODE 'parent'
+            foreach ($key in @('INPUT_PARENT_RUN_ID','INPUT_PARENT_RUN_ATTEMPT','INPUT_PARENT_ACTOR_ID','INPUT_PARENT_TRIGGERING_ACTOR_ID')) { Same ([Environment]::GetEnvironmentVariable($key)) '0' }
+            Same $env:GITHUB_ACTOR_ID '213690022'
+            Need ($env:DISPATCH_TOKEN -is [string] -and $env:DISPATCH_TOKEN.Length -gt 0 -and $env:DISPATCH_TOKEN.Length -le 4096 -and $env:DISPATCH_TOKEN -cnotmatch '[^\x21-\x7E]')
+            $client.DefaultRequestHeaders.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer',$env:DISPATCH_TOKEN)
+            [Environment]::SetEnvironmentVariable('DISPATCH_TOKEN',$null,'Process')
+            $self = Get-PublicRun $env:GITHUB_RUN_ID
+            Same (Id $self.actor.id) '213690022'
+            Same (Id $self.triggering_actor.id) '213690022'
+            Same $self.actor.login $env:GITHUB_ACTOR
+            Same $self.triggering_actor.login $env:GITHUB_TRIGGERING_ACTOR
+            $childInputs = [ordered]@{mode='child';nonce=$env:INPUT_NONCE;source_commit=$env:INPUT_SOURCE_COMMIT;
+              parent_run_id=$env:GITHUB_RUN_ID;parent_run_attempt='1';parent_actor_id=(Id $self.actor.id);parent_triggering_actor_id=(Id $self.triggering_actor.id)}
+            $body = [ordered]@{ref='codex/build31-child-dispatch-actor-measure-20261115';inputs=$childInputs}
+            $url = 'https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/actions/workflows/362994469/dispatches'
+            Emit 'BUILD31_PUBLIC_CHILD_DISPATCH_INTENT' ([ordered]@{schemaVersion=1;role='parent-intent';parent=(Public-Run $self);nonce=$env:INPUT_NONCE;method='POST';url=$url;body=$body;maximumPostAttempts=1;retryAllowed=$false})
+            $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post,$url)
+            $request.Content = [Net.Http.StringContent]::new((ConvertTo-Json -InputObject $body -Depth 10 -Compress),[Text.UTF8Encoding]::new($false),'application/json')
+            $cancel = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(45))
+            $response = $null
+            try {
+              # Exactly ONE POST. A timeout or unrecognized response stops; never repeat it.
+              $response = $client.SendAsync($request,[Net.Http.HttpCompletionOption]::ResponseHeadersRead,$cancel.Token).GetAwaiter().GetResult()
+              $created = Read-ApiBody $response $cancel 32768
+              Exact $created.value @('workflow_run_id','run_url','html_url')
+              $childRunId = Id $created.value.workflow_run_id
+              Need ($childRunId -cne $env:GITHUB_RUN_ID)
+              Same $created.value.run_url ('https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/actions/runs/' + $childRunId)
+              Same $created.value.html_url ('https://github.com/abhishekvatsa/crm3_baf_ops/actions/runs/' + $childRunId)
+              Emit 'BUILD31_PUBLIC_CHILD_DISPATCH_RESULT' ([ordered]@{schemaVersion=1;role='parent-result';parent=(Public-Run $self);nonce=$env:INPUT_NONCE;
+                childRunId=$childRunId;dispatchResponse=$created.value;dispatchResponseRawUtf8=$created.raw;dispatchResponseSha256=$created.sha256;dispatchResponseBytes=$created.bytes;httpStatus=$created.status;
+                onePostOnly=$true;rerunAllowed=$false;credentialRecorded=$false})
+            } finally { if ($null -ne $response) { $response.Dispose() };$cancel.Dispose();$request.Dispose() }
+          } catch { [Console]::Error.WriteLine('BUILD31_PUBLIC_CHILD_ACTOR_PARENT_REFUSED');exit 1 }
+          finally { if ($null -ne $client) { $client.Dispose() } }
 
-      - name: Upload accepted security analysis
-        if: vars.CRM3_CODEQL_PREVIEW != 'true'
-        uses: github/codeql-action/upload-sarif@1c5b675653bb5c22dbe9b12b556ec555138e09fd
-        with:
-          sarif_file: ${{ steps.analyze.outputs.sarif-output }}
-          category: /language:${{ matrix.language }}
-          wait-for-processing: true
-
-      - name: Retain analysis and extraction evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: codeql-${{ matrix.language }}-evidence
-          path: |
-            ${{ runner.temp }}/codeql-sarif/*.sarif
-            ${{ runner.temp }}/kotlin-extraction/*.csv
-            ${{ runner.temp }}/kotlin-extraction/*.json
-          if-no-files-found: warn
-          retention-days: 14
+  child:
+    if: ${{ inputs.mode == 'child' }}
+    name: Build31 public actor child
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      INPUT_MODE: ${{ inputs.mode }}
+      INPUT_NONCE: ${{ inputs.nonce }}
+      INPUT_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      INPUT_PARENT_RUN_ID: ${{ inputs.parent_run_id }}
+      INPUT_PARENT_RUN_ATTEMPT: ${{ inputs.parent_run_attempt }}
+      INPUT_PARENT_ACTOR_ID: ${{ inputs.parent_actor_id }}
+      INPUT_PARENT_TRIGGERING_ACTOR_ID: ${{ inputs.parent_triggering_actor_id }}
+    steps:
+      - name: Read only exact public parent and child actor metadata
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $client = $null
+          try {
+            function Need([bool]$ok) { if (-not $ok) { throw 'Public actor measurement refused.' } }
+            function Same([object]$value, [string]$expected) { Need ($value -is [string] -and $value -ceq $expected) }
+            function Id([object]$value) {
+              Need (($value -is [int] -or $value -is [long]) -and $value -gt 0 -and $value -le 9007199254740991)
+              $value.ToString([Globalization.CultureInfo]::InvariantCulture)
+            }
+            function Exact([object]$value, [string[]]$keys) {
+              Need ($value -is [Collections.IDictionary])
+              Need ((ConvertTo-Json -InputObject @($value.Keys | Sort-Object) -Compress) -ceq
+                (ConvertTo-Json -InputObject @($keys | Sort-Object) -Compress))
+            }
+            function Read-ApiBody($response, $cancel, [int]$limit) {
+              Need ([int]$response.StatusCode -ge 200 -and [int]$response.StatusCode -lt 300)
+              if ($null -ne $response.Content.Headers.ContentLength) { Need ($response.Content.Headers.ContentLength -le $limit) }
+              $stream = $response.Content.ReadAsStreamAsync($cancel.Token).GetAwaiter().GetResult()
+              $memory = [IO.MemoryStream]::new()
+              try {
+                $buffer = [byte[]]::new(4096)
+                while (($count = $stream.ReadAsync($buffer, 0, $buffer.Length, $cancel.Token).GetAwaiter().GetResult()) -gt 0) {
+                  Need ($memory.Length + $count -le $limit)
+                  $memory.Write($buffer, 0, $count)
+                }
+                $bytes = $memory.ToArray()
+                $raw = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+                $value = ConvertFrom-Json -InputObject $raw -AsHashtable -NoEnumerate -Depth 40 -DateKind String
+                Need ($value -is [Collections.IDictionary])
+                [pscustomobject]@{value=$value;raw=$raw;sha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes));bytes=$bytes.Length;status=[int]$response.StatusCode}
+              } finally { $stream.Dispose(); $memory.Dispose() }
+            }
+            function Get-PublicRun([string]$runId) {
+              Need ($runId -cmatch '^[1-9][0-9]{0,15}$')
+              $request = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Get,
+                ('https://api.github.com/repos/abhishekvatsa/crm3_baf_ops/actions/runs/' + $runId))
+              $cancel = [Threading.CancellationTokenSource]::new([TimeSpan]::FromSeconds(45))
+              $response = $null
+              try {
+                $response = $client.SendAsync($request, [Net.Http.HttpCompletionOption]::ResponseHeadersRead, $cancel.Token).GetAwaiter().GetResult()
+                Need ([int]$response.StatusCode -eq 200)
+                $body = Read-ApiBody $response $cancel 65536
+                $run = $body.value
+                Same (Id $run.id) $runId
+                Same (Id $run.workflow_id) '362994469'
+                Same (Id $run.run_attempt) '1'
+                Same $run.event 'workflow_dispatch'
+                Same $run.head_sha $env:INPUT_SOURCE_COMMIT
+                Same $run.head_branch 'codex/build31-child-dispatch-actor-measure-20261115'
+                Same $run.path '.github/workflows/codeql.yml'
+                Same $run.repository.full_name 'abhishekvatsa/crm3_baf_ops'
+                Same (Id $run.repository.id) '1248257593'
+                Same (Id $run.repository.owner.id) '213690022'
+                Need ($run.repository.private -is [bool] -and $run.repository.private -eq $false)
+                $null = Id $run.actor.id
+                $null = Id $run.triggering_actor.id
+                Need ($run.actor.login -is [string] -and $run.triggering_actor.login -is [string])
+                $run
+              } finally { if ($null -ne $response) { $response.Dispose() }; $cancel.Dispose(); $request.Dispose() }
+            }
+            function Public-Run($run) {
+              [ordered]@{id=(Id $run.id);attempt=(Id $run.run_attempt);workflowId=(Id $run.workflow_id);
+                headSha=$run.head_sha;headBranch=$run.head_branch;path=$run.path;event=$run.event;
+                actor=[ordered]@{id=(Id $run.actor.id);login=$run.actor.login};
+                triggeringActor=[ordered]@{id=(Id $run.triggering_actor.id);login=$run.triggering_actor.login}}
+            }
+            function Emit([string]$prefix, [object]$value) {
+              $raw = (ConvertTo-Json -InputObject $value -Depth 20 -Compress) + "`n"
+              $bytes = [Text.UTF8Encoding]::new($false).GetBytes($raw)
+              Need ($bytes.Length -gt 0 -and $bytes.Length -le 16384)
+              [Console]::Out.WriteLine($prefix + '_JSON_BEGIN')
+              [Console]::Out.Write($raw)
+              [Console]::Out.WriteLine($prefix + '_JSON_END')
+              [Console]::Out.WriteLine($prefix + '_SHA256=' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)))
+            }
+            Need ($IsLinux -and $env:RUNNER_OS -ceq 'Linux' -and $env:RUNNER_ARCH -ceq 'X64')
+            Same $env:GITHUB_REPOSITORY 'abhishekvatsa/crm3_baf_ops'
+            Same $env:GITHUB_REPOSITORY_ID '1248257593'
+            Same $env:GITHUB_REPOSITORY_OWNER_ID '213690022'
+            Same $env:GITHUB_EVENT_NAME 'workflow_dispatch'
+            Same $env:GITHUB_RUN_ATTEMPT '1'
+            Same $env:GITHUB_REF 'refs/heads/codex/build31-child-dispatch-actor-measure-20261115'
+            Same $env:GITHUB_WORKFLOW_REF 'abhishekvatsa/crm3_baf_ops/.github/workflows/codeql.yml@refs/heads/codex/build31-child-dispatch-actor-measure-20261115'
+            Need ($env:INPUT_SOURCE_COMMIT -cmatch '^[0-9a-f]{40}$' -and $env:INPUT_NONCE -cmatch '^[A-F0-9]{32}$')
+            Same $env:GITHUB_SHA $env:INPUT_SOURCE_COMMIT
+            Same $env:GITHUB_WORKFLOW_SHA $env:INPUT_SOURCE_COMMIT
+            Need ($env:GITHUB_RUN_ID -cmatch '^[1-9][0-9]{0,15}$')
+            $event = ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($env:GITHUB_EVENT_PATH, [Text.UTF8Encoding]::new($false, $true))) -AsHashtable -NoEnumerate -Depth 40 -DateKind String
+            Exact $event.inputs @('mode','nonce','source_commit','parent_run_id','parent_run_attempt','parent_actor_id','parent_triggering_actor_id')
+            foreach ($key in $event.inputs.Keys) { Need ($event.inputs[$key] -is [string]) }
+            Same $event.inputs.mode $env:INPUT_MODE
+            Same $event.inputs.nonce $env:INPUT_NONCE
+            Same $event.inputs.source_commit $env:INPUT_SOURCE_COMMIT
+            Same $event.inputs.parent_run_id $env:INPUT_PARENT_RUN_ID
+            Same $event.inputs.parent_run_attempt $env:INPUT_PARENT_RUN_ATTEMPT
+            Same $event.inputs.parent_actor_id $env:INPUT_PARENT_ACTOR_ID
+            Same $event.inputs.parent_triggering_actor_id $env:INPUT_PARENT_TRIGGERING_ACTOR_ID
+            $handler = [Net.Http.HttpClientHandler]::new()
+            $handler.AllowAutoRedirect = $false
+            $handler.UseCookies = $false
+            $handler.UseDefaultCredentials = $false
+            $handler.Credentials = $null
+            $client = [Net.Http.HttpClient]::new($handler)
+            $client.DefaultRequestHeaders.Accept.ParseAdd('application/vnd.github+json')
+            $client.DefaultRequestHeaders.Add('X-GitHub-Api-Version','2026-03-10')
+            $client.DefaultRequestHeaders.UserAgent.ParseAdd('business31-prerequisite')
+            Same $env:INPUT_MODE 'child'
+            Need ($env:INPUT_PARENT_RUN_ID -cmatch '^[1-9][0-9]{0,15}$' -and $env:INPUT_PARENT_RUN_ID -cne $env:GITHUB_RUN_ID)
+            Same $env:INPUT_PARENT_RUN_ATTEMPT '1'
+            Same $env:INPUT_PARENT_ACTOR_ID '213690022'
+            Same $env:INPUT_PARENT_TRIGGERING_ACTOR_ID '213690022'
+            # Public GETs have no Authorization header. This job has no dispatch token or POST code.
+            $parent = Get-PublicRun $env:INPUT_PARENT_RUN_ID
+            $self = Get-PublicRun $env:GITHUB_RUN_ID
+            Same (Id $parent.actor.id) $env:INPUT_PARENT_ACTOR_ID
+            Same (Id $parent.triggering_actor.id) $env:INPUT_PARENT_TRIGGERING_ACTOR_ID
+            Same (Id $self.actor.id) $env:GITHUB_ACTOR_ID
+            Same $self.actor.login $env:GITHUB_ACTOR
+            Same $self.triggering_actor.login $env:GITHUB_TRIGGERING_ACTOR
+            Emit 'BUILD31_PUBLIC_CHILD_ACTOR_MEASUREMENT' ([ordered]@{schemaVersion=1;documentType='build31-public-child-dispatch-actor-measurement';role='child';
+              recordedAtUtc=[DateTimeOffset]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ss.fffZ',[Globalization.CultureInfo]::InvariantCulture);
+              nonce=$env:INPUT_NONCE;parent=(Public-Run $parent);child=(Public-Run $self);apiVersion='2026-03-10';
+              route='Parent github.token -> same workflow_dispatch endpoint/ref -> returned child run ID';
+              limits=[ordered]@{publicRunMetadataOnly=$true;parentResultAndNativeMetadataRequireIndependentJoin=$true;recursiveDispatch=$false;
+                childAuthorizationHeader=$false;repositoryCheckout=$false;repositoryCodeExecuted=$false;privateEnvironment=$false;secrets=$false;oidc=$false;
+                payload=$false;artifact=$false;runtimeInstallation=$false;privateAccessGranted=$false;actorEnrolled=$false;productionChanged=$false;distribution=$false}})
+          } catch { [Console]::Error.WriteLine('BUILD31_PUBLIC_CHILD_ACTOR_CHILD_REFUSED');exit 1 }
+          finally { if ($null -ne $client) { $client.Dispose() } }
