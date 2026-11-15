@@ -305,3 +305,40 @@ test('head advancing only in the final post-custody observation refuses the join
     assert.equal(heads, 3, 'Reached final observation after actual client custody');
   });
 });
+
+let successorFixture;
+function successorScenario() {
+  if (!successorFixture) successorFixture = createFixture({successor: true});
+  successorFixture.reset();
+  const x = successorFixture.platformFixture();
+  return {g: successorFixture, x, input: successorFixture.clientInput()};
+}
+test('v2 joins original custody and policy to distinct outer/core identities without grants', () => {
+  const {x, input} = successorScenario();
+  const measured = subject.measureBusinessHostedClient31({trust: x.trust, request: x.request, input});
+  assert.equal(measured.schemaVersion, 3); assert.equal(measured.profile, subject.CLIENT_PROFILE_V2);
+  assert.equal(measured.policy.schemaVersion, 2);
+  assert.deepEqual(measured.coreVerifier, {commit: x.trust.coreVerifier.commit, tree: x.trust.coreVerifier.tree});
+  assert.deepEqual(measured.coreVerifier, measured.policy.coreVerifier);
+  assert.equal(measured.policy.verifier.commit, x.trust.verifier.commit);
+  assert.equal(subject.validateBusinessHostedClientMeasurement31({trust: x.trust, request: x.request, client: measured}).schemaVersion, 3);
+  for (const flag of ['constructionAuthorized', 'signingAuthorized', 'distributionAuthorized']) assert.equal(measured[flag], false);
+  const mixed = structuredClone(measured); mixed.profile = subject.CLIENT_PROFILE;
+  assert.throws(() => subject.validateBusinessHostedClientMeasurement31({trust: x.trust, request: x.request, client: mixed}));
+  const wrongCore = structuredClone(measured); wrongCore.policy.coreVerifier.commit = x.trust.verifier.commit;
+  assert.throws(() => subject.validateBusinessHostedClientMeasurement31({trust: x.trust, request: x.request, client: wrongCore}));
+});
+test('v2 protected public consumer authenticates the challenged dual-core artifact', long, async () => {
+  const {g, x, input} = successorScenario();
+  x.result.client = subject.measureBusinessHostedClient31({trust: x.trust, request: x.request, input});
+  fs.renameSync(g.originalMessageFile, g.originalMessageFile + '.private');
+  try {
+    const run = entry(x, undefined), value = await run.result;
+    assert.equal(value.schemaVersion, 3); assert.equal(value.profile, x.trust.profile);
+    assert.deepEqual(value.coreVerifier, x.result.coreVerifier);
+    assert.equal(value.client.schemaVersion, 3);
+    assert.equal(value.commitments.coreProducerBindingsSha256, x.result.commitments.coreProducerBindingsSha256);
+    assert.equal(value.commitments.sourceIntegrationSha256, x.result.commitments.sourceIntegrationSha256);
+    assert.equal(value.constructionAuthorized, false); assert.equal(value.distributionAuthorized, false);
+  } finally { fs.renameSync(g.originalMessageFile + '.private', g.originalMessageFile); g.reset(); }
+});

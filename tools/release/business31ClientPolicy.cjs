@@ -7,6 +7,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const {isDeepStrictEqual: equal, TextDecoder} = require('node:util');
 const PROFILE = 'build31-business-client-policy-v1';
+const PROFILE_V2 = 'build31-business-client-policy-v2';
 const FILES = Object.freeze({
   policy: 'release/production-release-policy.json',
   versionApproval: 'release/approvals/version-policy-approval.json',
@@ -18,6 +19,7 @@ const FILES = Object.freeze({
 });
 const HELPERS = Object.freeze(['business31ClientPolicy.cjs', 'business31TrustedInput.cjs',
   'business31HostedProtocol.cjs'].map(name => 'tools/release/' + name));
+const HELPERS_V2 = Object.freeze([...HELPERS, 'tools/release/business31TrustedInputV2.cjs']);
 const IDENTITY_SHA256 = '1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F';
 const RULES_READBACK = Object.freeze({file: 'release/evidence/build30-current-source-firestore-rules-indexes-live-readback.json',
   sha256: '62A707AC10A76B6C9D6D1466987D558E8C9186602B57E0E75EB760A5F4160CEC',
@@ -65,8 +67,8 @@ function freeze(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }
   return value;
 }
-function bindHelpers(bindings) {
-  for (const file of HELPERS) {
+function bindHelpers(bindings, successor = false) {
+  for (const file of successor ? HELPERS_V2 : HELPERS) {
     need(bindings && Object.hasOwn(bindings, file) && digest(bindings[file]), 'fixed helper missing: ' + file);
     const local = path.resolve(__dirname, path.basename(file));
     let current = path.parse(local).root;
@@ -131,8 +133,11 @@ function verifyBusinessClientPolicy31(args) {
   exact(args, ['trust', 'request', 'input'], 'arguments');
   const {trust, request, input} = dataCopy(args);
   exact(input, ['schemaVersion', 'profile', 'repositoryRoot', 'gitExecutable', 'selected', 'originalMessageFile'], 'client input');
-  need(input.schemaVersion === 1 && input.profile === 'build31-business-hosted-client-input-v1', 'input profile differs');
-  bindHelpers(trust?.verifier?.files);
+  const successorRoute = trust.schemaVersion === 2;
+  need(input.schemaVersion === (successorRoute ? 2 : 1) &&
+    input.profile === (successorRoute ? 'build31-business-hosted-client-input-v2' : 'build31-business-hosted-client-input-v1'),
+    'input profile differs');
+  bindHelpers(trust?.verifier?.files, successorRoute);
   const protocol = require('./business31HostedProtocol.cjs');
   protocol.validateTrust31(trust); protocol.validateRequest31(request);
   const selected = input.selected;
@@ -161,7 +166,13 @@ function verifyBusinessClientPolicy31(args) {
   same(M.tree, trust.source.tree, 'M tree'); same(S.tree, request.candidate.tree, 'S tree');
   same(functionsTree(M.files), trust.source.functionsTree, 'actual M Functions tree');
   repository.requireAncestor(M.commit, S.commit);
-  for (const file of new Set([...Object.keys(M.files), ...Object.keys(S.files)])) {
+  if (successorRoute) {
+    const successorInput = require('./business31TrustedInputV2.cjs');
+    successorInput.verifyBusiness31TrustedInputV2({repositoryRoot: input.repositoryRoot,
+      gitExecutable: input.gitExecutable, gitSha256: trust.gitSha256,
+      envelope: successorInput.createTrustedEnvelopeV2(trust,
+        {commit: S.commit, tree: S.tree, ref})});
+  } else for (const file of new Set([...Object.keys(M.files), ...Object.keys(S.files)])) {
     if (!equal(M.files[file], S.files[file])) need(S.files[file]?.mode === '100644' &&
       (!M.files[file] || M.files[file].mode === '100644') &&
       (file === FILES.pubspec || trusted.METADATA_PATHS.includes(file)), 'executable/source delta after M: ' + file);
@@ -194,8 +205,10 @@ function verifyBusinessClientPolicy31(args) {
     policy.permanentApplicationId === 'in.co.sail.bsl.crm3.bafops' &&
     policy.namespace === policy.permanentApplicationId, 'policy application/project identity differs');
   need(!Object.hasOwn(policy, 'runtimeBackendPrivateReplay'), 'legacy runtime route mixed with business');
-  same(policy.clientBackendCompatibility, {...selected.decisionPointer, profile: 'build31-business-client-compatibility-v1'}, 'policy client decision');
-  same(policy.businessBackendPrivateReplay, {...selected.descriptor, profile: 'build31-exact-business-backend-v1'}, 'policy descriptor');
+  same(policy.clientBackendCompatibility, {...selected.decisionPointer,
+    profile: successorRoute ? 'build31-business-client-compatibility-v2' : 'build31-business-client-compatibility-v1'}, 'policy client decision');
+  same(policy.businessBackendPrivateReplay, {...selected.descriptor,
+    profile: successorRoute ? 'build31-exact-business-backend-v2' : 'build31-exact-business-backend-v1'}, 'policy descriptor');
   const v = policy.versionPolicy, r = policy.release;
   need(v.approved === true && v.scheme === 'semver2' && v.buildNumberPolicy === 'positive-int32-strictly-monotonic-never-reuse' &&
     v.failedOrWithdrawnBuildConsumesNumber === true && v.ledgerFile === 'release/build-number-ledger.json', 'version policy contract differs');
@@ -271,8 +284,9 @@ function verifyBusinessClientPolicy31(args) {
   'recorded client AppCheck choice');
   need(repository.readRef(ref) === S.commit && repository.snapshot(M.commit).tree === M.tree &&
     repository.snapshot(S.commit).tree === S.tree, 'Git source/ref changed during measurement');
-  bindHelpers(trust.verifier.files);
-  return freeze({schemaVersion: 1, profile: PROFILE,
+  bindHelpers(trust.verifier.files, successorRoute);
+  return freeze({schemaVersion: successorRoute ? 2 : 1, profile: successorRoute ? PROFILE_V2 : PROFILE,
+    ...(successorRoute ? {coreVerifier: protocol.coreVerifierSummary31(trust)} : {}),
     verifier: {commit: trust.verifier.commit, tree: trust.verifier.tree}, source: trust.source,
     candidate: request.candidate, sourceManifestSha256: trust.sourceManifestSha256, bindings,
     descriptorPointer: selected.descriptor, closurePointer: selected.backendClosure, decisionPointer: selected.decisionPointer,
@@ -285,4 +299,4 @@ function verifyBusinessClientPolicy31(args) {
     policySourceVerified: true, appCheckSourcePolicyVerified: true,
     ...Object.fromEntries(FALSE_FLAGS.map(name => [name, false]))});
 }
-module.exports = Object.freeze({PROFILE, FILES, HELPERS, IDENTITY_SHA256, FALSE_FLAGS, verifyBusinessClientPolicy31});
+module.exports = Object.freeze({PROFILE, PROFILE_V2, FILES, HELPERS, HELPERS_V2, IDENTITY_SHA256, FALSE_FLAGS, verifyBusinessClientPolicy31});

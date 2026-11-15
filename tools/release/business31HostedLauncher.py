@@ -55,6 +55,58 @@ CLIENT_HELPERS = tuple("tools/release/" + name for name in (
 REPLAY_HELPERS = tuple("tools/release/" + name for name in (
     "business31SourceAdmission.cjs", "business31PrivateDescriptor.cjs", "business31TrustedInput.cjs",
     "privateEvidenceBundle31.cjs", "business31OriginalPathReplay.cjs"))
+PROFILE_V1 = "build31-business-hosted-recorded-replay-v1"
+PROFILE_V2 = "build31-business-hosted-recorded-replay-v2"
+V2_CLIENT_HELPERS = tuple("tools/release/" + name for name in (
+    "business31TrustedInputV2.cjs", "business31PrivateDescriptorV2.cjs", "privateEvidenceBundle31V2.cjs"))
+V2_REPLAY_HELPERS = V2_CLIENT_HELPERS + tuple("tools/release/" + name for name in (
+    "business31OriginalPathReplayV2.cjs", "business31CoreWorkerV2.cjs"))
+
+
+def transport_v2(trust):
+    selected = (trust.get("schemaVersion") == 2 or trust.get("profile") == PROFILE_V2
+                or "coreVerifier" in trust or "sourceIntegration" in trust)
+    if not selected:
+        return False
+    need(type(trust.get("schemaVersion")) is int and trust["schemaVersion"] == 2
+         and trust.get("profile") == PROFILE_V2, "TRUST_PROFILE")
+    need(set(trust) == {"schemaVersion", "profile", "repository", "workflow", "verifier", "source",
+                        "sourceManifestSha256", "nodeSha256", "gitSha256", "launcherSha256", "pythonSha256",
+                        "wifAudience", "maximumResultAgeSeconds", "coreVerifier", "sourceIntegration"}, "TRUST_FIELDS")
+    core = trust["coreVerifier"]
+    need(isinstance(core, dict) and set(core) == {"commit", "tree", "files"}
+         and core["commit"] == trust["source"]["commit"] and core["tree"] == trust["source"]["tree"]
+         and trust["verifier"]["commit"] != core["commit"], "CORE_SOURCE")
+    files = core["files"]
+    need(isinstance(files, dict) and 0 < len(files) <= 256
+         and all("tools/release/" + name in files for name in
+                 ("business31BackendAuthority.cjs", "business31BackendClosure.cjs", "backendRuntimeEvidenceAccess31.cjs")),
+         "CORE_POPULATION")
+    for name, expected in files.items():
+        need(isinstance(name, str) and name.startswith("tools/") and "\\" not in name and ":" not in name
+             and all(part not in ("", ".", "..") for part in name.split("/"))
+             and isinstance(expected, str) and re.fullmatch(r"[A-F0-9]{64}", expected) is not None, "CORE_MEMBER")
+    integration = trust["sourceIntegration"]
+    need(isinstance(integration, dict) and 0 < len(integration) <= 256, "SOURCE_INTEGRATION")
+    for name, binding in integration.items():
+        need(isinstance(name, str) and re.fullmatch(r"[A-Za-z0-9_+./-]+", name) is not None
+             and all(part not in ("", ".", "..") for part in name.split("/")), "SOURCE_INTEGRATION_PATH")
+        need(isinstance(binding, dict) and set(binding) == {"mode", "oid", "sha256"}
+             and binding["mode"] == "100644" and isinstance(binding["oid"], str)
+             and re.fullmatch(r"[a-f0-9]{40}", binding["oid"]) is not None
+             and isinstance(binding["sha256"], str) and re.fullmatch(r"[A-F0-9]{64}", binding["sha256"]) is not None,
+             "SOURCE_INTEGRATION_BINDING")
+    return True
+
+
+def core_summary(trust):
+    return {key: trust["coreVerifier"][key] for key in ("commit", "tree")}
+
+
+def transport_commitments(trust):
+    return {name: hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest().upper()
+            for name, value in (("coreProducerBindingsSha256", trust["coreVerifier"]["files"]),
+                                ("sourceIntegrationSha256", trust["sourceIntegration"]))}
 
 
 def read_client_input(file, expected):
@@ -77,6 +129,7 @@ def launch_plan(mode, node, trust_file, trust_sha256, input_file, output, worksp
     trust_file = regular(trust_file)
     need(digest(trust_file) == trust_sha256, "EXTERNAL_CONFIG_COMMITMENT")
     trust = bounded_json(trust_file)
+    v2 = transport_v2(trust)
     need(digest(regular(Path(sys.executable).absolute())) == trust["pythonSha256"], "PYTHON_IDENTITY")
     source_root = Path(__file__).resolve().parents[2]
     need(digest(regular(Path(__file__).absolute())) == trust["launcherSha256"], "LAUNCHER_IDENTITY")
@@ -92,13 +145,14 @@ def launch_plan(mode, node, trust_file, trust_sha256, input_file, output, worksp
     for name in ("business31HostedProtocol.cjs", "business31HostedReplay.cjs", "business31HostedResult.cjs"):
         need("tools/release/" + name in files, "HOSTED_PRODUCER")
     if mode == "replay":
-        need(all(name in files for name in REPLAY_HELPERS), "REPLAY_PRODUCER")
+        need(all(name in files for name in REPLAY_HELPERS + (V2_REPLAY_HELPERS if v2 else ())), "REPLAY_PRODUCER")
     client_mode = client_input is not None or client_input_sha256 is not None
+    need(not v2 or mode != "replay" or client_mode, "V2_CLIENT_SELECTION_REQUIRED")
     if client_mode:
         need(client_input is not None and client_input_sha256 is not None,
              "CLIENT_INPUT_SELECTION")
         read_client_input(client_input, client_input_sha256)
-        need(all(name in files for name in CLIENT_HELPERS), "CLIENT_PRODUCER")
+        need(all(name in files for name in CLIENT_HELPERS + (V2_CLIENT_HELPERS if v2 else ())), "CLIENT_PRODUCER")
     input_file = regular(input_file)
     bounded_json(input_file)
     workspace = regular(workspace, directory=True)
@@ -172,6 +226,9 @@ def run_child(argv, env, owned):
 def sanitized_consumer_output(raw, trust, request):
     need(isinstance(raw, bytes) and 0 < len(raw) <= 32768, "CONSUMER_OUTPUT_BOUND")
     value = json.loads(raw)
+    v2 = transport_v2(trust)
+    if v2:
+        need(type(request.get("schemaVersion")) is int and request["schemaVersion"] == 2, "V2_CHALLENGE_REQUIRED")
 
     def exact(item, fields, code):
         need(isinstance(item, dict) and set(item) == set(fields), code)
@@ -193,12 +250,15 @@ def sanitized_consumer_output(raw, trust, request):
                   "closurePointer", "commitments", "runId", "runAttempt", "artifactId", "resultSha256",
                   "hostedRecordedReplayResultAuthenticated", "ownerIdentityAuthenticated",
                   "originalProcessExecutionAuthenticated", "deploymentAuthorized", "constructionAuthorized",
-                  "distributionAuthorized"}, "CONSUMER_OUTPUT_FIELDS")
+                  "distributionAuthorized"} | ({"coreVerifier"} if v2 else set()), "CONSUMER_OUTPUT_FIELDS")
     need(type(value["schemaVersion"]) is int and value["schemaVersion"] == 2
-         and value["profile"] == trust["profile"] == "build31-business-hosted-recorded-replay-v1",
+         and value["profile"] == trust["profile"] == (PROFILE_V2 if v2 else PROFILE_V1),
          "CONSUMER_OUTPUT_VERSION")
     exact(value["verifier"], {"commit", "tree"}, "CONSUMER_VERIFIER_FIELDS")
     exact(value["source"], {"commit", "tree", "functionsTree"}, "CONSUMER_SOURCE_FIELDS")
+    if v2:
+        exact(value["coreVerifier"], {"commit", "tree"}, "CONSUMER_CORE_FIELDS")
+        need(value["coreVerifier"] == core_summary(trust), "CONSUMER_CORE_JOIN")
     exact(value["candidate"], {"commit", "tree", "ref", "kind", "pullRequest"}, "CONSUMER_CANDIDATE_FIELDS")
     need(all(oid(v) for v in value["verifier"].values())
          and all(oid(v) for v in value["source"].values())
@@ -223,11 +283,15 @@ def sanitized_consumer_output(raw, trust, request):
         need(oid(pointer["commit"]) and pointer["file"] == filename and sha256(pointer["sha256"]),
              "CONSUMER_POINTER_IDENTITY")
     need(value["descriptorPointer"] == request["descriptorPointer"], "CONSUMER_DESCRIPTOR_JOIN")
-    exact(value["commitments"], {"bundleSha256", "membersSha256", "relocationSha256", "sourceManifestSha256"},
+    exact(value["commitments"], {"bundleSha256", "membersSha256", "relocationSha256", "sourceManifestSha256"}
+          | ({"coreProducerBindingsSha256", "sourceIntegrationSha256"} if v2 else set()),
           "CONSUMER_COMMITMENT_FIELDS")
     need(all(sha256(v) for v in value["commitments"].values())
          and value["commitments"]["sourceManifestSha256"] == trust["sourceManifestSha256"],
          "CONSUMER_COMMITMENT_JOIN")
+    if v2:
+        need(all(value["commitments"][key] == expected for key, expected in transport_commitments(trust).items()),
+             "CONSUMER_TRANSPORT_COMMITMENT")
     need(all(value[key] is False for key in ["ownerIdentityAuthenticated", "originalProcessExecutionAuthenticated",
                                            "deploymentAuthorized", "constructionAuthorized", "distributionAuthorized"]), "CONSUMER_AUTHORITY")
     need(all(identifier(value[key]) for key in ("runId", "runAttempt", "artifactId"))
@@ -254,13 +318,17 @@ def sanitized_client_policy(policy, trust, request, client):
              "trustedClockAuthenticated", "platformIdentityAuthenticated", "privateReplayVerified",
              "credentialAccessAuthorized", "backendDeploymentAuthorized", "constructionAuthorized",
              "signingAuthorized", "distributionAuthorized")
+    v2 = transport_v2(trust)
     exact(policy, ("schemaVersion", "profile", "verifier", "source", "candidate", "sourceManifestSha256", "bindings",
                    "descriptorPointer", "closurePointer", "decisionPointer", "release", "appCheck",
-                   "policySourceVerified", "appCheckSourcePolicyVerified", *flags))
-    need(type(policy["schemaVersion"]) is int and policy["schemaVersion"] == 1
-         and policy["profile"] == "build31-business-client-policy-v1"
+                   "policySourceVerified", "appCheckSourcePolicyVerified", *flags, *(("coreVerifier",) if v2 else ())))
+    need(type(policy["schemaVersion"]) is int and policy["schemaVersion"] == (2 if v2 else 1)
+         and policy["profile"] == ("build31-business-client-policy-v2" if v2 else "build31-business-client-policy-v1")
          and policy["policySourceVerified"] is True and policy["appCheckSourcePolicyVerified"] is True
          and all(policy[key] is False for key in flags), "CLIENT_POLICY_SCOPE")
+    if v2:
+        exact(policy["coreVerifier"], ("commit", "tree"))
+        need(policy["coreVerifier"] == core_summary(trust), "CLIENT_POLICY_CORE_JOIN")
     need(policy["verifier"] == {key: trust["verifier"][key] for key in ("commit", "tree")}
          and policy["source"] == trust["source"] and policy["candidate"] == request["candidate"]
          and policy["sourceManifestSha256"] == trust["sourceManifestSha256"], "CLIENT_POLICY_SOURCE_JOIN")
@@ -319,6 +387,7 @@ def validate_client_projection(value, trust, request, client_input=None):
         need(isinstance(item, dict) and set(item) == set(fields), code)
 
     selected = client_input["selected"] if client_input is not None else None
+    v2 = transport_v2(trust)
     client = value["client"]
     verified = ("gitCustodyVerified", "dedicatedOwnerDecisionDeltasVerified",
                 "descriptorPreparationVerified", "recordedSemanticsValidated", "appCheckSourcePolicyVerified")
@@ -327,9 +396,13 @@ def validate_client_projection(value, trust, request, client_input=None):
                   "platformIdentityAuthenticated", "credentialAccessAuthorized", "backendDeploymentAuthorized",
                   "constructionAuthorized", "signingAuthorized", "distributionAuthorized")
     exact(client, ("schemaVersion", "profile", "ownerPointer", "decisionPointer", "originalMessage",
-                   "appCheck", "publicClosureRecordedAtUtc", "policy", *verified, *unverified), "CLIENT_OUTPUT_FIELDS")
-    need(type(client["schemaVersion"]) is int and client["schemaVersion"] == 2
-         and client["profile"] == "build31-business-client-compatibility-v1", "CLIENT_OUTPUT_PROFILE")
+                   "appCheck", "publicClosureRecordedAtUtc", "policy", *verified, *unverified,
+                   *(("coreVerifier",) if v2 else ())), "CLIENT_OUTPUT_FIELDS")
+    need(type(client["schemaVersion"]) is int and client["schemaVersion"] == (3 if v2 else 2)
+         and client["profile"] == ("build31-business-client-compatibility-v2" if v2 else "build31-business-client-compatibility-v1"), "CLIENT_OUTPUT_PROFILE")
+    if v2:
+        exact(client["coreVerifier"], ("commit", "tree"), "CLIENT_CORE_FIELDS")
+        need(client["coreVerifier"] == core_summary(trust), "CLIENT_CORE_JOIN")
     need(all(client[key] is True for key in verified) and all(client[key] is False for key in unverified),
          "CLIENT_OUTPUT_AUTHORITY")
     for name, filename in (("ownerPointer", "build31-business-client-owner-authorization.json"),
@@ -441,15 +514,19 @@ def validate_challenge(value, request):
 def sanitized_replay_output(raw, trust, request, client_input=None):
     need(isinstance(raw, bytes) and 0 < len(raw) <= 32768, "REPLAY_OUTPUT_BOUND")
     value = json.loads(raw)
+    v2 = transport_v2(trust)
     version = request.get("schemaVersion")
     expected = {"schemaVersion", "documentType", "profile", "verifier", "source", "candidate", "descriptorPointer",
                 "closurePointer", "commitments", "platform", "startedAtUtc", "completedAtUtc", "recordedSemanticsReplayed", "limits"}
     if version == 2:
         expected.update(("challenge", "client"))
+    if v2:
+        need(type(version) is int and version == 2, "V2_CHALLENGE_REQUIRED")
+        expected.add("coreVerifier")
     need(type(version) is int and version in (1, 2) and isinstance(value, dict) and set(value) == expected
          and type(value["schemaVersion"]) is int and value["schemaVersion"] == version
          and value["documentType"] == "build31-business-hosted-result"
-         and value["profile"] == trust["profile"] == "build31-business-hosted-recorded-replay-v1"
+         and value["profile"] == trust["profile"] == (PROFILE_V2 if v2 else PROFILE_V1)
          and value["recordedSemanticsReplayed"] is True, "REPLAY_OUTPUT_FIELDS")
     limits = value["limits"]
     need(isinstance(limits, dict) and set(limits) == {"ownerIdentityAuthenticated", "originalProcessExecutionAuthenticated",
@@ -458,6 +535,8 @@ def sanitized_replay_output(raw, trust, request, client_input=None):
     # Reuse only the existing closed identity/commitment contract, internally;
     # this temporary object is never returned as authenticated public evidence.
     projection = {key: value[key] for key in ("profile", "verifier", "source", "candidate", "descriptorPointer", "closurePointer", "commitments")}
+    if v2:
+        projection["coreVerifier"] = value["coreVerifier"]
     projection.update(schemaVersion=2, runId=request["runId"], runAttempt=request["runAttempt"], artifactId="1",
                       resultSha256=hashlib.sha256(raw).hexdigest().upper(), hostedRecordedReplayResultAuthenticated=True, **limits)
     sanitized_consumer_output(json.dumps(projection, separators=(",", ":")).encode() + b"\n", trust, request)

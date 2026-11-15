@@ -390,3 +390,38 @@ if (-not $refused) { throw 'Escaped backend receipt admitted' }
 `);
   assert.equal(result.status, 0, result.stderr);
 });
+
+function business31V2Fixture(){
+ const f=business31Fixture(),r=f.businessProof.businessBackend31.policyResult;
+ f.policy.businessBackendPrivateReplay.profile='build31-exact-business-backend-v2';
+ f.policy.clientBackendCompatibility.profile='build31-business-client-compatibility-v2';
+ r.schemaVersion=2;r.profile='build31-business-policy-result-v2';
+ r.coreVerifier={commit:r.source.commit,tree:r.source.tree};
+ r.commitments={coreProducerBindingsSha256:'A'.repeat(64),sourceIntegrationSha256:'B'.repeat(64)};
+ r.client.schemaVersion=3;r.client.profile='build31-business-client-compatibility-v2';r.client.coreVerifier=structuredClone(r.coreVerifier);
+ r.client.policy.schemaVersion=2;r.client.policy.profile='build31-business-client-policy-v2';r.client.policy.coreVerifier=structuredClone(r.coreVerifier);
+ return f;
+}
+test('v2 App Check preserves the recorded backend while using the versioned client measurement',t=>{
+ const result=run(t,business31V2Fixture());assert.equal(result.status,0,result.stderr);
+ assert.equal(JSON.parse(result.stdout).enforcementChangedByBuild,false);
+});
+for(const [label,change]of[
+ ['legacy descriptor with v2 result',(f,r)=>{f.policy.businessBackendPrivateReplay.profile='build31-exact-business-backend-v1';}],
+ ['legacy client pointer with v2 result',(f,r)=>{f.policy.clientBackendCompatibility.profile='build31-business-client-compatibility-v1';}],
+ ['legacy result schema',(f,r)=>{r.schemaVersion=1;}],
+ ['missing core map commitment',(f,r)=>{delete r.commitments.coreProducerBindingsSha256;}],
+ ['missing source integration commitment',(f,r)=>{delete r.commitments.sourceIntegrationSha256;}],
+ ['different recorded verifier',(f,r)=>{r.coreVerifier.commit='9'.repeat(40);}],
+ ['different client recorded verifier',(f,r)=>{r.client.coreVerifier.tree='9'.repeat(40);}],
+ ['different policy recorded verifier',(f,r)=>{r.client.policy.coreVerifier.tree='9'.repeat(40);}],
+ ['old client measurement',(f,r)=>{r.client.schemaVersion=2;r.client.profile='build31-business-client-compatibility-v1';}]
+])test('v2 App Check refuses '+label,t=>{const f=business31V2Fixture();change(f,f.businessProof.businessBackend31.policyResult);assert.notEqual(run(t,f).status,0);});
+for(const purpose of ['construction','package-verification'])test('v2 App Check keeps '+purpose+' separate from policy',t=>{
+ const f=business31V2Fixture(),b=f.businessProof.businessBackend31,r=b.policyResult;delete b.policyResult;
+ b.prerequisiteResult={schemaVersion:2,profile:'build31-business-prerequisite-measurement-v2',purpose,
+  replayMode:purpose==='construction'?'same-parent-reauthentication':'fresh-dispatch',source:r.source,coreVerifier:r.coreVerifier,
+  commitments:r.commitments,descriptorPointer:r.descriptorPointer,closurePointer:r.closurePointer,client:r.client,
+  freshHostedReplayVerified:true,limits:{deploymentAuthorized:false,constructionAuthorized:false,signingAuthorized:false,distributionAuthorized:false}};
+ const result=run(t,f);assert.equal(result.status,0,result.stderr);
+});

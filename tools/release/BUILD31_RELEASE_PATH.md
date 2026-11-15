@@ -21,6 +21,31 @@ The historical runtime-only route remains separate. Business selection, includin
 a malformed business signal, cannot fall through to a legacy route. Existing
 historical pilot verifiers and unrelated policy/source/ledger gates still apply.
 
+## Versioned client transport
+
+The client transport successor admits at most **53,000** regular-file members.
+The original transport remains limited to **50,000**. Its
+`privateEvidenceBundle31.cjs` bytes and historical capture pins stay unchanged;
+`privateEvidenceBundle31V2.cjs` contains the separate successor. The successor retains the
+512 MiB serialized, 1 GiB expanded, 128 MiB per-member and compression-ratio
+limits, the 400-character member-path limit, and the relocation limits of
+16 roots and 50,000 individual files. A larger count is not permission to omit
+required files, include unrelated files or weaken a byte or path check.
+
+The independently enrolled outer verifier and the recorded backend verifier
+have separate identities. The outer verifier authenticates the transport and
+the exact reviewed release-integration changes in S. The recorded verifier is
+the unchanged qualified M source; it replays the original backend approval,
+qualification and closure in an isolated Node 22 process. Updating the outer
+verifier neither changes deployed Functions nor requalifies the backend.
+
+Both identities and their complete source commitments must survive the hosted,
+policy, construction and package-verification boundaries. A malformed or mixed
+version is refused. The new route cannot reinterpret old records, inject a
+replacement into the recorded verifier, or treat a retained result as a fresh
+replay. Package verification still requires its own fresh challenge and compares
+the stable commitments with the retained construction observation.
+
 ## Public source gates
 
 `Initialize-Business31Controller.ps1` provisions only the independently selected
@@ -35,6 +60,21 @@ The independent public enrollment uses:
 - `BUSINESS31_CONTROLLER_CONFIG_JSON` and its exact UTF-8
   `BUSINESS31_CONTROLLER_CONFIG_SHA256`;
 - `BUSINESS31_POLICY_REQUEST_JSON`, naming one actual completed policy replay.
+
+For large v2 enrollment objects, the existing JSON variable holds part 1 and
+`_PART_2` and `_PART_3` hold the remaining raw UTF-8 JSON. This applies to both
+`BUSINESS31_CONTROLLER_CONFIG_JSON` and `BUSINESS31_TRUST_JSON`. All three parts
+must be nonempty and at most 48,000 UTF-8 bytes each. Split only at UTF-8 character
+boundaries. The workflow joins them verbatim, verifies the existing whole-object
+SHA-256 before parsing, and accepts only the explicit v2 profile on this route.
+With no tail parts, existing raw v1 and v2 behavior is preserved. Complete maps
+and all later guards remain intact. Check the actual repository variable total
+against GitHub's aggregate limit before enrollment.
+
+The Flutter authority job and artifact job both select Ubuntu 24.04 and the same
+pinned Node 22.23.1 setup. Their controller Node/Git hashes need their own actual
+measurement; the private replay worker's Node cache measurement is a separate
+runtime role. A changed image or binary must fail the existing hash checks.
 
 The initializer exports local paths for the configuration, complete V, approved
 Node/Git and request. Local callers may supply those same independently enrolled

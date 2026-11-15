@@ -1868,6 +1868,10 @@ if ($stagedAuthorityProof.ok -isnot [bool] -or $stagedAuthorityProof.ok -ne $tru
 . (Join-Path $RepositoryRoot 'tools/release/Business-BackendPrivateReplay31.ps1')
 function Assert-ProductionBusiness31PublicBinding {
   param([object]$Policy, [object]$Proof, [object]$CurrentSuccessorState)
+  $versionedInputObjects = ($Policy -is [System.Collections.IDictionary] -or $Policy -is [pscustomobject]) -and
+    ($CurrentSuccessorState -is [System.Collections.IDictionary] -or $CurrentSuccessorState -is [pscustomobject]) -and
+    ($Proof -is [System.Collections.IDictionary] -or $Proof -is [pscustomobject]) -and
+    ($Proof.businessBackend31 -is [System.Collections.IDictionary] -or $Proof.businessBackend31 -is [pscustomobject])
   $Policy = ($Policy | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
   $CurrentSuccessorState = ($CurrentSuccessorState | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
   $backend = ($Proof.businessBackend31 | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
@@ -1884,17 +1888,53 @@ function Assert-ProductionBusiness31PublicBinding {
   }
   if ($hasPolicy) {
     $measurement = $backend.policyResult
-    if ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-policy-result-v1' -or
+    $transportV2 = $measurement.schemaVersion -ceq 2 -and $measurement.profile -ceq 'build31-business-policy-result-v2'
+    if ((-not $transportV2 -and ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-policy-result-v1')) -or
         $measurement.purpose -cne 'policy' -or $measurement.policyMeasurementVerified -cne $true) {
       throw 'Business31 public policy measurement scope differs.'
     }
   } else {
     $measurement = $backend.prerequisiteResult
-    if ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-prerequisite-measurement-v1' -or
+    $transportV2 = $measurement.schemaVersion -ceq 2 -and $measurement.profile -ceq 'build31-business-prerequisite-measurement-v2'
+    if ((-not $transportV2 -and ($measurement.schemaVersion -cne 1 -or $measurement.profile -cne 'build31-business-prerequisite-measurement-v1')) -or
         $measurement.purpose -cne 'construction' -or $measurement.replayMode -cne 'same-parent-reauthentication' -or
         $measurement.freshHostedReplayVerified -cne $true) { throw 'Business31 construction reauthentication differs.' }
     Assert-Business31Same $measurement.limits ([ordered]@{deploymentAuthorized=$false; constructionAuthorized=$false; signingAuthorized=$false; distributionAuthorized=$false}) 'Business31 operational limits'
   }
+  $descriptorProfile = if ($transportV2) { 'build31-exact-business-backend-v2' } else { 'build31-exact-business-backend-v1' }
+  $clientProfile = if ($transportV2) { 'build31-business-client-compatibility-v2' } else { 'build31-business-client-compatibility-v1' }
+  if ($Policy.businessBackendPrivateReplay.profile -cne $descriptorProfile -or $Policy.clientBackendCompatibility.profile -cne $clientProfile) { throw 'Business31 policy and measurement versions are mixed.' }
+  if ($transportV2) {
+    Assert-Business31Same $measurement.coreVerifier ([ordered]@{commit=$measurement.source.commit; tree=$measurement.source.tree}) 'Business31 recorded verifier M'
+    if (-not $versionedInputObjects -or $measurement -isnot [System.Collections.IDictionary] -or $measurement.client -isnot [System.Collections.IDictionary] -or
+        $measurement.client.policy -isnot [System.Collections.IDictionary] -or $measurement.commitments -isnot [System.Collections.IDictionary]) {
+      throw 'Business31 versioned measurement objects are required.'
+    }
+    Assert-Business31Same $Proof.route 'business-backend31' 'Business31 proof route'
+    Assert-Business31Same $backend.recordedSemanticsReplayAuthenticated $true 'Business31 recorded replay authentication'
+    Assert-Business31Same $measurement.schemaVersion 2 'Business31 measurement schema'
+    Assert-Business31Same $Policy.businessBackendPrivateReplay.profile 'build31-exact-business-backend-v2' 'Business31 descriptor profile'
+    Assert-Business31Same $Policy.clientBackendCompatibility.profile 'build31-business-client-compatibility-v2' 'Business31 client pointer profile'
+    if ($hasPolicy) {
+      Assert-Business31Same $measurement.profile 'build31-business-policy-result-v2' 'Business31 policy result profile'
+      Assert-Business31Same $measurement.purpose 'policy' 'Business31 policy purpose'
+      Assert-Business31Same $measurement.policyMeasurementVerified $true 'Business31 policy measurement'
+    } else {
+      Assert-Business31Same $measurement.profile 'build31-business-prerequisite-measurement-v2' 'Business31 prerequisite profile'
+      Assert-Business31Same $measurement.purpose 'construction' 'Business31 construction purpose'
+      Assert-Business31Same $measurement.replayMode 'same-parent-reauthentication' 'Business31 construction mode'
+      Assert-Business31Same $measurement.freshHostedReplayVerified $true 'Business31 fresh replay'
+    }
+    Assert-Business31Same $measurement.client.schemaVersion 3 'Business31 client schema'
+    Assert-Business31Same $measurement.client.profile 'build31-business-client-compatibility-v2' 'Business31 client profile'
+    Assert-Business31Same $measurement.client.policy.schemaVersion 2 'Business31 client policy schema'
+    Assert-Business31Same $measurement.client.policy.profile 'build31-business-client-policy-v2' 'Business31 client policy profile'
+    Assert-Business31Same $measurement.client.coreVerifier $measurement.coreVerifier 'Business31 client recorded verifier'
+    Assert-Business31Same $measurement.client.policy.coreVerifier $measurement.coreVerifier 'Business31 policy recorded verifier'
+    foreach ($name in @('coreProducerBindingsSha256', 'sourceIntegrationSha256')) {
+      if ($measurement.commitments[$name] -isnot [string] -or $measurement.commitments[$name] -cnotmatch '^[A-F0-9]{64}$') { throw 'Business31 versioned source commitment is missing.' }
+    }
+  } elseif ($measurement.Contains('coreVerifier')) { throw 'Business31 legacy policy cannot contain a versioned verifier.' }
   Assert-Business31Same $backend.source $measurement.source 'Business31 source M'
   Assert-Business31Same $backend.closurePointer $measurement.closurePointer 'Business31 closure pointer'
   Assert-Business31Same $backend.descriptorPointer $measurement.descriptorPointer 'Business31 descriptor pointer'

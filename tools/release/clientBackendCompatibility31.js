@@ -461,9 +461,10 @@ function closedBusinessClientRoute31(policy) {
       typeof value.commit === "string" && COMMIT.test(value.commit) &&
       typeof value.sha256 === "string" && SHA256.test(value.sha256);
   }
-  if (!exactPointer(policy.clientBackendCompatibility, "build31-business-client-compatibility-v1",
+  const successor = policy.businessBackendPrivateReplay?.profile === "build31-exact-business-backend-v2";
+  if (!exactPointer(policy.clientBackendCompatibility, successor ? "build31-business-client-compatibility-v2" : "build31-business-client-compatibility-v1",
       "release/approvals/build31-business-client-compatibility-approval.json") ||
-      !exactPointer(policy.businessBackendPrivateReplay, "build31-exact-business-backend-v1",
+      !exactPointer(policy.businessBackendPrivateReplay, successor ? "build31-exact-business-backend-v2" : "build31-exact-business-backend-v1",
         "release/evidence/build31-business-private-replay.json")) {
     return refuse("complete exact client and backend pointers are required; partial or mixed selections are refused.");
   }

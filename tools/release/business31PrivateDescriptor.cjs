@@ -166,4 +166,4 @@ function verifyBusiness31DescriptorPreparation({repositoryRoot,gitExecutable,git
     ownerAuthenticated:false,privateReplayVerified:false,credentialAccessAuthorized:false,
     deploymentAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={PROFILE,SELF,DESCRIPTOR,FILES,HISTORICAL,CORE,producer,sha,json,validateBusiness31PrivateDescriptor,verifyBusiness31DescriptorPreparation};
+module.exports={PROFILE,SELF,DESCRIPTOR,FILES,HISTORICAL,CORE,producer,sha,json,subtreeOid31,validateBusiness31PrivateDescriptor,verifyBusiness31DescriptorPreparation};

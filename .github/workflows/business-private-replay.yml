@@ -28,6 +28,8 @@ jobs:
     env:
       SELECTED_V: ${{ vars.BUSINESS31_VERIFIER_COMMIT }}
       TRUST_JSON: ${{ vars.BUSINESS31_TRUST_JSON }}
+      TRUST_JSON_PART_2: ${{ vars.BUSINESS31_TRUST_JSON_PART_2 }}
+      TRUST_JSON_PART_3: ${{ vars.BUSINESS31_TRUST_JSON_PART_3 }}
       TRUST_SHA: ${{ vars.BUSINESS31_TRUST_SHA256 }}
       MANIFEST_JSON: ${{ vars.BUSINESS31_SOURCE_MANIFEST_JSON }}
       NODE_EXE: ${{ vars.BUSINESS31_NODE_EXECUTABLE }}
@@ -74,13 +76,29 @@ jobs:
           def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest().upper()
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'business31-private-job'
           root.mkdir(mode=0o700,exist_ok=False)
-          trust_raw=os.environ['TRUST_JSON'].encode();need(0<len(trust_raw)<=2*1024*1024)
+          parts=[os.environ.get(key,'') for key in ('TRUST_JSON','TRUST_JSON_PART_2','TRUST_JSON_PART_3')]
+          chunked=bool(parts[1] or parts[2])
+          if chunked:
+              encoded=[part.encode('utf-8') for part in parts]
+              need(all(0<len(part)<=48000 for part in encoded))
+              trust_raw=b''.join(encoded)
+          else:
+              trust_raw=parts[0].encode('utf-8')
+          need(0<len(trust_raw)<=2*1024*1024)
           need(hashlib.sha256(trust_raw).hexdigest().upper()==os.environ['TRUST_SHA'])
           trust=json.loads(trust_raw);need(trust['verifier']['commit']==os.environ['SELECTED_V'])
+          if chunked:
+              need(type(trust.get('schemaVersion')) is int and trust['schemaVersion']==2 and trust.get('profile')=='build31-business-hosted-recorded-replay-v2')
+          v2=trust.get('schemaVersion')==2 or trust.get('profile')=='build31-business-hosted-recorded-replay-v2' or 'coreVerifier' in trust or 'sourceIntegration' in trust
+          if v2:
+              need(trust.get('schemaVersion')==2 and trust.get('profile')=='build31-business-hosted-recorded-replay-v2')
+              need(trust['coreVerifier']['commit']==trust['source']['commit'] and trust['coreVerifier']['tree']==trust['source']['tree'])
+              need(trust['coreVerifier']['commit']!=trust['verifier']['commit'] and isinstance(trust['sourceIntegration'],dict) and len(trust['sourceIntegration'])>0)
           need(trust['pythonSha256']==os.environ['PYTHON_SHA'] and trust['launcherSha256']==os.environ['LAUNCHER_SHA'])
           git=pathlib.Path(os.environ['GIT_EXE']);need(git.is_absolute() and git.is_file() and not git.is_symlink() and sha(git)==trust['gitSha256'])
           req_raw=os.environ['CANDIDATE_REQUEST'].encode();need(0<len(req_raw)<=32768)
           req=json.loads(req_raw);client_mode=req.get('schemaVersion')==2
+          need(not v2 or client_mode)
           need(req.get('schemaVersion') in (1,2))
           need(set(req)==({'schemaVersion','candidate','descriptorPointer','challenge'} if client_mode else {'schemaVersion','candidate','descriptorPointer'}))
           req['runId']=os.environ['GITHUB_RUN_ID'];req['runAttempt']=os.environ['GITHUB_RUN_ATTEMPT']
@@ -106,7 +124,7 @@ jobs:
               need(0<len(original)<=128*1024)
               need(selected['originalMessage']=={'sha256':hashlib.sha256(original).hexdigest().upper(),'bytes':len(original)})
               original_file=root/'original-client-message.bin';original_file.write_bytes(original);original_file.chmod(0o600)
-              client={'schemaVersion':1,'profile':'build31-business-hosted-client-input-v1','repositoryRoot':str(repo),
+              client={'schemaVersion':2 if v2 else 1,'profile':'build31-business-hosted-client-input-v2' if v2 else 'build31-business-hosted-client-input-v1','repositoryRoot':str(repo),
                       'gitExecutable':str(git),'selected':selected,'originalMessageFile':str(original_file)}
               client_raw=json.dumps(client,ensure_ascii=False).encode()
               client_file=root/'client-input.json';client_file.write_bytes(client_raw);client_file.chmod(0o600)

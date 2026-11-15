@@ -57,9 +57,11 @@ function policyPointer(value, profile, file) {
 function validateBusinessPolicyRoute31(policy) {
   need(businessRouteSelected31(policy) && policy?.release?.buildNumber === 31 &&
     policy?.versionPolicy?.buildNumber === 31 && !Object.hasOwn(policy, 'runtimeBackendPrivateReplay'));
+  const successor = policy.businessBackendPrivateReplay?.profile === 'build31-exact-business-backend-v2';
   return {descriptorPointer: policyPointer(policy.businessBackendPrivateReplay,
-    'build31-exact-business-backend-v1', DESCRIPTOR), clientPointer: policyPointer(policy.clientBackendCompatibility,
-    'build31-business-client-compatibility-v1', CLIENT)};
+    successor ? 'build31-exact-business-backend-v2' : 'build31-exact-business-backend-v1', DESCRIPTOR),
+    clientPointer: policyPointer(policy.clientBackendCompatibility,
+      successor ? 'build31-business-client-compatibility-v2' : 'build31-business-client-compatibility-v1', CLIENT)};
 }
 function regular(file, directory = false) {
   need(typeof file === 'string' && path.isAbsolute(file));
@@ -84,7 +86,8 @@ function selected() {
   const configBytes = read(configFile); need(digest(configSha256) && sha(configBytes) === configSha256);
   const config = json(configBytes), root = regular(process.env.BUSINESS31_VERIFIER_ROOT, true);
   const node = regular(process.env.BUSINESS31_CONTROLLER_NODE), git = regular(process.env.BUSINESS31_CONTROLLER_GIT);
-  need(config?.schemaVersion === 1 && config.profile === 'build31-business-prerequisite-controller-v1' &&
+  need(((config?.schemaVersion === 1 && config.profile === 'build31-business-prerequisite-controller-v1') ||
+    (config?.schemaVersion === 2 && config.profile === 'build31-business-prerequisite-controller-v2')) &&
     digest(config.controller?.nodeSha256) && digest(config.controller?.gitSha256));
   need(sha(read(node, 256 * 1024 * 1024)) === config.controller.nodeSha256 &&
     sha(read(git, 256 * 1024 * 1024)) === config.controller.gitSha256);
@@ -159,6 +162,7 @@ function execute() {
   need(path.resolve(__filename) === path.join(selection.root, SELF));
   const c = require('./business31Controller.cjs'), p = require('./business31HostedProtocol.cjs');
   const config = c.readController31(selection.configFile, selection.configSha256); c.verifyController31(config);
+  const successor = p.isV2Trust31(config.replayTrust);
   const locator = p.json(selection.requestBytes, 128 * 1024);
   if (selection.construction) {
     exact(locator, ['schemaVersion', 'profile', 'controllerConfigSha256', 'request']);
@@ -171,7 +175,8 @@ function execute() {
   same(pointers.descriptorPointer, config.selected.descriptorPointer);
   const input = selection.construction ? {schemaVersion: 1, purpose: 'construction', repositoryRoot: repoRoot,
     gitExecutable: selection.git, sourceArchivePath: null, manifestPath: null, packagePaths: []} :
-    {schemaVersion: 1, profile: 'build31-business-policy-result-input-v1', repositoryRoot: repoRoot,
+    {schemaVersion: successor ? 2 : 1,
+      profile: successor ? 'build31-business-policy-result-input-v2' : 'build31-business-policy-result-input-v1', repositoryRoot: repoRoot,
       gitExecutable: selection.git, request};
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'b31-observe-'));
   try {
@@ -191,7 +196,12 @@ function execute() {
       need(sha(original) === pointer.sha256); same(current, original); same(read(path.join(repoRoot, pointer.file)), original);
       observed.push([pointer.file, original]); return p.json(original);
     }
-    const descriptor = require('./business31PrivateDescriptor.cjs').validateBusiness31PrivateDescriptor(committed(pointers.descriptorPointer));
+    const descriptorApi = successor ? require('./business31PrivateDescriptorV2.cjs') : require('./business31PrivateDescriptor.cjs');
+    const descriptor = (successor ? descriptorApi.validateBusiness31PrivateDescriptorV2 : descriptorApi.validateBusiness31PrivateDescriptor)(committed(pointers.descriptorPointer));
+    if (successor) {
+      same(descriptor.coreVerifier, config.replayTrust.coreVerifier);
+      same(descriptor.sourceIntegration, config.replayTrust.sourceIntegration);
+    }
     same(descriptor.source, config.replayTrust.source);
     const approval = committed(descriptor.approvalPointer), currentBackend = committed(descriptor.closurePointer);
     same(currentBackend.source, descriptor.source);
@@ -215,7 +225,8 @@ function execute() {
         '--config-sha256', selection.configSha256, '--input', file, '--output', output,
         '--resume-request', selection.requestFile], selection, temporary).length === 0);
       measurement = p.json(read(output, 128 * 1024), 128 * 1024);
-      need(measurement?.schemaVersion === 1 && measurement.profile === 'build31-business-prerequisite-measurement-v1' &&
+      need(measurement?.schemaVersion === (successor ? 2 : 1) &&
+        measurement.profile === (successor ? 'build31-business-prerequisite-measurement-v2' : 'build31-business-prerequisite-measurement-v1') &&
         measurement.purpose === 'construction' && measurement.replayMode === 'same-parent-reauthentication' &&
         measurement.freshHostedReplayVerified === true);
       same(measurement.challenge, request.challenge);
@@ -225,10 +236,17 @@ function execute() {
       measurement = p.json(child(selection.node, path.join(selection.root, POLICY_ENTRY),
         ['--controller-config', selection.configFile, '--controller-config-sha256', selection.configSha256, '--input', file],
         selection, temporary), 128 * 1024);
-      need(measurement?.schemaVersion === 1 && measurement.profile === 'build31-business-policy-result-v1' &&
+      need(measurement?.schemaVersion === (successor ? 2 : 1) &&
+        measurement.profile === (successor ? 'build31-business-policy-result-v2' : 'build31-business-policy-result-v1') &&
         measurement.purpose === 'policy' && measurement.policyMeasurementVerified === true &&
         FALSE_FLAGS.every(name => measurement[name] === false));
     }
+    if (successor) same(measurement.coreVerifier, p.coreVerifierSummary31(config.replayTrust));
+    else need(!Object.hasOwn(measurement, 'coreVerifier'));
+    const transportCommitments = p.transportCommitments31(config.replayTrust);
+    exact(measurement.commitments, ['bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256',
+      ...Object.keys(transportCommitments)]);
+    for (const [name, digest] of Object.entries(transportCommitments)) same(measurement.commitments[name], digest);
     same(measurement.candidate, request.candidate); same(measurement.source, descriptor.source);
     same(measurement.verifier, {commit: config.replayTrust.verifier.commit, tree: config.replayTrust.verifier.tree});
     same(measurement.descriptorPointer, pointers.descriptorPointer); same(measurement.closurePointer, descriptor.closurePointer);

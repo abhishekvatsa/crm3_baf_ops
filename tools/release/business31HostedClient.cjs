@@ -10,11 +10,15 @@ const {isDeepStrictEqual: equal} = require('node:util');
 
 const PROFILE = 'build31-business-hosted-client-input-v1';
 const CLIENT_PROFILE = 'build31-business-client-compatibility-v1';
+const PROFILE_V2 = 'build31-business-hosted-client-input-v2';
+const CLIENT_PROFILE_V2 = 'build31-business-client-compatibility-v2';
 const HELPERS = Object.freeze([
   'business31HostedClient.cjs', 'business31ClientCustody.cjs',
   'business31ClientSemantics.cjs', 'business31TrustedInput.cjs',
   'business31PrivateDescriptor.cjs', 'privateEvidenceBundle31.cjs', 'business31ClientPolicy.cjs'
 ].map(name => 'tools/release/' + name));
+const HELPERS_V2 = Object.freeze([...HELPERS, 'tools/release/business31TrustedInputV2.cjs',
+  'tools/release/business31PrivateDescriptorV2.cjs']);
 const HOSTED_KEYS = Object.freeze([
   'schemaVersion', 'profile', 'verifier', 'source', 'candidate', 'descriptorPointer',
   'closurePointer', 'commitments', 'runId', 'runAttempt', 'artifactId', 'resultSha256',
@@ -92,11 +96,11 @@ function readOriginal(file) {
     BigInt(bytes.length) === after.size, 'original message changed during read');
   return bytes;
 }
-function bindHelpers(bindings) {
+function bindHelpers(bindings, successor = false) {
   need(bindings && typeof bindings === 'object' && !Array.isArray(bindings), 'helper bindings absent');
   // Protocol is already mandatory at the protected entry; check its bytes here
   // as well before invoking its structural validators through these exports.
-  for (const file of [...HELPERS, 'tools/release/business31HostedProtocol.cjs']) {
+  for (const file of [...(successor ? HELPERS_V2 : HELPERS), 'tools/release/business31HostedProtocol.cjs']) {
     need(Object.hasOwn(bindings, file) && digest(bindings[file]), 'fixed helper selection absent: ' + file);
     const local = regular(path.join(__dirname, path.basename(file)));
     need(fs.statSync(local).size <= 2 * 1024 * 1024 && sha(fs.readFileSync(local)) === bindings[file],
@@ -108,8 +112,10 @@ function selection(args) {
   const selected = copyData(args), {trust, request, input} = selected;
   exact(input, ['schemaVersion', 'profile', 'repositoryRoot', 'gitExecutable', 'selected',
     'originalMessageFile'], 'protected client input');
-  need(input.schemaVersion === 1 && input.profile === PROFILE, 'client input schema/profile differs');
-  bindHelpers(trust?.verifier?.files);
+  const successor = trust.schemaVersion === 2;
+  need(input.schemaVersion === (successor ? 2 : 1) && input.profile === (successor ? PROFILE_V2 : PROFILE),
+    'client input schema/profile differs');
+  bindHelpers(trust?.verifier?.files, successor);
   const protocol = require('./business31HostedProtocol.cjs');
   protocol.validateTrust31(trust);
   protocol.validateRequest31(request);
@@ -124,13 +130,16 @@ function selection(args) {
 function measure({trust, request, input}) {
   const custody = require('./business31ClientCustody.cjs');
   const trusted = require('./business31TrustedInput.cjs');
-  const descriptor = require('./business31PrivateDescriptor.cjs');
+  const protocol = require('./business31HostedProtocol.cjs');
+  const successor = protocol.isV2Trust31(trust);
+  const descriptor = successor ? require('./business31PrivateDescriptorV2.cjs') : require('./business31PrivateDescriptor.cjs');
   const originalMessageBytes = readOriginal(input.originalMessageFile);
   const admittedRef = 'refs/heads/business31-admitted-' + request.candidate.commit;
-  const envelope = {schemaVersion: 1, profile: trusted.PROFILE,
-    verifier: trust.verifier,
-    source: {commit: trust.source.commit, tree: trust.source.tree},
-    candidate: {commit: request.candidate.commit, tree: request.candidate.tree, ref: admittedRef}};
+  const candidate = {commit: request.candidate.commit, tree: request.candidate.tree, ref: admittedRef};
+  const envelope = successor
+    ? require('./business31TrustedInputV2.cjs').createTrustedEnvelopeV2(trust, candidate)
+    : {schemaVersion: 1, profile: trusted.PROFILE, verifier: trust.verifier,
+      source: {commit: trust.source.commit, tree: trust.source.tree}, candidate};
   // This always runs the actual Git/descriptor/semantics path. A prepared result
   // or caller-supplied PASS cannot replace it, including on the post-await pass.
   const measured = custody.verifyBusinessClientCustody31({
@@ -143,21 +152,26 @@ function measure({trust, request, input}) {
   const pointer = input.selected.descriptor;
   const bytes = repository.readBlob(pointer.commit, pointer.file, 2 * 1024 * 1024);
   need(sha(bytes) === pointer.sha256, 'original descriptor bytes differ');
-  const record = descriptor.validateBusiness31PrivateDescriptor(descriptor.json(bytes));
+  const record = (successor ? descriptor.validateBusiness31PrivateDescriptorV2 : descriptor.validateBusiness31PrivateDescriptor)(descriptor.json(bytes));
+  if (successor) {
+    same(record.coreVerifier, trust.coreVerifier, 'descriptor recorded core');
+    same(record.sourceIntegration, trust.sourceIntegration, 'descriptor source integration');
+  }
   same(record.source, trust.source, 'descriptor source M');
   same(record.verifier, {commit: trust.verifier.commit, tree: trust.verifier.tree}, 'descriptor verifier V');
   same(record.approvalPointer, input.selected.backendApproval, 'descriptor backend approval');
   same(record.closurePointer, input.selected.backendClosure, 'descriptor backend closure');
   same(record.sourceManifestSha256, trust.sourceManifestSha256, 'descriptor source manifest');
   const commitments = {bundleSha256: record.custody.sha256, membersSha256: record.membersSha256,
-    relocationSha256: record.relocationSha256, sourceManifestSha256: record.sourceManifestSha256};
+    relocationSha256: record.relocationSha256, sourceManifestSha256: record.sourceManifestSha256,
+    ...protocol.transportCommitments31(trust)};
   const policy = require('./business31ClientPolicy.cjs').verifyBusinessClientPolicy31({trust, request, input});
   const again = readOriginal(input.originalMessageFile);
   need(again.equals(originalMessageBytes), 'original message changed during custody checks');
   need(repository.readRef(admittedRef) === request.candidate.commit,
     'candidate ref changed during client measurement');
-  bindHelpers(trust.verifier.files);
-  return freeze({schemaVersion: 1, profile: PROFILE, custody: measured, commitments, policy,
+  bindHelpers(trust.verifier.files, successor);
+  return freeze({schemaVersion: successor ? 2 : 1, profile: successor ? PROFILE_V2 : PROFILE, custody: measured, commitments, policy,
     originalMessage: {sha256: sha(again), bytes: again.length}});
 }
 function prepareBusinessHostedClient31(args) { return measure(selection(args)); }
@@ -168,8 +182,11 @@ function finishBusinessHostedClient31(args) {
   exact(args, ['trust', 'request', 'input', 'hostedResult'], 'finish arguments');
   const {trust, request, input} = selection({trust: args.trust, request: args.request, input: args.input});
   const hosted = copyData(args.hostedResult);
-  exact(hosted, HOSTED_KEYS, 'hosted consumer projection');
-  need(hosted.schemaVersion === 2 && hosted.profile === trust.profile &&
+  const protocol = require('./business31HostedProtocol.cjs');
+  const successor = protocol.isV2Trust31(trust);
+  exact(hosted, successor ? [...HOSTED_KEYS, 'coreVerifier'] : HOSTED_KEYS, 'hosted consumer projection');
+  if (successor) same(hosted.coreVerifier, protocol.coreVerifierSummary31(trust), 'hosted recorded core');
+  need(hosted.schemaVersion === (successor ? 3 : 2) && hosted.profile === trust.profile &&
     hosted.hostedRecordedReplayResultAuthenticated === true, 'hosted consumer schema/profile differs');
   same(hosted.verifier, {commit: trust.verifier.commit, tree: trust.verifier.tree}, 'hosted verifier V');
   same(hosted.source, trust.source, 'hosted source M');
@@ -179,7 +196,8 @@ function finishBusinessHostedClient31(args) {
   need(hosted.runId === request.runId && hosted.runAttempt === request.runAttempt &&
     identifier(hosted.artifactId) && digest(hosted.resultSha256), 'hosted run/artifact identity differs');
   need(FALSE_HOSTED.every(key => hosted[key] === false), 'hosted authority scope differs');
-  exact(hosted.commitments, ['bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256'],
+  exact(hosted.commitments, ['bundleSha256', 'membersSha256', 'relocationSha256', 'sourceManifestSha256',
+    ...Object.keys(protocol.transportCommitments31(trust))],
     'hosted commitments');
   need(Object.values(hosted.commitments).every(digest), 'hosted commitment digest invalid');
   // Deliberately repeat original Git custody and message reads after all hosted
@@ -189,11 +207,12 @@ function finishBusinessHostedClient31(args) {
   return clientProjection(prepared);
 }
 function clientProjection(prepared) {
-  const c = prepared.custody;
+  const c = prepared.custody, successor = prepared.schemaVersion === 2;
   // Only the protected caller can authenticate the hosted-result handoff. This
   // helper returns measured client data and never echoes its authentication bit.
   return freeze({
-    schemaVersion: 2, profile: CLIENT_PROFILE,
+    schemaVersion: successor ? 3 : 2, profile: successor ? CLIENT_PROFILE_V2 : CLIENT_PROFILE,
+    ...(successor ? {coreVerifier: c.coreVerifier} : {}),
     ownerPointer: c.ownerPointer, decisionPointer: c.decisionPointer,
     originalMessage: prepared.originalMessage, appCheck: c.appCheck,
     publicClosureRecordedAtUtc: c.publicClosureRecordedAtUtc, policy: prepared.policy,
@@ -213,6 +232,9 @@ function clientProjection(prepared) {
 function validateBusinessHostedClientMeasurement31(args) {
   exact(args, ['trust', 'request', 'client'], 'measurement arguments');
   const {trust, request, client} = copyData(args);
+  const protocol = require('./business31HostedProtocol.cjs');
+  protocol.validateTrust31(trust);
+  const successor = protocol.isV2Trust31(trust);
   const verified = ['gitCustodyVerified', 'dedicatedOwnerDecisionDeltasVerified',
     'descriptorPreparationVerified', 'recordedSemanticsValidated', 'appCheckSourcePolicyVerified'];
   const unverified = ['independentlySelectedInputsAuthenticated', 'executingHostAuthenticated',
@@ -220,8 +242,10 @@ function validateBusinessHostedClientMeasurement31(args) {
     'credentialAccessAuthorized', 'backendDeploymentAuthorized', 'constructionAuthorized',
     'signingAuthorized', 'distributionAuthorized'];
   exact(client, ['schemaVersion', 'profile', 'ownerPointer', 'decisionPointer', 'originalMessage',
-    'appCheck', 'publicClosureRecordedAtUtc', 'policy', ...verified, ...unverified], 'client measurement');
-  need(client.schemaVersion === 2 && client.profile === CLIENT_PROFILE, 'client measurement version differs');
+    'appCheck', 'publicClosureRecordedAtUtc', 'policy', ...verified, ...unverified, ...(successor ? ['coreVerifier'] : [])], 'client measurement');
+  need(client.schemaVersion === (successor ? 3 : 2) &&
+    client.profile === (successor ? CLIENT_PROFILE_V2 : CLIENT_PROFILE), 'client measurement version differs');
+  if (successor) same(client.coreVerifier, protocol.coreVerifierSummary31(trust), 'client recorded core');
   need(verified.every(key => client[key] === true) && unverified.every(key => client[key] === false),
     'client measurement scope differs');
   const oid = value => typeof value === 'string' && /^[a-f0-9]{40}$/.test(value);
@@ -252,10 +276,13 @@ function validateBusinessHostedClientMeasurement31(args) {
   const policyFalse = [...unverified, 'privateReplayVerified'];
   exact(policy, ['schemaVersion', 'profile', 'verifier', 'source', 'candidate', 'sourceManifestSha256', 'bindings',
     'descriptorPointer', 'closurePointer', 'decisionPointer', 'release', 'appCheck',
-    'policySourceVerified', 'appCheckSourcePolicyVerified', ...policyFalse], 'client policy');
-  need(policy.schemaVersion === 1 && policy.profile === 'build31-business-client-policy-v1' &&
+    'policySourceVerified', 'appCheckSourcePolicyVerified', ...policyFalse,
+    ...(successor ? ['coreVerifier'] : [])], 'client policy');
+  need(policy.schemaVersion === (successor ? 2 : 1) &&
+    policy.profile === (successor ? 'build31-business-client-policy-v2' : 'build31-business-client-policy-v1') &&
     policy.policySourceVerified === true && policy.appCheckSourcePolicyVerified === true &&
     policyFalse.every(key => policy[key] === false), 'client policy scope differs');
+  if (successor) same(policy.coreVerifier, protocol.coreVerifierSummary31(trust), 'policy recorded core');
   exact(policy.verifier, ['commit', 'tree'], 'policy verifier');
   exact(policy.source, ['commit', 'tree', 'functionsTree'], 'policy source');
   exact(policy.candidate, ['commit', 'tree', 'ref', 'kind', 'pullRequest'], 'policy candidate');
@@ -299,6 +326,6 @@ function validateBusinessHostedClientMeasurement31(args) {
   return freeze(client);
 }
 
-module.exports = Object.freeze({PROFILE, CLIENT_PROFILE, HELPERS,
+module.exports = Object.freeze({PROFILE, PROFILE_V2, CLIENT_PROFILE, CLIENT_PROFILE_V2, HELPERS, HELPERS_V2,
   prepareBusinessHostedClient31, finishBusinessHostedClient31, measureBusinessHostedClient31,
   validateBusinessHostedClientMeasurement31});

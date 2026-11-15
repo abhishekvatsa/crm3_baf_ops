@@ -135,3 +135,20 @@ test('absent business metadata preserves grpc route selection without executing 
   assert.equal(effects.length, 1);
   assert.notEqual(result.protectedBusinessConsumerRequired, true);
 });
+
+test('complete explicit v2 route requires the protected consumer without legacy fallback', () => {
+  const input = policy();
+  input.clientBackendCompatibility.profile = 'build31-business-client-compatibility-v2';
+  input.businessBackendPrivateReplay.profile = 'build31-exact-business-backend-v2';
+  const {result, effects} = invoke(input);
+  assert.equal(result.ok, false); assert.equal(result.protectedBusinessConsumerRequired, true);
+  assert.deepEqual(effects, []);
+});
+test('business route refuses mixed v1/v2 client and descriptor profiles', () => {
+  for (const which of ['clientBackendCompatibility', 'businessBackendPrivateReplay']) {
+    const input = policy(); input[which].profile = input[which].profile.replace(/v1$/, 'v2');
+    const {result, effects} = invoke(input);
+    assert.equal(result.ok, false); assert.notEqual(result.protectedBusinessConsumerRequired, true);
+    assert.deepEqual(effects, []);
+  }
+});

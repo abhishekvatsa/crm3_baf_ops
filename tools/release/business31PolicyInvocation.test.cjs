@@ -25,8 +25,8 @@ function checkedGit(root, args, input, maxBuffer = 32 * 1024 * 1024) {
       env: {...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null',
         GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0'}});
 }
-test.before(() => {
-  fixture = createFixture({publicApprovalEnvelope: true, extraProducers: [...PILOT,
+function initialize(successor = false) {
+  fixture = createFixture({publicApprovalEnvelope: true, successor, extraProducers: [...PILOT,
     'tools/release/business31Controller.cjs', 'tools/release/business31Prerequisite.cjs',
     'tools/release/business31PolicyResult.cjs', 'tools/release/business31PolicyInvocation.cjs']});
   git = fixture.clientInput().gitExecutable;
@@ -56,7 +56,8 @@ test.before(() => {
   measured = client.measureBusinessHostedClient31({trust: platform.trust, request: platform.request, input: fixture.clientInput()});
   const request = requestFor(true);
   constructionClient = client.measureBusinessHostedClient31({trust: platform.trust, request, input: fixture.clientInput()});
-});
+}
+test.before(() => initialize());
 function reset() {
   fixture.reset();
   for (const [name, bytes] of [...savedRelease, ...Object.entries(fixture.S.files)]) {
@@ -77,7 +78,9 @@ function requestFor(construction) {
 function run(options = {}) {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'b31-invoke-'));
   const construction = options.construction === true, request = requestFor(construction);
-  const config = {schemaVersion: 1, profile: 'build31-business-prerequisite-controller-v1', replayTrust: platform.trust,
+  const successor = platform.trust.schemaVersion === 2;
+  const config = {schemaVersion: successor ? 2 : 1,
+    profile: successor ? 'build31-business-prerequisite-controller-v2' : 'build31-business-prerequisite-controller-v1', replayTrust: platform.trust,
     controller: {nodeSha256: sha(fs.readFileSync(process.execPath)), gitSha256: platform.trust.gitSha256, files: {...platform.trust.verifier.files}},
     selected: {candidate: request.candidate, descriptorPointer: request.descriptorPointer, clientSelectionSha256: request.challenge.clientSelectionSha256},
     requester: {workflowId: '91', path: '.github/workflows/production-artifact.yml', jobName: 'Governed production APK', actorIds: ['9']}, maximumWaitSeconds: 9000};
@@ -94,10 +97,13 @@ function run(options = {}) {
       GITHUB_RUN_ATTEMPT: '2', GITHUB_SHA: fixture.S.commit, GITHUB_REF: 'refs/heads/main',
       GITHUB_WORKFLOW_REF: platform.trust.repository.name + '/.github/workflows/production-artifact.yml@refs/heads/main'} : {})};
   options.environment?.(env);
-  const measurement = {schemaVersion: 1, profile: construction ? 'build31-business-prerequisite-measurement-v1' : 'build31-business-policy-result-v1',
+  const measurement = {schemaVersion: successor ? 2 : 1,
+    profile: construction ? (successor ? 'build31-business-prerequisite-measurement-v2' : 'build31-business-prerequisite-measurement-v1')
+      : (successor ? 'build31-business-policy-result-v2' : 'build31-business-policy-result-v1'),
+    ...(successor ? {coreVerifier: platform.result.coreVerifier} : {}),
     purpose: construction ? 'construction' : 'policy', verifier: platform.result.verifier, source: platform.result.source,
     candidate: request.candidate, descriptorPointer: request.descriptorPointer, closurePointer: platform.result.closurePointer,
-    commitments: platform.result.commitments, runId: request.runId, runAttempt: request.runAttempt, artifactId: '71', resultSha256: 'E'.repeat(64),
+    commitments: structuredClone(platform.result.commitments), runId: request.runId, runAttempt: request.runAttempt, artifactId: '71', resultSha256: 'E'.repeat(64),
     client: structuredClone(construction ? constructionClient : measured),
     ...(construction ? {challenge: request.challenge, replayMode: 'same-parent-reauthentication', freshHostedReplayVerified: true,
       limits: {deploymentAuthorized: false, constructionAuthorized: false, signingAuthorized: false, distributionAuthorized: false}}
@@ -178,6 +184,12 @@ for (const [name, options] of [
 function publicBindingCases() {
   assert.ok(policyProof && constructionProof, 'Actual Git/pilot positive invocation must complete first');
   return [['actual policy binding', policyProof, true], ['actual construction binding', constructionProof, true],
+    ...(policyProof.businessBackend31.policyResult.schemaVersion === 2 ? [
+      ['array proof', [structuredClone(policyProof)], false],
+      ['array input policy', policyProof, false, {policy: [fixture.records.policy]}],
+      ['array input state', policyProof, false, {state: [fixture.records.currentSuccessor],
+        deployed: [fixture.records.currentSuccessor.authorityPlanes.deployedBackend]}]
+    ] : []),
     ...[
       ['mixed measurement modes', v => {v.businessBackend31.prerequisiteResult = constructionProof.businessBackend31.prerequisiteResult;}],
       ['source mismatch', v => {v.businessBackend31.source.commit = 'f'.repeat(40);}],
@@ -187,10 +199,39 @@ function publicBindingCases() {
       ['descriptor mismatch', v => {v.businessBackend31.descriptorPointer.commit = 'f'.repeat(40);}],
       ['operational grant', v => {v.businessBackend31.constructionAuthorized = true;}],
       ['legacy route disguise', v => {v.route = 'runtime-backend31';}],
-      ['policy downgrade', v => {v.businessBackend31.policyResult.profile = 'unselected-profile';}]
+      ['policy downgrade', v => {v.businessBackend31.policyResult.profile = 'unselected-profile';}],
+      ...(policyProof.businessBackend31.policyResult.schemaVersion === 2 ? [
+        ['wrong core identity', v => {v.businessBackend31.policyResult.coreVerifier.commit = v.businessBackend31.policyResult.verifier.commit;}],
+        ['missing core map commitment', v => {delete v.businessBackend31.policyResult.commitments.coreProducerBindingsSha256;} ],
+        ['malformed integration commitment', v => {v.businessBackend31.policyResult.commitments.sourceIntegrationSha256 = 'Z'.repeat(64);} ],
+        ['mixed measurement profile', v => {v.businessBackend31.policyResult.profile = 'build31-business-policy-result-v1'; v.businessBackend31.policyResult.schemaVersion = 1;}],
+        ['mixed client profile', v => {v.businessBackend31.policyResult.client.profile = 'build31-business-client-compatibility-v1'; v.businessBackend31.policyResult.client.schemaVersion = 2;}],
+        ['wrong client core', v => {v.businessBackend31.policyResult.client.coreVerifier.commit = v.businessBackend31.policyResult.verifier.commit;}],
+        ['wrong policy core', v => {v.businessBackend31.policyResult.client.policy.coreVerifier.commit = v.businessBackend31.policyResult.verifier.commit;}],
+        ['mixed policy profile', v => {v.businessBackend31.policyResult.client.policy.profile = 'build31-business-client-policy-v1'; v.businessBackend31.policyResult.client.policy.schemaVersion = 1;}],
+        ['array success', v => {v.ok = [true];}],
+        ['array route', v => {v.route = ['business-backend31'];}],
+        ['array recorded replay', v => {v.businessBackend31.recordedSemanticsReplayAuthenticated = [true];}],
+        ['array business branch', v => {v.businessBackend31 = [v.businessBackend31];}],
+        ['array measurement', v => {v.businessBackend31.policyResult = [v.businessBackend31.policyResult];}],
+        ['array commitments', v => {v.businessBackend31.policyResult.commitments = [v.businessBackend31.policyResult.commitments];}],
+        ['array measurement schema', v => {v.businessBackend31.policyResult.schemaVersion = [2];}],
+        ['array measurement profile', v => {v.businessBackend31.policyResult.profile = ['build31-business-policy-result-v2'];}],
+        ['array purpose', v => {v.businessBackend31.policyResult.purpose = ['policy'];}],
+        ['array measurement success', v => {v.businessBackend31.policyResult.policyMeasurementVerified = [true];}],
+        ['array client', v => {v.businessBackend31.policyResult.client = [v.businessBackend31.policyResult.client];}],
+        ['array client schema', v => {v.businessBackend31.policyResult.client.schemaVersion = [3];}],
+        ['array client profile', v => {v.businessBackend31.policyResult.client.profile = ['build31-business-client-compatibility-v2'];}],
+        ['array client policy', v => {v.businessBackend31.policyResult.client.policy = [v.businessBackend31.policyResult.client.policy];}],
+        ['array policy schema', v => {v.businessBackend31.policyResult.client.policy.schemaVersion = [2];}],
+        ['array policy profile', v => {v.businessBackend31.policyResult.client.policy.profile = ['build31-business-client-policy-v2'];}],
+        ['array core identity', v => {v.businessBackend31.policyResult.coreVerifier = [v.businessBackend31.policyResult.coreVerifier];}],
+        ['array core map hash', v => {v.businessBackend31.policyResult.commitments.coreProducerBindingsSha256 = [v.businessBackend31.policyResult.commitments.coreProducerBindingsSha256];}],
+        ['array integration hash', v => {v.businessBackend31.policyResult.commitments.sourceIntegrationSha256 = [v.businessBackend31.policyResult.commitments.sourceIntegrationSha256];}]
+      ] : [])
     ].map(([name, mutate]) => {const v = structuredClone(policyProof); mutate(v); return [name, v, false];})];
 }
-test('canonical business branch preserves exact C/source/pointer and scope joins', () => {
+function verifyCanonicalPublicBindings() {
   const python = process.env.BUSINESS31_TEST_PYTHON || (process.platform === 'win32' ? 'C:/Python313/python.exe' : 'python3');
   const program = String.raw`import ast, hashlib, json, os, subprocess, sys
 from pathlib import Path
@@ -208,16 +249,17 @@ exec(compile(selected,str(source),'exec'),scope)
 result=scope['business_backend_private_authority_exact'](d['policy'],d['closure'],d['deployed'])
 print(json.dumps(bool(result)))
 `;
-  for (const [name, proof, expected] of publicBindingCases()) {
+  for (const [name, proof, expected, overrides = {}] of publicBindingCases()) {
     const input = {source: path.join(sourceRoot, 'tools/v4/v4_2_r1_canonical_audit.py'), root: fixture.root,
       node: process.execPath, proof, policy: fixture.records.policy, closure: policyProof.businessBackend31.currentBackend,
-      deployed: fixture.records.currentSuccessor.authorityPlanes.deployedBackend};
+      deployed: fixture.records.currentSuccessor.authorityPlanes.deployedBackend, ...overrides};
     const output = cp.execFileSync(python, ['-I', '-S', '-B', '-c', program], {input: raw(input), timeout: 30000,
       maxBuffer: 1024 * 1024, windowsHide: true});
     assert.equal(JSON.parse(output), expected, name);
   }
-});
-test('PowerShell business branch preserves exact C/source/pointer and scope joins', () => {
+}
+test('canonical business branch preserves exact C/source/pointer and scope joins', verifyCanonicalPublicBindings);
+function verifyPowerShellPublicBindings() {
   const pwsh = process.env.BUSINESS31_TEST_PWSH || (process.platform === 'win32' ? 'C:/Program Files/PowerShell/7/pwsh.exe' : 'pwsh');
   const program = String.raw`$ErrorActionPreference='Stop'; Set-StrictMode -Version Latest
 $d=[Console]::In.ReadToEnd() | ConvertFrom-Json -AsHashtable -Depth 50
@@ -235,12 +277,40 @@ try {
   [Console]::Out.Write('true')
 } catch { [Console]::Out.Write('false') } finally { Pop-Location }
 `;
-  for (const [name, proof, expected] of publicBindingCases()) {
+  for (const [name, proof, expected, overrides = {}] of publicBindingCases()) {
     const input = {source: path.join(__dirname, 'Test-ProductionReleasePolicy.ps1'), root: fixture.root,
       bridge: path.join(__dirname, 'Business-BackendPrivateReplay31.ps1'), proof,
-      policy: fixture.records.policy, state: fixture.records.currentSuccessor};
+      policy: fixture.records.policy, state: fixture.records.currentSuccessor, ...overrides};
     const output = cp.execFileSync(pwsh, ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', program],
       {input: raw(input), timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true});
     assert.equal(JSON.parse(output), expected, name);
   }
+}
+test('PowerShell business branch preserves exact C/source/pointer and scope joins', verifyPowerShellPublicBindings);
+
+test('v2 policy and construction invocation preserve real Git/pilot and reject a wrong core join', () => {
+  initialize(true);
+  for (const construction of [false, true]) {
+    const result = run({construction});
+    assert.equal(result.exitCode, 0, result.stderr); assert.equal(result.calls.length, 1);
+    if (construction) constructionProof = structuredClone(result.value);
+    else policyProof = structuredClone(result.value);
+    const measurement = result.value.businessBackend31[construction ? 'prerequisiteResult' : 'policyResult'];
+    assert.equal(measurement.schemaVersion, 2);
+    assert.deepEqual(measurement.coreVerifier, {commit: fixture.M.commit, tree: fixture.M.tree});
+    assert.equal(measurement.verifier.commit, fixture.Vnew.commit);
+    assert.equal(measurement.client.schemaVersion, 3);
+    for (const name of FLAGS) assert.equal(result.value.businessBackend31[name], false);
+  }
+  for (const measurement of [m => {m.coreVerifier = {...m.verifier};},
+    m => {m.commitments.coreProducerBindingsSha256 = 'F'.repeat(64);},
+    m => {m.commitments.sourceIntegrationSha256 = 'F'.repeat(64);}]) {
+    const wrong = run({measurement});
+    assert.equal(wrong.exitCode, 1); assert.equal(wrong.calls.length, 1); assert.equal(wrong.value, null);
+  }
+  const proofPacket = path.join(fixture.temporary, 'v2-public-binding-proofs.json');
+  fs.writeFileSync(proofPacket, raw({policyProof, constructionProof, policy: fixture.records.policy,
+    state: fixture.records.currentSuccessor, root: fixture.root, sourceRoot, node: process.execPath}), {flag: 'wx'});
+  process.stdout.write('Retained synthetic v2 public binding proofs: ' + proofPacket + '\n');
+  verifyCanonicalPublicBindings(); verifyPowerShellPublicBindings();
 });

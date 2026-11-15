@@ -307,11 +307,38 @@ def business_backend_private_authority_exact(policy: dict, deployment: dict, dep
         if has_policy == has_prerequisite:
             return {}
         measurement = business["policyResult" if has_policy else "prerequisiteResult"]
+        successor = measurement.get("schemaVersion") == 2
+        policy_profile = "build31-business-policy-result-v2" if successor else "build31-business-policy-result-v1"
+        prerequisite_profile = "build31-business-prerequisite-measurement-v2" if successor else "build31-business-prerequisite-measurement-v1"
+        descriptor_profile = "build31-exact-business-backend-v2" if successor else "build31-exact-business-backend-v1"
+        client_profile = "build31-business-client-compatibility-v2" if successor else "build31-business-client-compatibility-v1"
+        if (policy.get("businessBackendPrivateReplay", {}).get("profile") != descriptor_profile
+                or policy.get("clientBackendCompatibility", {}).get("profile") != client_profile):
+            return {}
+        if successor:
+            core = {"commit": source.get("commit"), "tree": source.get("tree")}
+            measured_client = measurement.get("client", {})
+            measured_policy = measured_client.get("policy", {})
+            if (measurement.get("coreVerifier") != core
+                    or measured_client.get("schemaVersion") != 3
+                    or measured_client.get("profile") != "build31-business-client-compatibility-v2"
+                    or measured_client.get("coreVerifier") != core
+                    or measured_policy.get("schemaVersion") != 2
+                    or measured_policy.get("profile") != "build31-business-client-policy-v2"
+                    or measured_policy.get("coreVerifier") != core):
+                return {}
+            commitments = measurement.get("commitments", {})
+            for name in ("coreProducerBindingsSha256", "sourceIntegrationSha256"):
+                digest = commitments.get(name)
+                if not isinstance(digest, str) or len(digest) != 64 or not set(digest) <= set("0123456789ABCDEF"):
+                    return {}
+        elif "coreVerifier" in measurement:
+            return {}
         measured = (
-            measurement.get("schemaVersion") == 1
-            and ((has_policy and measurement.get("profile") == "build31-business-policy-result-v1"
+            measurement.get("schemaVersion") == (2 if successor else 1)
+            and ((has_policy and measurement.get("profile") == policy_profile
                   and measurement.get("purpose") == "policy" and measurement.get("policyMeasurementVerified") is True)
-                 or (has_prerequisite and measurement.get("profile") == "build31-business-prerequisite-measurement-v1"
+                 or (has_prerequisite and measurement.get("profile") == prerequisite_profile
                      and measurement.get("purpose") == "construction" and measurement.get("replayMode") == "same-parent-reauthentication"
                      and measurement.get("freshHostedReplayVerified") is True
                      and measurement.get("limits") == {"deploymentAuthorized": False, "constructionAuthorized": False,
