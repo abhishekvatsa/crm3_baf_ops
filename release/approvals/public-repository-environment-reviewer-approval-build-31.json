@@ -1,0 +1,199 @@
+{
+  "schemaVersion": 1,
+  "receiptType": "public-repository-required-reviewer-control",
+  "approved": true,
+  "approvedAtUtc": "2026-11-15T18:05:12.154Z",
+  "evidenceBoundAtUtc": "2026-11-15T18:05:12.154Z",
+  "approverName": "Codex acting under project-owner delegation",
+  "approvalReference": "BAF-GH-ENV-026",
+  "approvalEvidence": {
+    "authorityType": "owner-delegated agent decision",
+    "projectOwnerName": "Abhishek Vatsa",
+    "recordedBy": "Codex acting under project-owner delegation",
+    "recordedAtUtc": "2026-11-15T18:05:12.154Z",
+    "delegatedDecisionAtUtc": "2026-11-15T18:05:12.154Z",
+    "timestampSource": "Actual drafting agent decision time after committed L/K. Owner receivedAtUtc is the first root clock observation after the genuine reply, not a platform delivery timestamp.",
+    "quotedEvidenceScope": "Only instructionExcerpts quotes the genuine retained reply. The conditional source decision is the accountable delegated agent interpretation; standing signing approval remains separate.",
+    "instructionExcerpts": [
+      "Approve exact-source client construction only"
+    ],
+    "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
+    "originalMessage": {
+      "sha256": "DFF7D28339700692EB893D17A52062C61E348E0395A544774B49EBF512C22779",
+      "bytes": 3325,
+      "messageId": "01a1e038-aec8-75c0-b313-750f5657ce17",
+      "conversationId": "01a074f1-cddd-7630-bb88-62da34a63f07",
+      "receivedAtUtc": "2026-11-15T17:19:51Z",
+      "provenance": "operator-retained-direct-human-message",
+      "humanIdentityMachineAuthenticated": false
+    },
+    "agentDecision": "Bind the Build31 source candidate to the existing unchanged main-only protected signing control and committed K custody. This approves the source contract for one candidate; it does not fabricate or perform the later exact-run environment review.",
+    "scopeInterpretation": "Source records only. Actual exact-source CI, independently enrolled replay, required environment approval, protected signing, package verification and private custody remain execution gates. No backend/IAM/enforcement mutation, device installation or distribution is approved.",
+    "evidenceReferences": {
+      "sourceApproval": {
+        "commit": "50ca4f6b6936eb6b2da00c4935aa52fa84a61389",
+        "file": "release/approvals/build-number-31-successor-approval.json",
+        "sha256": "9649B20A21CAECB9BFE7BB44580A91EDC216FC883BA9E1C489C9CF012A4A0692"
+      },
+      "privateCustody": {
+        "commit": "bbe347dbf733841d096f66c7e569c5e5f715115f",
+        "file": "release/approvals/build31-private-cloud-custody-approval.json",
+        "sha256": "BBA2ACE389540355A8C58E12877BE89E8EFC22FC78D6DBC53E2818B574BABA21"
+      },
+      "backendApproval": {
+        "commit": "f20446b4ff1f3c6a0763d6bf799f5ea3c1693f01",
+        "file": "release/approvals/build31-business-backend-deployment-approval.json",
+        "sha256": "62BB96593948EFAEC7628A8CFAB2C0E493E06F36CE19A6F6C3659EB296328820"
+      },
+      "backendClosure": {
+        "commit": "e91e5015bbca9c2c1fd52dc13cf6c772c0bfd0c4",
+        "file": "release/evidence/build31-business-backend-deployment-closure.json",
+        "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
+      },
+      "descriptor": {
+        "commit": "48b9ed704a0cba5c545f3954d841949909f585c6",
+        "file": "release/evidence/build31-business-private-replay.json",
+        "sha256": "D2A386D72B5F02C2E719230401D15838F7448C9D0171E2C6B7EE4434E483BBC8"
+      },
+      "ownerAuthorization": {
+        "commit": "72d7b2e91d1f3977d4674f8818bd21264d28db1f",
+        "file": "release/approvals/build31-business-client-owner-authorization.json",
+        "sha256": "AD1064D17F8220D60E30FDE1573316AFD9D7461E2D6351FD29E94ECF25D87E6B"
+      },
+      "clientCompatibilityDecision": {
+        "commit": "3af4c9514b8fe2e80bd24e5b9aee3d22bac94408",
+        "file": "release/approvals/build31-business-client-compatibility-approval.json",
+        "sha256": "461BBFA0B6540A1A0A7DCF517CCA262E34C1CA6381B1986B1697D14987B7A04A"
+      }
+    }
+  },
+  "authorityBasis": "Actual exact-source client approval and standing governed build/sign/verify scope, conditional on all existing independently measured source, private replay and exact-run protected-environment gates.",
+  "scope": {
+    "repository": "abhishekvatsa/crm3_baf_ops",
+    "repositoryVisibility": "public",
+    "environmentName": "crm3-baf-ops-production-signing",
+    "workflowPath": ".github/workflows/production-artifact.yml",
+    "versionName": "1.0.0-rc.21",
+    "buildNumber": 31,
+    "versionApprovalReference": "BUILD31-OWNER-DELEGATED-20261115",
+    "singleBuildOnly": true
+  },
+  "liveStateEvidence": {
+    "repositoryPrivate": false,
+    "repositoryVisibility": "public",
+    "environmentId": 18899285145,
+    "requiredReviewerRulePresent": true,
+    "requiredReviewerRuleId": 61610617,
+    "requiredReviewer": {
+      "type": "User",
+      "login": "abhishekvatsa",
+      "id": 213690022
+    },
+    "preventSelfReview": false,
+    "canAdminsBypass": false,
+    "deploymentBranchPolicy": {
+      "protectedBranches": false,
+      "customBranchPolicies": true,
+      "ruleId": 56332848,
+      "allowedBranches": [
+        {
+          "name": "main",
+          "type": "branch"
+        }
+      ]
+    },
+    "requiredEnvironmentSecretNames": [
+      "CRM_ANDROID_RELEASE_KEYSTORE_BASE64",
+      "CRM_ANDROID_RELEASE_KEY_ALIAS",
+      "CRM_ANDROID_RELEASE_KEY_PASSWORD",
+      "CRM_ANDROID_RELEASE_STORE_PASSWORD"
+    ],
+    "secretValuesInspected": false,
+    "authorizedDispatcher": {
+      "id": 213690022,
+      "login": "abhishekvatsa"
+    },
+    "retainedSnapshot": {
+      "summary": {
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/LIVE_GITHUB_READINESS_SUMMARY.json",
+        "sha256": "9A46B6B04E5D7519495814FF8DD8CE72B803573ECAEEE34460136A2DD75CA9B2",
+        "bytes": 4959
+      },
+      "summaryRecordedAtUtc": "2026-11-15T03:30:33.143Z",
+      "environment": {
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/SIGNING_ENVIRONMENT.json",
+        "sha256": "F6F7CAAEE89EC714F63F86ADF8CC15761967D8E305B5C148A8ECA1C33B00A38A",
+        "bytes": 1752
+      },
+      "branchPolicies": {
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/SIGNING_BRANCH_POLICIES.json",
+        "sha256": "AA6E2ECA437D5DA2E2996A6B45462A56F2B4926299071B505A62A61B05DF53BA",
+        "bytes": 137
+      },
+      "meaning": "Named same-day accepted snapshot reused; no new capture or authenticated-current-token identity is claimed. Actual workflow rechecks live controls and exact-run approval before secrets."
+    }
+  },
+  "singleOperatorConstraint": {
+    "independentSecondPartyReviewerAvailable": false,
+    "selfReviewPermitted": true,
+    "explicitEnvironmentApprovalStillRequired": true,
+    "interpretation": "The required-reviewer rule creates a deliberate approval event and prevents unattended secret release; it is not represented as independent two-person approval."
+  },
+  "controls": {
+    "exactSourceApprovalMustMergeToMain": true,
+    "pullRequestMergeEvidenceRequired": true,
+    "requiredIntegratedMergeCommit": "e6bfa327466ffa99da9519846db7f83401c86c7b",
+    "requiredSuccessorFreezePullRequest": 383,
+    "requiredSuccessorFreezeCommit": "a9d6c61179bd6fdacf885dddd4a1908db97e9188",
+    "requiredSuccessorFreezePostMergeRunId": 36368575456,
+    "exactLiveMainRequired": true,
+    "mainOnlyEnvironmentDeploymentRequired": true,
+    "requiredReviewerRuleMustRemainPresent": true,
+    "approvedRunReviewByRequiredReviewerRequired": true,
+    "adminBypassMustRemainDisabled": true,
+    "manualDispatchApprovalReferenceRequired": true,
+    "dispatchApprovalReference": "BUILD31-OWNER-DELEGATED-20261115",
+    "authorizedDispatcherIdentityRequired": true,
+    "protectedEnvironmentSecretsRequired": true,
+    "environmentSecretNameInventoryRequired": true,
+    "environmentSecretValuesMayNotBeRead": true,
+    "atomicOneTimeRemoteReservationRequired": true,
+    "independentPackageVerificationRequired": true,
+    "dualCustodyRequiredBeforeBuiltTag": true,
+    "distributionApproved": false,
+    "firebaseDeploymentApproved": false,
+    "productionBackfillApproved": false,
+    "runtimeContractActivationApproved": false,
+    "deviceDataClearApproved": false,
+    "productionDataMutationApproved": false,
+    "labelledTrialBusinessInteractionApproved": false,
+    "exactTrialRecordCleanupApproved": false,
+    "installationApproved": false,
+    "verifiedApkDownloadsCopyApproved": false,
+    "artifactCustody": {
+      "mode": "local-primary-private-gcs-backup",
+      "approvalFile": "release/approvals/build31-private-cloud-custody-approval.json",
+      "backupGsPrefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-31/crm3-baf-ops-build31-business-20261115",
+      "independentlyStoredCopiesRequired": 2,
+      "localPrimaryRequired": true,
+      "exactCreatedCloudGenerationReadbackRequired": true,
+      "packageAndSidecarBeforeBuiltTagRequired": true,
+      "allSixProofsBeforeFinalSuccessRequired": true,
+      "approvalCommit": "bbe347dbf733841d096f66c7e569c5e5f715115f",
+      "approvalSha256": "BBA2ACE389540355A8C58E12877BE89E8EFC22FC78D6DBC53E2818B574BABA21"
+    }
+  },
+  "postBuildPilotIntent": {
+    "projectOwnerAuthorized": false,
+    "maximumRosterSize": 0,
+    "actualHandoutRequiresExactPackagePromotionReceipt": true,
+    "physicalDeviceAndConvergenceEvidenceRequired": true,
+    "unrestrictedDistributionAuthorized": false
+  },
+  "failClosedConditions": [
+    "Only exact Build31 and the real L/K/B/O/D source/custody bindings are admitted.",
+    "Actual protected run review by the required owner and every existing construction/package/custody gate remain mandatory.",
+    "No admin bypass, data clearing, backend/IAM/enforcement mutation, installation or distribution is authorized by this source record."
+  ],
+  "expiresWhen": "Build31 obtains its verified built tag or the governed environment posture changes."
+}
