@@ -28,6 +28,8 @@ jobs:
     env:
       SELECTED_V: ${{ vars.BUSINESS31_VERIFIER_COMMIT }}
       TRUST_JSON: ${{ vars.BUSINESS31_TRUST_JSON }}
+      TRUST_JSON_PART_2: ${{ vars.BUSINESS31_TRUST_JSON_PART_2 }}
+      TRUST_JSON_PART_3: ${{ vars.BUSINESS31_TRUST_JSON_PART_3 }}
       TRUST_SHA: ${{ vars.BUSINESS31_TRUST_SHA256 }}
       MANIFEST_JSON: ${{ vars.BUSINESS31_SOURCE_MANIFEST_JSON }}
       NODE_EXE: ${{ vars.BUSINESS31_NODE_EXECUTABLE }}
@@ -74,9 +76,19 @@ jobs:
           def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest().upper()
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'business31-private-job'
           root.mkdir(mode=0o700,exist_ok=False)
-          trust_raw=os.environ['TRUST_JSON'].encode();need(0<len(trust_raw)<=2*1024*1024)
+          parts=[os.environ.get(key,'') for key in ('TRUST_JSON','TRUST_JSON_PART_2','TRUST_JSON_PART_3')]
+          chunked=bool(parts[1] or parts[2])
+          if chunked:
+              encoded=[part.encode('utf-8') for part in parts]
+              need(all(0<len(part)<=48000 for part in encoded))
+              trust_raw=b''.join(encoded)
+          else:
+              trust_raw=parts[0].encode('utf-8')
+          need(0<len(trust_raw)<=2*1024*1024)
           need(hashlib.sha256(trust_raw).hexdigest().upper()==os.environ['TRUST_SHA'])
           trust=json.loads(trust_raw);need(trust['verifier']['commit']==os.environ['SELECTED_V'])
+          if chunked:
+              need(type(trust.get('schemaVersion')) is int and trust['schemaVersion']==2 and trust.get('profile')=='build31-business-hosted-recorded-replay-v2')
           v2=trust.get('schemaVersion')==2 or trust.get('profile')=='build31-business-hosted-recorded-replay-v2' or 'coreVerifier' in trust or 'sourceIntegration' in trust
           if v2:
               need(trust.get('schemaVersion')==2 and trust.get('profile')=='build31-business-hosted-recorded-replay-v2')

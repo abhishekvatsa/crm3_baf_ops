@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 import tempfile
 import sys
+import subprocess
+import textwrap
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -514,6 +516,137 @@ class LauncherPlan(unittest.TestCase):
         request['schemaVersion'] = 1
         with self.assertRaisesRegex(ValueError, 'V2_CHALLENGE_REQUIRED'):
             launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input)
+
+    def workflow_prepare(self, *, legacy=False, chunked=False, expanded=False,
+                         raw=None, alter=None, alter_parts=None, expected_hash=None):
+        """Run the actual workflow heredoc; only its Git network edge is inert."""
+        workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
+        source = workflow.read_text(encoding='utf8')
+        for alias in ('TRUST_JSON', 'TRUST_JSON_PART_2', 'TRUST_JSON_PART_3'):
+            self.assertIn(alias + ': ${{ vars.BUSINESS31_' + alias + ' }}', source)
+        marker = '      - name: Prepare isolated public Git inputs without checking out candidate code\n'
+        self.assertEqual(source.count(marker), 1)
+        step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
+        self.assertEqual(step.count("<<'PY'\n"), 1)
+        body = textwrap.dedent(step.split("<<'PY'\n", 1)[1].split('\n          PY', 1)[0])
+        if legacy:
+            trust, request, _, _, selected = self.artifact_fixture()
+            trust.update(schemaVersion=1, nodeSha256='A' * 64, gitSha256='B' * 64,
+                         launcherSha256='C' * 64, pythonSha256='D' * 64)
+        else:
+            trust, request, _, _, selected = self.transport_v2_fixture()
+        sequence = getattr(self, '_workflow_sequence', 0) + 1
+        self._workflow_sequence = sequence
+        owned = self.root / ('workflow-' + str(sequence)); owned.mkdir()
+        git = Path(os.environ.get('BUSINESS31_TEST_GIT',
+                   'C:/Program Files/Git/mingw64/bin/git.exe' if os.name == 'nt' else '/usr/bin/git'))
+        trust['gitSha256'] = launcher.digest(git)
+        trust['pythonSha256'] = launcher.digest(Path(sys.executable))
+        trust['launcherSha256'] = launcher.digest(FILE)
+        trust['repository']['name'] = 'fixture/repository'
+        if alter:
+            alter(trust)
+        ordinary = json.dumps(trust, separators=(',', ':'))
+        value = raw if raw is not None else ordinary[:1] + (' ' * 60000 if expanded else '') + ordinary[1:]
+        width = (len(value) + 2) // 3
+        parts = [value[:width], value[width:width * 2], value[width * 2:]] if chunked else [value, '', '']
+        if alter_parts:
+            alter_parts(parts)
+        whole = ''.join(parts).encode('utf8')
+        public_message = b'synthetic public workflow carrier message'
+        selected['selected']['originalMessage'] = {'sha256': hashlib.sha256(public_message).hexdigest().upper(),
+                                                   'bytes': len(public_message)}
+        import base64
+        env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'LANG', 'LC_ALL')
+               if key in os.environ}
+        env.update(HOME=str(owned), USERPROFILE=str(owned), TMP=str(owned), TEMP=str(owned), RUNNER_TEMP=str(owned),
+                   TRUST_JSON=parts[0], TRUST_JSON_PART_2=parts[1], TRUST_JSON_PART_3=parts[2],
+                   TRUST_SHA=expected_hash or hashlib.sha256(whole).hexdigest().upper(),
+                   SELECTED_V=trust['verifier']['commit'], PYTHON_SHA=launcher.digest(Path(sys.executable)),
+                   LAUNCHER_SHA=launcher.digest(FILE), GIT_EXE=str(git), GITHUB_REPOSITORY='fixture/repository',
+                   GITHUB_RUN_ID='42', GITHUB_RUN_ATTEMPT='1', GITHUB_OUTPUT=str(owned / 'github-output.txt'),
+                   CANDIDATE_REQUEST=json.dumps({key: request[key] for key in
+                       ('schemaVersion', 'candidate', 'descriptorPointer', 'challenge')}),
+                   MANIFEST_JSON='{"syntheticPublicSourceManifest":true}',
+                   CLIENT_SELECTED_JSON=json.dumps(selected['selected']),
+                   CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(public_message).decode())
+        script = owned / 'execute-workflow.py'
+        payload = owned / 'workflow-source.json'; payload.write_text(json.dumps({'source': body}), encoding='utf8')
+        script.write_text(textwrap.dedent('''\
+            import json,os,pathlib,subprocess,sys
+            source=json.loads(pathlib.Path(sys.argv[1]).read_bytes())['source']
+            calls=[]
+            def no_wire_or_child(event,arguments):
+                if event in ('socket.__new__','socket.connect','subprocess.Popen'):
+                    raise AssertionError('Workflow test forbids real network or external Git execution')
+            sys.addaudithook(no_wire_or_child)
+            def transport_only_git(argv,**options):
+                assert isinstance(argv,list) and argv[0]==os.environ['GIT_EXE']
+                assert options['stdin']==subprocess.DEVNULL and options['timeout']==300
+                assert 'credential.helper=' in argv and 'protocol.allow=never' in argv
+                calls.append(argv)
+                if 'clone' in argv:
+                    assert argv[-2]=='https://github.com/fixture/repository.git'
+                    pathlib.Path(argv[-1]).mkdir()
+                else:
+                    assert 'fetch' in argv or 'update-ref' in argv
+                return subprocess.CompletedProcess(argv,0,b'',b'')
+            subprocess.run=transport_only_git
+            try:
+                exec(compile(source,'actual-business-private-replay-workflow.py','exec'),{})
+                result={'ok':True,'gitCalls':len(calls)}
+            except Exception as error:
+                result={'ok':False,'gitCalls':len(calls),'exceptionType':type(error).__name__,'message':str(error)}
+            print(json.dumps(result))
+            '''), encoding='utf8')
+        run = subprocess.run([sys.executable, '-I', '-S', str(script), str(payload)], env=env,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             timeout=30, check=False)
+        (owned / 'stdout.txt').write_bytes(run.stdout); (owned / 'stderr.txt').write_bytes(run.stderr)
+        # Retain actual child result streams in the outer test log before cleanup.
+        sys.stdout.buffer.write(run.stdout); sys.stdout.buffer.flush()
+        if run.stderr:
+            sys.stderr.buffer.write(run.stderr); sys.stderr.buffer.flush()
+        self.assertEqual(run.returncode, 0, run.stderr.decode('utf8', errors='replace'))
+        return json.loads(run.stdout), owned / 'business31-private-job', whole, trust
+
+    def test_actual_workflow_python_raw_v1_raw_v2_and_large_v2_chunks_preserve_whole_bytes(self):
+        for options in ({'legacy': True}, {}, {'chunked': True, 'expanded': True}):
+            with self.subTest(options=options):
+                result, directory, whole, trust = self.workflow_prepare(**options)
+                self.assertEqual(result, {'ok': True, 'gitCalls': 3})
+                self.assertEqual((directory / 'trust.json').read_bytes(), whole)
+                self.assertEqual(json.loads((directory / 'trust.json').read_bytes()), trust)
+                if options.get('expanded'):
+                    self.assertGreater(len(whole), 48000)  # Transport fixture, not operational enrollment.
+                client = json.loads((directory / 'client-input.json').read_bytes())
+                self.assertEqual(client['schemaVersion'], 1 if options.get('legacy') else 2)
+
+    def test_actual_workflow_python_refuses_bad_chunks_before_git_or_outputs(self):
+        cases = [
+            {'alter_parts': lambda p: p.__setitem__(0, '')},
+            {'alter_parts': lambda p: p.__setitem__(1, '')},
+            {'alter_parts': lambda p: p.__setitem__(2, '')},
+            {'alter_parts': lambda p: p.__setitem__(1, '\u6f22' * 16001)},
+            {'expected_hash': '0' * 64}, {'legacy': True},
+            {'raw': '{"schemaVersion":2,'}, {'raw': '[null,{}]'},
+            {'alter': lambda t: t.update(schemaVersion=[2])},
+            {'alter': lambda t: t.update(profile=[launcher.PROFILE_V2])},
+            {'alter': lambda t: t.update(pythonSha256='0' * 64)},
+            {'alter': lambda t: t.update(launcherSha256='0' * 64)},
+            {'alter': lambda t: t.update(gitSha256='0' * 64)},
+            {'alter': lambda t: t['coreVerifier'].update(commit='0' * 40)}]
+        for case in cases:
+            with self.subTest(case=case):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, **case)
+                self.assertFalse(result['ok']); self.assertEqual(result['gitCalls'], 0)
+                self.assertFalse((directory / 'trust.json').exists())
+                self.assertFalse((directory / 'input.json').exists())
+        # The whole SHA is checked before JSON parsing, even for malformed input.
+        result, _, _, _ = self.workflow_prepare(chunked=True, raw='malformed-json', expected_hash='0' * 64)
+        self.assertEqual(result['exceptionType'], 'RuntimeError')
+        result, _, _, _ = self.workflow_prepare(raw='')
+        self.assertFalse(result['ok']); self.assertEqual(result['gitCalls'], 0)
 
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()

@@ -30,3 +30,25 @@ test('closed envelope refuses mixed profile and candidate-selected helper bytes'
  const a=input();a.envelope.profile='build31-business-trusted-input-v1';assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(a),/successor profile/);
  const b=input();b.envelope.verifier.files[trusted.SELF]='F'.repeat(64);assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(b),/bound helper bytes/);
 });
+
+test('actual Git admission binds only the two newly enrolled workflow integrations',()=>{
+ const g=createFixture({successor:true,enrollmentWorkflows:true}),x=g.platformFixture(),ci=g.clientInput();
+ const args={repositoryRoot:g.root,gitExecutable:ci.gitExecutable,gitSha256:x.trust.gitSha256,
+  envelope:trusted.createTrustedEnvelopeV2(x.trust,x.request.candidate),descriptorPointer:x.request.descriptorPointer,
+  expectedSourceManifestSha256:x.trust.sourceManifestSha256};
+ assert.equal(trusted.verifyBusiness31TrustedInputV2(args).inputBoundaryVerified,true);
+ assert.equal(descriptor.verifyBusiness31DescriptorPreparationV2(args).descriptorStructureVerified,true);
+ for(const file of ['.github/workflows/production-artifact.yml','.github/workflows/release-gate.yml']){
+  assert.equal(trusted.INTEGRATION_PATHS.includes(file),true);
+  assert.ok(Object.hasOwn(args.envelope.sourceIntegration,file));
+  const changed=structuredClone(args);changed.envelope.sourceIntegration[file].sha256='F'.repeat(64);
+  assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(changed),/integration object\/hash changed/);
+  const omitted=structuredClone(args);delete omitted.envelope.sourceIntegration[file];
+  assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(omitted),/integration must exactly equal/);
+ }
+ for(const file of ['.github/workflows/codeql.yml','.github/workflows/verification-artifact.yml','.github/workflows/claude.yml']){
+  assert.equal(trusted.INTEGRATION_PATHS.includes(file),false);
+  const changed=structuredClone(args);changed.envelope.sourceIntegration[file]={mode:'100644',oid:'f'.repeat(40),sha256:'F'.repeat(64)};
+  assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(changed),/integration member invalid/);
+ }
+});

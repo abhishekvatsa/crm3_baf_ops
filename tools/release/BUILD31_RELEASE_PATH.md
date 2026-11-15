@@ -61,6 +61,21 @@ The independent public enrollment uses:
   `BUSINESS31_CONTROLLER_CONFIG_SHA256`;
 - `BUSINESS31_POLICY_REQUEST_JSON`, naming one actual completed policy replay.
 
+For large v2 enrollment objects, the existing JSON variable holds part 1 and
+`_PART_2` and `_PART_3` hold the remaining raw UTF-8 JSON. This applies to both
+`BUSINESS31_CONTROLLER_CONFIG_JSON` and `BUSINESS31_TRUST_JSON`. All three parts
+must be nonempty and at most 48,000 UTF-8 bytes each. Split only at UTF-8 character
+boundaries. The workflow joins them verbatim, verifies the existing whole-object
+SHA-256 before parsing, and accepts only the explicit v2 profile on this route.
+With no tail parts, existing raw v1 and v2 behavior is preserved. Complete maps
+and all later guards remain intact. Check the actual repository variable total
+against GitHub's aggregate limit before enrollment.
+
+The Flutter authority job and artifact job both select Ubuntu 24.04 and the same
+pinned Node 22.23.1 setup. Their controller Node/Git hashes need their own actual
+measurement; the private replay worker's Node cache measurement is a separate
+runtime role. A changed image or binary must fail the existing hash checks.
+
 The initializer exports local paths for the configuration, complete V, approved
 Node/Git and request. Local callers may supply those same independently enrolled
 selectors directly. A path or digest supplied by S is not independent enrollment.

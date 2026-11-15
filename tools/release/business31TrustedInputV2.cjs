@@ -9,6 +9,8 @@ const SELF='tools/release/business31TrustedInputV2.cjs';
 // Deployment/runtime controls outside this list cannot enter via enrollment.
 const INTEGRATION_PATHS=Object.freeze([
  '.github/workflows/business-private-replay.yml',
+ '.github/workflows/release-gate.yml',
+ '.github/workflows/production-artifact.yml',
  'tools/v4/v4_2_r1_canonical_audit.py',
  ...[
  'BUILD31_RELEASE_PATH.md','business31PolicyResult.md','BUILD31_BUSINESS_BACKEND.md',
