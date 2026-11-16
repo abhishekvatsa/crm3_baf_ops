@@ -51,6 +51,14 @@ function invoke(file, argv, env, protocol, directory, {preload = false, library 
   const filesystem = {...fs, writeFileSync(...args) {
     fs.writeFileSync(...args);
     if (args[0] === output) settle.resolve(JSON.parse(fs.readFileSync(output, 'utf8')));
+  }, writeSync(fd, ...args) {
+    if (fd !== 2) return fs.writeSync(fd, ...args);
+    const log = path.join(directory, 'entry.stderr'), descriptor = fs.openSync(log, 'a');
+    let written;
+    try { written = fs.writeSync(descriptor, ...args); }
+    finally { fs.closeSync(descriptor); }
+    settle.reject(Error(fs.readFileSync(log, 'utf8').trim()));
+    return written;
   }};
   const req = name => {
     imports.push(name);
@@ -67,7 +75,7 @@ function invoke(file, argv, env, protocol, directory, {preload = false, library 
     new Function('require', 'module', 'exports', '__dirname', '__filename', 'process',
       fs.readFileSync(filename, 'utf8'))(req, m, m.exports, __dirname, filename, proc);
   } catch (error) {settle.reject(error);}
-  return {result, imports};
+  return {result, imports, get exitCode() {return proc.exitCode;}};
 }
 async function runController({purpose = 'construction', mutate, before, entryOptions = {}, resume, mutateResume} = {}) {
   const g = setup(), x = structuredClone(measured.x), directory = fs.mkdtempSync(path.join(retained, 'controller-'));
@@ -254,6 +262,7 @@ async function runReplay({missingHelper, invalidChallenge = false, omitPair = fa
   if (!omitPair) argv.push('--client-input', clientFile, '--client-input-sha256', sha(fs.readFileSync(clientFile)));
   const run = invoke('business31HostedReplay.cjs', argv, {GITHUB_TOKEN: 'synthetic-never-a-real-token'}, fake.protocol, directory);
   await assert.rejects(run.result);
+  assert.equal(run.exitCode, 1);
   assert.equal(fake.requests.length, 0); assert.equal(fs.existsSync(output), false);
   assert.equal(run.imports.some(name => ['./business31SourceAdmission.cjs', './business31PrivateDescriptor.cjs',
     './business31OriginalPathReplay.cjs', './privateEvidenceBundle31.cjs'].includes(name)), false,
