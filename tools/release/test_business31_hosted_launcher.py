@@ -1,9 +1,10 @@
-"""Credential-free launcher-plan tests; no spawned Node or hosted qualification."""
+"""Credential-free launcher and synthetic diagnostic tests; no hosted qualification."""
 import hashlib
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import sys
@@ -706,9 +707,10 @@ class LauncherPlan(unittest.TestCase):
 
 class DiagnosticFailures(unittest.TestCase):
     """Offline synthetic diagnostics only; no bundle, credential or hosted replay."""
-    NODE = Path(os.environ.get('BUSINESS31_TEST_NODE', 'C:/Program Files/nodejs/node.exe'))
+    NODE = os.environ.get('BUSINESS31_TEST_NODE') or shutil.which('node')
 
     def setUp(self):
+        self.assertIsNotNone(self.NODE, 'Node is required for offline diagnostic tests')
         self.temp = tempfile.TemporaryDirectory(prefix='b31-diag-')
         self.root = Path(self.temp.name)
         self.parent = self.root / 'private'; self.parent.mkdir()
