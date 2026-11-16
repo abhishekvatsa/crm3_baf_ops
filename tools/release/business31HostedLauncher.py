@@ -15,8 +15,109 @@ import selectors
 import time
 from pathlib import Path
 import subprocess
+import errno
 import sys
 import tempfile
+
+
+# Failure records contain only literal enums, bounded native integers and booleans.
+_NODE_STAGES = frozenset(["ENTRY_INPUT","ADMISSION_INITIAL","CLIENT_INITIAL","PLATFORM_INITIAL","OIDC","ADMISSION_RECHECK","STS","BUNDLE_DOWNLOAD","ORIGINAL_REPLAY","ADMISSION_FINAL","CLIENT_RECHECK","PLATFORM_FINAL","CLIENT_FINAL","RESULT_VALIDATION","PRIVATE_CLEANUP","RESULT_STAGING","WORKER_ENTRY","WORKER_INPUT","WORKER_RUNTIME","WORKER_INVENTORY","WORKER_RELOCATION","WORKER_CORE_BINDING","WORKER_CORE_LOAD","WORKER_RELOCATION_CONTEXT","WORKER_GIT","WORKER_BACKEND_CLOSURE","WORKER_RESULT","WORKER_FINAL_INVENTORY","WORKER_FINAL_RUNTIME","WORKER_OUTPUT","CORE_WORKER_PREPARE","CORE_WORKER_PROCESS","CORE_WORKER_RESULT","CORE_WORKER_INPUT_CLEANUP"])
+_NODE_REASONS = frozenset(["ABSOLUTE_PATH","ADMISSION_CHANGED","ADMITTED_CORE_VERIFIER","ADMITTED_PRODUCERS","ADMITTED_SOURCE","ADMITTED_SOURCE_INTEGRATION","ADMITTED_VERIFIER","ARTIFACT_BOUND","ARTIFACT_DIGEST","ARTIFACT_IDENTITY","ARTIFACT_POPULATION","ARTIFACT_REDIRECT","ARTIFACT_RUN","ARTIFACT_STORAGE_ORIGIN","ARTIFACT_TIME","CALLER_OPTIONS","CANDIDATE","CANDIDATE_ID","CHALLENGE","CHALLENGE_CURRENT","CHALLENGE_DATE","CHALLENGE_DUPLICATE_FILE","CHALLENGE_DURATION","CHALLENGE_FILE","CHALLENGE_FILES","CHALLENGE_IDENTITY","CHALLENGE_INVOCATION","CHALLENGE_PACKAGE_FILES","CHALLENGE_REQUESTER","CHALLENGE_UNEXPECTED_FILES","CLEANUP_OWNERSHIP","CLI","CLIENT_GIT","CLIENT_INPUT_BOUND","CLIENT_INPUT_COMMITMENT","CLIENT_MEASUREMENT_CHANGED","CLIENT_PRODUCER","CLIENT_REPOSITORY","CLIENT_REQUEST_MODE","CLIENT_SELECTED_COMMITMENT","CONFIG_DIGEST","CONSTRUCTION_REQUESTER","CORE_MEMBER","CORE_NODE22","CORE_POPULATION","CORE_ROUTE","CORE_SOURCE","CORE_VERIFIER","DESCRIPTOR_POINTER","EXECUTING_PRODUCER","EXTERNAL_CONFIG_COMMITMENT","FINAL_ADMISSION_CHANGED","FINAL_CLIENT_MEASUREMENT_CHANGED","GITHUB_PATH","GIT_IDENTITY","HTTPS_ENDPOINT","INPUT_BOUNDARY","JOB_IDENTITY","JOB_POPULATION","JOB_STATE","JSON_BOUND","JSON_COMPLEXITY","LIVE_REPOSITORY","LOCAL_INPUT","MAIN_REQUEST","M_REFUSAL_001","M_REFUSAL_002","M_REFUSAL_003","M_REFUSAL_004","M_REFUSAL_005","M_REFUSAL_006","M_REFUSAL_007","M_REFUSAL_008","M_REFUSAL_009","M_REFUSAL_010","M_REFUSAL_011","M_REFUSAL_012","M_REFUSAL_013","M_REFUSAL_014","M_REFUSAL_015","M_REFUSAL_016","M_REFUSAL_017","M_REFUSAL_018","M_REFUSAL_019","M_REFUSAL_020","M_REFUSAL_021","M_REFUSAL_022","M_REFUSAL_023","M_REFUSAL_024","M_REFUSAL_025","M_REFUSAL_026","M_REFUSAL_027","M_REFUSAL_028","M_REFUSAL_029","M_REFUSAL_030","M_REFUSAL_031","M_REFUSAL_032","M_REFUSAL_033","M_REFUSAL_034","M_REFUSAL_035","M_REFUSAL_036","M_REFUSAL_037","M_REFUSAL_038","M_REFUSAL_039","M_REFUSAL_040","M_REFUSAL_041","M_REFUSAL_042","M_REFUSAL_043","M_REFUSAL_044","M_REFUSAL_045","M_REFUSAL_046","M_REFUSAL_047","M_REFUSAL_048","M_REFUSAL_049","M_REFUSAL_050","M_REFUSAL_051","M_REFUSAL_052","M_REFUSAL_053","M_REFUSAL_054","M_REFUSAL_055","M_REFUSAL_056","M_REFUSAL_057","M_REFUSAL_058","M_REFUSAL_059","M_REFUSAL_060","M_REFUSAL_061","M_REFUSAL_062","M_REFUSAL_063","M_REFUSAL_064","M_REFUSAL_065","M_REFUSAL_066","M_REFUSAL_067","M_REFUSAL_068","M_REFUSAL_069","M_REFUSAL_070","M_REFUSAL_071","M_REFUSAL_072","M_REFUSAL_073","M_REFUSAL_074","M_REFUSAL_075","M_REFUSAL_076","M_REFUSAL_077","M_REFUSAL_078","M_REFUSAL_079","M_REFUSAL_080","M_REFUSAL_081","M_REFUSAL_082","M_REFUSAL_083","M_REFUSAL_084","M_REFUSAL_085","M_REFUSAL_086","M_REFUSAL_087","M_REFUSAL_088","M_REFUSAL_089","M_REFUSAL_090","M_REFUSAL_091","M_REFUSAL_092","M_REFUSAL_093","M_REFUSAL_094","M_REFUSAL_095","M_REFUSAL_096","M_REFUSAL_097","M_REFUSAL_098","M_REFUSAL_099","M_REFUSAL_100","M_REFUSAL_101","M_REFUSAL_102","M_REFUSAL_103","M_REFUSAL_104","M_REFUSAL_105","M_REFUSAL_106","M_REFUSAL_107","M_REFUSAL_108","M_REFUSAL_109","M_REFUSAL_110","M_REFUSAL_111","M_REFUSAL_112","M_REFUSAL_113","M_REFUSAL_114","M_REFUSAL_115","M_REFUSAL_116","M_REFUSAL_117","M_REFUSAL_118","M_REFUSAL_119","M_REFUSAL_120","M_REFUSAL_121","M_REFUSAL_122","M_REFUSAL_123","M_REFUSAL_124","M_REFUSAL_125","M_REFUSAL_126","M_REFUSAL_127","M_REFUSAL_128","M_REFUSAL_129","M_REFUSAL_130","M_REFUSAL_131","M_REFUSAL_132","M_REFUSAL_133","M_REFUSAL_134","M_REFUSAL_135","M_REFUSAL_136","M_REFUSAL_137","M_REFUSAL_138","M_REFUSAL_139","M_REFUSAL_140","M_REFUSAL_141","M_REFUSAL_142","M_REFUSAL_143","M_REFUSAL_144","M_REFUSAL_145","M_REFUSAL_146","M_REFUSAL_147","M_REFUSAL_148","M_REFUSAL_149","M_REFUSAL_150","M_REFUSAL_151","M_REFUSAL_152","M_REFUSAL_153","M_REFUSAL_154","M_REFUSAL_155","M_REFUSAL_156","M_REFUSAL_157","M_REFUSAL_158","M_REFUSAL_159","M_REFUSAL_160","M_REFUSAL_161","M_REFUSAL_162","M_REFUSAL_163","M_REFUSAL_164","M_REFUSAL_165","M_REFUSAL_166","M_REFUSAL_167","M_REFUSAL_168","M_REFUSAL_169","M_REFUSAL_170","M_REFUSAL_171","M_REFUSAL_172","M_REFUSAL_173","M_REFUSAL_174","M_REFUSAL_175","M_REFUSAL_176","M_REFUSAL_177","M_REFUSAL_178","M_REFUSAL_179","M_REFUSAL_180","M_REFUSAL_181","M_REFUSAL_182","M_REFUSAL_183","M_REFUSAL_184","M_REFUSAL_185","M_REFUSAL_186","M_REFUSAL_187","M_REFUSAL_188","M_REFUSAL_189","M_REFUSAL_190","M_REFUSAL_191","M_REFUSAL_192","M_REFUSAL_193","M_REFUSAL_194","M_REFUSAL_195","M_REFUSAL_196","M_REFUSAL_197","M_REFUSAL_198","M_REFUSAL_199","M_REFUSAL_200","M_REFUSAL_201","M_REFUSAL_202","M_REFUSAL_203","M_REFUSAL_204","M_REFUSAL_205","M_REFUSAL_206","M_REFUSAL_207","M_REFUSAL_208","M_REFUSAL_209","M_REFUSAL_210","M_REFUSAL_211","M_REFUSAL_212","M_REFUSAL_213","M_REFUSAL_214","M_REFUSAL_215","M_REFUSAL_216","M_REFUSAL_217","M_REFUSAL_218","M_REFUSAL_219","M_REFUSAL_220","M_REFUSAL_221","M_REFUSAL_222","M_REFUSAL_223","M_REFUSAL_224","M_REFUSAL_225","M_REFUSAL_226","M_REFUSAL_227","M_REFUSAL_228","M_REFUSAL_229","M_REFUSAL_230","M_REFUSAL_231","M_REFUSAL_232","M_REFUSAL_233","M_REFUSAL_234","M_REFUSAL_235","NATIVE_FAILURE","NODE_IDENTITY","OIDC_ACTOR","OIDC_ALGORITHM","OIDC_BOUND","OIDC_FORMAT","OIDC_HEADER","OIDC_KEY","OIDC_KEYS","OIDC_REQUEST_ORIGIN","OIDC_RESPONSE","OIDC_SIGNATURE","OIDC_TIME","ORIGINAL_BOUNDED_CLEAN_WORKER_RESULT_REQUIRED","ORIGINAL_BOUNDED_EXISTING_BUNDLE_BYTES_REQUIRED","ORIGINAL_BOUNDED_WORKER_METADATA_REQUIRED","ORIGINAL_CANDIDATE_MOVED_DURING_REPLAY","ORIGINAL_CLOSED_OFFLINE_INPUT_REQUIRED","ORIGINAL_COMPLETE_EXTRACTED_POPULATION_DIFFERS","ORIGINAL_CORE_CLOSURE_SOURCE_CUSTODY_DIFFERS","ORIGINAL_DESCRIPTOR_CHANGED","ORIGINAL_EXACT_PINNED_NODE22_IDENTITY_REQUIRED","ORIGINAL_EXPLICIT_CALLER_CLOCK_REQUIRED","ORIGINAL_FRESH_RECORDED_CORE_WORKER_FAILED","ORIGINAL_OUTER_HELPER_BYTES_DIFFER","ORIGINAL_OUTER_HELPER_NOT_SELECTED","ORIGINAL_OUTER_HELPER_REDIRECTS","ORIGINAL_PINNED_NODE22_REQUIRED","ORIGINAL_PINNED_NODE_CHANGED_BEFORE_WORKER","ORIGINAL_PRIVATE_EVIDENCE_CHANGED_DURING_REPLAY","ORIGINAL_RUNTIME_CHANGED_DURING_REPLAY","ORIGINAL_SELECTED_RUNTIME_DIFFERS","ORIGINAL_SOURCE_MANIFEST_OBJECT_DIFFERS","ORIGINAL_WORKER_COMMITMENTS_DIFFER","ORIGINAL_WORKER_RESULT_PROFILE_AUTHORITY_DIFFERS","PARSE_REFUSAL","PATH_REDIRECT","PR_REQUEST","REGULAR_PATH","REPLAY_CLOSURE","REPLAY_DESCRIPTOR","REPLAY_INCOMPLETE","REPLAY_PRODUCER","REPLAY_SOURCE","REPOSITORY","REQUEST","REQUEST_ID","RESULT_AGE","RESULT_CHALLENGE","RESULT_CHALLENGE_TIME","RESULT_CLIENT_CLOSURE","RESULT_CLIENT_CORE","RESULT_CLOSURE","RESULT_COMMITMENTS","RESULT_CORE_VERIFIER","RESULT_DATE","RESULT_DESCRIPTOR","RESULT_DESTINATION","RESULT_FIELDS","RESULT_JOB_TIME","RESULT_LIMITS","RESULT_M","RESULT_PLATFORM","RESULT_POLICY_CORE","RESULT_PROFILE","RESULT_S","RESULT_TIME","RESULT_TRANSPORT_COMMITMENT","RESULT_V","RUN_ACTOR","RUN_ORIGIN","RUN_STATE","SOURCE","SOURCE_ID","SOURCE_INTEGRATION","SOURCE_INTEGRATION_BINDING","SOURCE_INTEGRATION_PATH","SOURCE_MANIFEST","STALE_MAIN","STALE_OR_FORK_PR","STS_RESULT","TOKEN_UNAVAILABLE","TRANSPORT_ACTUAL_EXPANDED_POPULATION_DIFFERS","TRANSPORT_AUTHENTICATED_EXACT_GENERATION_EVIDENCE_READ_FAILED","TRANSPORT_AUTHORIZED_PRIVATE_EVIDENCE_READ_CREDENTIAL_IS_UNAVAILABLE","TRANSPORT_COMPRESSED_PRIVATE_MEMBER_SIZE_DIGEST_ENCODING_DIFFERS","TRANSPORT_EXPANDED_PRIVATE_MEMBER_SIZE_DIGEST_DIFFERS","TRANSPORT_EXPANDED_PRIVATE_POPULATION_DIFFERS_FROM_IMMUTABLE_DESCRIPTOR","TRANSPORT_EXPANDED_PRIVATE_POPULATION_EXCEEDS_ITS_FIXED_BOUND","TRANSPORT_GIT_REFS_MUST_REMAIN_A_DIRECTORY","TRANSPORT_GOOGLE_GENERATION_BYTES_DIFFER_FROM_IMMUTABLE_CUSTODY","TRANSPORT_GOOGLE_OBJECT_METADATA_DIFFERS_FROM_IMMUTABLE_GENERATION","TRANSPORT_INVALID_BOUNDED_PRIVATE_MEMBER_ENCODING","TRANSPORT_INVALID_BUNDLE_COMMITMENT","TRANSPORT_INVALID_EXPANDED_PRIVATE_BUNDLE_BOUND","TRANSPORT_INVALID_IMMUTABLE_SOURCE_IDENTITY","TRANSPORT_INVALID_PRIVATE_MEMBER_POPULATION","TRANSPORT_ORIGINAL_PATH_RELOCATION_COMMITMENTS_DIFFER","TRANSPORT_PRIVATE_BUNDLE_BYTES_DIFFER_FROM_IMMUTABLE_CUSTODY","TRANSPORT_PRIVATE_BUNDLE_SOURCE_DIFFERS","TRANSPORT_PRIVATE_CUSTODY_MUST_NAME_ONE_BOUNDED_EXACT_GENERATION","TRANSPORT_PRIVATE_EXTRACTION_DID_NOT_PRESERVE_EXACT_REGULAR_FILE_BYTES","TRANSPORT_PRIVATE_EXTRACTION_PARENT_MUST_NOT_BE_A_SYMLINK","TRANSPORT_PRIVATE_EXTRACTION_REQUIRES_A_FRESH_ABSOLUTE_DIRECTORY","TRANSPORT_PRIVATE_MEMBER_ESCAPES_EXTRACTION","TRANSPORT_PRIVATE_MEMBER_FILE_DIRECTORY_COLLISION","TRANSPORT_PRIVATE_MEMBER_INVENTORY_CARDINALITY_DIFFERS","TRANSPORT_PRIVATE_MEMBER_INVENTORY_DIFFERS","TRANSPORT_PRIVATE_MEMBER_PATH_PREFIX_CASE_COLLISION","TRANSPORT_PRIVATE_MEMBER_TRAVERSES_SYMLINK","TRANSPORT_PRIVATE_TRANSPORT_DESCRIPTOR_REQUIRED","TRANSPORT_REPEATED_OR_CASE_COLLIDING_PRIVATE_MEMBER","TRANSPORT_SUCCESSOR_TRANSPORT_IS_BUSINESS_ONLY","TRANSPORT_UNSAFE_PORTABLE_MEMBER_PATH","TRANSPORT_UNSUPPORTED_EVIDENCE_HOST_PATH","TRANSPORT_UNSUPPORTED_PRIVATE_BUNDLE_KIND","TRANSPORT_UNSUPPORTED_PRIVATE_BUNDLE_NO_ENCODING_FALLBACK_IS_PERMITTED","TRUST_DIGEST","TRUST_FIELDS","TRUST_PROFILE","UNCLASSIFIED","V2_CHALLENGE_REQUIRED","VERIFIER","VERIFIER_MEMBER","VERIFIER_POPULATION","WIF_AUDIENCE","WORKER_ABSOLUTE_PHYSICAL_PATH_REQUIRED","WORKER_BUNDLE_REDIRECTS","WORKER_CLOSED_WORKER_INPUT_REQUIRED","WORKER_COMPLETE_EXTRACTED_INVENTORY_DIFFERS","WORKER_COMPLETE_INVENTORY_CARDINALITY_DIFFERS","WORKER_EXACT_INPUT_BINDING_REQUIRED","WORKER_FINITE_RECORDED_PRODUCER_MAP_REQUIRED","WORKER_FINITE_REGULAR_BUNDLE_POPULATION_REQUIRED","WORKER_FIXED_FRESH_PROCESS_FLAGS_REQUIRED","WORKER_LOADER_ENVIRONMENT_REFUSED","WORKER_MEMBER_CASE_COLLISION","WORKER_MEMBER_CHANGED_DURING_INVENTORY","WORKER_MEMBER_PREFIX_COLLISION","WORKER_ORIGINAL_PATH_REMAINS_AVAILABLE","WORKER_PHYSICAL_PATH_IDENTITY_DIFFERS","WORKER_PHYSICAL_PATH_REDIRECTS","WORKER_PINNED_NODE22_REQUIRED","WORKER_PRIVATE_POPULATION_CHANGED_DURING_CORE_REPLAY","WORKER_RECORDED_CLOSURE_SUBSET_DIFFERS","WORKER_RECORDED_CORE_SOURCE_DIFFERS","WORKER_RECORDED_HELPER_NOT_SELECTED","WORKER_RECORDED_PRODUCER_BINDING_INVALID","WORKER_REGULAR_PHYSICAL_PATH_REQUIRED","WORKER_RELOCATION_COMMITMENT_DIFFERS","WORKER_RUNTIME_CHANGED_DURING_CORE_REPLAY","WORKER_SAFE_MEMBER_REQUIRED","WORKER_SELECTED_RUNTIME_CHANGED","WORKER_SOURCE_MANIFEST_COMMITMENT_DIFFERS","WORKER_UNCHANGED_CORE_REPLAY_INCOMPLETE","WORKER_UNCHANGED_MEMBER_EXPANDED_BYTE_CAP_EXCEEDED","WORKER_UNIQUE_ORIGINAL_ROLE_ROOT_REQUIRED","WORKER_WORKER_INPUT_CHANGED","WORKER_WORKER_METADATA_BOUND_EXCEEDED","WORKER_WORKER_PROFILE_DIFFERS","WORKER_WORKER_RESULT_BOUND_EXCEEDED","WORKFLOW","WORKFLOW_AUTHORITY","WORKFLOW_ID","ZIP_CENTRAL","ZIP_CONTENT","ZIP_DATA_DESCRIPTOR","ZIP_DIRECTORY","ZIP_FLAGS","ZIP_LOCAL","ZIP_LOCAL_CONTENT","ZIP_LOCAL_NAME","ZIP_MEMBER","ZIP_NAME"])
+_NATIVE_CODES = frozenset(["EACCES","EAGAIN","EBADF","EBUSY","ECHILD","ECONNREFUSED","ECONNRESET","EEXIST","EFAULT","EFBIG","EINTR","EINVAL","EIO","EISDIR","EMFILE","ENAMETOOLONG","ENFILE","ENOENT","ENOMEM","ENOSPC","ENOTDIR","ENOTEMPTY","ENOTSUP","EPERM","EPIPE","ETIMEDOUT","ERR_BUFFER_TOO_LARGE","ERR_FS_FILE_TOO_LARGE","ERR_INVALID_ARG_TYPE","ERR_OUT_OF_RANGE","ENOBUFS"])
+_SIGNALS = frozenset(["SIGABRT","SIGALRM","SIGBUS","SIGFPE","SIGHUP","SIGILL","SIGINT","SIGKILL","SIGPIPE","SIGQUIT","SIGSEGV","SIGTERM","SIGTRAP"])
+_NATIVE_ERRNOS = {getattr(errno, name): name for name in _NATIVE_CODES if hasattr(errno, name)}
+_OWN_REFUSALS = {"BUSINESS_HOSTED_" + code: code for code in ["ABSOLUTE_PATH","CHALLENGE_CONSTRUCTION","CHALLENGE_DATE","CHALLENGE_DUPLICATE","CHALLENGE_DURATION","CHALLENGE_FILE","CHALLENGE_FILES","CHALLENGE_IDENTITY","CHALLENGE_JOIN","CHALLENGE_PACKAGE","CHALLENGE_REQUESTER","CHALLENGE_UNEXPECTED_FILES","CHILD_DIAGNOSTIC","CHILD_FAILURE","CHILD_OUTPUT_BOUND","CHILD_TIMEOUT","CLI","CLIENT_APPCHECK_FIELDS","CLIENT_APPCHECK_JOIN","CLIENT_BACKEND_JOIN","CLIENT_CHALLENGE_TIME","CLIENT_CLOSURE_TIME","CLIENT_CORE_FIELDS","CLIENT_CORE_JOIN","CLIENT_IDENTITY_FIELDS","CLIENT_INPUT_BOUND","CLIENT_INPUT_COMMITMENT","CLIENT_INPUT_FIELDS","CLIENT_INPUT_SELECTION","CLIENT_MESSAGE_FIELDS","CLIENT_MESSAGE_JOIN","CLIENT_OUTPUT_AUTHORITY","CLIENT_OUTPUT_BOUND","CLIENT_OUTPUT_FIELDS","CLIENT_OUTPUT_PROFILE","CLIENT_OUTPUT_VERSION","CLIENT_POINTER_FIELDS","CLIENT_POINTER_JOIN","CLIENT_POLICY_APPCHECK","CLIENT_POLICY_BINDING_SOURCE","CLIENT_POLICY_CANDIDATE_TYPE","CLIENT_POLICY_CLOSURE_JOIN","CLIENT_POLICY_CORE_JOIN","CLIENT_POLICY_FIELDS","CLIENT_POLICY_POINTER","CLIENT_POLICY_POINTER_JOIN","CLIENT_POLICY_PRESERVED_DIGEST","CLIENT_POLICY_RELEASE","CLIENT_POLICY_SCOPE","CLIENT_POLICY_SOURCE_JOIN","CLIENT_PRODUCER","CLIENT_UNEXPECTED_CHALLENGE","CONSUMER_AUTHORITY","CONSUMER_CANDIDATE_FIELDS","CONSUMER_CANDIDATE_ROUTE","CONSUMER_COMMITMENT_FIELDS","CONSUMER_COMMITMENT_JOIN","CONSUMER_CORE_FIELDS","CONSUMER_CORE_JOIN","CONSUMER_DESCRIPTOR_JOIN","CONSUMER_OUTPUT_BOUND","CONSUMER_OUTPUT_DIGEST","CONSUMER_OUTPUT_FIELDS","CONSUMER_OUTPUT_IDENTITY","CONSUMER_OUTPUT_VERSION","CONSUMER_POINTER_FIELDS","CONSUMER_POINTER_IDENTITY","CONSUMER_SOURCE_FIELDS","CONSUMER_SOURCE_IDENTITY","CONSUMER_TRANSPORT_COMMITMENT","CONSUMER_VERIFIER_FIELDS","CORE_MEMBER","CORE_POPULATION","CORE_SOURCE","EXTERNAL_CONFIG_COMMITMENT","EXTRA_CLIENT_OUTPUT","EXTRA_CONSUMER_OUTPUT","EXTRA_REPLAY_OUTPUT","HOSTED_PRODUCER","ISOLATED_PYTHON_REQUIRED","JSON_BOUND","LAUNCHER_IDENTITY","LAUNCH_INPUT","MODE","NODE_IDENTITY","OUTPUT","PATH_REDIRECT","PLATFORM_INPUT","PRODUCER_IDENTITY","PRODUCER_PATH","PROTECTED_LINUX_RUNNER_REQUIRED","PYTHON_IDENTITY","REGULAR_PATH","REPLAY_CHALLENGE_TIME","REPLAY_CLIENT_SELECTION","REPLAY_DATE","REPLAY_OUTPUT_BOUND","REPLAY_OUTPUT_FIELDS","REPLAY_OUTPUT_LIMITS","REPLAY_PLATFORM","REPLAY_PRODUCER","REPLAY_TIME","REPLAY_UNEXPECTED_CLIENT","SOURCE_INTEGRATION","SOURCE_INTEGRATION_BINDING","SOURCE_INTEGRATION_PATH","TRUST_FIELDS","TRUST_PROFILE","UNEXPECTED_REPLAY_OUTPUT","V2_CHALLENGE_REQUIRED","V2_CLIENT_SELECTION_REQUIRED","VERIFIER_POPULATION"]}
+_FAILURE = {}
+
+def _reset_failure():
+    _FAILURE.clear()
+    _FAILURE.update(stage="ENTRY_INPUT", primary=None, childExit=None, childSignal=None,
+                    nativeCode=None, workerExit=None, workerSignal=None, workerCleanupFailed=False,
+                    cleanupFailed=False, childCleanupFailed=False)
+
+def _phase(value):
+    _FAILURE["stage"] = value
+
+def _remember_failure(error):
+    if _FAILURE["primary"] is not None:
+        return
+    try:
+        reason = "UNCLASSIFIED"
+        if type(error) is ValueError:
+            args = BaseException.args.__get__(error, ValueError)
+            if type(args) is tuple and len(args) == 1 and type(args[0]) is str:
+                reason = _OWN_REFUSALS.get(args[0], "UNCLASSIFIED")
+        if isinstance(error, (TimeoutError, subprocess.TimeoutExpired)):
+            reason = "TIMEOUT"
+        elif isinstance(error, OSError):
+            reason = "NATIVE_FAILURE"
+            number = OSError.errno.__get__(error, OSError)
+            _FAILURE["nativeCode"] = _NATIVE_ERRNOS.get(number) if type(number) is int else None
+        _FAILURE["primary"] = {"stage": _FAILURE["stage"], "reason": reason}
+    except BaseException:
+        _FAILURE["primary"] = {"stage": "ENTRY_INPUT", "reason": "UNCLASSIFIED"}
+        _FAILURE["nativeCode"] = None
+
+def _child_exit(code):
+    if type(code) is int and -127 <= code <= 4294967295:
+        _FAILURE["childExit"] = code if code >= 0 else None
+        _FAILURE["childSignal"] = -code if code < 0 else None
+
+def _remember_child_record(raw):
+    prefix = b"Business hosted replay failed; no result is admissible. "
+    if not isinstance(raw, bytes) or not 0 < len(raw) <= 512 or not raw.startswith(prefix):
+        return
+    try:
+        payload = raw[len(prefix):]
+        value = json.loads(payload)
+        if (not isinstance(value, dict) or set(value) != {"schemaVersion", "stage", "reason", "nativeCode", "workerExit", "workerSignal", "workerCleanupFailed", "cleanupFailed"}
+                or type(value["schemaVersion"]) is not int or value["schemaVersion"] != 1
+                or value["stage"] not in _NODE_STAGES or value["reason"] not in _NODE_REASONS
+                or (value["nativeCode"] is not None and value["nativeCode"] not in _NATIVE_CODES)
+                or (value["workerExit"] is not None and (type(value["workerExit"]) is not int or not 0 <= value["workerExit"] <= 4294967295))
+                or (value["workerSignal"] is not None and value["workerSignal"] not in _SIGNALS)
+                or type(value["workerCleanupFailed"]) is not bool
+                or type(value["cleanupFailed"]) is not bool
+                or json.dumps(value, separators=(",", ":")).encode("ascii") + b"\n" != payload):
+            return
+        if _FAILURE["primary"] is None:
+            _FAILURE["primary"] = {"stage": value["stage"], "reason": value["reason"]}
+        _FAILURE["childCleanupFailed"] = value["cleanupFailed"]
+        for key in ("nativeCode", "workerExit", "workerSignal", "workerCleanupFailed"):
+            _FAILURE[key] = value[key]
+    except (ValueError, TypeError, UnicodeError):
+        return
+
+_FALLBACK_FAILURE = b'Protected business replay failed; no result is admissible. {"schemaVersion":1,"stage":"ENTRY_INPUT","reason":"UNCLASSIFIED","nativeCode":null,"childExit":null,"childSignal":null,"workerExit":null,"workerSignal":null,"workerCleanupFailed":false,"cleanupFailed":false,"childCleanupFailed":false}\n'
+
+def _failure_line():
+    try:
+        selected = _FAILURE["primary"] or {"stage": _FAILURE["stage"], "reason": "UNCLASSIFIED"}
+        value = {"schemaVersion": 1, **selected,
+                 **{key: _FAILURE[key] for key in ("nativeCode", "childExit", "childSignal", "workerExit", "workerSignal", "workerCleanupFailed", "cleanupFailed", "childCleanupFailed")}}
+        raw = b"Protected business replay failed; no result is admissible. " + json.dumps(value, separators=(",", ":")).encode("ascii") + b"\n"
+        return raw if len(raw) <= 512 else _FALLBACK_FAILURE
+    except BaseException:
+        return _FALLBACK_FAILURE
+
+def _report_failure(error):
+    raw = _FALLBACK_FAILURE
+    try:
+        _remember_failure(error)
+        candidate = _failure_line()
+        if type(candidate) is bytes and 0 < len(candidate) <= 512:
+            raw = candidate
+    except BaseException:
+        pass
+    try:
+        os.write(2, raw)
+    except BaseException:
+        pass
+
+def _refuse_arguments(_message):
+    raise ValueError("BUSINESS_HOSTED_CLI")
+
+_reset_failure()
 
 
 def need(ok, code):
@@ -196,6 +297,7 @@ def run_child(argv, env, owned):
         for stream in streams:
             resources.callback(stream.close)
         counts = {stream: 0 for stream in streams}
+        stderr_preview = bytearray()
         deadline = time.monotonic() + 7200
         try:
             for stream in streams:
@@ -210,16 +312,33 @@ def run_child(argv, env, owned):
                     counts[event.fileobj] += len(chunk)
                     need(counts[event.fileobj] <= 1024 * 1024, "CHILD_OUTPUT_BOUND")
                     streams[event.fileobj].write(chunk)
-            need(child.wait(timeout=max(0.1, deadline - time.monotonic())) == 0, "CHILD_FAILURE")
+                    if event.fileobj is child.stderr:
+                        if counts[event.fileobj] <= 512:
+                            stderr_preview.extend(chunk)
+                        else:
+                            stderr_preview.clear()
+            code = child.wait(timeout=max(0.1, deadline - time.monotonic()))
+            _child_exit(code)
+            if code != 0 and counts[child.stderr] <= 512:
+                _remember_child_record(bytes(stderr_preview))
+            need(code == 0, "CHILD_FAILURE")
+        except BaseException as error:
+            _remember_failure(error)
+            raise
         finally:
             # Only this new session is addressed. Abrupt launcher/job/host death
             # separately requires destruction of the ephemeral runner.
             try:
-                os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            finally:
-                child.wait(timeout=30)
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                finally:
+                    _child_exit(child.wait(timeout=30))
+            except BaseException as error:
+                _FAILURE["cleanupFailed"] = True
+                _remember_failure(error)
+                raise
     return (Path(owned) / "child.stdout").read_bytes(), (Path(owned) / "child.stderr").read_bytes()
 
 
@@ -563,6 +682,8 @@ def sanitized_replay_output(raw, trust, request, client_input=None):
 
 
 def execute_launch(args):
+    _reset_failure()
+    _phase("INPUT_STAGING")
     need(sys.platform == "linux", "PROTECTED_LINUX_RUNNER_REQUIRED")
     parent = regular(args.private_parent, directory=True)
     destination = None
@@ -571,39 +692,61 @@ def execute_launch(args):
         need(destination.is_absolute() and destination.name == "business31-hosted-result.json"
              and not destination.exists(), "OUTPUT")
         regular(destination.parent, directory=True)
-    with tempfile.TemporaryDirectory(prefix="business31-launch-", dir=parent) as owned:
-        client_input = getattr(args, "client_input", None)
-        client_sha256 = getattr(args, "client_input_sha256", None)
-        input_file = args.input
-        if args.mode == "replay":
-            data = bounded_json(regular(args.input))
-            need(set(data) == {"request", "repositoryRoot", "gitExecutable", "sourceManifest"}, "LAUNCH_INPUT")
-            data["privateParent"] = owned
-            input_file = str(Path(owned) / "replay-input.json")
-            with open(input_file, "x", encoding="utf8") as stream:
-                json.dump(data, stream)
-        staged = Path(owned) / "business31-hosted-result.json"
-        argv, env = launch_plan(args.mode, args.node, args.trust, args.trust_sha256, input_file, str(staged), owned,
-                                client_input, client_sha256)
-        # No shell, no inherited preloads/caches, no candidate-selected entry.
-        stdout, stderr = run_child(argv, env, owned)
-        need(not stderr, "CHILD_DIAGNOSTIC")
-        if args.mode == "replay":
-            need(not stdout, "UNEXPECTED_REPLAY_OUTPUT")
-            regular(staged)
-            need(0 < staged.stat().st_size <= 32768, "REPLAY_OUTPUT_BOUND")
-            trust = bounded_json(regular(args.trust))
-            selected_client = read_client_input(client_input, client_sha256) if client_input is not None else None
-            clean = sanitized_replay_output(staged.read_bytes(), trust, data["request"], selected_client)
-        else:
-            trust = bounded_json(regular(args.trust))
-            request = bounded_json(regular(args.input))
-            if client_input is None and request.get("schemaVersion") != 2:
-                clean = sanitized_consumer_output(stdout, trust, request)
-            else:
-                selected_client = read_client_input(client_input, client_sha256) if client_input is not None else None
-                clean = sanitized_client_output(stdout, trust, request, selected_client)
+    body_error = None
+    entered = False
+    _phase("PRIVATE_SCRATCH")
+    try:
+        with tempfile.TemporaryDirectory(prefix="business31-launch-", dir=parent) as owned:
+            entered = True
+            try:
+                client_input = getattr(args, "client_input", None)
+                client_sha256 = getattr(args, "client_input_sha256", None)
+                input_file = args.input
+                if args.mode == "replay":
+                    data = bounded_json(regular(args.input))
+                    need(set(data) == {"request", "repositoryRoot", "gitExecutable", "sourceManifest"}, "LAUNCH_INPUT")
+                    data["privateParent"] = owned
+                    input_file = str(Path(owned) / "replay-input.json")
+                    with open(input_file, "x", encoding="utf8") as stream:
+                        json.dump(data, stream)
+                staged = Path(owned) / "business31-hosted-result.json"
+                _phase("LAUNCH_PLAN")
+                argv, env = launch_plan(args.mode, args.node, args.trust, args.trust_sha256, input_file, str(staged), owned,
+                                        client_input, client_sha256)
+                # No shell, no inherited preloads/caches, no candidate-selected entry.
+                _phase("CHILD_EXECUTION")
+                stdout, stderr = run_child(argv, env, owned)
+                _phase("STDIO_GATE")
+                need(not stderr, "CHILD_DIAGNOSTIC")
+                _phase("RESULT_SANITIZATION")
+                if args.mode == "replay":
+                    need(not stdout, "UNEXPECTED_REPLAY_OUTPUT")
+                    regular(staged)
+                    need(0 < staged.stat().st_size <= 32768, "REPLAY_OUTPUT_BOUND")
+                    trust = bounded_json(regular(args.trust))
+                    selected_client = read_client_input(client_input, client_sha256) if client_input is not None else None
+                    clean = sanitized_replay_output(staged.read_bytes(), trust, data["request"], selected_client)
+                else:
+                    trust = bounded_json(regular(args.trust))
+                    request = bounded_json(regular(args.input))
+                    if client_input is None and request.get("schemaVersion") != 2:
+                        clean = sanitized_consumer_output(stdout, trust, request)
+                    else:
+                        selected_client = read_client_input(client_input, client_sha256) if client_input is not None else None
+                        clean = sanitized_client_output(stdout, trust, request, selected_client)
+            except BaseException as error:
+                body_error = error
+                _remember_failure(error)
+                raise
+            finally:
+                _phase("PRIVATE_CLEANUP")
+    except BaseException as error:
+        if entered and error is not body_error:
+            _FAILURE["cleanupFailed"] = True
+        _remember_failure(error)
+        raise
     # Publish only after private cleanup succeeds, never raw helper diagnostics.
+    _phase("RESULT_PUBLICATION")
     if destination is not None:
         fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         try:
@@ -618,7 +761,8 @@ def execute_launch(args):
 
 def main():
     need(sys.flags.isolated == 1 and sys.flags.no_site == 1, "ISOLATED_PYTHON_REQUIRED")
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.error = _refuse_arguments
     parser.add_argument("--mode", choices=["replay", "consume"], required=True)
     parser.add_argument("--node", required=True)
     parser.add_argument("--trust", required=True)
@@ -634,6 +778,6 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except BaseException:
-        sys.stderr.write("Protected business replay failed; no result is admissible.\n")
+    except BaseException as error:
+        _report_failure(error)
         raise SystemExit(1)

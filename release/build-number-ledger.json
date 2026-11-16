@@ -1685,24 +1685,6 @@
       "recordingScope": "Finalization-time construction and custody only; later owner-only Play publication and device delivery are separately scoped observations, not unrestricted distribution or full saved-work acceptance.",
       "pilotPromotionReceiptFile": "release/evidence/build-27-staged-controlled-pilot-authorization.json",
       "pilotPromotionReceiptSha256": "4590F806637A2730B470A2D94BBD12011BF75320CFAD0EC9114C438FDA95A06B"
-    },
-    {
-      "buildNumber": 31,
-      "versionName": "1.0.0-rc.21",
-      "releaseId": "crm3-baf-ops-1.0.0-rc.21-b31",
-      "releaseTag": "crm3-baf-ops-v1.0.0-rc.21",
-      "releaseChannel": "production-candidate",
-      "campaignId": "crm3-baf-ops-build31-business-20261115",
-      "reservationId": "CRM3_BUILD31_20261115-31",
-      "remoteReservationTag": "crm3-build-reserved/31",
-      "remoteBuiltTag": "crm3-build-built/31",
-      "baselineCommit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
-      "reservedForBranch": "codex/build31-client-candidate-v5-20261115",
-      "status": "source-reserved-awaiting-remote-consumption",
-      "failedOrWithdrawnBuildConsumesNumber": true,
-      "versionApprovalReference": "BUILD31-OWNER-DELEGATED-20261115",
-      "versionApprovalDocumentSha256": "29AE42C0515FD298FA521A0F3AEEEC55B62A16121327378B2982EF6580BE72A4",
-      "reservedAtUtc": "2026-11-16T02:16:39.895Z"
     }
   ]
 }
