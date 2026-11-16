@@ -12,6 +12,12 @@ const require = createRequire(import.meta.url);
 const {verifyBuild31ClientCompatibility, verifyClientBackendSourceAuthority: verifyStagedPromotionSourceAuthority} = require('./clientBackendCompatibility31.js');
 const {sealReceipt} = require('./collectProductionGlobalPullBackend.js');
 const root = execFileSync('git', ['-C', path.dirname(fileURLToPath(import.meta.url)), 'rev-parse', '--show-toplevel'], {encoding:'utf8',windowsHide:true}).trim();
+// Historical positives must not inherit a later candidate's business selector.
+const historicalFixtureCommit = 'feebbe88cf5b45694b9b7582edacbb37478dae74';
+function historicalFixtureBytes(file) {
+  return execFileSync('git', ['--no-replace-objects', '-C', root, 'show', `${historicalFixtureCommit}:${file}`],
+    {windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: 8 * 1024 * 1024});
+}
 const baseline = '7ed87824447f1349cb0481c448e0b21c3fa5856f';
 const backendFile = 'release/evidence/build30-current-source-backend-deployment-closure.json';
 const backendSha256 = '3F7065A8540E66B9D879F157861C6DA722A16EFAC21EB9D2FEB9735D71573C45';
@@ -184,14 +190,48 @@ test('Build31 rejects missing original closure and mutable decision bytes', t =>
 
 test('complete Build31 authority also validates original Build30 deployment and historical Build27 custody', t => {
   const f = fixture(t);
-  fs.cpSync(path.join(root, 'release'), path.join(f.directory, 'release'), {recursive: true});
-  const method = JSON.parse(fs.readFileSync(path.join(root, 'release/approvals/build30-rules-observed-state-method-approval.json'), 'utf8'));
+  // Only files physically read by the historical authority are materialized.
+  // Git ancestry/approval custody and every receipt/hash check still run normally.
+  const historicalReleaseFiles = [
+    'release/approvals/build27-backend-deployment-approval.json',
+    'release/approvals/build27-staged-controlled-pilot-approval.json',
+    'release/approvals/build30-backend-owner-authorization.json',
+    'release/approvals/build30-current-source-backend-deployment-approval.json',
+    'release/current-successor-state.json',
+    'release/evidence/build-27-device-acceptance.json',
+    'release/evidence/build-27-staged-controlled-pilot-authorization.json',
+    'release/evidence/build27-backend-deployment-closure.json',
+    'release/evidence/build27-firestore-rules-indexes-live-readback.json',
+    'release/evidence/build27-function-fleet-runtime-identity-readback.json',
+    'release/evidence/build27-functions-iam-dependencies-readback.json',
+    'release/evidence/build30-current-source-backend-ci.json',
+    'release/evidence/build30-current-source-backend-deployment-closure.json',
+    'release/evidence/build30-current-source-firestore-rules-indexes-live-readback.json',
+    'release/evidence/build30-current-source-function-fleet-runtime-identity-readback.json',
+    'release/evidence/build30-current-source-functions-iam-dependencies-readback.json',
+    'release/evidence/build30-current-source-rules-preflight.json',
+    'release/evidence/build30-current-source-rules-runtime-install-stdout.json',
+    'release/evidence/build30-current-source-rules-runtime-install.json',
+    'release/evidence/build30-rules-attempt13-before-readback.json',
+    'release/evidence/build30-rules-attempt13-cli-result.json',
+    'release/evidence/build30-rules-attempt13-failed-command.json',
+    'release/evidence/build30-rules-attempt13-measurements-public.json',
+    'release/evidence/build30-rules-attempt13-process-result.json',
+    'release/evidence/build30-rules-observed-state-reconciliation.json',
+  ];
+  for (const file of historicalReleaseFiles) {
+    fs.mkdirSync(path.dirname(path.join(f.directory, file)), {recursive: true});
+    fs.writeFileSync(path.join(f.directory, file), historicalFixtureBytes(file));
+  }
+  const method = JSON.parse(historicalFixtureBytes('release/approvals/build30-rules-observed-state-method-approval.json'));
   for (const file of Object.keys(method.reviewedVerifier.files)) {
     fs.mkdirSync(path.dirname(path.join(f.directory, file)), {recursive: true});
-    fs.copyFileSync(path.join(root, file), path.join(f.directory, file));
+    fs.writeFileSync(path.join(f.directory, file), historicalFixtureBytes(file));
   }
-  const actualPolicy = JSON.parse(fs.readFileSync(path.join(root, 'release/production-release-policy.json'), 'utf8'));
-  const actualVersion = JSON.parse(fs.readFileSync(path.join(root, actualPolicy.versionPolicy.sourceDocumentFile), 'utf8'));
+  const actualPolicy = JSON.parse(historicalFixtureBytes('release/production-release-policy.json'));
+  const actualVersion = JSON.parse(historicalFixtureBytes(actualPolicy.versionPolicy.sourceDocumentFile));
+  assert.equal(actualPolicy.release.buildNumber, 30, 'Historical backend positive must retain the genuine pre-Build31 policy');
+  assert.equal(Object.hasOwn(actualPolicy, 'businessBackendPrivateReplay'), false, 'Current business selection must not enter the historical fixture');
   Object.assign(f.policy, actualPolicy);
   f.policy.release.buildNumber = f.policy.versionPolicy.buildNumber = 31;
   Object.assign(f.version, actualVersion);

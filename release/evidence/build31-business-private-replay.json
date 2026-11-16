@@ -3,8 +3,8 @@
   "documentType": "build31-business-backend-private-replay",
   "profile": "build31-exact-business-backend-v2",
   "verifier": {
-    "commit": "feebbe88cf5b45694b9b7582edacbb37478dae74",
-    "tree": "17f4040bb27c3ea2f86ae213d0d1b7f60d47f235"
+    "commit": "6f5392eded7e21d1e628845f4cfe3aa13194ec07",
+    "tree": "30d15f898d0e8a9568b505107fba5503e3f5cf88"
   },
   "coreVerifier": {
     "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
@@ -404,8 +404,8 @@
     },
     "tools/release/business31TrustedInputV2.cjs": {
       "mode": "100644",
-      "oid": "3128e1e8b957e176379efb16fc9ff8e693d0af46",
-      "sha256": "B3CD11D7EFB6B74B513B57E65C035FD7DACBF3E5C2A8CDD21DF08D2A92A1768E"
+      "oid": "b300198193eccf0d90cf91bcb38eef23f04402ba",
+      "sha256": "07D503226516E9A4D8C4C3DAE38BC2E714BD8413F110F9F6C07747E8A41BECD6"
     },
     "tools/release/business31TrustedInputV2.test.cjs": {
       "mode": "100644",
@@ -416,6 +416,16 @@
       "mode": "100644",
       "oid": "6d1ebdfa2258e8c791d5a805a079b5cf07eed331",
       "sha256": "AA52BC465AD5B9272920150790C19622D5E99088D49B3108D9611F8FE26F5CC5"
+    },
+    "tools/release/clientBackendCompatibility31.test.mjs": {
+      "mode": "100644",
+      "oid": "60e4413ca6cbff09d040a53ca068243c5aefb1df",
+      "sha256": "175BF0CD147D5477C105B014BCDE0ABC42A18E7362A3BD1952E09785B8036B5B"
+    },
+    "tools/release/collectDistributionInstallationReadback.test.mjs": {
+      "mode": "100644",
+      "oid": "1a4648631ec162cefbc08f3b9f4199e2d0da34a3",
+      "sha256": "C4032767513117ED772402769F8C04CA6CE183BD50366834600E52820423782A"
     },
     "tools/release/fixtures/business31ClientPolicyFixture.cjs": {
       "mode": "100644",
@@ -610,7 +620,7 @@
     "tools/release/business31TransportV2.test.cjs": "899D8BCD98DA2372C063E13948F862480E958393D52CFFD4CD8FE3B368A906D3",
     "tools/release/business31TrustedInput.cjs": "E4851A48A8A0352E3238CD521D837807990EBBDDF65C719C1AD2E9B43441E73B",
     "tools/release/business31TrustedInput.test.cjs": "970DF8889DF4EE05DB9E31985BB5FB610A7937AB1BFD3756EA222EDBEF88C719",
-    "tools/release/business31TrustedInputV2.cjs": "B3CD11D7EFB6B74B513B57E65C035FD7DACBF3E5C2A8CDD21DF08D2A92A1768E",
+    "tools/release/business31TrustedInputV2.cjs": "07D503226516E9A4D8C4C3DAE38BC2E714BD8413F110F9F6C07747E8A41BECD6",
     "tools/release/business31TrustedInputV2.test.cjs": "F35A42F4B5D70808F63F1F9AA0466FFC24F55D8AE0DE37BCB4BD80A4915514D0",
     "tools/release/captureBackendRuntimePreparedInputs31.cjs": "A7FE715F143572409B6CF067AD85339D2A1832C0D25AEC6CC18C0C32F3749AF3",
     "tools/release/captureBusiness31PreparedHook.cjs": "5CF12047554327C8189D994ACF319A4AB0E4C26A5630D128EC36980196E21417",
