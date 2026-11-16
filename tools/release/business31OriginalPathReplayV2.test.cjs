@@ -14,7 +14,12 @@ test('fresh native worker refuses unbound input before any original helper impor
  const file=path.join(temporary,'input.json');fs.writeFileSync(file,'{}');
  const child=spawnSync(process.execPath,['--no-global-search-paths',path.join(__dirname,'business31CoreWorkerV2.cjs'),file,'F'.repeat(64)],
   {env:replay.workerEnvironment31(),windowsHide:true,encoding:'utf8',timeout:30000});
- assert.equal(child.status,1);assert.equal(child.stdout,'');assert.equal(child.stderr,'BUSINESS31_RECORDED_CORE_WORKER_FAILED\n');
+ assert.equal(child.status,1);assert.equal(child.stdout,'');
+ assert.ok(Buffer.byteLength(child.stderr,'utf8')<=512);
+ assert.equal(child.stderr,'BUSINESS31_RECORDED_CORE_WORKER_FAILED '+JSON.stringify({
+  schemaVersion:1,stage:'WORKER_INPUT',reason:'WORKER_WORKER_INPUT_CHANGED',nativeCode:null,
+  workerExit:null,workerSignal:null,workerCleanupFailed:false,cleanupFailed:false
+ })+'\n');
 });
 test('worker inventory retains prototype names and detects changes or added files',()=>{
  const root=path.join(temporary,'population');fs.mkdirSync(root);for(const name of ['ordinary','__proto__','constructor'])fs.writeFileSync(path.join(root,name),name);

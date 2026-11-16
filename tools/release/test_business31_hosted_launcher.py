@@ -1,9 +1,10 @@
-"""Credential-free launcher-plan tests; no spawned Node or hosted qualification."""
+"""Credential-free launcher and synthetic diagnostic tests; no hosted qualification."""
 import hashlib
 from datetime import datetime, timedelta, timezone
 import importlib.util
 import json
 import os
+import shutil
 from pathlib import Path
 import tempfile
 import sys
@@ -702,6 +703,450 @@ class LauncherPlan(unittest.TestCase):
         self.assertEqual(Path(args.output).read_bytes(), b'{"synthetic":true}\n')
         self.assertFalse(list(self.root.glob("business31-launch-*")))
 
+
+
+class DiagnosticFailures(unittest.TestCase):
+    """Offline synthetic diagnostics only; no bundle, credential or hosted replay."""
+    NODE = os.environ.get('BUSINESS31_TEST_NODE') or shutil.which('node')
+
+    def setUp(self):
+        self.assertIsNotNone(self.NODE, 'Node is required for offline diagnostic tests')
+        self.temp = tempfile.TemporaryDirectory(prefix='b31-diag-')
+        self.root = Path(self.temp.name)
+        self.parent = self.root / 'private'; self.parent.mkdir()
+        self.output = self.root / 'business31-hosted-result.json'
+        self.input = self.root / 'input.json'
+        self.input.write_text(json.dumps({'request': {}, 'repositoryRoot': 'synthetic',
+                                         'gitExecutable': 'synthetic', 'sourceManifest': {}}), encoding='utf-8')
+        self.trust = self.root / 'trust.json'; self.trust.write_text('{}', encoding='utf-8')
+        self.args = SimpleNamespace(mode='replay', private_parent=str(self.parent), output=str(self.output),
+                                    input=str(self.input), node='synthetic', trust=str(self.trust),
+                                    trust_sha256='A' * 64, client_input=None, client_input_sha256=None)
+        launcher._reset_failure()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def safe_env(self):
+        return {k: os.environ[k] for k in ('SystemRoot', 'WINDIR', 'COMSPEC', 'TEMP', 'TMP', 'LANG', 'LC_ALL')
+                if k in os.environ}
+
+    def native(self, argv):
+        result = subprocess.run(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.PIPE, env=self.safe_env(), timeout=30)
+        self.assertLessEqual(len(result.stdout), 65536)
+        self.assertLessEqual(len(result.stderr), 65536)
+        return result
+
+    def node_script(self, source, *args):
+        return self.native([str(self.NODE), '--no-global-search-paths', '-e', source, *map(str, args)])
+
+    @staticmethod
+    def record(stage='STS', reason='STS_RESULT', **extra):
+        return dict(schemaVersion=1, stage=stage, reason=reason, nativeCode=None,
+                    workerExit=None, workerSignal=None, workerCleanupFailed=False,
+                    cleanupFailed=False, **extra)
+
+    @staticmethod
+    def wire(value):
+        return (b'Business hosted replay failed; no result is admissible. ' +
+                json.dumps(value, separators=(',', ':')).encode() + b'\n')
+
+    def outer(self):
+        raw = launcher._failure_line()
+        self.assertLessEqual(len(raw), 512)
+        return json.loads(raw.split(b'. ', 1)[1])
+
+    def test_exact_public_refusal_and_unknown_private_text(self):
+        for text, expected in [('BUSINESS_HOSTED_NODE_IDENTITY', 'NODE_IDENTITY'),
+                               ('BUSINESS_HOSTED_NODE_IDENTITY /private/TOKEN_SENTINEL', 'UNCLASSIFIED'),
+                               ('private-path TOKEN_SENTINEL https://private.invalid body stack', 'UNCLASSIFIED')]:
+            with self.subTest(expected=expected):
+                launcher._reset_failure(); launcher._phase('LAUNCH_PLAN')
+                launcher._remember_failure(ValueError(text))
+                self.assertEqual(self.outer()['reason'], expected)
+                self.assertNotIn(b'TOKEN_SENTINEL', launcher._failure_line())
+                self.assertNotIn(b'private.invalid', launcher._failure_line())
+
+    def test_closed_child_record_and_bounded_exit_signal(self):
+        value = self.record(); value.update(workerExit=1, workerSignal='SIGKILL', workerCleanupFailed=True)
+        launcher._remember_child_record(self.wire(value)); launcher._child_exit(1)
+        out = self.outer()
+        self.assertEqual((out['stage'], out['reason'], out['childExit'], out['workerExit']), ('STS', 'STS_RESULT', 1, 1))
+        self.assertEqual(out['workerSignal'], 'SIGKILL'); self.assertTrue(out['workerCleanupFailed'])
+        launcher._child_exit(-9)
+        self.assertIsNone(self.outer()['childExit']); self.assertEqual(self.outer()['childSignal'], 9)
+        for bad in (True, -128, 4294967296, '1'):
+            launcher._reset_failure(); launcher._child_exit(bad)
+            self.assertIsNone(self.outer()['childExit']); self.assertIsNone(self.outer()['childSignal'])
+
+    def test_invalid_child_records_do_not_escape(self):
+        valid = self.record()
+        variants = [b'private TOKEN_SENTINEL', self.wire(valid) + b'EXTRA', b'x' * 513,
+                    self.wire(dict(valid, stage=['STS'])), self.wire(dict(valid, reason='STS_RESULT TOKEN_SENTINEL')),
+                    self.wire(dict(valid, extra='TOKEN_SENTINEL')), self.wire(dict(valid, workerExit=True)),
+                    self.wire(dict(valid, workerExit=-1)), self.wire(dict(valid, workerSignal='TOKEN_SENTINEL')),
+                    self.wire(dict(valid, nativeCode=['ENOENT'])), self.wire(dict(valid, cleanupFailed=1)),
+                    self.wire(valid).replace(b'{"schemaVersion":1,', b'{"schemaVersion":1,"schemaVersion":1,')]
+        for raw in variants:
+            with self.subTest(raw_bytes=len(raw)):
+                launcher._reset_failure(); launcher._remember_child_record(raw)
+                self.assertIsNone(launcher._FAILURE['primary'])
+                self.assertNotIn(b'TOKEN_SENTINEL', launcher._failure_line())
+
+    def test_maximum_fixed_record_remains_bounded(self):
+        value = self.record(stage=max(launcher._NODE_STAGES, key=len), reason=max(launcher._NODE_REASONS, key=len))
+        value.update(nativeCode=max(launcher._NATIVE_CODES, key=len), workerExit=4294967295,
+                     workerSignal=max(launcher._SIGNALS, key=len), workerCleanupFailed=True, cleanupFailed=True)
+        launcher._remember_child_record(self.wire(value)); launcher._child_exit(4294967295)
+        launcher._FAILURE['cleanupFailed'] = True
+        self.assertLessEqual(len(launcher._failure_line()), 512)
+        self.assertEqual(self.outer()['reason'], value['reason'])
+
+    def run_synthetic(self, *, plan_error=None, child_error=None, sanitizer_error=None, cleanup_error=False):
+        native_temp = tempfile.TemporaryDirectory
+        class Owned:
+            def __init__(self, **kwargs): self.actual = native_temp(**kwargs)
+            def __enter__(self): return self.actual.__enter__()
+            def __exit__(self, *exc):
+                answer = self.actual.__exit__(*exc)
+                if cleanup_error: raise OSError('TOKEN_SENTINEL cleanup private path')
+                return answer
+        def child(argv, env, owned):
+            if child_error: raise child_error
+            launcher._child_exit(0)
+            (Path(owned) / 'business31-hosted-result.json').write_bytes(b'{"synthetic":true}\n')
+            return b'', b''
+        with patch.object(sys, 'platform', 'linux'), patch.object(launcher.tempfile, 'TemporaryDirectory', Owned), \
+             patch.object(launcher, 'launch_plan', side_effect=plan_error, return_value=([], {})), \
+             patch.object(launcher, 'run_child', side_effect=child), \
+             patch.object(launcher, 'sanitized_replay_output', side_effect=sanitizer_error or (lambda raw, *unused: raw)):
+            try:
+                launcher.execute_launch(self.args)
+            except BaseException as error:
+                launcher._remember_failure(error)
+                return error
+        return None
+
+    def test_plan_failure_is_specific_and_cleanup_precedes_refusal(self):
+        self.assertIsNotNone(self.run_synthetic(plan_error=ValueError('BUSINESS_HOSTED_NODE_IDENTITY')))
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('LAUNCH_PLAN', 'NODE_IDENTITY'))
+        self.assertFalse(self.output.exists()); self.assertEqual(list(self.parent.iterdir()), [])
+
+    def test_primary_child_failure_survives_cleanup_failure(self):
+        self.assertIsNotNone(self.run_synthetic(child_error=ValueError('BUSINESS_HOSTED_CHILD_TIMEOUT'), cleanup_error=True))
+        out = self.outer(); self.assertEqual((out['stage'], out['reason']), ('CHILD_EXECUTION', 'CHILD_TIMEOUT'))
+        self.assertTrue(out['cleanupFailed']); self.assertNotIn(b'TOKEN_SENTINEL', launcher._failure_line())
+        self.assertFalse(self.output.exists()); self.assertEqual(list(self.parent.iterdir()), [])
+
+    def test_sanitizer_and_cleanup_failure_never_publish(self):
+        self.assertIsNotNone(self.run_synthetic(sanitizer_error=ValueError('BUSINESS_HOSTED_REPLAY_OUTPUT_FIELDS')))
+        self.assertEqual((self.outer()['stage'], self.outer()['reason'], self.outer()['childExit']),
+                         ('RESULT_SANITIZATION', 'REPLAY_OUTPUT_FIELDS', 0))
+        self.assertFalse(self.output.exists())
+        self.assertIsNotNone(self.run_synthetic(cleanup_error=True))
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('PRIVATE_CLEANUP', 'NATIVE_FAILURE'))
+        self.assertTrue(self.outer()['cleanupFailed']); self.assertFalse(self.output.exists())
+
+    def test_success_still_publishes_only_after_cleanup(self):
+        self.assertIsNone(self.run_synthetic())
+        self.assertEqual(self.output.read_bytes(), b'{"synthetic":true}\n')
+        self.assertEqual(list(self.parent.iterdir()), [])
+
+    def test_real_python_cli_never_echoes_argument_or_stack(self):
+        result = self.native([sys.executable, '-I', '-S', '-B', str(FILE), '--TOKEN_SENTINEL=/private/token'])
+        self.assertEqual(result.returncode, 1); self.assertEqual(result.stdout, b'')
+        self.assertLessEqual(len(result.stderr), 512); self.assertNotIn(b'TOKEN_SENTINEL', result.stderr)
+        self.assertNotIn(b'Traceback', result.stderr)
+        self.assertEqual(json.loads(result.stderr.split(b'. ', 1)[1])['reason'], 'CLI')
+
+    def test_real_fresh_node_entry_refuses_with_closed_code(self):
+        result = self.native([str(self.NODE), '--no-global-search-paths', str(FILE.with_name('business31HostedReplay.cjs'))])
+        self.assertEqual(result.returncode, 1); self.assertEqual(result.stdout, b'')
+        value = json.loads(result.stderr.split(b'. ', 1)[1])
+        self.assertEqual((value['stage'], value['reason']), ('ENTRY_INPUT', 'CLI'))
+        launcher._remember_child_record(result.stderr)
+        self.assertEqual(self.outer()['reason'], 'CLI')
+
+    def test_actual_tiny_worker_parent_reporter_python_chain(self):
+        source = r'''
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),vm=require('node:vm');
+const root=process.argv[1],owned=process.argv[2],cleanupFailure=process.argv[3]==='true';
+const api=require(path.join(root,'business31OriginalPathReplayV2.cjs'));
+const actualRead=fs.readFileSync,actualUnlink=fs.unlinkSync;
+const binding=Buffer.from('synthetic node identity for the parent unit seam');
+fs.readFileSync=function(file,...args){return file===process.execPath?binding:actualRead.call(fs,file,...args);};
+if(cleanupFailure)fs.unlinkSync=function(file){if(path.basename(file).startsWith('.business31-core-'))throw Error('TOKEN_SENTINEL cleanup');return actualUnlink(file);};
+let failure;try{api.invokeCoreWorker31({workerFile:path.join(root,'business31CoreWorkerV2.cjs'),input:{},ownedDirectory:owned,nodeSha256:crypto.createHash('sha256').update(binding).digest('hex').toUpperCase()});}
+catch(error){failure=error.business31Diagnostic;}
+if(!failure)throw Error('Expected synthetic closed-input refusal');
+const source=actualRead(path.join(root,'business31HostedReplay.cjs'),'utf8');
+const code=source.slice(source.indexOf('// Fixed failure metadata only.'),source.indexOf('function measureClient31('));
+let output='';const context=vm.createContext({Buffer,fs:{writeSync:(_fd,text)=>{output+=text;return Buffer.byteLength(text);}},process:{stderr:{write:x=>output+=x},exitCode:0}});
+vm.runInContext(code+'\nconst synthetic=Error("TOKEN_SENTINEL outer");Object.defineProperty(synthetic,"business31Diagnostic",{value:JSON.parse('+JSON.stringify(JSON.stringify(failure))+')});reportFailure(synthetic);',context);
+process.stdout.write(JSON.stringify({failure,wire:output,inputFiles:fs.readdirSync(owned).filter(x=>x.startsWith('.business31-core-'))}));
+'''
+        for cleanup in (False, True):
+            with self.subTest(cleanup=cleanup):
+                owned = self.root / ('worker-' + str(cleanup)); owned.mkdir()
+                result = self.node_script(source, FILE.parent, owned, str(cleanup).lower())
+                self.assertEqual(result.returncode, 0, result.stderr.decode())
+                out = json.loads(result.stdout); value = out['failure']
+                self.assertEqual((value['stage'], value['reason'], value['workerExit']),
+                                 ('WORKER_INPUT', 'WORKER_CLOSED_WORKER_INPUT_REQUIRED', 1))
+                self.assertEqual(value['workerCleanupFailed'], cleanup)
+                self.assertEqual(len(out['inputFiles']), 1 if cleanup else 0)
+                self.assertNotIn('TOKEN_SENTINEL', out['wire'])
+                launcher._reset_failure(); launcher._remember_child_record(out['wire'].encode())
+                self.assertEqual(self.outer()['stage'], 'WORKER_INPUT')
+                self.assertEqual(self.outer()['workerExit'], 1)
+                self.assertEqual(self.outer()['workerCleanupFailed'], cleanup)
+
+    def test_worker_exact_public_code_and_near_prefix_suppression(self):
+        source = r'''
+const fs=require('node:fs'),vm=require('node:vm');const source=fs.readFileSync(process.argv[1],'utf8');
+const code=source.slice(source.indexOf('// Only fixed public refusal identifiers'),source.indexOf('function canonical('));
+let output='';const context=vm.createContext({Buffer,fs:{writeSync:(_fd,text)=>{output+=text;return Buffer.byteLength(text);}},process:{stderr:{write:x=>output+=x},exitCode:0}});
+vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+'));',context);process.stdout.write(output);
+'''
+        for message, reason in [('Business31 preparation: explicit UTC required', 'M_REFUSAL_001'),
+                                ('Business31 preparation: explicit UTC required TOKEN_SENTINEL', 'UNCLASSIFIED')]:
+            result = self.node_script(source, FILE.with_name('business31CoreWorkerV2.cjs'), message)
+            self.assertEqual(result.returncode, 0); self.assertEqual(result.stderr, b'')
+            self.assertNotIn(b'TOKEN_SENTINEL', result.stdout); self.assertLessEqual(len(result.stdout), 512)
+            self.assertEqual(json.loads(result.stdout.split(b' ', 1)[1])['reason'], reason)
+
+
+    def synthetic_run_child(self, code=1, stderr=b'', cleanup_error=False, timeout=False, stdout=b''):
+        # Execute production runner logic with deterministic pipe/session adapters.
+        # This does not qualify native POSIX selectors or process groups on Windows.
+        class Stream:
+            def __init__(self, fd): self.fd = fd
+            def fileno(self): return self.fd
+            def close(self): pass
+        class Child:
+            stdout = Stream(1); stderr = Stream(2); pid = 123
+            def wait(self, **unused): return code
+        child = Child(); chunks = {1: [stdout, b''] if stdout else [b''], 2: [stderr, b''] if stderr else [b'']}
+        class Selector:
+            def __init__(self): self.items = {}
+            def __enter__(self): return self
+            def __exit__(self, *unused): pass
+            def register(self, stream, event): self.items[stream] = event
+            def unregister(self, stream): del self.items[stream]
+            def get_map(self): return self.items
+            def select(self, **unused): return [(SimpleNamespace(fileobj=next(iter(self.items))), None)]
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        directory = self.root / ('runner-' + str(len(list(self.root.iterdir())))); directory.mkdir()
+        def kill(*unused):
+            if cleanup_error: raise OSError('TOKEN_SENTINEL kill')
+        clock = patch.object(launcher.time, 'monotonic', side_effect=[0, 7201]) if timeout else patch.object(launcher.time, 'monotonic', return_value=1)
+        with patch.object(launcher.subprocess, 'Popen', return_value=child), \
+             patch.object(launcher.selectors, 'DefaultSelector', Selector), \
+             patch.object(launcher.os, 'read', side_effect=lambda fd, limit: chunks[fd].pop(0)), \
+             patch.object(launcher.os, 'killpg', side_effect=kill, create=True), \
+             patch.object(launcher.signal, 'SIGKILL', 9, create=True), clock:
+            try:
+                return launcher.run_child([], {}, directory), None
+            except BaseException as error:
+                launcher._remember_failure(error)
+                return None, error
+
+    def test_runner_failure_record_exit_and_primary_cleanup(self):
+        wire = self.wire(self.record())
+        _, error = self.synthetic_run_child(stderr=wire, cleanup_error=True)
+        self.assertIsNotNone(error)
+        out = self.outer()
+        self.assertEqual((out['stage'], out['reason'], out['childExit']), ('STS', 'STS_RESULT', 1))
+        self.assertTrue(out['cleanupFailed']); self.assertNotIn(b'TOKEN_SENTINEL', launcher._failure_line())
+        _, error = self.synthetic_run_child(code=-9)
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['childSignal'], 9)
+        self.assertEqual(self.outer()['reason'], 'CHILD_FAILURE')
+
+    def test_runner_timeout_output_bound_and_clean_success(self):
+        _, error = self.synthetic_run_child(code=-9, timeout=True)
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_TIMEOUT')
+        self.assertEqual(self.outer()['childSignal'], 9)
+        _, error = self.synthetic_run_child(stdout=b'x' * (1024 * 1024 + 1))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_OUTPUT_BOUND')
+        value, error = self.synthetic_run_child(code=0)
+        self.assertIsNone(error); self.assertEqual(value, (b'', b''))
+        self.assertEqual(self.outer()['childExit'], 0)
+
+    def test_real_node_native_failure_never_exposes_missing_path(self):
+        absent = self.root / 'TOKEN_SENTINEL-absent-trust.json'
+        result = self.native([str(self.NODE), '--no-global-search-paths', str(FILE.with_name('business31HostedReplay.cjs')),
+                              '--trust', str(absent), '--trust-sha256', 'A' * 64,
+                              '--request', str(self.input), '--output', str(self.output)])
+        self.assertEqual(result.returncode, 1); self.assertEqual(result.stdout, b'')
+        self.assertNotIn(b'TOKEN_SENTINEL', result.stderr); self.assertNotIn(b'Error:', result.stderr)
+        value = json.loads(result.stderr.split(b'. ', 1)[1])
+        self.assertEqual((value['stage'], value['reason'], value['nativeCode']), ('ENTRY_INPUT', 'NATIVE_FAILURE', 'ENOENT'))
+
+    def test_parent_native_status_signal_and_code_are_finite(self):
+        source = r'''
+const Module=require('node:module'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=process.argv[1],owned=process.argv[2],scenario=JSON.parse(process.argv[3]);
+const originalLoad=Module._load;Module._load=function(name,...rest){if(name==='node:child_process')return{spawnSync:()=>({status:scenario.status,signal:scenario.signal,error:scenario.code?{code:scenario.code,message:'TOKEN_SENTINEL native'}:undefined,stdout:Buffer.alloc(0),stderr:Buffer.from('TOKEN_SENTINEL raw')})};return originalLoad.call(this,name,...rest);};
+const api=require(path.join(root,'business31OriginalPathReplayV2.cjs')),actualRead=fs.readFileSync,binding=Buffer.from('synthetic binding');
+fs.readFileSync=function(file,...args){return file===process.execPath?binding:actualRead.call(fs,file,...args);};
+try{api.invokeCoreWorker31({workerFile:'inert-never-spawned',input:{},ownedDirectory:owned,nodeSha256:crypto.createHash('sha256').update(binding).digest('hex').toUpperCase()});}catch(error){process.stdout.write(JSON.stringify(error.business31Diagnostic));}
+'''
+        for index, scenario in enumerate([dict(status=None, signal=None, code='ETIMEDOUT'),
+                                          dict(status=42, signal='SIGKILL', code=None),
+                                          dict(status=True, signal='TOKEN_SENTINEL', code='TOKEN_SENTINEL')]):
+            with self.subTest(index=index):
+                owned = self.root / ('native-' + str(index)); owned.mkdir()
+                result = self.node_script(source, FILE.parent, owned, json.dumps(scenario))
+                self.assertEqual(result.returncode, 0, result.stderr.decode()); self.assertEqual(result.stderr, b'')
+                self.assertNotIn(b'TOKEN_SENTINEL', result.stdout)
+                value = json.loads(result.stdout)
+                self.assertEqual(value['workerExit'], 42 if index == 1 else None)
+                self.assertEqual(value['workerSignal'], 'SIGKILL' if index == 1 else None)
+                self.assertEqual(value['nativeCode'], 'ETIMEDOUT' if index == 0 else None)
+                self.assertEqual(list(owned.iterdir()), [])
+
+
+    def test_python_native_errno_is_fixed_and_message_suppressed(self):
+        launcher._phase('RESULT_PUBLICATION')
+        launcher._remember_failure(FileNotFoundError(2, 'TOKEN_SENTINEL private path'))
+        self.assertEqual((self.outer()['reason'], self.outer()['nativeCode']), ('NATIVE_FAILURE', 'ENOENT'))
+        self.assertNotIn(b'TOKEN_SENTINEL', launcher._failure_line())
+
+
+    def test_total_node_reporters_use_single_data_snapshots(self):
+        source = r'''
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const file=process.argv[1],kind=process.argv[2],scenario=process.argv[3],source=fs.readFileSync(file,'utf8');
+const begin=kind==='worker'?'// Only fixed public refusal identifiers':'// Fixed failure metadata only.';
+const end=kind==='worker'?'function canonical(':'function measureClient31(';
+const code=source.slice(source.indexOf(begin),source.indexOf(end));let output='';
+const context=vm.createContext({Buffer,fs:{writeSync:(_fd,text)=>{output+=text;return Buffer.byteLength(text);}},process:{exitCode:0}});
+vm.runInContext(code,context);
+const known=kind==='worker'?'Business core worker v2: exact input binding required':'BUSINESS_HOSTED_CLI';
+const setup={
+ alternating:'let calls=0;const incoming=Error('+JSON.stringify(known)+');Object.defineProperty(incoming,"code",{get(){calls++;return calls===1?"ENOENT":"TOKEN_SENTINEL";}});',
+ getter:'let calls=0;const incoming=Error("unused");Object.defineProperty(incoming,"message",{get(){calls++;throw Error("TOKEN_SENTINEL getter");}});',
+ proxy:'let calls=0;const incoming=new Proxy(Error("unused"),{getOwnPropertyDescriptor(){calls++;throw Error("TOKEN_SENTINEL proxy");}});',
+ nested:'let calls=0;const incoming=Error("unused");Object.defineProperty(incoming,"business31Diagnostic",{value:new Proxy({},{getPrototypeOf(){calls++;throw Error("TOKEN_SENTINEL prototype");}})});',
+ frozen:'let calls=0;const incoming=Object.freeze(Error('+JSON.stringify(known)+'));',
+ null:'let calls=0;const incoming=null;',
+ primitive:'let calls=0;const incoming="TOKEN_SENTINEL nonerror";',
+ serialization:'let calls=0;const incoming=Error('+JSON.stringify(known)+');JSON.stringify=()=>{throw Error("TOKEN_SENTINEL serialization");};'
+};
+vm.runInContext(setup[scenario]+'reportFailure(incoming);globalThis.callCount=calls;',context);
+process.stdout.write(JSON.stringify({wire:output,calls:context.callCount,exitCode:context.process.exitCode}));
+'''
+        for kind, file in [('hosted', 'business31HostedReplay.cjs'), ('worker', 'business31CoreWorkerV2.cjs')]:
+            for scenario in ('alternating', 'getter', 'proxy', 'frozen', 'null', 'primitive', 'serialization'):
+                with self.subTest(kind=kind, scenario=scenario):
+                    result = self.node_script(source, FILE.with_name(file), kind, scenario)
+                    self.assertEqual(result.returncode, 0, result.stderr.decode()); self.assertEqual(result.stderr, b'')
+                    out = json.loads(result.stdout); raw = out['wire'].encode()
+                    self.assertEqual(out['exitCode'], 1); self.assertLessEqual(len(raw), 512)
+                    self.assertNotIn(b'TOKEN_SENTINEL', raw); self.assertNotIn(b'Error:', raw)
+                    split = b' ' if kind == 'worker' else b'. '
+                    value = json.loads(raw.split(split, 1)[1])
+                    if scenario in ('alternating', 'getter'):
+                        self.assertEqual(out['calls'], 0); self.assertEqual(value['reason'], 'UNCLASSIFIED')
+                    if scenario == 'frozen':
+                        self.assertEqual(value['reason'], 'WORKER_EXACT_INPUT_BINDING_REQUIRED' if kind == 'worker' else 'CLI')
+                    if scenario in ('null', 'primitive', 'proxy', 'serialization'):
+                        self.assertEqual(value['reason'], 'UNCLASSIFIED')
+        result = self.node_script(source, FILE.with_name('business31HostedReplay.cjs'), 'hosted', 'nested')
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        out = json.loads(result.stdout)
+        self.assertNotIn('TOKEN_SENTINEL', out['wire'])
+        self.assertEqual(json.loads(out['wire'].split('. ', 1)[1])['reason'], 'UNCLASSIFIED')
+
+    def test_nested_data_accessor_is_not_reread_or_invoked(self):
+        source = r'''
+const fs=require('node:fs'),vm=require('node:vm'),source=fs.readFileSync(process.argv[1],'utf8');
+const code=source.slice(source.indexOf('// Fixed failure metadata only.'),source.indexOf('function measureClient31('));let output='';
+const context=vm.createContext({Buffer,fs:{writeSync:(_fd,text)=>{output+=text;return Buffer.byteLength(text);}},process:{exitCode:0}});
+vm.runInContext(code+'\nlet calls=0;const value={schemaVersion:1,stage:"STS",reason:"STS_RESULT",nativeCode:null,workerExit:null,workerSignal:null,workerCleanupFailed:false,cleanupFailed:false};Object.defineProperty(value,"nativeCode",{enumerable:true,get(){calls++;return calls===1?"ENOENT":"TOKEN_SENTINEL";}});const incoming=Error("unused");Object.defineProperty(incoming,"business31Diagnostic",{value});reportFailure(incoming);globalThis.callCount=calls;',context);
+process.stdout.write(JSON.stringify({wire:output,calls:context.callCount}));
+'''
+        result = self.node_script(source, FILE.with_name('business31HostedReplay.cjs'))
+        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        out = json.loads(result.stdout); self.assertEqual(out['calls'], 0)
+        self.assertNotIn('TOKEN_SENTINEL', out['wire'])
+        self.assertEqual(json.loads(out['wire'].split('. ', 1)[1])['reason'], 'UNCLASSIFIED')
+
+    def test_parent_owns_wrapper_for_frozen_null_and_hostile_values(self):
+        source = r'''
+const Module=require('node:module'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=process.argv[1],owned=process.argv[2],scenario=process.argv[3],cleanup=process.argv[4]==='true';let calls=0,incoming;
+if(scenario==='frozen')incoming=Object.freeze(Error('Business original-path replay v2: pinned Node changed before worker'));
+else if(scenario==='null')incoming=null;
+else if(scenario==='string')incoming='TOKEN_SENTINEL primitive';
+else if(scenario==='getter'){incoming=Error('unused');Object.defineProperty(incoming,'code',{get(){calls++;throw Error('TOKEN_SENTINEL getter');}});}
+else incoming=new Proxy(Error('unused'),{getOwnPropertyDescriptor(){calls++;throw Error('TOKEN_SENTINEL proxy');}});
+const originalLoad=Module._load;Module._load=function(name,...rest){if(name==='node:child_process')return{spawnSync:()=>{throw incoming;}};return originalLoad.call(this,name,...rest);};
+const api=require(path.join(root,'business31OriginalPathReplayV2.cjs')),actualRead=fs.readFileSync,actualUnlink=fs.unlinkSync,binding=Buffer.from('synthetic binding');
+fs.readFileSync=function(file,...args){return file===process.execPath?binding:actualRead.call(fs,file,...args);};
+if(cleanup)fs.unlinkSync=function(file){if(path.basename(file).startsWith('.business31-core-'))throw null;return actualUnlink(file);};
+try{api.invokeCoreWorker31({workerFile:'never-spawned',input:{},ownedDirectory:owned,nodeSha256:crypto.createHash('sha256').update(binding).digest('hex').toUpperCase()});}
+catch(error){process.stdout.write(JSON.stringify({value:error.business31Diagnostic,owned:error!==incoming,calls,remaining:fs.readdirSync(owned).length}));}
+'''
+        for scenario in ('frozen', 'null', 'string', 'getter', 'proxy'):
+            for cleanup in (False, True):
+                with self.subTest(scenario=scenario, cleanup=cleanup):
+                    owned = self.root / ('hostile-' + scenario + str(cleanup)); owned.mkdir()
+                    result = self.node_script(source, FILE.parent, owned, scenario, str(cleanup).lower())
+                    self.assertEqual(result.returncode, 0, result.stderr.decode()); self.assertEqual(result.stderr, b'')
+                    self.assertNotIn(b'TOKEN_SENTINEL', result.stdout)
+                    out = json.loads(result.stdout); self.assertTrue(out['owned'])
+                    self.assertEqual(out['value']['workerCleanupFailed'], cleanup)
+                    self.assertEqual(out['remaining'], 1 if cleanup else 0)
+                    self.assertEqual(out['value']['stage'], 'CORE_WORKER_PROCESS')
+                    self.assertEqual(out['value']['reason'], 'ORIGINAL_PINNED_NODE_CHANGED_BEFORE_WORKER' if scenario == 'frozen' else 'UNCLASSIFIED')
+                    if scenario == 'getter': self.assertEqual(out['calls'], 0)
+
+    def test_python_hostile_exception_data_and_formatter_failures_are_total(self):
+        class Explosive:
+            calls = 0
+            def __str__(self):
+                self.calls += 1
+                raise RuntimeError('TOKEN_SENTINEL string')
+        value = Explosive(); launcher._remember_failure(ValueError(value))
+        self.assertEqual(value.calls, 0); self.assertEqual(self.outer()['reason'], 'UNCLASSIFIED')
+        class HostileErrno(OSError):
+            calls = 0
+            @property
+            def errno(self):
+                self.calls += 1
+                raise RuntimeError('TOKEN_SENTINEL errno')
+        error = HostileErrno(2, 'TOKEN_SENTINEL message')
+        launcher._reset_failure(); launcher._remember_failure(error)
+        self.assertEqual(error.calls, 0); self.assertEqual(self.outer()['nativeCode'], 'ENOENT')
+        launcher._FAILURE['primary'] = {'stage': object(), 'reason': 'TOKEN_SENTINEL'}
+        raw = launcher._failure_line(); self.assertLessEqual(len(raw), 512); self.assertNotIn(b'TOKEN_SENTINEL', raw)
+        writes = []
+        with patch.object(launcher, '_remember_failure', side_effect=RuntimeError('TOKEN_SENTINEL formatter')), \
+             patch.object(launcher, '_failure_line', side_effect=RuntimeError('TOKEN_SENTINEL serializer')), \
+             patch.object(launcher.os, 'write', side_effect=lambda fd, value: writes.append(value)):
+            launcher._report_failure(None)
+        self.assertEqual(writes, [launcher._FALLBACK_FAILURE])
+        with patch.object(launcher.os, 'write', side_effect=OSError('TOKEN_SENTINEL closed pipe')):
+            launcher._report_failure(None)
+
+    def test_actual_python_final_except_exits_one_when_formatting_fails(self):
+        script = self.root / 'outer-fallback.py'
+        script.write_text(textwrap.dedent(r'''
+            import importlib.util,pathlib,sys
+            file=pathlib.Path(sys.argv[1])
+            spec=importlib.util.spec_from_file_location('local_diagnostic_test',file)
+            value=importlib.util.module_from_spec(spec);spec.loader.exec_module(value)
+            def broken(*args): raise RuntimeError('TOKEN_SENTINEL formatter private path')
+            value._remember_failure=broken;value._failure_line=broken
+            source=file.read_text();block=source[source.index('if __name__ == "__main__":'):]
+            exec(compile(block,'actual-published-except-block','exec'),{'__name__':'__main__','main':broken,'_report_failure':value._report_failure})
+        '''), encoding='utf8')
+        result = self.native([sys.executable, '-I', '-S', '-B', str(script), str(FILE)])
+        self.assertEqual(result.returncode, 1); self.assertEqual(result.stdout, b'')
+        self.assertEqual(result.stderr, launcher._FALLBACK_FAILURE)
+        self.assertNotIn(b'TOKEN_SENTINEL', result.stderr); self.assertNotIn(b'Traceback', result.stderr)
 
 if __name__ == "__main__":
     unittest.main()
