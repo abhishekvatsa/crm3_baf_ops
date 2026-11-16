@@ -717,8 +717,8 @@ class DiagnosticFailures(unittest.TestCase):
         self.output = self.root / 'business31-hosted-result.json'
         self.input = self.root / 'input.json'
         self.input.write_text(json.dumps({'request': {}, 'repositoryRoot': 'synthetic',
-                                         'gitExecutable': 'synthetic', 'sourceManifest': {}}))
-        self.trust = self.root / 'trust.json'; self.trust.write_text('{}')
+                                         'gitExecutable': 'synthetic', 'sourceManifest': {}}), encoding='utf-8')
+        self.trust = self.root / 'trust.json'; self.trust.write_text('{}', encoding='utf-8')
         self.args = SimpleNamespace(mode='replay', private_parent=str(self.parent), output=str(self.output),
                                     input=str(self.input), node='synthetic', trust=str(self.trust),
                                     trust_sha256='A' * 64, client_input=None, client_input_sha256=None)
