@@ -1,0 +1,98 @@
+name: Build31 Windows runtime measurement (temporary, not for merge)
+
+# Measurement only: no secrets, no OIDC, no private data. Records the exact pinned runtime binaries a
+# Windows hosted verifier would use, and checks long-path handling and hiding the recorded original
+# GitHub CLI path on the ephemeral runner.
+on:
+  push:
+    branches: [claude/build31-windows-runtime-measurement]
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - name: Image identity
+        shell: pwsh
+        run: |
+          "ImageOS=$env:ImageOS ImageVersion=$env:ImageVersion RUNNER_TEMP=$env:RUNNER_TEMP"
+          "LongPathsEnabled=" + (Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\FileSystem').LongPathsEnabled
+          "GitHubCliPresent=" + (Test-Path -LiteralPath 'C:\Program Files\GitHub CLI\gh.exe')
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '22.23.5'
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13.17'
+
+      - name: Pinned MinGit
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $zip = Join-Path $env:RUNNER_TEMP 'MinGit-2.56.1-64-bit.zip'
+          Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.56.1.windows.1/MinGit-2.56.1-64-bit.zip' -OutFile $zip
+          $h = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+          if ($h -cne '4A92850B6E917DA4FD010669B614B55DCCF5B0EC333A534CC4BE4700DFEFDAFD') { throw "MinGit archive digest differs: $h" }
+          Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $env:RUNNER_TEMP 'mingit')
+
+      - name: Measure pinned runtimes
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $node = (Get-Command node).Source
+          $py = (Get-Command python).Source
+          $git = Join-Path $env:RUNNER_TEMP 'mingit\mingw64\bin\git.exe'
+          foreach ($p in @($node, $py, $git)) {
+            "MEASURE {0} {1} {2}" -f (Get-FileHash -LiteralPath $p -Algorithm SHA256).Hash, (Get-Item -LiteralPath $p).Length, $p
+          }
+          & $node --version
+          & $py --version
+          & $git --version
+
+      - name: Hide recorded original GitHub CLI path and probe long paths
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Rename-Item -LiteralPath 'C:\Program Files\GitHub CLI' -NewName 'GitHub CLI.hidden-by-business31'
+          "GitHubCliPresentAfterHide=" + (Test-Path -LiteralPath 'C:\Program Files\GitHub CLI\gh.exe')
+          $py = (Get-Command python).Source
+          $code = @'
+          import os, pathlib, shutil, sys
+          base = pathlib.Path(os.environ['RUNNER_TEMP']) / 'b31-longpath-py'
+          deep = base
+          while len(str(deep)) < 620:
+              deep = deep / ('segment-' + 'x' * 40)
+          deep.mkdir(parents=True)
+          f = deep / 'member.json'
+          f.write_bytes(b'{"ok":true}')
+          assert f.read_bytes() == b'{"ok":true}'
+          print('PY_LONG_PATH_OK', len(str(f)))
+          shutil.rmtree(base)
+          print('PY_LONG_RMTREE_OK', not base.exists())
+          '@
+          $codeFile = Join-Path $env:RUNNER_TEMP 'longpath.py'
+          Set-Content -LiteralPath $codeFile -Value ($code -replace '(?m)^          ', '') -Encoding utf8NoBOM
+          & $py -I -S -B $codeFile
+          if ($LASTEXITCODE -ne 0) { throw 'Python long-path probe failed' }
+          $js = @'
+          const fs = require('node:fs'), path = require('node:path');
+          const base = path.join(process.env.RUNNER_TEMP, 'b31-longpath-node');
+          let deep = base;
+          while (deep.length < 620) deep = path.join(deep, 'segment-' + 'x'.repeat(40));
+          fs.mkdirSync(deep, {recursive: true});
+          const f = path.join(deep, 'member.json');
+          fs.writeFileSync(f, '{"ok":true}', {flag: 'wx', mode: 0o600});
+          if (fs.readFileSync(f, 'utf8') !== '{"ok":true}') throw Error('read');
+          console.log('NODE_LONG_PATH_OK', f.length, 'realpath_equal', fs.realpathSync(f) === f);
+          fs.rmSync(base, {recursive: true});
+          console.log('NODE_LONG_RM_OK', !fs.existsSync(base));
+          '@
+          $jsFile = Join-Path $env:RUNNER_TEMP 'longpath.js'
+          Set-Content -LiteralPath $jsFile -Value ($js -replace '(?m)^          ', '') -Encoding utf8NoBOM
+          & node --no-global-search-paths $jsFile
+          if ($LASTEXITCODE -ne 0) { throw 'Node long-path probe failed' }
