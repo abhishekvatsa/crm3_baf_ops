@@ -519,7 +519,7 @@ class LauncherPlan(unittest.TestCase):
             launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input)
 
     def workflow_prepare(self, *, legacy=False, chunked=False, expanded=False,
-                         raw=None, alter=None, alter_parts=None, expected_hash=None):
+                         raw=None, alter=None, alter_parts=None, expected_hash=None, alter_env=None):
         """Run the actual workflow heredoc; only its Git network edge is inert."""
         workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
         source = workflow.read_text(encoding='utf8')
@@ -576,6 +576,8 @@ class LauncherPlan(unittest.TestCase):
                    MANIFEST_JSON='{"syntheticPublicSourceManifest":true}',
                    CLIENT_SELECTED_JSON=json.dumps(selected['selected']),
                    CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(public_message).decode())
+        if alter_env:
+            alter_env(env)
         script = owned / 'execute-workflow.py'
         payload = owned / 'workflow-source.json'; payload.write_text(json.dumps({'source': body}), encoding='utf8')
         script.write_text(textwrap.dedent('''\
@@ -653,6 +655,60 @@ class LauncherPlan(unittest.TestCase):
         self.assertEqual(result['exceptionType'], 'RuntimeError')
         result, _, _, _ = self.workflow_prepare(raw='')
         self.assertFalse(result['ok']); self.assertEqual(result['gitCalls'], 0)
+
+    def test_actual_workflow_python_bounds_every_carried_value_below_the_windows_variable_limit(self):
+        # Windows carries one environment value only up to 32,767 UTF-16 units, so each value the
+        # workflow receives through its environment is bounded at 32,000 UTF-8 bytes, inclusive.
+        def first_trust_part(size):
+            def alter(parts):
+                value = ''.join(parts)
+                padded = value[:1] + ' ' * (size - 1) + value[1:]
+                middle = size + (len(padded) - size) // 2
+                parts[:] = [padded[:size], padded[size:middle], padded[middle:]]
+            return alter
+
+        def padded_json(key, size):
+            def alter(env):
+                value = env[key]
+                env[key] = value[:1] + ' ' * (size - len(value.encode('utf8'))) + value[1:]
+            return alter
+
+        def original_message(size):
+            def alter(env):
+                message = b'm' * size
+                selected = json.loads(env['CLIENT_SELECTED_JSON'])
+                selected['originalMessage'] = {'sha256': hashlib.sha256(message).hexdigest().upper(),
+                                               'bytes': len(message)}
+                env.update(CLIENT_SELECTED_JSON=json.dumps(selected),
+                           CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(message).decode())
+            return alter
+
+        import base64
+        cases = [  # (name, options at the bound, options one step over it, Git calls before refusal)
+            ('trust part', {'alter_parts': first_trust_part(32000)}, {'alter_parts': first_trust_part(32001)}, 0),
+            ('request', {'alter_env': padded_json('CANDIDATE_REQUEST', 32000)},
+             {'alter_env': padded_json('CANDIDATE_REQUEST', 32001)}, 0),
+            ('manifest', {'alter_env': padded_json('MANIFEST_JSON', 32000)},
+             {'alter_env': padded_json('MANIFEST_JSON', 32001)}, 3),
+            ('client selection', {'alter_env': padded_json('CLIENT_SELECTED_JSON', 32000)},
+             {'alter_env': padded_json('CLIENT_SELECTED_JSON', 32001)}, 3),
+            # 24,000 bytes encode to exactly 32,000 base64 characters; 24,001 bytes to 32,004.
+            ('original message', {'alter_env': original_message(24000)},
+             {'alter_env': original_message(24001)}, 3)]
+        for name, at_bound, over_bound, git_calls in cases:
+            with self.subTest(value=name, size='at bound'):
+                result, directory, whole, _ = self.workflow_prepare(chunked=True, **at_bound)
+                self.assertEqual(result, {'ok': True, 'gitCalls': 3})
+                self.assertEqual((directory / 'trust.json').read_bytes(), whole)
+            with self.subTest(value=name, size='over bound'):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, **over_bound)
+                self.assertEqual(result, {'ok': False, 'gitCalls': git_calls,
+                                          'exceptionType': 'RuntimeError',
+                                          'message': 'Hosted input preparation refused'})
+                output = directory.parent / 'github-output.txt'
+                self.assertFalse(output.exists() and 'candidate=' in output.read_text(encoding='utf8'))
+                if git_calls == 0:
+                    self.assertFalse((directory / 'trust.json').exists())
 
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()

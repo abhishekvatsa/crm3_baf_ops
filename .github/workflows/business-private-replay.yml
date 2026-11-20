@@ -115,16 +115,20 @@ jobs:
           def need(ok):
               if not ok: raise RuntimeError('Hosted input preparation refused')
           def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest().upper()
+          # Windows carries one environment value only up to 32,767 UTF-16 units; UTF-8 bytes bound that from above.
+          CARRIED=32000
+          def carried(key):
+              raw=os.environ.get(key,'').encode('utf-8');need(0<len(raw)<=CARRIED);return raw
           root=pathlib.Path(os.environ['RUNNER_TEMP'])/'business31-private-job'
           root.mkdir(mode=0o700,exist_ok=False)
           parts=[os.environ.get(key,'') for key in ('TRUST_JSON','TRUST_JSON_PART_2','TRUST_JSON_PART_3')]
           chunked=bool(parts[1] or parts[2])
           if chunked:
               encoded=[part.encode('utf-8') for part in parts]
-              need(all(0<len(part)<=48000 for part in encoded))
+              need(all(0<len(part)<=CARRIED for part in encoded))
               trust_raw=b''.join(encoded)
           else:
-              trust_raw=parts[0].encode('utf-8')
+              trust_raw=carried('TRUST_JSON')
           need(0<len(trust_raw)<=2*1024*1024)
           need(hashlib.sha256(trust_raw).hexdigest().upper()==os.environ['TRUST_SHA'])
           trust=json.loads(trust_raw);need(trust['verifier']['commit']==os.environ['SELECTED_V'])
@@ -137,7 +141,7 @@ jobs:
               need(trust['coreVerifier']['commit']!=trust['verifier']['commit'] and isinstance(trust['sourceIntegration'],dict) and len(trust['sourceIntegration'])>0)
           need(trust['pythonSha256']==os.environ['PYTHON_SHA'] and trust['launcherSha256']==os.environ['LAUNCHER_SHA'])
           git=pathlib.Path(os.environ['GIT_EXE']);need(git.is_absolute() and git.is_file() and not git.is_symlink() and sha(git)==trust['gitSha256'])
-          req_raw=os.environ['CANDIDATE_REQUEST'].encode();need(0<len(req_raw)<=32768)
+          req_raw=carried('CANDIDATE_REQUEST')
           req=json.loads(req_raw);client_mode=req.get('schemaVersion')==2
           need(not v2 or client_mode)
           need(req.get('schemaVersion') in (1,2))
@@ -156,14 +160,14 @@ jobs:
           run(['clone','--no-checkout','--no-local','--no-hardlinks','--template='+str(root/'template'),'--','https://github.com/'+name+'.git',str(repo)])
           run(['-C',str(repo),'fetch','--no-tags','origin',S])
           run(['-C',str(repo),'update-ref','refs/heads/business31-admitted-'+S,S])
-          manifest=json.loads(os.environ['MANIFEST_JSON'])
+          manifest=json.loads(carried('MANIFEST_JSON'))
           (root/'trust.json').write_bytes(trust_raw)
           (root/'input.json').write_text(json.dumps({'request':req,'repositoryRoot':str(repo),'gitExecutable':str(git),'sourceManifest':manifest}),encoding='utf8')
           client_sha=''
           if client_mode:
-              selected_raw=os.environ['CLIENT_SELECTED_JSON'].encode();need(0<len(selected_raw)<=128*1024)
+              selected_raw=carried('CLIENT_SELECTED_JSON')
               selected=json.loads(selected_raw)
-              original=base64.b64decode(os.environ['CLIENT_ORIGINAL_MESSAGE_B64'],validate=True)
+              original=base64.b64decode(carried('CLIENT_ORIGINAL_MESSAGE_B64'),validate=True)
               need(0<len(original)<=128*1024)
               need(selected['originalMessage']=={'sha256':hashlib.sha256(original).hexdigest().upper(),'bytes':len(original)})
               original_file=root/'original-client-message.bin';original_file.write_bytes(original);original_file.chmod(0o600)
