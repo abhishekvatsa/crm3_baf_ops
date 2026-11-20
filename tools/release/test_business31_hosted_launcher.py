@@ -710,6 +710,54 @@ class LauncherPlan(unittest.TestCase):
                 if git_calls == 0:
                     self.assertFalse((directory / 'trust.json').exists())
 
+    @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell 7 is required to execute the workflow step')
+    def test_actual_cleanup_step_never_launches_the_enrolled_interpreter(self):
+        """The always-run cleanup runs only the job's installed, re-pinned Python; never PYTHON_EXE."""
+        workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
+        source = workflow.read_text(encoding='utf8')
+        marker = '      - name: Destroy owned private scratch\n'
+        self.assertEqual(source.count(marker), 1)
+        step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
+        self.assertIn('        if: always()\n', step)
+        self.assertIn('          INSTALLED_PYTHON: ${{ steps.python.outputs.python-path }}\n', step)
+        self.assertNotIn('PYTHON_EXE', step)
+        script = self.root / 'cleanup-step.ps1'
+        script.write_text(textwrap.dedent(step.split('        run: |\n', 1)[1]), encoding='utf8')
+        ran = self.root / 'enrolled-interpreter-ran.txt'
+        if os.name == 'nt':
+            enrolled = self.root / 'enrolled-python.cmd'
+            enrolled.write_text('@echo off\r\necho ran> "' + str(ran) + '"\r\n', encoding='utf8')
+        else:
+            enrolled = self.root / 'enrolled-python'
+            enrolled.write_text('#!/bin/sh\necho ran > "' + str(ran) + '"\n', encoding='utf8')
+            enrolled.chmod(0o700)
+        pinned = launcher.digest(Path(sys.executable))
+
+        def run(name, scratch, installed, python_sha):
+            temp = self.root / name; temp.mkdir()
+            job = temp / 'business31-private-job'
+            if scratch:
+                (job / 'repository').mkdir(parents=True); (job / 'trust.json').write_bytes(b'{}')
+            env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'HOME',
+                                                     'USERPROFILE', 'TEMP', 'TMP', 'LANG', 'LC_ALL') if key in os.environ}
+            env.update(RUNNER_TEMP=str(temp), INSTALLED_PYTHON=installed, PYTHON_SHA=python_sha, PYTHON_EXE=str(enrolled))
+            result = subprocess.run([shutil.which('pwsh'), '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+                                     ". '" + str(script) + "'"], env=env, stdin=subprocess.DEVNULL,
+                                    capture_output=True, timeout=120, check=False)
+            return result.returncode, job.exists()
+
+        cases = [  # (name, scratch exists, installed interpreter, enrolled digest, expected success, scratch left)
+            ('nothing-prepared', False, '', pinned, True, False),
+            ('pinned-cleanup', True, sys.executable, pinned, True, False),
+            ('installed-not-pinned', True, sys.executable, '0' * 64, False, True),
+            ('no-installed-python', True, '', pinned, False, True)]
+        for name, scratch, installed, python_sha, succeeds, left in cases:
+            with self.subTest(case=name):
+                code, exists = run(name, scratch, installed, python_sha)
+                self.assertEqual(code == 0, succeeds, name)
+                self.assertEqual(exists, left, name)
+                self.assertFalse(ran.exists(), 'cleanup launched the enrolled interpreter')
+
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()
         past = datetime.now(timezone.utc) - timedelta(seconds=1)

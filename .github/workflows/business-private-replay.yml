@@ -227,10 +227,22 @@ jobs:
       - name: Destroy owned private scratch
         if: always()
         shell: pwsh
+        env:
+          INSTALLED_PYTHON: ${{ steps.python.outputs.python-path }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
-          $destroy = @'
+          # Runs even when an earlier check refused the enrolled interpreter, so it never launches that value:
+          # nothing runs unless scratch exists, and then only the interpreter this job installed, re-pinned.
+          if (Test-Path -LiteralPath (Join-Path $env:RUNNER_TEMP 'business31-private-job')) {
+            $python = [string]$env:INSTALLED_PYTHON
+            if (-not ([IO.Path]::IsPathFullyQualified($python) -and (Test-Path -LiteralPath $python -PathType Leaf))) {
+              throw 'Installed Python is unavailable for scratch cleanup'
+            }
+            if ((Get-FileHash -LiteralPath $python -Algorithm SHA256).Hash -cne $env:PYTHON_SHA) {
+              throw 'Installed Python differs from the pinned runtime'
+            }
+            $destroy = @'
           import os,pathlib,shutil
           parent=pathlib.Path(os.environ['RUNNER_TEMP']).resolve()
           root=parent/'business31-private-job'
@@ -238,4 +250,5 @@ jobs:
               if root.is_symlink() or root.resolve().parent!=parent: raise RuntimeError('Scratch ownership differs')
               shutil.rmtree(root)
           '@
-          $destroy | & $env:PYTHON_EXE -I -S -B -
+            $destroy | & $python -I -S -B -
+          }
