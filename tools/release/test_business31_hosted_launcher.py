@@ -528,8 +528,9 @@ class LauncherPlan(unittest.TestCase):
         marker = '      - name: Prepare isolated public Git inputs without checking out candidate code\n'
         self.assertEqual(source.count(marker), 1)
         step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
-        self.assertEqual(step.count("<<'PY'\n"), 1)
-        body = textwrap.dedent(step.split("<<'PY'\n", 1)[1].split('\n          PY', 1)[0])
+        self.assertEqual(step.count("$prepare = @'\n"), 1)
+        self.assertEqual(step.count("\n          '@\n"), 1)
+        body = textwrap.dedent(step.split("$prepare = @'\n", 1)[1].split("\n          '@\n", 1)[0])
         if legacy:
             trust, request, _, _, selected = self.artifact_fixture()
             trust.update(schemaVersion=1, nodeSha256='A' * 64, gitSha256='B' * 64,
@@ -560,6 +561,10 @@ class LauncherPlan(unittest.TestCase):
         import base64
         env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'LANG', 'LC_ALL')
                if key in os.environ}
+        # The Windows workflow forwards these to its pinned Git; Git itself is inert here.
+        for key, value in (('SystemRoot', 'C:\\Windows'), ('WINDIR', 'C:\\Windows'),
+                           ('COMSPEC', 'C:\\Windows\\System32\\cmd.exe')):
+            env.setdefault(key, value)
         env.update(HOME=str(owned), USERPROFILE=str(owned), TMP=str(owned), TEMP=str(owned), RUNNER_TEMP=str(owned),
                    TRUST_JSON=parts[0], TRUST_JSON_PART_2=parts[1], TRUST_JSON_PART_3=parts[2],
                    TRUST_SHA=expected_hash or hashlib.sha256(whole).hexdigest().upper(),
@@ -664,7 +669,7 @@ class LauncherPlan(unittest.TestCase):
                                output=str(self.root / "business31-hosted-result.json"),
                                private_parent=str(self.root))
 
-    def staged_child(self, argv, env, owned):
+    def staged_child(self, argv, env, owned, verifier_files=None):
         self.assertFalse((self.root / "business31-hosted-result.json").exists())
         (Path(owned) / "business31-hosted-result.json").write_bytes(b'{"synthetic":true}\n')
         return b"", b""
@@ -812,7 +817,7 @@ class DiagnosticFailures(unittest.TestCase):
                 answer = self.actual.__exit__(*exc)
                 if cleanup_error: raise OSError('TOKEN_SENTINEL cleanup private path')
                 return answer
-        def child(argv, env, owned):
+        def child(argv, env, owned, verifier_files=None):
             if child_error: raise child_error
             launcher._child_exit(0)
             (Path(owned) / 'business31-hosted-result.json').write_bytes(b'{"synthetic":true}\n')
@@ -941,7 +946,8 @@ vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+')
         def kill(*unused):
             if cleanup_error: raise OSError('TOKEN_SENTINEL kill')
         clock = patch.object(launcher.time, 'monotonic', side_effect=[0, 7201]) if timeout else patch.object(launcher.time, 'monotonic', return_value=1)
-        with patch.object(launcher.subprocess, 'Popen', return_value=child), \
+        with patch.object(sys, 'platform', 'linux'), \
+             patch.object(launcher.subprocess, 'Popen', return_value=child), \
              patch.object(launcher.selectors, 'DefaultSelector', Selector), \
              patch.object(launcher.os, 'read', side_effect=lambda fd, limit: chunks[fd].pop(0)), \
              patch.object(launcher.os, 'killpg', side_effect=kill, create=True), \
@@ -972,6 +978,104 @@ vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+')
         value, error = self.synthetic_run_child(code=0)
         self.assertIsNone(error); self.assertEqual(value, (b'', b''))
         self.assertEqual(self.outer()['childExit'], 0)
+
+    WINDOWS_SUCCESS = dict(status='SUCCESS', exitCode=0, treeComplete=True, outputComplete=True,
+                           jobAssigned=True, cleanupErrors=[], failure=None)
+
+    def windows_child(self, result, stdout=b'', stderr=b''):
+        # Production Windows dispatch with a stub owned-process supervisor result.
+        calls = []
+
+        class Supervisor:
+            @staticmethod
+            def run_owned_process(**kwargs):
+                calls.append(kwargs)
+                target = Path(kwargs['output_directory']); target.mkdir()
+                (target / 'stdout.bin').write_bytes(stdout); (target / 'stderr.bin').write_bytes(stderr)
+                return dict(result)
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        directory = self.root / ('win-runner-' + str(len(list(self.root.iterdir())))); directory.mkdir()
+        with patch.object(sys, 'platform', 'win32'), \
+             patch.object(launcher, '_windows_supervisor', return_value=Supervisor):
+            try:
+                return launcher.run_child(['node.exe', 'entry.cjs'], {'PATH': 'synthetic'}, directory, {}), calls, None
+            except BaseException as error:
+                launcher._remember_failure(error)
+                return None, calls, error
+
+    def test_windows_runner_maps_owned_process_results(self):
+        value, calls, error = self.windows_child(self.WINDOWS_SUCCESS, stdout=b'out')
+        self.assertIsNone(error); self.assertEqual(value, (b'out', b''))
+        call = calls[0]
+        self.assertEqual((call['executable'], call['arguments'], call['timeout_seconds'], call['max_output_bytes'],
+                          call['environment']), ('node.exe', ['entry.cjs'], 3600, 1024 * 1024, {'PATH': 'synthetic'}))
+        self.assertEqual(self.outer()['childExit'], 0)
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', exitCode=1, failure='timeout'))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_TIMEOUT')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', failure='output-bound-exceeded'))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_OUTPUT_BOUND')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', exitCode=1, failure='nonzero-root-exit'),
+                                         stderr=self.wire(self.record()))
+        out = self.outer()
+        self.assertIsNotNone(error); self.assertEqual((out['stage'], out['reason'], out['childExit']), ('STS', 'STS_RESULT', 1))
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', failure='cleanup-incomplete',
+                                              cleanupErrors=[{'operation': 'pipe-drain'}]))
+        out = self.outer()
+        self.assertIsNotNone(error); self.assertTrue(out['cleanupFailed']); self.assertEqual(out['reason'], 'CHILD_FAILURE')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, treeComplete=False))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_FAILURE')
+
+    def test_windows_supervisor_requires_trust_pinned_producer(self):
+        name = 'tools/release/runtime_supervisor.py'
+        actual = hashlib.sha256(FILE.with_name('runtime_supervisor.py').read_bytes()).hexdigest().upper()
+        for files in (None, {}, {name: '0' * 64}):
+            with self.assertRaisesRegex(ValueError, 'BUSINESS_HOSTED_WINDOWS_SUPERVISOR_PRODUCER'):
+                launcher._windows_supervisor(files)
+        if os.name == 'nt':
+            self.assertTrue(callable(launcher._windows_supervisor({name: actual}).run_owned_process))
+
+    def test_protected_runner_platform_gate_and_windows_trust_rebinding(self):
+        with patch.object(sys, 'platform', 'darwin'):
+            try:
+                launcher.execute_launch(self.args); error = None
+            except BaseException as caught:
+                error = caught; launcher._remember_failure(caught)
+        self.assertIsInstance(error, ValueError)
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('INPUT_STAGING', 'PROTECTED_HOSTED_RUNNER_REQUIRED'))
+        # On Windows the selected trust commitment is re-measured before the supervisor is selected.
+        launcher._reset_failure()
+        with patch.object(sys, 'platform', 'win32'), \
+             patch.object(launcher, 'launch_plan', return_value=([], {})), \
+             patch.object(launcher, '_run_child_windows', side_effect=AssertionError('child must not start')):
+            try:
+                launcher.execute_launch(self.args); error = None
+            except BaseException as caught:
+                error = caught; launcher._remember_failure(caught)
+        self.assertIsInstance(error, ValueError)
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('CHILD_EXECUTION', 'EXTERNAL_CONFIG_COMMITMENT'))
+        self.assertFalse(self.output.exists())
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows owned-process supervisor')
+    def test_windows_real_owned_child_success_and_bounded_failure(self):
+        name = 'tools/release/runtime_supervisor.py'
+        files = {name: hashlib.sha256(FILE.with_name('runtime_supervisor.py').read_bytes()).hexdigest().upper()}
+        env = {k: os.environ[k] for k in ('SystemRoot', 'WINDIR', 'COMSPEC') if k in os.environ}
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        owned = self.root / 'win-real-ok'; owned.mkdir()
+        with patch.object(sys, 'platform', 'win32'):
+            value = launcher.run_child([sys.executable, '-I', '-S', '-c', "import sys; sys.stdout.write('owned-ok')"],
+                                       env, owned, files)
+        self.assertEqual(value, (b'owned-ok', b''))
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        owned = self.root / 'win-real-fail'; owned.mkdir()
+        code = 'import sys; sys.stderr.buffer.write(' + repr(self.wire(self.record())) + '); sys.exit(3)'
+        with patch.object(sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, 'BUSINESS_HOSTED_CHILD_FAILURE'):
+            try:
+                launcher.run_child([sys.executable, '-I', '-S', '-c', code], env, owned, files)
+            except BaseException as error:
+                launcher._remember_failure(error); raise
+        out = self.outer()
+        self.assertEqual((out['stage'], out['reason'], out['childExit']), ('STS', 'STS_RESULT', 3))
 
     def test_real_node_native_failure_never_exposes_missing_path(self):
         absent = self.root / 'TOKEN_SENTINEL-absent-trust.json'
