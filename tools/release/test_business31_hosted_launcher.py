@@ -1174,6 +1174,16 @@ vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+')
         _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, treeComplete=False))
         self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_FAILURE')
 
+    def test_windows_child_bound_is_the_supervisor_maximum_and_covers_the_core_worker_bound(self):
+        # One hosted replay child runs the recorded core worker plus three admissions and client checks.
+        # The unchanged recorded supervisor caps any owned process at 3600 s.
+        supervisor = FILE.with_name('runtime_supervisor.py').read_text(encoding='utf8')
+        self.assertIn('0 < timeout_seconds <= 3600', supervisor)
+        self.assertEqual(launcher.WINDOWS_CHILD_SECONDS, 3600)
+        replay = FILE.with_name('business31OriginalPathReplayV2.cjs').read_text(encoding='utf8')
+        self.assertIn('const WORKER_TIMEOUT_MS=30*60*1000;', replay)
+        self.assertGreaterEqual(launcher.WINDOWS_CHILD_SECONDS, 2 * 30 * 60)
+
     def test_windows_supervisor_requires_trust_pinned_producer(self):
         name = 'tools/release/runtime_supervisor.py'
         actual = hashlib.sha256(FILE.with_name('runtime_supervisor.py').read_bytes()).hexdigest().upper()

@@ -286,6 +286,8 @@ def launch_plan(mode, node, trust_file, trust_sha256, input_file, output, worksp
 
 
 WINDOWS_SUPERVISOR = "tools/release/runtime_supervisor.py"
+# The recorded supervisor's maximum (runtime_supervisor.py refuses more and must stay unchanged). One replay
+# runs three admissions, three client measurements, the download and the core worker bounded at 30 minutes.
 WINDOWS_CHILD_SECONDS = 3600
 
 
