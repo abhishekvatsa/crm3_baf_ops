@@ -48,10 +48,18 @@ function initialBind(map,file){
  for(const part of full.slice(cursor.length).split(path.sep).filter(Boolean)){cursor=path.join(cursor,part);need(!fs.lstatSync(cursor).isSymbolicLink(),'outer helper redirects');}
  need(fs.lstatSync(full).isFile()&&sha(fs.readFileSync(full))===map[file],'outer helper bytes differ');return full;
 }
-function workerEnvironment31(){
+function workerEnvironment31(gitExecutable){
  const env={};for(const key of ['SystemRoot','SYSTEMROOT','WINDIR','COMSPEC','TEMP','TMP','PATH','PATHEXT','LANG','LC_ALL'])if(process.env[key]!==undefined)env[key]=process.env[key];
+ // The recorded closure producers launch bare `git` (backendRuntimeAdmission31.cjs, business31SourceOptions.cjs, ...)
+ // and the launcher hands the replay a PATH holding only the Node folder: hosted run 44933552509 died there (ENOENT).
+ // The selected Git's own folder comes first, so every bare `git` resolves to exactly the Git the worker digest-binds.
+ // Anything else leaves PATH as inherited; the worker's own input/runtime checks then refuse it, as before.
+ if(typeof gitExecutable==='string'&&path.isAbsolute(gitExecutable)&&!path.dirname(gitExecutable).includes(path.delimiter))
+  env.PATH=env.PATH?path.dirname(gitExecutable)+path.delimiter+env.PATH:path.dirname(gitExecutable);
  Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:process.platform==='win32'?'NUL':'/dev/null',GIT_TERMINAL_PROMPT:'0',GIT_PAGER:'cat',GIT_OPTIONAL_LOCKS:'0',GIT_NO_LAZY_FETCH:'1'});return env;
 }
+// The Git named by the exact bytes the worker reads, never a second read of the caller's object.
+function sentGitExecutable31(raw){const sent=JSON.parse(raw);return sent!==null&&typeof sent==='object'&&Object.hasOwn(sent,'gitExecutable')?sent.gitExecutable:undefined;}
 function invokeCoreWorker31({workerFile,input,ownedDirectory,nodeSha256}){
  need(Number(process.versions.node.split('.')[0])===22,'pinned Node22 required');
  const raw=Buffer.from(JSON.stringify(input));need(raw.length>0&&raw.length<=2*1024*1024,'bounded worker metadata required');
@@ -62,7 +70,7 @@ function invokeCoreWorker31({workerFile,input,ownedDirectory,nodeSha256}){
   need(sha(fs.readFileSync(process.execPath))===nodeSha256,'pinned Node changed before worker');
   stage='CORE_WORKER_PROCESS';
   child=spawnSync(process.execPath,['--no-global-search-paths',workerFile,inputFile,sha(raw)],{
-   cwd:ownedDirectory,env:workerEnvironment31(),windowsHide:true,timeout:WORKER_TIMEOUT_MS,maxBuffer:2*1024*1024,encoding:null,stdio:['ignore','pipe','pipe']});
+   cwd:ownedDirectory,env:workerEnvironment31(sentGitExecutable31(raw)),windowsHide:true,timeout:WORKER_TIMEOUT_MS,maxBuffer:2*1024*1024,encoding:null,stdio:['ignore','pipe','pipe']});
   need(!child.error&&!child.signal&&child.status===0,'fresh recorded core worker failed');
   stage='CORE_WORKER_RESULT';
   need(Buffer.isBuffer(child.stdout)&&child.stdout.length>0&&child.stdout.length<=2*1024*1024&&Buffer.isBuffer(child.stderr)&&child.stderr.length===0,'bounded clean worker result required');
