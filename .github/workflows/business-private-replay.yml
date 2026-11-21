@@ -255,12 +255,17 @@ jobs:
               throw 'Installed Python differs from the pinned runtime'
             }
             $destroy = @'
-          import os,pathlib,shutil
+          import os,pathlib,shutil,stat
           parent=pathlib.Path(os.environ['RUNNER_TEMP']).resolve()
           root=parent/'business31-private-job'
+          def writable(function,path,_):
+              # Git writes object, pack and commit-graph files read-only, and Windows refuses to delete a
+              # read-only file (hosted run 44933552509). Clear that bit and retry once; anything else still fails.
+              os.chmod(path,stat.S_IWRITE)
+              function(path)
           if root.exists():
               if root.is_symlink() or root.resolve().parent!=parent: raise RuntimeError('Scratch ownership differs')
-              shutil.rmtree(root)
+              shutil.rmtree(root,onexc=writable)
           '@
             $destroy | & $python -I -S -B -
           }
