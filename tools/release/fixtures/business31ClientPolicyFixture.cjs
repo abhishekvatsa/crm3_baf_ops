@@ -14,9 +14,10 @@ const hostedClient = require('../business31HostedClient.cjs');
 const policySubject = require('../business31ClientPolicy.cjs');
 const hostedFixture = require('./business31HostedFixture.cjs');
 const releaseRoot = path.resolve(__dirname, '..');
-function createFixture({mutations = [], identityBytes, extraProducers = [], publicApprovalEnvelope = false, successor = false, enrollmentWorkflows = false} = {}) {
+function createFixture({mutations = [], identityBytes, extraProducers = [], publicApprovalEnvelope = false, successor = false, enrollmentWorkflows = false, actionCustody = false} = {}) {
 if (typeof successor !== 'boolean') throw Error('successor must be a boolean');
 if (typeof enrollmentWorkflows !== 'boolean' || (enrollmentWorkflows && !successor)) throw Error('enrollmentWorkflows requires the successor fixture');
+if (typeof actionCustody !== 'boolean' || (actionCustody && !successor)) throw Error('actionCustody requires the successor fixture');
 if (typeof publicApprovalEnvelope !== 'boolean') throw Error('publicApprovalEnvelope must be a boolean');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'business31-client-policy-'));
 process.stdout.write('Retained synthetic client policy fixture: ' + temporary + '\n');
@@ -131,6 +132,10 @@ if (successor) for (const name of ['business31TrustedInputV2.cjs', 'business31Pr
   successorFiles[file] = fs.readFileSync(path.join(releaseRoot, name)); bindings[file] = sha(successorFiles[file]);
 }
 if (enrollmentWorkflows) for (const file of ['.github/workflows/production-artifact.yml', '.github/workflows/release-gate.yml'])
+  successorFiles[file] = fs.readFileSync(path.resolve(releaseRoot, '../..', file));
+// A verifier that changes the replay workflow's pinned actions also changes the
+// repository-wide action-reference custody test that counts them.
+if (actionCustody) for (const file of ['.github/workflows/business-private-replay.yml', 'tools/release/workflow_action_ref_custody.test.mjs'])
   successorFiles[file] = fs.readFileSync(path.resolve(releaseRoot, '../..', file));
 const Vnew = successor ? commit({...C.files, ...successorFiles}, [C]) : V;
 const sourceIntegration = Object.fromEntries(Object.entries(successorFiles).map(([file, bytes]) =>

@@ -29,6 +29,9 @@ const INTEGRATION_PATHS=Object.freeze([
  'business31PolicyInvocation.cjs','business31PolicyInvocation.test.cjs','business31ClientRoute.test.cjs',
  'clientBackendCompatibility31.js','clientBackendCompatibility31.test.cjs','clientBackendCompatibility31.test.mjs',
  'collectDistributionInstallationReadback.test.mjs',
+ // Pins the repository-wide immutable action-reference count, so any change to the
+ // in-scope replay/release workflows' pinned actions must change this test too.
+ 'workflow_action_ref_custody.test.mjs',
  'fixtures/business31ClientPolicyFixture.cjs','fixtures/business31HostedFixture.cjs'
  ].map(file=>'tools/release/'+file)
 ]);

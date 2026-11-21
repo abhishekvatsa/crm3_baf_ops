@@ -52,3 +52,20 @@ test('actual Git admission binds only the two newly enrolled workflow integratio
   assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(changed),/integration member invalid/);
  }
 });
+
+test('actual Git admission accepts a verifier whose replay workflow actions move the action-reference custody pin',()=>{
+ // Verifier v8 changed the replay workflow's pinned actions and therefore the repository-wide
+ // action-reference count in workflow_action_ref_custody.test.mjs; that delta must stay admissible.
+ const g=createFixture({successor:true,actionCustody:true}),x=g.platformFixture(),ci=g.clientInput();
+ const args={repositoryRoot:g.root,gitExecutable:ci.gitExecutable,gitSha256:x.trust.gitSha256,
+  envelope:trusted.createTrustedEnvelopeV2(x.trust,x.request.candidate),descriptorPointer:x.request.descriptorPointer,
+  expectedSourceManifestSha256:x.trust.sourceManifestSha256};
+ assert.equal(trusted.verifyBusiness31TrustedInputV2(args).inputBoundaryVerified,true);
+ assert.equal(descriptor.verifyBusiness31DescriptorPreparationV2(args).descriptorStructureVerified,true);
+ for(const file of ['.github/workflows/business-private-replay.yml','tools/release/workflow_action_ref_custody.test.mjs']){
+  assert.equal(trusted.INTEGRATION_PATHS.includes(file),true);
+  assert.ok(Object.hasOwn(args.envelope.sourceIntegration,file));
+  const omitted=structuredClone(args);delete omitted.envelope.sourceIntegration[file];
+  assert.throws(()=>trusted.verifyBusiness31TrustedInputV2(omitted),/integration must exactly equal/);
+ }
+});
