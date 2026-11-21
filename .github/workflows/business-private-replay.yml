@@ -104,6 +104,11 @@ jobs:
           # neither these records nor the retained private owner message.
           CLIENT_SELECTED_JSON: ${{ vars.BUSINESS31_CLIENT_SELECTED_JSON }}
           CLIENT_ORIGINAL_MESSAGE_B64: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64 }}
+          CLIENT_ORIGINAL_MESSAGE_B64_PART_2: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64_PART_2 }}
+          CLIENT_ORIGINAL_MESSAGE_B64_PART_3: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64_PART_3 }}
+          CLIENT_ORIGINAL_MESSAGE_B64_PART_4: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64_PART_4 }}
+          CLIENT_ORIGINAL_MESSAGE_B64_PART_5: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64_PART_5 }}
+          CLIENT_ORIGINAL_MESSAGE_B64_PART_6: ${{ secrets.BUSINESS31_CLIENT_ORIGINAL_MESSAGE_B64_PART_6 }}
         run: |
           $ErrorActionPreference = 'Stop'
           $PSNativeCommandUseErrorActionPreference = $true
@@ -167,7 +172,12 @@ jobs:
           if client_mode:
               selected_raw=carried('CLIENT_SELECTED_JSON')
               selected=json.loads(selected_raw)
-              original=base64.b64decode(carried('CLIENT_ORIGINAL_MESSAGE_B64'),validate=True)
+              # A 128 KiB owner message needs more than one carried value: up to six contiguous, individually bounded parts.
+              names=['CLIENT_ORIGINAL_MESSAGE_B64']+['CLIENT_ORIGINAL_MESSAGE_B64_PART_%d'%n for n in range(2,7)]
+              present=[os.environ.get(name,'')!='' for name in names]
+              used=present.index(False) if False in present else len(names)
+              need(used>0 and not any(present[used:]))
+              original=base64.b64decode(b''.join(carried(name) for name in names[:used]),validate=True)
               need(0<len(original)<=128*1024)
               need(selected['originalMessage']=={'sha256':hashlib.sha256(original).hexdigest().upper(),'bytes':len(original)})
               original_file=root/'original-client-message.bin';original_file.write_bytes(original);original_file.chmod(0o600)

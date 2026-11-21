@@ -710,6 +710,51 @@ class LauncherPlan(unittest.TestCase):
                 if git_calls == 0:
                     self.assertFalse((directory / 'trust.json').exists())
 
+    def test_actual_workflow_python_carries_owner_messages_up_to_128_kib_in_bounded_parts(self):
+        # The client pipeline accepts owner messages up to 128 KiB; one carried value holds at most 24,000
+        # decoded bytes, so the message may arrive in up to six contiguous parts of at most 32,000 bytes each.
+        import base64
+        names = ['CLIENT_ORIGINAL_MESSAGE_B64'] + ['CLIENT_ORIGINAL_MESSAGE_B64_PART_%d' % n for n in range(2, 7)]
+
+        def raw(size):
+            return bytes((index * 7 + 3) % 251 for index in range(size))
+
+        def message(size, split=32000, layout=None):
+            def alter(env):
+                body = raw(size)
+                selected = json.loads(env['CLIENT_SELECTED_JSON'])
+                selected['originalMessage'] = {'sha256': hashlib.sha256(body).hexdigest().upper(), 'bytes': len(body)}
+                env['CLIENT_SELECTED_JSON'] = json.dumps(selected)
+                encoded = base64.b64encode(body).decode()
+                parts = [encoded[at:at + split] for at in range(0, len(encoded), split)]
+                if layout:
+                    parts = layout(parts)
+                self.assertLessEqual(len(parts), len(names))
+                for name in names:
+                    env.pop(name, None)
+                env.update(zip(names, parts))
+            return alter
+
+        accepted = [('one part, 3,329 bytes', 3329, {}), ('two parts, 24,001 bytes', 24001, {}),
+                    ('six parts, exactly 128 KiB', 128 * 1024, {})]
+        for name, size, options in accepted:
+            with self.subTest(case=name):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, alter_env=message(size, **options))
+                self.assertEqual(result, {'ok': True, 'gitCalls': 3})
+                self.assertEqual((directory / 'original-client-message.bin').read_bytes(), raw(size))
+        refused = [('one part over the carried bound', 24001, {'split': 32001}),
+                   ('a gap between parts', 24001, {'layout': lambda p: [p[0], '', p[1]]}),
+                   ('an empty first part', 3329, {'layout': lambda p: ['', p[0]]}),
+                   ('one byte over 128 KiB', 128 * 1024 + 1, {})]
+        for name, size, options in refused:
+            with self.subTest(case=name):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, alter_env=message(size, **options))
+                self.assertEqual(result, {'ok': False, 'gitCalls': 3, 'exceptionType': 'RuntimeError',
+                                          'message': 'Hosted input preparation refused'})
+                self.assertFalse((directory / 'original-client-message.bin').exists())
+                output = directory.parent / 'github-output.txt'
+                self.assertFalse(output.exists() and 'candidate=' in output.read_text(encoding='utf8'))
+
     @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell 7 is required to execute the workflow step')
     def test_actual_cleanup_step_never_launches_the_enrolled_interpreter(self):
         """The always-run cleanup runs only the job's installed, re-pinned Python; never PYTHON_EXE."""
