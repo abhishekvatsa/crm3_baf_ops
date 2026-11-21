@@ -803,6 +803,61 @@ class LauncherPlan(unittest.TestCase):
                 self.assertEqual(exists, left, name)
                 self.assertFalse(ran.exists(), 'cleanup launched the enrolled interpreter')
 
+    @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell 7 is required to execute the workflow step')
+    def test_actual_gate_step_binds_the_node_that_runs_when_the_image_ships_another(self):
+        """The hosted image has its own Node on PATH besides the pinned one (hosted run 44918864165 died here):
+        the gate must bind exactly the first node on PATH, the one that runs, and still refuse any other."""
+        workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
+        source = workflow.read_text(encoding='utf8')
+        marker = '      - name: Require independently selected immutable workflow revision\n'
+        self.assertEqual(source.count(marker), 1)
+        step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
+        self.assertIn('          INSTALLED_PYTHON: ${{ steps.python.outputs.python-path }}\n', step)
+        script = self.root / 'gate-step.ps1'
+        script.write_text(textwrap.dedent(step.split('        run: |\n', 1)[1]), encoding='utf8')
+        pwsh = shutil.which('pwsh')
+        base = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATHEXT', 'HOME',
+                                                 'USERPROFILE', 'TEMP', 'TMP', 'LANG', 'LC_ALL') if key in os.environ}
+        nodes = []
+        for name in ('pinned-node', 'image-node'):
+            directory = self.root / name
+            directory.mkdir()
+            node = directory / ('node.exe' if os.name == 'nt' else 'node')
+            node.write_bytes(b'never executed by the gate\n')
+            node.chmod(0o700)
+            nodes.append(node)
+        runner_temp = self.root / 'runner-temp'
+        runner_temp.mkdir()
+        # The pinned MinGit location exactly as PowerShell itself joins and resolves it on this platform.
+        created = subprocess.run([pwsh, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+                                  "$p = Join-Path $env:RUNNER_TEMP 'business31-mingit\\ucrt64\\bin\\git.exe'; "
+                                  "New-Item -ItemType File -Force -Path $p | Out-Null; [IO.Path]::GetFullPath($p)"],
+                                 env=dict(base, PATH=os.environ.get('PATH', ''), RUNNER_TEMP=str(runner_temp)),
+                                 stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=120, check=True)
+        git = created.stdout.strip()
+        python = self.root / 'installed-python'
+        python.write_bytes(b'pinned interpreter bytes\n')
+        digest = launcher.digest(python)
+
+        def gate(node_exe, path_nodes, python_sha):
+            env = dict(base, PATH=os.pathsep.join([str(n.parent) for n in path_nodes] + [os.environ.get('PATH', '')]),
+                       SELECTED_V='a' * 40, GITHUB_SHA='a' * 40, GITHUB_REF='refs/tags/build31-business-verifier-test',
+                       PYTHON_EXE=str(python), INSTALLED_PYTHON=str(python), PYTHON_SHA=python_sha, LAUNCHER_SHA='B' * 64,
+                       NODE_EXE=str(node_exe), GIT_EXE=git, RUNNER_TEMP=str(runner_temp))
+            result = subprocess.run([pwsh, '-NoLogo', '-NoProfile', '-NonInteractive', '-Command', ". '" + str(script) + "'"],
+                                    env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=120, check=False)
+            return result.returncode
+
+        pinned, image = nodes
+        cases = [  # (name, enrolled node, nodes on PATH in order, enrolled Python digest, expected success)
+            ('pinned-first-image-second', pinned, [pinned, image], digest, True),
+            ('pinned-alone', pinned, [pinned], digest, True),
+            ('enrolled-node-is-not-the-one-that-runs', image, [pinned, image], digest, False),
+            ('python-digest-differs', pinned, [pinned, image], '0' * 64, False)]
+        for name, node_exe, path_nodes, python_sha, succeeds in cases:
+            with self.subTest(case=name):
+                self.assertEqual(gate(node_exe, path_nodes, python_sha) == 0, succeeds, name)
+
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()
         past = datetime.now(timezone.utc) - timedelta(seconds=1)

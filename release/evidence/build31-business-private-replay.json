@@ -3,8 +3,8 @@
   "documentType": "build31-business-backend-private-replay",
   "profile": "build31-exact-business-backend-v2",
   "verifier": {
-    "commit": "806f641025b2628eceb17ce2c1ae8ffd501761f1",
-    "tree": "525af11f608b8027fa093cac9ac151830ee07aab"
+    "commit": "332d1446af1f8a52b82f9154de079d46c5212feb",
+    "tree": "923dacd9f72b981170d95f9c5f6882286dee47a3"
   },
   "coreVerifier": {
     "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
@@ -219,8 +219,8 @@
   "sourceIntegration": {
     ".github/workflows/business-private-replay.yml": {
       "mode": "100644",
-      "oid": "68a7e58070a508c25c223a1001649512e4d136fa",
-      "sha256": "3C5F6A3AAC041231579528C6471C28FD2063F1D63D4159CE1EE8E010D2540ACB"
+      "oid": "72da57e66dca7ddb82412f5e25facd02ef175c41",
+      "sha256": "CDCCA0651B843317B65A230D82C0F9CD862A1F0E3D550FF064D384085F5FDB4D"
     },
     ".github/workflows/production-artifact.yml": {
       "mode": "100644",
@@ -444,8 +444,8 @@
     },
     "tools/release/test_business31_hosted_launcher.py": {
       "mode": "100644",
-      "oid": "aabf8be6f10bba8e6ca095e7de08f2b56e5dfbc7",
-      "sha256": "B471D1498B29D047D7DBC7F8047B3819616A2933EE2DA4BA7CEC2674129C86B4"
+      "oid": "75dd10d0abc5cbed5878d19fea18da2dead55fd2",
+      "sha256": "4B6934788CADB52262152D3C28D7A9663CF05B1A287037425936965C6754C660"
     },
     "tools/release/workflow_action_ref_custody.test.mjs": {
       "mode": "100644",

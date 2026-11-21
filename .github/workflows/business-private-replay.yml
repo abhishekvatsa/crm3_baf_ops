@@ -83,7 +83,9 @@ jobs:
           Need (($env:PYTHON_SHA -cmatch '^[A-F0-9]{64}$') -and ($env:LAUNCHER_SHA -cmatch '^[A-F0-9]{64}$'))
           # Enrolled executables must be exactly the pinned runtimes this job installed.
           Need ([IO.Path]::GetFullPath($env:PYTHON_EXE) -ceq [IO.Path]::GetFullPath($env:INSTALLED_PYTHON))
-          Need ([IO.Path]::GetFullPath($env:NODE_EXE) -ceq [IO.Path]::GetFullPath((Get-Command node -CommandType Application).Source))
+          # With -CommandType Application, Get-Command lists EVERY node on PATH, and the runner image ships its
+          # own Node besides the pinned one. Bind only the first match: the node that actually runs.
+          Need ([IO.Path]::GetFullPath($env:NODE_EXE) -ceq [IO.Path]::GetFullPath((Get-Command node -CommandType Application | Select-Object -First 1).Source))
           Need ([IO.Path]::GetFullPath($env:GIT_EXE) -ceq [IO.Path]::GetFullPath((Join-Path $env:RUNNER_TEMP 'business31-mingit\ucrt64\bin\git.exe')))
           Need ((Get-FileHash -LiteralPath $env:PYTHON_EXE -Algorithm SHA256).Hash -ceq $env:PYTHON_SHA)
 
