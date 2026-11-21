@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import shutil
+import stat
 from pathlib import Path
 import tempfile
 import sys
@@ -777,12 +778,20 @@ class LauncherPlan(unittest.TestCase):
             enrolled.write_text('#!/bin/sh\necho ran > "' + str(ran) + '"\n', encoding='utf8')
             enrolled.chmod(0o700)
         pinned = launcher.digest(Path(sys.executable))
+        # Windows refuses to delete a read-only file, and Git writes its objects, packs and commit-graph files
+        # read-only: hosted run 44933552509 failed its cleanup on the prepared clone's commit-graph-chain.
+        self.assertIn('              os.chmod(path,stat.S_IWRITE)\n              function(path)\n', step)
+        self.assertIn('              shutil.rmtree(root,onexc=writable)\n', step)
 
-        def run(name, scratch, installed, python_sha):
+        def run(name, scratch, installed, python_sha, read_only):
             temp = self.root / name; temp.mkdir()
             job = temp / 'business31-private-job'
             if scratch:
                 (job / 'repository').mkdir(parents=True); (job / 'trust.json').write_bytes(b'{}')
+            if read_only:
+                for leaf in ('objects/info/commit-graphs/commit-graph-chain', 'objects/pack/pack-synthetic.pack'):
+                    file = job / 'repository/.git' / leaf
+                    file.parent.mkdir(parents=True, exist_ok=True); file.write_bytes(b'synthetic'); file.chmod(stat.S_IREAD)
             env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'HOME',
                                                      'USERPROFILE', 'TEMP', 'TMP', 'LANG', 'LC_ALL') if key in os.environ}
             env.update(RUNNER_TEMP=str(temp), INSTALLED_PYTHON=installed, PYTHON_SHA=python_sha, PYTHON_EXE=str(enrolled))
@@ -791,14 +800,16 @@ class LauncherPlan(unittest.TestCase):
                                     capture_output=True, timeout=120, check=False)
             return result.returncode, job.exists()
 
-        cases = [  # (name, scratch exists, installed interpreter, enrolled digest, expected success, scratch left)
-            ('nothing-prepared', False, '', pinned, True, False),
-            ('pinned-cleanup', True, sys.executable, pinned, True, False),
-            ('installed-not-pinned', True, sys.executable, '0' * 64, False, True),
-            ('no-installed-python', True, '', pinned, False, True)]
-        for name, scratch, installed, python_sha, succeeds, left in cases:
+        cases = [  # (name, scratch exists, installed interpreter, enrolled digest, read-only Git files,
+                   #  expected success, scratch left)
+            ('nothing-prepared', False, '', pinned, False, True, False),
+            ('pinned-cleanup', True, sys.executable, pinned, False, True, False),
+            ('read-only-git-files', True, sys.executable, pinned, True, True, False),
+            ('installed-not-pinned', True, sys.executable, '0' * 64, False, False, True),
+            ('no-installed-python', True, '', pinned, False, False, True)]
+        for name, scratch, installed, python_sha, read_only, succeeds, left in cases:
             with self.subTest(case=name):
-                code, exists = run(name, scratch, installed, python_sha)
+                code, exists = run(name, scratch, installed, python_sha, read_only)
                 self.assertEqual(code == 0, succeeds, name)
                 self.assertEqual(exists, left, name)
                 self.assertFalse(ran.exists(), 'cleanup launched the enrolled interpreter')
