@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "profile": "build31-business-client-semantics-v1",
+  "source": {
+    "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
+    "tree": "abbaa5550cbe72f7c4716897925d1fbc4271c226",
+    "functionsTree": "4d385eb57db3ee24b0840554def0f24b678ddf10"
+  },
+  "sourceManifestSha256": "E5B562E2C1A894A4153580ACDE7A66C1EB5C717AB1E1B5CB9B9D6DC358813CF9",
+  "backendApproval": {
+    "commit": "f20446b4ff1f3c6a0763d6bf799f5ea3c1693f01",
+    "file": "release/approvals/build31-business-backend-deployment-approval.json",
+    "sha256": "62BB96593948EFAEC7628A8CFAB2C0E493E06F36CE19A6F6C3659EB296328820"
+  },
+  "backendClosure": {
+    "commit": "e91e5015bbca9c2c1fd52dc13cf6c772c0bfd0c4",
+    "file": "release/evidence/build31-business-backend-deployment-closure.json",
+    "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
+  },
+  "descriptor": {
+    "commit": "34d00be3376c7ede4d870222f1a96fa62416d784",
+    "file": "release/evidence/build31-business-private-replay.json",
+    "sha256": "E1C39179E8D614C24BA7461874A4E0C5EA051D75B1EB4303583A8D95CD003863"
+  },
+  "scope": {
+    "buildNumber": 31,
+    "clientConstruction": true,
+    "backendDeployment": false,
+    "signing": false,
+    "distribution": false,
+    "iamMutation": false,
+    "enforcementMutation": false
+  },
+  "appCheck": {
+    "releaseId": "crm3-baf-ops-1.0.0-rc.21-b31",
+    "reservationId": "CRM3_BUILD31_20261115-31",
+    "clientEnabled": true,
+    "androidProvider": "playIntegrity",
+    "mutatingDefaultEnforced": false,
+    "identityCallable": {
+      "name": "getBackendReleaseIdentity",
+      "enforced": true,
+      "sourceFile": "functions/src/stage2dSecurityConfig.ts",
+      "sourceSha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F"
+    }
+  },
+  "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
+  "documentType": "build31-business-client-owner-authorization",
+  "authorizedAtUtc": "2026-11-21T20:35:02.436Z",
+  "recordedAtUtc": "2026-11-21T21:37:30.889Z",
+  "originalMessage": {
+    "sha256": "4498A7FAE9A154C533AB2AA042FF03982A7D0E1FE2F667248BF2C0ED47349E61",
+    "bytes": 3329
+  }
+}
