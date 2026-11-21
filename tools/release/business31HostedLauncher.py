@@ -7,6 +7,7 @@ import argparse
 from datetime import datetime, timezone
 from contextlib import ExitStack
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -26,7 +27,7 @@ _NODE_REASONS = frozenset(["ABSOLUTE_PATH","ADMISSION_CHANGED","ADMITTED_CORE_VE
 _NATIVE_CODES = frozenset(["EACCES","EAGAIN","EBADF","EBUSY","ECHILD","ECONNREFUSED","ECONNRESET","EEXIST","EFAULT","EFBIG","EINTR","EINVAL","EIO","EISDIR","EMFILE","ENAMETOOLONG","ENFILE","ENOENT","ENOMEM","ENOSPC","ENOTDIR","ENOTEMPTY","ENOTSUP","EPERM","EPIPE","ETIMEDOUT","ERR_BUFFER_TOO_LARGE","ERR_FS_FILE_TOO_LARGE","ERR_INVALID_ARG_TYPE","ERR_OUT_OF_RANGE","ENOBUFS"])
 _SIGNALS = frozenset(["SIGABRT","SIGALRM","SIGBUS","SIGFPE","SIGHUP","SIGILL","SIGINT","SIGKILL","SIGPIPE","SIGQUIT","SIGSEGV","SIGTERM","SIGTRAP"])
 _NATIVE_ERRNOS = {getattr(errno, name): name for name in _NATIVE_CODES if hasattr(errno, name)}
-_OWN_REFUSALS = {"BUSINESS_HOSTED_" + code: code for code in ["ABSOLUTE_PATH","CHALLENGE_CONSTRUCTION","CHALLENGE_DATE","CHALLENGE_DUPLICATE","CHALLENGE_DURATION","CHALLENGE_FILE","CHALLENGE_FILES","CHALLENGE_IDENTITY","CHALLENGE_JOIN","CHALLENGE_PACKAGE","CHALLENGE_REQUESTER","CHALLENGE_UNEXPECTED_FILES","CHILD_DIAGNOSTIC","CHILD_FAILURE","CHILD_OUTPUT_BOUND","CHILD_TIMEOUT","CLI","CLIENT_APPCHECK_FIELDS","CLIENT_APPCHECK_JOIN","CLIENT_BACKEND_JOIN","CLIENT_CHALLENGE_TIME","CLIENT_CLOSURE_TIME","CLIENT_CORE_FIELDS","CLIENT_CORE_JOIN","CLIENT_IDENTITY_FIELDS","CLIENT_INPUT_BOUND","CLIENT_INPUT_COMMITMENT","CLIENT_INPUT_FIELDS","CLIENT_INPUT_SELECTION","CLIENT_MESSAGE_FIELDS","CLIENT_MESSAGE_JOIN","CLIENT_OUTPUT_AUTHORITY","CLIENT_OUTPUT_BOUND","CLIENT_OUTPUT_FIELDS","CLIENT_OUTPUT_PROFILE","CLIENT_OUTPUT_VERSION","CLIENT_POINTER_FIELDS","CLIENT_POINTER_JOIN","CLIENT_POLICY_APPCHECK","CLIENT_POLICY_BINDING_SOURCE","CLIENT_POLICY_CANDIDATE_TYPE","CLIENT_POLICY_CLOSURE_JOIN","CLIENT_POLICY_CORE_JOIN","CLIENT_POLICY_FIELDS","CLIENT_POLICY_POINTER","CLIENT_POLICY_POINTER_JOIN","CLIENT_POLICY_PRESERVED_DIGEST","CLIENT_POLICY_RELEASE","CLIENT_POLICY_SCOPE","CLIENT_POLICY_SOURCE_JOIN","CLIENT_PRODUCER","CLIENT_UNEXPECTED_CHALLENGE","CONSUMER_AUTHORITY","CONSUMER_CANDIDATE_FIELDS","CONSUMER_CANDIDATE_ROUTE","CONSUMER_COMMITMENT_FIELDS","CONSUMER_COMMITMENT_JOIN","CONSUMER_CORE_FIELDS","CONSUMER_CORE_JOIN","CONSUMER_DESCRIPTOR_JOIN","CONSUMER_OUTPUT_BOUND","CONSUMER_OUTPUT_DIGEST","CONSUMER_OUTPUT_FIELDS","CONSUMER_OUTPUT_IDENTITY","CONSUMER_OUTPUT_VERSION","CONSUMER_POINTER_FIELDS","CONSUMER_POINTER_IDENTITY","CONSUMER_SOURCE_FIELDS","CONSUMER_SOURCE_IDENTITY","CONSUMER_TRANSPORT_COMMITMENT","CONSUMER_VERIFIER_FIELDS","CORE_MEMBER","CORE_POPULATION","CORE_SOURCE","EXTERNAL_CONFIG_COMMITMENT","EXTRA_CLIENT_OUTPUT","EXTRA_CONSUMER_OUTPUT","EXTRA_REPLAY_OUTPUT","HOSTED_PRODUCER","ISOLATED_PYTHON_REQUIRED","JSON_BOUND","LAUNCHER_IDENTITY","LAUNCH_INPUT","MODE","NODE_IDENTITY","OUTPUT","PATH_REDIRECT","PLATFORM_INPUT","PRODUCER_IDENTITY","PRODUCER_PATH","PROTECTED_LINUX_RUNNER_REQUIRED","PYTHON_IDENTITY","REGULAR_PATH","REPLAY_CHALLENGE_TIME","REPLAY_CLIENT_SELECTION","REPLAY_DATE","REPLAY_OUTPUT_BOUND","REPLAY_OUTPUT_FIELDS","REPLAY_OUTPUT_LIMITS","REPLAY_PLATFORM","REPLAY_PRODUCER","REPLAY_TIME","REPLAY_UNEXPECTED_CLIENT","SOURCE_INTEGRATION","SOURCE_INTEGRATION_BINDING","SOURCE_INTEGRATION_PATH","TRUST_FIELDS","TRUST_PROFILE","UNEXPECTED_REPLAY_OUTPUT","V2_CHALLENGE_REQUIRED","V2_CLIENT_SELECTION_REQUIRED","VERIFIER_POPULATION"]}
+_OWN_REFUSALS = {"BUSINESS_HOSTED_" + code: code for code in ["ABSOLUTE_PATH","CHALLENGE_CONSTRUCTION","CHALLENGE_DATE","CHALLENGE_DUPLICATE","CHALLENGE_DURATION","CHALLENGE_FILE","CHALLENGE_FILES","CHALLENGE_IDENTITY","CHALLENGE_JOIN","CHALLENGE_PACKAGE","CHALLENGE_REQUESTER","CHALLENGE_UNEXPECTED_FILES","CHILD_DIAGNOSTIC","CHILD_FAILURE","CHILD_OUTPUT_BOUND","CHILD_TIMEOUT","CLI","CLIENT_APPCHECK_FIELDS","CLIENT_APPCHECK_JOIN","CLIENT_BACKEND_JOIN","CLIENT_CHALLENGE_TIME","CLIENT_CLOSURE_TIME","CLIENT_CORE_FIELDS","CLIENT_CORE_JOIN","CLIENT_IDENTITY_FIELDS","CLIENT_INPUT_BOUND","CLIENT_INPUT_COMMITMENT","CLIENT_INPUT_FIELDS","CLIENT_INPUT_SELECTION","CLIENT_MESSAGE_FIELDS","CLIENT_MESSAGE_JOIN","CLIENT_OUTPUT_AUTHORITY","CLIENT_OUTPUT_BOUND","CLIENT_OUTPUT_FIELDS","CLIENT_OUTPUT_PROFILE","CLIENT_OUTPUT_VERSION","CLIENT_POINTER_FIELDS","CLIENT_POINTER_JOIN","CLIENT_POLICY_APPCHECK","CLIENT_POLICY_BINDING_SOURCE","CLIENT_POLICY_CANDIDATE_TYPE","CLIENT_POLICY_CLOSURE_JOIN","CLIENT_POLICY_CORE_JOIN","CLIENT_POLICY_FIELDS","CLIENT_POLICY_POINTER","CLIENT_POLICY_POINTER_JOIN","CLIENT_POLICY_PRESERVED_DIGEST","CLIENT_POLICY_RELEASE","CLIENT_POLICY_SCOPE","CLIENT_POLICY_SOURCE_JOIN","CLIENT_PRODUCER","CLIENT_UNEXPECTED_CHALLENGE","CONSUMER_AUTHORITY","CONSUMER_CANDIDATE_FIELDS","CONSUMER_CANDIDATE_ROUTE","CONSUMER_COMMITMENT_FIELDS","CONSUMER_COMMITMENT_JOIN","CONSUMER_CORE_FIELDS","CONSUMER_CORE_JOIN","CONSUMER_DESCRIPTOR_JOIN","CONSUMER_OUTPUT_BOUND","CONSUMER_OUTPUT_DIGEST","CONSUMER_OUTPUT_FIELDS","CONSUMER_OUTPUT_IDENTITY","CONSUMER_OUTPUT_VERSION","CONSUMER_POINTER_FIELDS","CONSUMER_POINTER_IDENTITY","CONSUMER_SOURCE_FIELDS","CONSUMER_SOURCE_IDENTITY","CONSUMER_TRANSPORT_COMMITMENT","CONSUMER_VERIFIER_FIELDS","CORE_MEMBER","CORE_POPULATION","CORE_SOURCE","EXTERNAL_CONFIG_COMMITMENT","EXTRA_CLIENT_OUTPUT","EXTRA_CONSUMER_OUTPUT","EXTRA_REPLAY_OUTPUT","HOSTED_PRODUCER","ISOLATED_PYTHON_REQUIRED","JSON_BOUND","LAUNCHER_IDENTITY","LAUNCH_INPUT","MODE","NODE_IDENTITY","OUTPUT","PATH_REDIRECT","PLATFORM_INPUT","PRODUCER_IDENTITY","PRODUCER_PATH","PROTECTED_HOSTED_RUNNER_REQUIRED","PYTHON_IDENTITY","REGULAR_PATH","REPLAY_CHALLENGE_TIME","REPLAY_CLIENT_SELECTION","REPLAY_DATE","REPLAY_OUTPUT_BOUND","REPLAY_OUTPUT_FIELDS","REPLAY_OUTPUT_LIMITS","REPLAY_PLATFORM","REPLAY_PRODUCER","REPLAY_TIME","REPLAY_UNEXPECTED_CLIENT","SOURCE_INTEGRATION","SOURCE_INTEGRATION_BINDING","SOURCE_INTEGRATION_PATH","TRUST_FIELDS","TRUST_PROFILE","UNEXPECTED_REPLAY_OUTPUT","V2_CHALLENGE_REQUIRED","V2_CLIENT_SELECTION_REQUIRED","VERIFIER_POPULATION","WINDOWS_SUPERVISOR_PRODUCER"]}
 _FAILURE = {}
 
 def _reset_failure():
@@ -284,7 +285,63 @@ def launch_plan(mode, node, trust_file, trust_sha256, input_file, output, worksp
     return argv, env
 
 
-def run_child(argv, env, owned):
+WINDOWS_SUPERVISOR = "tools/release/runtime_supervisor.py"
+# The recorded supervisor's maximum (runtime_supervisor.py refuses more and must stay unchanged). One replay
+# runs three admissions, three client measurements, the download and the core worker bounded at 30 minutes.
+WINDOWS_CHILD_SECONDS = 3600
+
+
+def _windows_supervisor(verifier_files):
+    # The unchanged trust-selected Windows owned-process supervisor: suspended
+    # creation inside a kill-on-close job, bounded drained pipes, whole-tree exit.
+    need(isinstance(verifier_files, dict) and WINDOWS_SUPERVISOR in verifier_files, "WINDOWS_SUPERVISOR_PRODUCER")
+    path = Path(__file__).resolve().parents[2].joinpath(*WINDOWS_SUPERVISOR.split("/"))
+    need(digest(regular(path)) == verifier_files[WINDOWS_SUPERVISOR], "WINDOWS_SUPERVISOR_PRODUCER")
+    spec = importlib.util.spec_from_file_location("business31_hosted_windows_supervisor", path)
+    need(spec is not None and spec.loader is not None, "WINDOWS_SUPERVISOR_PRODUCER")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    need(callable(getattr(module, "run_owned_process", None)), "WINDOWS_SUPERVISOR_PRODUCER")
+    return module
+
+
+def _run_child_windows(argv, env, owned, verifier_files):
+    supervisor = _windows_supervisor(verifier_files)
+    target = Path(owned) / "child-process"
+    try:
+        result = supervisor.run_owned_process(
+            executable=argv[0], arguments=list(argv[1:]), cwd=str(owned), environment=dict(env),
+            output_directory=str(target), timeout_seconds=WINDOWS_CHILD_SECONDS,
+            max_output_bytes=1024 * 1024, cleanup_seconds=30)
+        need(isinstance(result, dict), "CHILD_FAILURE")
+        outputs = {}
+        for name in ("stdout", "stderr"):
+            stream = target / (name + ".bin")
+            outputs[name] = stream.read_bytes() if stream.is_file() else b""
+        code = result.get("exitCode")
+        _child_exit(code)
+        if result.get("cleanupErrors") or (result.get("jobAssigned") and not result.get("treeComplete")):
+            _FAILURE["cleanupFailed"] = True
+        if code != 0 and len(outputs["stderr"]) <= 512:
+            _remember_child_record(outputs["stderr"])
+        failure = result.get("failure")
+        need(failure != "timeout", "CHILD_TIMEOUT")
+        need(failure != "output-bound-exceeded", "CHILD_OUTPUT_BOUND")
+        need(result.get("status") == "SUCCESS" and code == 0 and result.get("treeComplete") is True
+             and result.get("outputComplete") is True, "CHILD_FAILURE")
+    except BaseException as error:
+        _remember_failure(error)
+        raise
+    return outputs["stdout"], outputs["stderr"]
+
+
+def run_child(argv, env, owned, verifier_files=None):
+    if sys.platform == "win32":
+        return _run_child_windows(argv, env, owned, verifier_files)
+    return _run_child_posix(argv, env, owned)
+
+
+def _run_child_posix(argv, env, owned):
     # Open private outputs before child creation; every later setup failure enters
     # the same owned-process cleanup path.
     with ExitStack() as resources:
@@ -684,7 +741,9 @@ def sanitized_replay_output(raw, trust, request, client_input=None):
 def execute_launch(args):
     _reset_failure()
     _phase("INPUT_STAGING")
-    need(sys.platform == "linux", "PROTECTED_LINUX_RUNNER_REQUIRED")
+    # Linux, or Windows for evidence recorded on Windows (the recorded core's
+    # relocation path layer is only complete for its own host convention).
+    need(sys.platform in ("linux", "win32"), "PROTECTED_HOSTED_RUNNER_REQUIRED")
     parent = regular(args.private_parent, directory=True)
     destination = None
     if args.mode == "replay":
@@ -715,7 +774,11 @@ def execute_launch(args):
                                         client_input, client_sha256)
                 # No shell, no inherited preloads/caches, no candidate-selected entry.
                 _phase("CHILD_EXECUTION")
-                stdout, stderr = run_child(argv, env, owned)
+                verifier_files = None
+                if sys.platform == "win32":
+                    need(digest(regular(args.trust)) == args.trust_sha256, "EXTERNAL_CONFIG_COMMITMENT")
+                    verifier_files = bounded_json(regular(args.trust))["verifier"]["files"]
+                stdout, stderr = run_child(argv, env, owned, verifier_files)
                 _phase("STDIO_GATE")
                 need(not stderr, "CHILD_DIAGNOSTIC")
                 _phase("RESULT_SANITIZATION")

@@ -33,6 +33,13 @@ test('unbound or changed recorded helper fails before it is imported',()=>{
  const relocation={roots:[{original:'/original-absent',memberRoot:'retained'}],roles:{authorityRoot:'/original-absent'}};
  assert.throws(()=>worker.coreFiles(root,relocation,{'tools/release/synthetic.cjs':'F'.repeat(64)}),/recorded producer differs/);
 });
+test('recorded core worker bound covers the measured Windows replay with margin',()=>{
+ // The full recorded core replay measured 622 s and 641 s on Windows; 600 s would end it mid-replay.
+ assert.equal(replay.WORKER_TIMEOUT_MS,30*60*1000);
+ assert.ok(replay.WORKER_TIMEOUT_MS>=2*641*1000);
+ const source=fs.readFileSync(path.join(__dirname,'business31OriginalPathReplayV2.cjs'),'utf8');
+ assert.match(source,/timeout:WORKER_TIMEOUT_MS,/);assert.doesNotMatch(source,/timeout:600000/);
+});
 test('outer entry refuses callback/PASS/token and unversioned input substitutions',()=>{
  for(const value of [{verifyClosure:()=>({recordedSemanticsReplayed:true})},{ok:true},{accessToken:'synthetic'}])assert.throws(()=>replay.verifyBusiness31OriginalPathReplayV2(value),/closed offline input/);
 });

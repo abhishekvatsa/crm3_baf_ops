@@ -3,8 +3,8 @@
   "documentType": "build31-business-backend-private-replay",
   "profile": "build31-exact-business-backend-v2",
   "verifier": {
-    "commit": "b31280a8b15e7fcb3c018e7ab48903b931efc6c0",
-    "tree": "52091d34f00ec75b8a657e16d4a7b66f472b5572"
+    "commit": "806f641025b2628eceb17ce2c1ae8ffd501761f1",
+    "tree": "525af11f608b8027fa093cac9ac151830ee07aab"
   },
   "coreVerifier": {
     "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
@@ -219,8 +219,8 @@
   "sourceIntegration": {
     ".github/workflows/business-private-replay.yml": {
       "mode": "100644",
-      "oid": "e1364bbad301df7f839aad012d5aee54484bbfe3",
-      "sha256": "89AFC17FB5B0BF60E372EB0DBA01BADDDA805CBF7AD5055EB4CF95D337C0C787"
+      "oid": "68a7e58070a508c25c223a1001649512e4d136fa",
+      "sha256": "3C5F6A3AAC041231579528C6471C28FD2063F1D63D4159CE1EE8E010D2540ACB"
     },
     ".github/workflows/production-artifact.yml": {
       "mode": "100644",
@@ -324,8 +324,8 @@
     },
     "tools/release/business31HostedLauncher.py": {
       "mode": "100644",
-      "oid": "ab91895c260d5430f4b4e92cdd2962c07d6cd902",
-      "sha256": "DB7989394AE2F6FC0156AFC1C03FDA6246DD24E6F68C2FF9CBCEC5513479B39F"
+      "oid": "bc3577436566644cf00ef71eea5484ec601cc870",
+      "sha256": "74D976CF1CA08F71F9E23CA6530AE19C9E24EA54F529AB5EA532FE3B80284AB0"
     },
     "tools/release/business31HostedProtocol.cjs": {
       "mode": "100644",
@@ -349,13 +349,13 @@
     },
     "tools/release/business31OriginalPathReplayV2.cjs": {
       "mode": "100644",
-      "oid": "e5725b4a6ae2292c4402c0c40201c0fc2f52446a",
-      "sha256": "02FAAE07CB287225FEF4DE74D757C782D91394191B49D230FA423420A8667653"
+      "oid": "ae2a1c3714d61ae05972ae40ff643340576169b1",
+      "sha256": "C9E662084F0EC7B3AC029C84ED3D184BCF17ED4D33113176C7C5C401F09E40C1"
     },
     "tools/release/business31OriginalPathReplayV2.test.cjs": {
       "mode": "100644",
-      "oid": "d266d1f7ac2c5eb7a1f5e4dceff2b239abe93b2b",
-      "sha256": "8BD702A41D14505F3279B81283214536B78FCB78805BB944A445F8216673E0FF"
+      "oid": "089633c44232a45fb8dcf233a9db62a03bdf5bc6",
+      "sha256": "8E2E5876BCE613B16F604A32B82C1052D3C1923626584978087BDF84FE0B0AE3"
     },
     "tools/release/business31PolicyInvocation.cjs": {
       "mode": "100644",
@@ -387,6 +387,11 @@
       "oid": "fe7f88df3b1463c9f1a2eca280ba3704caea9541",
       "sha256": "FAF0AF32CD9F3A5C5C9C5B12F17DB65E2F52A55425AB8143B6BA4749771A5189"
     },
+    "tools/release/business31Prerequisite.test.cjs": {
+      "mode": "100644",
+      "oid": "38582a5c3b6fd48a75a44c7ebadec4630bcdbdda",
+      "sha256": "D7D850C0052E8871D05B4C59D001758A083FD8F692E03A75D96D06DD6CE1D546"
+    },
     "tools/release/business31PrivateDescriptor.cjs": {
       "mode": "100644",
       "oid": "fba6b7d5a49c85fe9e91fdc6fde321c680306df5",
@@ -404,13 +409,13 @@
     },
     "tools/release/business31TrustedInputV2.cjs": {
       "mode": "100644",
-      "oid": "b300198193eccf0d90cf91bcb38eef23f04402ba",
-      "sha256": "07D503226516E9A4D8C4C3DAE38BC2E714BD8413F110F9F6C07747E8A41BECD6"
+      "oid": "b88fa2261b157b885f4718e628363c364072140c",
+      "sha256": "209BEA82B5A3B2D6490ED63A94F9DABE82331FE009CE9D0A42528D99EC143E43"
     },
     "tools/release/business31TrustedInputV2.test.cjs": {
       "mode": "100644",
-      "oid": "3e6875e4ed3a76926be58b004cde1b502656f3e9",
-      "sha256": "F35A42F4B5D70808F63F1F9AA0466FFC24F55D8AE0DE37BCB4BD80A4915514D0"
+      "oid": "7f379ff1a60e380d4089f83faed2eb61929e7ec8",
+      "sha256": "127F8029AC2CDBCF0F5BFE3F9BA7E5CA96B63232C7A65471A4665EABDF6A967C"
     },
     "tools/release/clientBackendCompatibility31.js": {
       "mode": "100644",
@@ -429,8 +434,8 @@
     },
     "tools/release/fixtures/business31ClientPolicyFixture.cjs": {
       "mode": "100644",
-      "oid": "bfb8905b9d4c9fcc2275b4976f223098fbf66ed3",
-      "sha256": "78962EE08C8B2FBF10793923C21EA2F6CBB2825F924107E6A92939EF541B331E"
+      "oid": "08564b16c3b1d8123228a0c51e77248cef473d8a",
+      "sha256": "CD2C99CD0D7F3E3B58205E8648D0C4547E3A10474BC84733E147C3AC2CCAB9B2"
     },
     "tools/release/privateEvidenceBundle31V2.cjs": {
       "mode": "100644",
@@ -439,18 +444,18 @@
     },
     "tools/release/test_business31_hosted_launcher.py": {
       "mode": "100644",
-      "oid": "e0bd951dd781145d6c0071c6466fdb0c866ddade",
-      "sha256": "83DCB0E49873F6C34FEA5B98DF5E0675122AB8F074B4EF30C032F70B2B6DE3C5"
+      "oid": "aabf8be6f10bba8e6ca095e7de08f2b56e5dfbc7",
+      "sha256": "B471D1498B29D047D7DBC7F8047B3819616A2933EE2DA4BA7CEC2674129C86B4"
+    },
+    "tools/release/workflow_action_ref_custody.test.mjs": {
+      "mode": "100644",
+      "oid": "9f510376b42dd819c71f69ff44d49aa9a4c3f180",
+      "sha256": "34EB4A5BF45BE487E845F2EB05FDBECE86A8FCABA3D31D23EAA115B1CB9DEDB1"
     },
     "tools/v4/v4_2_r1_canonical_audit.py": {
       "mode": "100644",
-      "oid": "dc53093e95f7811de674539fa4babf0fc1e6b5d8",
-      "sha256": "25253C16AFCECCABB69D5962B7FF10747128BFED8A971758259C48EF3A8FBB70"
-    },
-    "tools/release/business31Prerequisite.test.cjs": {
-      "mode": "100644",
-      "oid": "38582a5c3b6fd48a75a44c7ebadec4630bcdbdda",
-      "sha256": "D7D850C0052E8871D05B4C59D001758A083FD8F692E03A75D96D06DD6CE1D546"
+      "oid": "dd861235abaf799f886c22b557779f46b846109b",
+      "sha256": "8B122B6328CB28879633DE4AEDA091FFC8EABED1F0E9C41929551621D59EA3C2"
     }
   },
   "source": {
@@ -472,15 +477,15 @@
   "custody": {
     "provider": "gcs",
     "bucket": "crm3-baf-ops-b8638-firestore-restore",
-    "objectName": "release-custody/build-31/business-backend/5b28a0bfe425b862a14836c9a0ccbae486d2766a/client-gates-20261115-v5-1/private-replay-bundle.json",
-    "generation": "1794759813571554",
-    "bytes": 378423951,
-    "sha256": "7DE4ADA2ABFAEFC7511AB9E9214452351E9E1FBCCF3FC5B3FB5649C866FF5961"
+    "objectName": "release-custody/build-31/business-backend/5b28a0bfe425b862a14836c9a0ccbae486d2766a/client-gates-20261121-v8-1/private-replay-bundle.json",
+    "generation": "1795250962859868",
+    "bytes": 378423969,
+    "sha256": "E803DF28249D3A885168590542632E97A34E95830BECA360F2DCF6C40AA8CC5F"
   },
   "bundleEncoding": "gzip-members-v2",
   "expandedBytes": 807487419,
   "membersSha256": "D5628BFBB5A9197C222FCED8D422502EBDD88788ABD22221F7B140FF04E36E58",
-  "relocationSha256": "F3D3FD9FD288CB2C64D43DFD1749A8272ADCABD33C7E5DB22007133B933724F1",
+  "relocationSha256": "C18429C25B3F667E08FDD9CB27232207C7448BC45B00681C591AC3C6581D5855",
   "producerBindings": {
     "tools/release/Business-BackendPrivateReplay31.ps1": "EED4C4774B1934FB25253E78AE41228628C123FC9A474CD8C66ACA511FEE774A",
     "tools/release/Export-ExistingPlaySigningKey.ps1": "9ECA92959A26AA4210326A6A6B5D707F30E28DCA78B5AF8ECBA3456488E85CEF",
@@ -569,7 +574,7 @@
     "tools/release/business31GitBatch.test.cjs": "2DE1A42CEC2AA77C62E5488FADA6CC9E2EB2BDBD67C1E453CAA819E2250EE6D7",
     "tools/release/business31HostedClient.cjs": "186740D17C3FB26477875C1069BA6B4011660344BEDE5A098ECF019059CFE44F",
     "tools/release/business31HostedClient.test.cjs": "E1F78D48849DEF6DAA56B28512329F122DFCDE7D71C669964C9F980FABEF3113",
-    "tools/release/business31HostedLauncher.py": "DB7989394AE2F6FC0156AFC1C03FDA6246DD24E6F68C2FF9CBCEC5513479B39F",
+    "tools/release/business31HostedLauncher.py": "74D976CF1CA08F71F9E23CA6530AE19C9E24EA54F529AB5EA532FE3B80284AB0",
     "tools/release/business31HostedProtocol.cjs": "5CF0165CE7E091FF17711F52CA7A619F238BEBFCFB60973279400B0BB7FF62F9",
     "tools/release/business31HostedProtocol.test.cjs": "FA99D59A1FD2027DFA0D3DF366FE336DE18DFF53493A20027CAE2C3D2CE6DAB7",
     "tools/release/business31HostedReplay.cjs": "25A491D721930CE7D3F74C378F094BDDB3D62B6FD0D4F99D348DF4E36CC3767A",
@@ -587,8 +592,8 @@
     "tools/release/business31OperationalController.test.cjs": "1C04EDE5C443DD9E576B0C925D58AD49D638556B1B5E7037F1658616DEDFC0A4",
     "tools/release/business31OriginalPathReplay.cjs": "F06AE65FA38E4F508CABD71EC938E2FAFB5A6934C6AE0E5995BB54785DBC7E3B",
     "tools/release/business31OriginalPathReplay.test.cjs": "87B96894679BE8E0483B84BF81C15A206296E661835F8F4A513F9E055FE2AAF5",
-    "tools/release/business31OriginalPathReplayV2.cjs": "02FAAE07CB287225FEF4DE74D757C782D91394191B49D230FA423420A8667653",
-    "tools/release/business31OriginalPathReplayV2.test.cjs": "8BD702A41D14505F3279B81283214536B78FCB78805BB944A445F8216673E0FF",
+    "tools/release/business31OriginalPathReplayV2.cjs": "C9E662084F0EC7B3AC029C84ED3D184BCF17ED4D33113176C7C5C401F09E40C1",
+    "tools/release/business31OriginalPathReplayV2.test.cjs": "8E2E5876BCE613B16F604A32B82C1052D3C1923626584978087BDF84FE0B0AE3",
     "tools/release/business31PolicyInvocation.cjs": "51DB06C0EE75A28FF8684DDCB995079064DB109AD2D81938ADEE86E8578AC940",
     "tools/release/business31PolicyInvocation.test.cjs": "D85804C2E8C64081898D6E0477472E1C90566E833F4EE42DDC6B01CDC35B375B",
     "tools/release/business31PolicyResult.cjs": "262BB3B8C951B5193A884366EDE1CB16F1E7F9CD01C0F8CFA11519BB44F2B981",
@@ -625,8 +630,8 @@
     "tools/release/business31TransportV2.test.cjs": "899D8BCD98DA2372C063E13948F862480E958393D52CFFD4CD8FE3B368A906D3",
     "tools/release/business31TrustedInput.cjs": "E4851A48A8A0352E3238CD521D837807990EBBDDF65C719C1AD2E9B43441E73B",
     "tools/release/business31TrustedInput.test.cjs": "970DF8889DF4EE05DB9E31985BB5FB610A7937AB1BFD3756EA222EDBEF88C719",
-    "tools/release/business31TrustedInputV2.cjs": "07D503226516E9A4D8C4C3DAE38BC2E714BD8413F110F9F6C07747E8A41BECD6",
-    "tools/release/business31TrustedInputV2.test.cjs": "F35A42F4B5D70808F63F1F9AA0466FFC24F55D8AE0DE37BCB4BD80A4915514D0",
+    "tools/release/business31TrustedInputV2.cjs": "209BEA82B5A3B2D6490ED63A94F9DABE82331FE009CE9D0A42528D99EC143E43",
+    "tools/release/business31TrustedInputV2.test.cjs": "127F8029AC2CDBCF0F5BFE3F9BA7E5CA96B63232C7A65471A4665EABDF6A967C",
     "tools/release/captureBackendRuntimePreparedInputs31.cjs": "A7FE715F143572409B6CF067AD85339D2A1832C0D25AEC6CC18C0C32F3749AF3",
     "tools/release/captureBusiness31PreparedHook.cjs": "5CF12047554327C8189D994ACF319A4AB0E4C26A5630D128EC36980196E21417",
     "tools/release/captureBusiness31PreparedInputs.cjs": "E41E0CA63D2F03E4D46CC5A666C39A94045A1BEE25B6F830FF9F5DFE5057C73A",
@@ -657,7 +662,7 @@
     "tools/release/deploymentFleetContract.js": "42DC4FB23FCB53473E39B806CEA64121DB5B4B826F3EA9270625E272FE600C06",
     "tools/release/diagnoseBuild5Profile.js": "EEA0F1088C53296924013105695E567BEA2379C4C79F9BC15B5F1E0E0626FB19",
     "tools/release/executeBackendRuntime31.cjs": "E76B812957049096AD4B8BF83E25C7BD4C35A06A4534E78253FC30BE4CFFB2BF",
-    "tools/release/fixtures/business31ClientPolicyFixture.cjs": "78962EE08C8B2FBF10793923C21EA2F6CBB2825F924107E6A92939EF541B331E",
+    "tools/release/fixtures/business31ClientPolicyFixture.cjs": "CD2C99CD0D7F3E3B58205E8648D0C4547E3A10474BC84733E147C3AC2CCAB9B2",
     "tools/release/fixtures/business31CollectorFixture.cjs": "5A242EEF9A60E4625833F9238C8B907EEE4D33F1E4E42304D52B4710787CD455",
     "tools/release/fixtures/business31HostedClientFixture.cjs": "B3D008762D334FB80836CCAD1E5AFE542F61DE029865A9D22F08B195013F64B7",
     "tools/release/fixtures/business31HostedFixture.cjs": "653EBF9CBCD3FAA3C18919E05E54D249CE21E4EC2C280017F20B6B27DA8F5973",
@@ -694,7 +699,7 @@
     "tools/release/testdata/business31CliOfflineFence.cjs": "30064AA33ECC8DF27F7CCD4451FDC89A1429F480508F3777BB7B5C6BDCA2FDD7",
     "tools/release/testdata/business31CliSyntheticKernel.cjs": "12283239736D54E3EB5E57EC9D4F6CD7BD35A546AFAA87B9E8F9FA082DD06B90",
     "tools/release/testdata/business31ReadOnlyPrelaunchFixture.cjs": "09A48C6A2A20425C928AE6B5FB7AA21E52FE77C9AEFEEDBA54CB72C56938B2D3",
-    "tools/v4/v4_2_r1_canonical_audit.py": "25253C16AFCECCABB69D5962B7FF10747128BFED8A971758259C48EF3A8FBB70"
+    "tools/v4/v4_2_r1_canonical_audit.py": "8B122B6328CB28879633DE4AEDA091FFC8EABED1F0E9C41929551621D59EA3C2"
   },
   "historicalBaseline": {
     "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",

@@ -4,6 +4,9 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {spawnSync}=require('node:child_process'),{isDeepStrictEqual:same,TextDecoder}=require('node:util');
 const SELF='tools/release/business31OriginalPathReplayV2.cjs',WORKER='tools/release/business31CoreWorkerV2.cjs';
+// The recorded core replay of the Windows-recorded evidence took 622 s and 641 s on a Windows host, so the
+// former 600 s bound would end a healthy replay. The launcher's whole-child bound stays well above this.
+const WORKER_TIMEOUT_MS=30*60*1000;
 const sha=b=>crypto.createHash('sha256').update(b).digest('hex').toUpperCase();
 function need(v,m){if(!v)throw Error('Business original-path replay v2: '+m);}
 // Strictly bounded failure data only; never a worker result or raw stderr.
@@ -59,7 +62,7 @@ function invokeCoreWorker31({workerFile,input,ownedDirectory,nodeSha256}){
   need(sha(fs.readFileSync(process.execPath))===nodeSha256,'pinned Node changed before worker');
   stage='CORE_WORKER_PROCESS';
   child=spawnSync(process.execPath,['--no-global-search-paths',workerFile,inputFile,sha(raw)],{
-   cwd:ownedDirectory,env:workerEnvironment31(),windowsHide:true,timeout:600000,maxBuffer:2*1024*1024,encoding:null,stdio:['ignore','pipe','pipe']});
+   cwd:ownedDirectory,env:workerEnvironment31(),windowsHide:true,timeout:WORKER_TIMEOUT_MS,maxBuffer:2*1024*1024,encoding:null,stdio:['ignore','pipe','pipe']});
   need(!child.error&&!child.signal&&child.status===0,'fresh recorded core worker failed');
   stage='CORE_WORKER_RESULT';
   need(Buffer.isBuffer(child.stdout)&&child.stdout.length>0&&child.stdout.length<=2*1024*1024&&Buffer.isBuffer(child.stderr)&&child.stderr.length===0,'bounded clean worker result required');
@@ -113,4 +116,4 @@ function verifyBusiness31OriginalPathReplayV2(options){
   platformIdentityAuthenticated:false,humanIdentityAuthenticated:false,processExecutionAuthenticated:false,trustedClockAuthenticated:false,
   privateHostedReplayAuthenticated:false,credentialAccessAuthorized:false,deploymentAuthorized:false,constructionAuthorized:false,distributionAuthorized:false});
 }
-module.exports={SELF,WORKER,workerEnvironment31,invokeCoreWorker31,verifyBusiness31OriginalPathReplayV2};
+module.exports={SELF,WORKER,WORKER_TIMEOUT_MS,workerEnvironment31,invokeCoreWorker31,verifyBusiness31OriginalPathReplayV2};
