@@ -519,7 +519,7 @@ class LauncherPlan(unittest.TestCase):
             launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input)
 
     def workflow_prepare(self, *, legacy=False, chunked=False, expanded=False,
-                         raw=None, alter=None, alter_parts=None, expected_hash=None):
+                         raw=None, alter=None, alter_parts=None, expected_hash=None, alter_env=None):
         """Run the actual workflow heredoc; only its Git network edge is inert."""
         workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
         source = workflow.read_text(encoding='utf8')
@@ -528,8 +528,9 @@ class LauncherPlan(unittest.TestCase):
         marker = '      - name: Prepare isolated public Git inputs without checking out candidate code\n'
         self.assertEqual(source.count(marker), 1)
         step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
-        self.assertEqual(step.count("<<'PY'\n"), 1)
-        body = textwrap.dedent(step.split("<<'PY'\n", 1)[1].split('\n          PY', 1)[0])
+        self.assertEqual(step.count("$prepare = @'\n"), 1)
+        self.assertEqual(step.count("\n          '@\n"), 1)
+        body = textwrap.dedent(step.split("$prepare = @'\n", 1)[1].split("\n          '@\n", 1)[0])
         if legacy:
             trust, request, _, _, selected = self.artifact_fixture()
             trust.update(schemaVersion=1, nodeSha256='A' * 64, gitSha256='B' * 64,
@@ -560,6 +561,10 @@ class LauncherPlan(unittest.TestCase):
         import base64
         env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'LANG', 'LC_ALL')
                if key in os.environ}
+        # The Windows workflow forwards these to its pinned Git; Git itself is inert here.
+        for key, value in (('SystemRoot', 'C:\\Windows'), ('WINDIR', 'C:\\Windows'),
+                           ('COMSPEC', 'C:\\Windows\\System32\\cmd.exe')):
+            env.setdefault(key, value)
         env.update(HOME=str(owned), USERPROFILE=str(owned), TMP=str(owned), TEMP=str(owned), RUNNER_TEMP=str(owned),
                    TRUST_JSON=parts[0], TRUST_JSON_PART_2=parts[1], TRUST_JSON_PART_3=parts[2],
                    TRUST_SHA=expected_hash or hashlib.sha256(whole).hexdigest().upper(),
@@ -571,6 +576,8 @@ class LauncherPlan(unittest.TestCase):
                    MANIFEST_JSON='{"syntheticPublicSourceManifest":true}',
                    CLIENT_SELECTED_JSON=json.dumps(selected['selected']),
                    CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(public_message).decode())
+        if alter_env:
+            alter_env(env)
         script = owned / 'execute-workflow.py'
         payload = owned / 'workflow-source.json'; payload.write_text(json.dumps({'source': body}), encoding='utf8')
         script.write_text(textwrap.dedent('''\
@@ -649,6 +656,153 @@ class LauncherPlan(unittest.TestCase):
         result, _, _, _ = self.workflow_prepare(raw='')
         self.assertFalse(result['ok']); self.assertEqual(result['gitCalls'], 0)
 
+    def test_actual_workflow_python_bounds_every_carried_value_below_the_windows_variable_limit(self):
+        # Windows carries one environment value only up to 32,767 UTF-16 units, so each value the
+        # workflow receives through its environment is bounded at 32,000 UTF-8 bytes, inclusive.
+        def first_trust_part(size):
+            def alter(parts):
+                value = ''.join(parts)
+                padded = value[:1] + ' ' * (size - 1) + value[1:]
+                middle = size + (len(padded) - size) // 2
+                parts[:] = [padded[:size], padded[size:middle], padded[middle:]]
+            return alter
+
+        def padded_json(key, size):
+            def alter(env):
+                value = env[key]
+                env[key] = value[:1] + ' ' * (size - len(value.encode('utf8'))) + value[1:]
+            return alter
+
+        def original_message(size):
+            def alter(env):
+                message = b'm' * size
+                selected = json.loads(env['CLIENT_SELECTED_JSON'])
+                selected['originalMessage'] = {'sha256': hashlib.sha256(message).hexdigest().upper(),
+                                               'bytes': len(message)}
+                env.update(CLIENT_SELECTED_JSON=json.dumps(selected),
+                           CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(message).decode())
+            return alter
+
+        import base64
+        cases = [  # (name, options at the bound, options one step over it, Git calls before refusal)
+            ('trust part', {'alter_parts': first_trust_part(32000)}, {'alter_parts': first_trust_part(32001)}, 0),
+            ('request', {'alter_env': padded_json('CANDIDATE_REQUEST', 32000)},
+             {'alter_env': padded_json('CANDIDATE_REQUEST', 32001)}, 0),
+            ('manifest', {'alter_env': padded_json('MANIFEST_JSON', 32000)},
+             {'alter_env': padded_json('MANIFEST_JSON', 32001)}, 3),
+            ('client selection', {'alter_env': padded_json('CLIENT_SELECTED_JSON', 32000)},
+             {'alter_env': padded_json('CLIENT_SELECTED_JSON', 32001)}, 3),
+            # 24,000 bytes encode to exactly 32,000 base64 characters; 24,001 bytes to 32,004.
+            ('original message', {'alter_env': original_message(24000)},
+             {'alter_env': original_message(24001)}, 3)]
+        for name, at_bound, over_bound, git_calls in cases:
+            with self.subTest(value=name, size='at bound'):
+                result, directory, whole, _ = self.workflow_prepare(chunked=True, **at_bound)
+                self.assertEqual(result, {'ok': True, 'gitCalls': 3})
+                self.assertEqual((directory / 'trust.json').read_bytes(), whole)
+            with self.subTest(value=name, size='over bound'):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, **over_bound)
+                self.assertEqual(result, {'ok': False, 'gitCalls': git_calls,
+                                          'exceptionType': 'RuntimeError',
+                                          'message': 'Hosted input preparation refused'})
+                output = directory.parent / 'github-output.txt'
+                self.assertFalse(output.exists() and 'candidate=' in output.read_text(encoding='utf8'))
+                if git_calls == 0:
+                    self.assertFalse((directory / 'trust.json').exists())
+
+    def test_actual_workflow_python_carries_owner_messages_up_to_128_kib_in_bounded_parts(self):
+        # The client pipeline accepts owner messages up to 128 KiB; one carried value holds at most 24,000
+        # decoded bytes, so the message may arrive in up to six contiguous parts of at most 32,000 bytes each.
+        import base64
+        names = ['CLIENT_ORIGINAL_MESSAGE_B64'] + ['CLIENT_ORIGINAL_MESSAGE_B64_PART_%d' % n for n in range(2, 7)]
+
+        def raw(size):
+            return bytes((index * 7 + 3) % 251 for index in range(size))
+
+        def message(size, split=32000, layout=None):
+            def alter(env):
+                body = raw(size)
+                selected = json.loads(env['CLIENT_SELECTED_JSON'])
+                selected['originalMessage'] = {'sha256': hashlib.sha256(body).hexdigest().upper(), 'bytes': len(body)}
+                env['CLIENT_SELECTED_JSON'] = json.dumps(selected)
+                encoded = base64.b64encode(body).decode()
+                parts = [encoded[at:at + split] for at in range(0, len(encoded), split)]
+                if layout:
+                    parts = layout(parts)
+                self.assertLessEqual(len(parts), len(names))
+                for name in names:
+                    env.pop(name, None)
+                env.update(zip(names, parts))
+            return alter
+
+        accepted = [('one part, 3,329 bytes', 3329, {}), ('two parts, 24,001 bytes', 24001, {}),
+                    ('six parts, exactly 128 KiB', 128 * 1024, {})]
+        for name, size, options in accepted:
+            with self.subTest(case=name):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, alter_env=message(size, **options))
+                self.assertEqual(result, {'ok': True, 'gitCalls': 3})
+                self.assertEqual((directory / 'original-client-message.bin').read_bytes(), raw(size))
+        refused = [('one part over the carried bound', 24001, {'split': 32001}),
+                   ('a gap between parts', 24001, {'layout': lambda p: [p[0], '', p[1]]}),
+                   ('an empty first part', 3329, {'layout': lambda p: ['', p[0]]}),
+                   ('one byte over 128 KiB', 128 * 1024 + 1, {})]
+        for name, size, options in refused:
+            with self.subTest(case=name):
+                result, directory, _, _ = self.workflow_prepare(chunked=True, alter_env=message(size, **options))
+                self.assertEqual(result, {'ok': False, 'gitCalls': 3, 'exceptionType': 'RuntimeError',
+                                          'message': 'Hosted input preparation refused'})
+                self.assertFalse((directory / 'original-client-message.bin').exists())
+                output = directory.parent / 'github-output.txt'
+                self.assertFalse(output.exists() and 'candidate=' in output.read_text(encoding='utf8'))
+
+    @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell 7 is required to execute the workflow step')
+    def test_actual_cleanup_step_never_launches_the_enrolled_interpreter(self):
+        """The always-run cleanup runs only the job's installed, re-pinned Python; never PYTHON_EXE."""
+        workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
+        source = workflow.read_text(encoding='utf8')
+        marker = '      - name: Destroy owned private scratch\n'
+        self.assertEqual(source.count(marker), 1)
+        step = source.split(marker, 1)[1].split('\n      - name:', 1)[0]
+        self.assertIn('        if: always()\n', step)
+        self.assertIn('          INSTALLED_PYTHON: ${{ steps.python.outputs.python-path }}\n', step)
+        self.assertNotIn('PYTHON_EXE', step)
+        script = self.root / 'cleanup-step.ps1'
+        script.write_text(textwrap.dedent(step.split('        run: |\n', 1)[1]), encoding='utf8')
+        ran = self.root / 'enrolled-interpreter-ran.txt'
+        if os.name == 'nt':
+            enrolled = self.root / 'enrolled-python.cmd'
+            enrolled.write_text('@echo off\r\necho ran> "' + str(ran) + '"\r\n', encoding='utf8')
+        else:
+            enrolled = self.root / 'enrolled-python'
+            enrolled.write_text('#!/bin/sh\necho ran > "' + str(ran) + '"\n', encoding='utf8')
+            enrolled.chmod(0o700)
+        pinned = launcher.digest(Path(sys.executable))
+
+        def run(name, scratch, installed, python_sha):
+            temp = self.root / name; temp.mkdir()
+            job = temp / 'business31-private-job'
+            if scratch:
+                (job / 'repository').mkdir(parents=True); (job / 'trust.json').write_bytes(b'{}')
+            env = {key: os.environ[key] for key in ('SystemRoot', 'WINDIR', 'COMSPEC', 'PATH', 'PATHEXT', 'HOME',
+                                                     'USERPROFILE', 'TEMP', 'TMP', 'LANG', 'LC_ALL') if key in os.environ}
+            env.update(RUNNER_TEMP=str(temp), INSTALLED_PYTHON=installed, PYTHON_SHA=python_sha, PYTHON_EXE=str(enrolled))
+            result = subprocess.run([shutil.which('pwsh'), '-NoLogo', '-NoProfile', '-NonInteractive', '-Command',
+                                     ". '" + str(script) + "'"], env=env, stdin=subprocess.DEVNULL,
+                                    capture_output=True, timeout=120, check=False)
+            return result.returncode, job.exists()
+
+        cases = [  # (name, scratch exists, installed interpreter, enrolled digest, expected success, scratch left)
+            ('nothing-prepared', False, '', pinned, True, False),
+            ('pinned-cleanup', True, sys.executable, pinned, True, False),
+            ('installed-not-pinned', True, sys.executable, '0' * 64, False, True),
+            ('no-installed-python', True, '', pinned, False, True)]
+        for name, scratch, installed, python_sha, succeeds, left in cases:
+            with self.subTest(case=name):
+                code, exists = run(name, scratch, installed, python_sha)
+                self.assertEqual(code == 0, succeeds, name)
+                self.assertEqual(exists, left, name)
+                self.assertFalse(ran.exists(), 'cleanup launched the enrolled interpreter')
+
     def test_remote_client_projection_refuses_challenge_expiry_after_consume(self):
         trust, request, _, projection, _ = self.artifact_fixture()
         past = datetime.now(timezone.utc) - timedelta(seconds=1)
@@ -664,7 +818,7 @@ class LauncherPlan(unittest.TestCase):
                                output=str(self.root / "business31-hosted-result.json"),
                                private_parent=str(self.root))
 
-    def staged_child(self, argv, env, owned):
+    def staged_child(self, argv, env, owned, verifier_files=None):
         self.assertFalse((self.root / "business31-hosted-result.json").exists())
         (Path(owned) / "business31-hosted-result.json").write_bytes(b'{"synthetic":true}\n')
         return b"", b""
@@ -812,7 +966,7 @@ class DiagnosticFailures(unittest.TestCase):
                 answer = self.actual.__exit__(*exc)
                 if cleanup_error: raise OSError('TOKEN_SENTINEL cleanup private path')
                 return answer
-        def child(argv, env, owned):
+        def child(argv, env, owned, verifier_files=None):
             if child_error: raise child_error
             launcher._child_exit(0)
             (Path(owned) / 'business31-hosted-result.json').write_bytes(b'{"synthetic":true}\n')
@@ -941,7 +1095,8 @@ vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+')
         def kill(*unused):
             if cleanup_error: raise OSError('TOKEN_SENTINEL kill')
         clock = patch.object(launcher.time, 'monotonic', side_effect=[0, 7201]) if timeout else patch.object(launcher.time, 'monotonic', return_value=1)
-        with patch.object(launcher.subprocess, 'Popen', return_value=child), \
+        with patch.object(sys, 'platform', 'linux'), \
+             patch.object(launcher.subprocess, 'Popen', return_value=child), \
              patch.object(launcher.selectors, 'DefaultSelector', Selector), \
              patch.object(launcher.os, 'read', side_effect=lambda fd, limit: chunks[fd].pop(0)), \
              patch.object(launcher.os, 'killpg', side_effect=kill, create=True), \
@@ -972,6 +1127,104 @@ vm.runInContext(code+'\nreportFailure(Error('+JSON.stringify(process.argv[2])+')
         value, error = self.synthetic_run_child(code=0)
         self.assertIsNone(error); self.assertEqual(value, (b'', b''))
         self.assertEqual(self.outer()['childExit'], 0)
+
+    WINDOWS_SUCCESS = dict(status='SUCCESS', exitCode=0, treeComplete=True, outputComplete=True,
+                           jobAssigned=True, cleanupErrors=[], failure=None)
+
+    def windows_child(self, result, stdout=b'', stderr=b''):
+        # Production Windows dispatch with a stub owned-process supervisor result.
+        calls = []
+
+        class Supervisor:
+            @staticmethod
+            def run_owned_process(**kwargs):
+                calls.append(kwargs)
+                target = Path(kwargs['output_directory']); target.mkdir()
+                (target / 'stdout.bin').write_bytes(stdout); (target / 'stderr.bin').write_bytes(stderr)
+                return dict(result)
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        directory = self.root / ('win-runner-' + str(len(list(self.root.iterdir())))); directory.mkdir()
+        with patch.object(sys, 'platform', 'win32'), \
+             patch.object(launcher, '_windows_supervisor', return_value=Supervisor):
+            try:
+                return launcher.run_child(['node.exe', 'entry.cjs'], {'PATH': 'synthetic'}, directory, {}), calls, None
+            except BaseException as error:
+                launcher._remember_failure(error)
+                return None, calls, error
+
+    def test_windows_runner_maps_owned_process_results(self):
+        value, calls, error = self.windows_child(self.WINDOWS_SUCCESS, stdout=b'out')
+        self.assertIsNone(error); self.assertEqual(value, (b'out', b''))
+        call = calls[0]
+        self.assertEqual((call['executable'], call['arguments'], call['timeout_seconds'], call['max_output_bytes'],
+                          call['environment']), ('node.exe', ['entry.cjs'], 3600, 1024 * 1024, {'PATH': 'synthetic'}))
+        self.assertEqual(self.outer()['childExit'], 0)
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', exitCode=1, failure='timeout'))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_TIMEOUT')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', failure='output-bound-exceeded'))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_OUTPUT_BOUND')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', exitCode=1, failure='nonzero-root-exit'),
+                                         stderr=self.wire(self.record()))
+        out = self.outer()
+        self.assertIsNotNone(error); self.assertEqual((out['stage'], out['reason'], out['childExit']), ('STS', 'STS_RESULT', 1))
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, status='FAILED', failure='cleanup-incomplete',
+                                              cleanupErrors=[{'operation': 'pipe-drain'}]))
+        out = self.outer()
+        self.assertIsNotNone(error); self.assertTrue(out['cleanupFailed']); self.assertEqual(out['reason'], 'CHILD_FAILURE')
+        _, _, error = self.windows_child(dict(self.WINDOWS_SUCCESS, treeComplete=False))
+        self.assertIsNotNone(error); self.assertEqual(self.outer()['reason'], 'CHILD_FAILURE')
+
+    def test_windows_supervisor_requires_trust_pinned_producer(self):
+        name = 'tools/release/runtime_supervisor.py'
+        actual = hashlib.sha256(FILE.with_name('runtime_supervisor.py').read_bytes()).hexdigest().upper()
+        for files in (None, {}, {name: '0' * 64}):
+            with self.assertRaisesRegex(ValueError, 'BUSINESS_HOSTED_WINDOWS_SUPERVISOR_PRODUCER'):
+                launcher._windows_supervisor(files)
+        if os.name == 'nt':
+            self.assertTrue(callable(launcher._windows_supervisor({name: actual}).run_owned_process))
+
+    def test_protected_runner_platform_gate_and_windows_trust_rebinding(self):
+        with patch.object(sys, 'platform', 'darwin'):
+            try:
+                launcher.execute_launch(self.args); error = None
+            except BaseException as caught:
+                error = caught; launcher._remember_failure(caught)
+        self.assertIsInstance(error, ValueError)
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('INPUT_STAGING', 'PROTECTED_HOSTED_RUNNER_REQUIRED'))
+        # On Windows the selected trust commitment is re-measured before the supervisor is selected.
+        launcher._reset_failure()
+        with patch.object(sys, 'platform', 'win32'), \
+             patch.object(launcher, 'launch_plan', return_value=([], {})), \
+             patch.object(launcher, '_run_child_windows', side_effect=AssertionError('child must not start')):
+            try:
+                launcher.execute_launch(self.args); error = None
+            except BaseException as caught:
+                error = caught; launcher._remember_failure(caught)
+        self.assertIsInstance(error, ValueError)
+        self.assertEqual((self.outer()['stage'], self.outer()['reason']), ('CHILD_EXECUTION', 'EXTERNAL_CONFIG_COMMITMENT'))
+        self.assertFalse(self.output.exists())
+
+    @unittest.skipUnless(os.name == 'nt', 'Windows owned-process supervisor')
+    def test_windows_real_owned_child_success_and_bounded_failure(self):
+        name = 'tools/release/runtime_supervisor.py'
+        files = {name: hashlib.sha256(FILE.with_name('runtime_supervisor.py').read_bytes()).hexdigest().upper()}
+        env = {k: os.environ[k] for k in ('SystemRoot', 'WINDIR', 'COMSPEC') if k in os.environ}
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        owned = self.root / 'win-real-ok'; owned.mkdir()
+        with patch.object(sys, 'platform', 'win32'):
+            value = launcher.run_child([sys.executable, '-I', '-S', '-c', "import sys; sys.stdout.write('owned-ok')"],
+                                       env, owned, files)
+        self.assertEqual(value, (b'owned-ok', b''))
+        launcher._reset_failure(); launcher._phase('CHILD_EXECUTION')
+        owned = self.root / 'win-real-fail'; owned.mkdir()
+        code = 'import sys; sys.stderr.buffer.write(' + repr(self.wire(self.record())) + '); sys.exit(3)'
+        with patch.object(sys, 'platform', 'win32'), self.assertRaisesRegex(ValueError, 'BUSINESS_HOSTED_CHILD_FAILURE'):
+            try:
+                launcher.run_child([sys.executable, '-I', '-S', '-c', code], env, owned, files)
+            except BaseException as error:
+                launcher._remember_failure(error); raise
+        out = self.outer()
+        self.assertEqual((out['stage'], out['reason'], out['childExit']), ('STS', 'STS_RESULT', 3))
 
     def test_real_node_native_failure_never_exposes_missing_path(self):
         absent = self.root / 'TOKEN_SENTINEL-absent-trust.json'

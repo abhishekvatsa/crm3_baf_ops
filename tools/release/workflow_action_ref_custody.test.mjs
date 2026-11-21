@@ -92,5 +92,6 @@ test('all repository workflow action references are immutable', () => {
     );
     return count + collectActionReferences(workflow, workflowPath).length;
   }, 0);
-  assert.equal(referenceCount, 40);
+  // 40 + the hosted verifier's pinned setup-python and setup-node (Windows runner).
+  assert.equal(referenceCount, 42);
 });
