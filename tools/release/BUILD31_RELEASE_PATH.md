@@ -96,6 +96,27 @@ PASS input. A missing, stale or expired locator fails visibly. Creating the
 policy replay is a separate trusted operation and must not depend on this
 consumer already passing.
 
+### Approved artifact source under business31
+
+The artifact baseline stays the recorded M, so a later verifier's integration
+files drift from it. Under a business31 policy, that drift is admitted only for
+exact enrolled integration. Every file that differs under a drifted approved
+path must:
+
+- be added or modified, with mode 100644 (no deletions, mode or type changes);
+- have a blob equal to its `sourceIntegration` entry in the pointer-bound replay
+  record;
+- have a blob equal to V's own blob for that path.
+
+V must also be an ancestor of the checked commit.
+
+The policy gate additionally requires the record's integration map to equal the
+authenticated measurement's `sourceIntegrationSha256`. The canonical audit and
+`test/successor_engineering_rearm_contract_test.dart` apply the same rule to the
+pointer-bound record, and `business31ArtifactSource.test.cjs` keeps the copies in
+step. Any other drift withholds construction authority, including a pubspec
+change beyond its version line.
+
 ## Construction and package verification
 
 1. The protected production workflow proves the selected live main, dispatch

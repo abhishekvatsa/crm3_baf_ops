@@ -362,15 +362,54 @@ void main() {
       );
       expect(approval['backendReceiptSha256'], backendHash);
       final backend = _readJson(backendFile);
+      final business31 = _business31Selected(policy);
       expect(
-        approval['backendSourceCommit'],
-        _object(backend['sourceAuthority'])['commit'],
+        backend['documentType'] == 'build31-business-private-record-custody',
+        business31,
+        reason: 'A business31 policy publishes exactly its custody closure.',
       );
       expect(approval['serverEnforcementAtBuild'], isFalse);
-      expect(
-        approval['serverEnforcementAtBuild'],
-        _object(backend['deployment'])['appCheckEnforcement'],
-      );
+      if (business31) {
+        // The public closure is a custody envelope of the recorded M. The
+        // enforcement at build is compared with the authenticated replay
+        // measurement by the App Check policy gate, not with this envelope.
+        expect(backend['recordKind'], 'closure');
+        expect(
+          approval['backendSourceCommit'],
+          _object(backend['source'])['commit'],
+        );
+      } else {
+        expect(
+          approval['backendSourceCommit'],
+          _object(backend['sourceAuthority'])['commit'],
+        );
+        expect(
+          approval['serverEnforcementAtBuild'],
+          _object(backend['deployment'])['appCheckEnforcement'],
+        );
+      }
     },
   );
+}
+
+/// Business31 selection, decided exactly as the policy gate and the canonical
+/// audit decide it.
+bool _business31Selected(Map<String, dynamic> policy) {
+  if (policy.containsKey('businessBackendPrivateReplay')) {
+    return true;
+  }
+  for (final name in const <String>[
+    'clientBackendCompatibility',
+    'runtimeBackendPrivateReplay',
+  ]) {
+    final value = policy[name];
+    if (value is Map &&
+        <dynamic>[value['profile'], value['file']].any(
+          (field) =>
+              field is String && field.toLowerCase().contains('business'),
+        )) {
+      return true;
+    }
+  }
+  return false;
 }
