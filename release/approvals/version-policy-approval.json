@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "receiptType": "version-and-build-policy",
-  "reference": "BUILD30-OWNER-DELEGATED-20260928",
-  "sourceDocumentFile": "release/approvals/build-number-30-successor-approval.json",
-  "sourceDocumentSha256": "2077DEA34C2A0ACF9A1BA48B2161AC2C851512E129AC83B7E28E45ECF1445C18",
-  "recordedAtUtc": "2026-09-28T02:51:42.124512Z",
-  "remoteReservationTag": "crm3-build-reserved/30",
-  "buildNumber": 30,
-  "remoteBuiltTag": "crm3-build-built/30",
-  "reservationId": "CRM3_BUILD30_20260928-30",
+  "reference": "BUILD31-OWNER-DELEGATED-20261115",
+  "sourceDocumentFile": "release/approvals/build-number-31-successor-approval.json",
+  "sourceDocumentSha256": "CB79C9B6E156641C848DDF8B179E870E318C6F26C8B77725C126F4B562ED7FFC",
+  "recordedAtUtc": "2026-11-22T12:47:34.882Z",
+  "remoteReservationTag": "crm3-build-reserved/31",
+  "buildNumber": 31,
+  "remoteBuiltTag": "crm3-build-built/31",
+  "reservationId": "CRM3_BUILD31_20261115-31",
   "policy": "strictly-monotonic-never-reuse",
-  "versionName": "1.0.0-rc.20",
-  "sourceDocumentCustody": "commit this source decision and pointer together before dispatch"
+  "versionName": "1.0.0-rc.21",
+  "sourceDocumentCustody": "Retain the exact source decision already committed at L and its unchanged allocation ledger through K and the final candidate before dispatch."
 }

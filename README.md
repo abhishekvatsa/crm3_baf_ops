@@ -33,7 +33,7 @@ mutating business-flow convergence must be gathered there before expansion.
 Every handout requires a privacy-safe receipt. Build 27 is consumed and cannot
 be reused. Its artifact, device acceptance and pilot approval remain historical.
 
-Build 30 (`1.0.0-rc.20+30`) is the latest finalized artifact. Protected
+Build 31 (`1.0.0-rc.21+31`) is the source-authorized candidate. Build 30 (`1.0.0-rc.20+30`) is the latest finalized artifact. Protected
 signing completed from merged source `7ed87824` in production run `36577226874`.
 Independent finalization retained the exact package and all six private-cloud
 custody proofs. Build 30 is consumed and cannot be rebuilt or reused. Its
