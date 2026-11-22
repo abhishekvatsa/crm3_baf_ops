@@ -63,12 +63,12 @@ int _currentIsarSchemaVersion() {
   return int.parse(match.group(1)!);
 }
 
-String _gitTreeObjectId(String commit, String path) {
+String _gitTreeObjectId(String commit, String path, {String root = '.'}) {
   final result = Process.runSync('git', <String>[
     'rev-parse',
     '--verify',
     '$commit:$path',
-  ]);
+  ], workingDirectory: root);
   final tree = (result.stdout as String).trim().toLowerCase();
   if (result.exitCode != 0 ||
       !RegExp(r'^(?:[0-9a-f]{40}|[0-9a-f]{64})$').hasMatch(tree)) {
@@ -104,12 +104,190 @@ const _approvedArtifactExactSourcePaths = <String>[
   'tools/release',
 ];
 
-String _gitFileText(String commit, String path) {
-  final result = Process.runSync('git', <String>['show', '$commit:$path']);
+String _gitFileText(String commit, String path, {String root = '.'}) {
+  final result = Process.runSync('git', <String>[
+    'show',
+    '$commit:$path',
+  ], workingDirectory: root);
   if (result.exitCode != 0) {
     throw StateError('Unable to read Git file for $commit:$path.');
   }
   return (result.stdout as String).replaceAll('\r\n', '\n');
+}
+
+const _business31ReplayRecord =
+    'release/evidence/build31-business-private-replay.json';
+
+/// Business31 selection, decided exactly as the policy gate and the canonical
+/// audit decide it: an explicit replay pointer, or a business client or
+/// runtime route.
+bool _business31Selected(Map<String, dynamic> policy) {
+  if (policy.containsKey('businessBackendPrivateReplay')) {
+    return true;
+  }
+  for (final name in const <String>[
+    'clientBackendCompatibility',
+    'runtimeBackendPrivateReplay',
+  ]) {
+    final value = policy[name];
+    if (value is Map &&
+        <dynamic>[value['profile'], value['file']].any(
+          (field) =>
+              field is String && field.toLowerCase().contains('business'),
+        )) {
+      return true;
+    }
+  }
+  return false;
+}
+
+typedef _SourceIntegration = ({String verifier, Map<String, String> files});
+
+/// Business31 binds its artifact baseline to the recorded M, and the hosted
+/// verifier admits only enrolled integration files equal to V. This returns
+/// the exact replay record's sourceIntegration (`file -> 'mode oid'`) and V,
+/// or null when the record does not apply. It mirrors the policy gate, which
+/// additionally binds the same map to the authenticated replay measurement,
+/// and the canonical audit.
+_SourceIntegration? _business31SourceIntegration(
+  Map<String, dynamic> policy,
+  String baselineCommit, {
+  String root = '.',
+}) {
+  final pointer = policy['businessBackendPrivateReplay'];
+  if (pointer is! Map ||
+      pointer['profile'] != 'build31-exact-business-backend-v2' ||
+      pointer['file'] != _business31ReplayRecord) {
+    return null;
+  }
+  final List<int> bytes;
+  final Object? record;
+  try {
+    bytes = File('$root/$_business31ReplayRecord').readAsBytesSync();
+    record = jsonDecode(utf8.decode(bytes));
+  } on FileSystemException {
+    return null;
+  } on FormatException {
+    return null;
+  }
+  if (record is! Map ||
+      sha256.convert(bytes).toString().toUpperCase() != pointer['sha256']) {
+    return null;
+  }
+  final source = record['source'];
+  final verifier = record['verifier'];
+  final integration = record['sourceIntegration'];
+  final verifierCommit = verifier is Map ? verifier['commit'] : null;
+  if (record['schemaVersion'] != 3 ||
+      record['documentType'] != 'build31-business-backend-private-replay' ||
+      record['profile'] != 'build31-exact-business-backend-v2' ||
+      source is! Map ||
+      baselineCommit.isEmpty ||
+      source['commit'] != baselineCommit ||
+      verifierCommit is! String ||
+      !RegExp(r'^[0-9a-f]{40}$').hasMatch(verifierCommit) ||
+      verifierCommit == source['commit'] ||
+      integration is! Map ||
+      integration.isEmpty ||
+      integration.length > 256) {
+    return null;
+  }
+  final files = <String, String>{};
+  for (final MapEntry(:key, :value) in integration.entries) {
+    if (key is! String ||
+        !RegExp(r'^[A-Za-z0-9_+./-]+$').hasMatch(key) ||
+        value is! Map ||
+        value.length != 3 ||
+        value['mode'] != '100644' ||
+        value['oid'] is! String ||
+        !RegExp(r'^[0-9a-f]{40}$').hasMatch(value['oid'] as String) ||
+        value['sha256'] is! String ||
+        !RegExp(r'^[A-F0-9]{64}$').hasMatch(value['sha256'] as String)) {
+      return null;
+    }
+    files[key] = '${value['mode']} ${value['oid']}';
+  }
+  final ancestry = Process.runSync('git', <String>[
+    'merge-base',
+    '--is-ancestor',
+    verifierCommit,
+    'HEAD',
+  ], workingDirectory: root);
+  if (ancestry.exitCode != 0) {
+    return null;
+  }
+  return (verifier: verifierCommit, files: files);
+}
+
+List<String>? _gitOutputLines(List<String> arguments, String root) {
+  final result = Process.runSync('git', arguments, workingDirectory: root);
+  if (result.exitCode != 0) {
+    return null;
+  }
+  return const LineSplitter().convert(result.stdout as String);
+}
+
+final _gitRawChange = RegExp(
+  r'^:([0-7]{6}) ([0-7]{6}) [0-9a-f]{40} ([0-9a-f]{40}) ([AM])\t(.+)$',
+);
+final _gitLsTreeBlob = RegExp(r'^([0-7]{6}) blob ([0-9a-f]{40})\t(.+)$');
+
+/// A drifted approved path is admitted only when every file that differs from
+/// the baseline under it is an added or modified regular file whose exact mode
+/// and blob equal both its sourceIntegration entry and V's own blob.
+List<String>? _approvedArtifactIntegratedFiles(
+  String baselineCommit,
+  String path,
+  _SourceIntegration integration, {
+  String root = '.',
+}) {
+  final changes = _gitOutputLines(<String>[
+    'diff-tree',
+    '-r',
+    '--no-renames',
+    '--no-commit-id',
+    '--raw',
+    '--no-abbrev',
+    baselineCommit,
+    'HEAD',
+    '--',
+    path,
+  ], root);
+  final listing = _gitOutputLines(<String>[
+    'ls-tree',
+    '-r',
+    '--full-tree',
+    integration.verifier,
+    '--',
+    path,
+  ], root);
+  if (changes == null || changes.isEmpty || listing == null) {
+    return null;
+  }
+  final verifierObjects = <String, String>{};
+  for (final line in listing) {
+    final match = _gitLsTreeBlob.firstMatch(line);
+    if (match != null) {
+      verifierObjects[match.group(3)!] = '${match.group(1)} ${match.group(2)}';
+    }
+  }
+  final files = <String>[];
+  for (final line in changes) {
+    final match = _gitRawChange.firstMatch(line);
+    if (match == null) {
+      return null;
+    }
+    final file = match.group(5)!;
+    final identity = '${match.group(2)} ${match.group(3)}';
+    if ((match.group(4) == 'M' && match.group(1) != '100644') ||
+        match.group(2) != '100644' ||
+        integration.files[file] != identity ||
+        verifierObjects[file] != identity) {
+      return null;
+    }
+    files.add(file);
+  }
+  return files;
 }
 
 String? _normalizedArtifactPubspec(String text, {String? expectedVersion}) {
@@ -126,18 +304,28 @@ String? _normalizedArtifactPubspec(String text, {String? expectedVersion}) {
 
 bool _approvedArtifactSourceMatches(
   String baselineCommit,
-  String expectedPackageVersion,
-) {
+  String expectedPackageVersion, {
+  _SourceIntegration? integration,
+  String root = '.',
+}) {
   final exactPathsMatch = _approvedArtifactExactSourcePaths.every(
     (path) =>
-        _gitTreeObjectId(baselineCommit, path) ==
-        _gitTreeObjectId('HEAD', path),
+        _gitTreeObjectId(baselineCommit, path, root: root) ==
+            _gitTreeObjectId('HEAD', path, root: root) ||
+        (integration != null &&
+            _approvedArtifactIntegratedFiles(
+                  baselineCommit,
+                  path,
+                  integration,
+                  root: root,
+                ) !=
+                null),
   );
   final baselinePubspec = _normalizedArtifactPubspec(
-    _gitFileText(baselineCommit, 'pubspec.yaml'),
+    _gitFileText(baselineCommit, 'pubspec.yaml', root: root),
   );
   final currentPubspec = _normalizedArtifactPubspec(
-    _gitFileText('HEAD', 'pubspec.yaml'),
+    _gitFileText('HEAD', 'pubspec.yaml', root: root),
     expectedVersion: expectedPackageVersion,
   );
   return exactPathsMatch &&
@@ -504,6 +692,85 @@ void _expectBackendExecutionEvidence(Map<String, dynamic> closure) {
   expect(code['functionCount'], deployment['functionCount']);
 }
 
+/// Business31 publishes only custody envelopes of the recorded M; the private
+/// replay that proves the deployment is authenticated by the policy gate's
+/// recorded route. Bind every public pointer exactly as its public binding does.
+void _expectBusiness31PublicBackend({
+  required Map<String, dynamic> policy,
+  required Map<String, dynamic> deployed,
+  required Map<String, dynamic> closure,
+  required Map<String, dynamic> approval,
+}) {
+  final pointer = (policy['businessBackendPrivateReplay'] as Map)
+      .cast<String, dynamic>();
+  expect(pointer['file'], _business31ReplayRecord);
+  expect(
+    pointer['profile'],
+    anyOf(
+      'build31-exact-business-backend-v1',
+      'build31-exact-business-backend-v2',
+    ),
+  );
+  expect(_sha256(_business31ReplayRecord), pointer['sha256']);
+  final descriptor = _readObject(_business31ReplayRecord);
+  final source = (descriptor['source'] as Map).cast<String, dynamic>();
+  final finalization = (policy['finalization'] as Map).cast<String, dynamic>();
+  final closurePointer = (descriptor['closurePointer'] as Map)
+      .cast<String, dynamic>();
+  final approvalPointer = (descriptor['approvalPointer'] as Map)
+      .cast<String, dynamic>();
+  expect(closurePointer['file'], deployed['functionFleetEvidenceFile']);
+  expect(
+    closurePointer['file'],
+    finalization['exactFunctionFleetDeploymentReceiptFile'],
+  );
+  expect(closurePointer['sha256'], deployed['functionFleetEvidenceSha256']);
+  expect(
+    closurePointer['sha256'],
+    finalization['exactFunctionFleetDeploymentReceiptSha256'],
+  );
+  expect(_sha256(closurePointer['file'] as String), closurePointer['sha256']);
+  expect(approvalPointer['file'], deployed['deploymentApprovalFile']);
+  expect(approvalPointer['sha256'], deployed['deploymentApprovalSha256']);
+  expect(_sha256(approvalPointer['file'] as String), approvalPointer['sha256']);
+  expect(closure.keys.toSet(), <String>{
+    'schemaVersion',
+    'documentType',
+    'recordKind',
+    'source',
+    'recordedAtUtc',
+    'privateRecord',
+  });
+  for (final (envelope, kind) in <(Map<String, dynamic>, String)>[
+    (closure, 'closure'),
+    (approval, 'decision'),
+  ]) {
+    expect(envelope['schemaVersion'], 1);
+    expect(envelope['documentType'], 'build31-business-private-record-custody');
+    expect(envelope['recordKind'], kind);
+    expect(envelope['source'], source);
+  }
+  expect(source['commit'], deployed['functionFleetSourceCommit']);
+  expect(
+    _gitTreeObjectId(source['commit'] as String, 'functions'),
+    source['functionsTree'],
+  );
+  final sourceTree = Process.runSync('git', <String>[
+    'rev-parse',
+    '--verify',
+    '${source['commit']}^{tree}',
+  ]);
+  expect(sourceTree.exitCode, 0);
+  expect((sourceTree.stdout as String).trim(), source['tree']);
+  final client = (policy['clientBackendCompatibility'] as Map)
+      .cast<String, dynamic>();
+  expect(
+    client['file'],
+    'release/approvals/build31-business-client-compatibility-approval.json',
+  );
+  expect(_sha256(client['file'] as String), client['sha256']);
+}
+
 void main() {
   test(
     'pending successor keeps prior pilot proof in its own release plane',
@@ -765,6 +1032,197 @@ void main() {
     }
   });
 
+  test('business31 artifact source admits only exact enrolled integration', () {
+    // The same admit/refuse cases tools/release/business31ArtifactSource.test.cjs
+    // runs against the policy gate's and the canonical audit's copies.
+    final root = Directory.systemTemp
+        .createTempSync('b31-artifact-source-')
+        .path;
+    try {
+      String git(List<String> arguments) {
+        final result = Process.runSync('git', <String>[
+          '-c',
+          'user.name=Build31 fixture',
+          '-c',
+          'user.email=fixture@invalid',
+          '-c',
+          'core.autocrlf=false',
+          '-c',
+          'commit.gpgsign=false',
+          ...arguments,
+        ], workingDirectory: root);
+        if (result.exitCode != 0) {
+          throw StateError('git ${arguments.first} failed: ${result.stderr}');
+        }
+        return (result.stdout as String).trim();
+      }
+
+      void write(String path, String text) {
+        File('$root/$path')
+          ..parent.createSync(recursive: true)
+          ..writeAsStringSync(text);
+      }
+
+      const version = '1.0.0-rc.21+31';
+      git(<String>['init', '-q']);
+      for (final path in _approvedArtifactExactSourcePaths) {
+        write(
+          path.split('/').last.contains('.') ? path : '$path/kept.txt',
+          'baseline $path\n',
+        );
+      }
+      write('android/removable.txt', 'baseline android member\n');
+      write('pubspec.yaml', 'name: fixture\nversion: 1.0.0-rc.20+30\n');
+      git(<String>['add', '-A']);
+      git(<String>['commit', '-q', '-m', 'M']);
+      final m = git(<String>['rev-parse', 'HEAD']);
+      write('tools/release/integrated.cjs', 'verifier change\n');
+      write('test/integrated_test.dart', 'verifier test\n');
+      git(<String>['add', '-A']);
+      git(<String>['commit', '-q', '-m', 'V']);
+      final v = git(<String>['rev-parse', 'HEAD']);
+      git(<String>['checkout', '-q', '-b', 'sibling', m]);
+      write('tools/release/integrated.cjs', 'verifier change\n');
+      write('test/integrated_test.dart', 'verifier test\n');
+      git(<String>['add', '-A']);
+      git(<String>['commit', '-q', '-m', 'unrelated V']);
+      final sibling = git(<String>['rev-parse', 'HEAD']);
+
+      Map<String, String> entry(String commit, String file) => <String, String>{
+        'mode': '100644',
+        'oid': git(<String>['rev-parse', '$commit:$file']),
+        'sha256': sha256
+            .convert(utf8.encode('${git(<String>['show', '$commit:$file'])}\n'))
+            .toString()
+            .toUpperCase(),
+      };
+      Map<String, dynamic> record({
+        String? verifier,
+        String? source,
+      }) => <String, dynamic>{
+        'schemaVersion': 3,
+        'documentType': 'build31-business-backend-private-replay',
+        'profile': 'build31-exact-business-backend-v2',
+        'verifier': <String, String>{'commit': verifier ?? v},
+        'source': <String, String>{'commit': source ?? m},
+        'sourceIntegration': <String, dynamic>{
+          'test/integrated_test.dart': entry(v, 'test/integrated_test.dart'),
+          'tools/release/integrated.cjs': entry(
+            v,
+            'tools/release/integrated.cjs',
+          ),
+        },
+      };
+      // Builds candidate S on V with the replay record and the Build 31
+      // version, and returns the policy pointer to that record.
+      Map<String, dynamic> candidate({
+        void Function()? change,
+        void Function()? afterAdd,
+        Map<String, dynamic>? replay,
+      }) {
+        git(<String>['checkout', '-q', '-f', '-B', 'candidate', v]);
+        git(<String>['clean', '-q', '-f', '-d']);
+        write('pubspec.yaml', 'name: fixture\nversion: $version\n');
+        change?.call();
+        final bytes = utf8.encode(
+          '${const JsonEncoder.withIndent('  ').convert(replay ?? record())}\n',
+        );
+        File('$root/$_business31ReplayRecord')
+          ..parent.createSync(recursive: true)
+          ..writeAsBytesSync(bytes);
+        git(<String>['add', '-A']);
+        afterAdd?.call();
+        git(<String>['commit', '-q', '-m', 'S']);
+        return <String, dynamic>{
+          'businessBackendPrivateReplay': <String, dynamic>{
+            'profile': 'build31-exact-business-backend-v2',
+            'file': _business31ReplayRecord,
+            'sha256': sha256.convert(bytes).toString().toUpperCase(),
+          },
+        };
+      }
+
+      bool admitted(Map<String, dynamic> policy) =>
+          _approvedArtifactSourceMatches(
+            m,
+            version,
+            integration: _business31SourceIntegration(policy, m, root: root),
+            root: root,
+          );
+
+      final exact = candidate();
+      expect(_approvedArtifactSourceMatches(m, version, root: root), isFalse);
+      expect(admitted(exact), isTrue);
+      final integration = _business31SourceIntegration(exact, m, root: root)!;
+      expect(integration.verifier, v);
+      expect(
+        _approvedArtifactIntegratedFiles(m, 'test', integration, root: root),
+        <String>['test/integrated_test.dart'],
+      );
+      final wrongPointer = candidate();
+      (wrongPointer['businessBackendPrivateReplay'] as Map)['sha256'] =
+          'F' * 64;
+      final refusals = <String, Map<String, dynamic> Function()>{
+        'record bytes differ from the pointer': () => wrongPointer,
+        'integration file changed after V': () => candidate(
+          change: () => write('tools/release/integrated.cjs', 'candidate\n'),
+        ),
+        'record admits the candidate blob instead of V': () {
+          write('tools/release/integrated.cjs', 'candidate\n');
+          final hashed = record();
+          return candidate(
+            change: () => write('tools/release/integrated.cjs', 'candidate\n'),
+            replay: hashed
+              ..['sourceIntegration']['tools/release/integrated.cjs'] =
+                  <String, String>{
+                    'mode': '100644',
+                    'oid': git(<String>[
+                      'hash-object',
+                      'tools/release/integrated.cjs',
+                    ]),
+                    'sha256': 'A' * 64,
+                  },
+          );
+        },
+        'unlisted file under an integrated path': () =>
+            candidate(change: () => write('tools/release/unlisted.cjs', 'x\n')),
+        'drift in another approved path': () =>
+            candidate(change: () => write('lib/unlisted.dart', 'x\n')),
+        'deleted approved file': () => candidate(
+          change: () => File('$root/android/removable.txt').deleteSync(),
+        ),
+        'integrated file mode change': () => candidate(
+          afterAdd: () => git(<String>[
+            'update-index',
+            '--chmod=+x',
+            'tools/release/integrated.cjs',
+          ]),
+        ),
+        'non-version pubspec change': () => candidate(
+          change: () => write(
+            'pubspec.yaml',
+            'name: fixture\nversion: $version\nextra: true\n',
+          ),
+        ),
+        'verifier is not an ancestor': () =>
+            candidate(replay: record(verifier: sibling)),
+        'record names another baseline': () =>
+            candidate(replay: record(source: v)),
+        'record is not the successor descriptor': () =>
+            candidate(replay: record()..['schemaVersion'] = 2),
+      };
+      for (final MapEntry(:key, :value) in refusals.entries) {
+        expect(admitted(value()), isFalse, reason: key);
+      }
+    } finally {
+      try {
+        Directory(root).deleteSync(recursive: true);
+      } on FileSystemException {
+        // Windows keeps Git objects read-only; the fixture is temporary.
+      }
+    }
+  });
+
   test(
     'successor engineering is re-armed without changing Build 11 authority',
     () {
@@ -883,17 +1341,33 @@ void main() {
     final liveBackend = _readObject(
       deployed['functionFleetEvidenceFile'] as String,
     );
-    final cleanMainLiveReadbacks =
-        (liveBackend['cleanMainLiveReadbacks'] as Map).cast<String, dynamic>();
-    final functionReadbackAuthority =
-        (cleanMainLiveReadbacks['functionFleet'] as Map)
-            .cast<String, dynamic>();
-    final iamReadbackAuthority =
-        (cleanMainLiveReadbacks['iamDependencies'] as Map)
-            .cast<String, dynamic>();
-    final firestoreAuthority =
-        (cleanMainLiveReadbacks['firestoreRulesAndIndexes'] as Map)
-            .cast<String, dynamic>();
+    // Business31 publishes only its custody envelopes; the recorded private
+    // replay is authenticated by the policy gate. Its Rules/index plane is the
+    // policy's source-specific readback, exactly as in the policy gate and the
+    // canonical audit. Every other route keeps its clean-main receipt planes.
+    final business31 = _business31Selected(policy);
+    final cleanMainLiveReadbacks = business31
+        ? null
+        : (liveBackend['cleanMainLiveReadbacks'] as Map)
+              .cast<String, dynamic>();
+    final functionReadbackAuthority = cleanMainLiveReadbacks == null
+        ? null
+        : (cleanMainLiveReadbacks['functionFleet'] as Map)
+              .cast<String, dynamic>();
+    final iamReadbackAuthority = cleanMainLiveReadbacks == null
+        ? null
+        : (cleanMainLiveReadbacks['iamDependencies'] as Map)
+              .cast<String, dynamic>();
+    final firestoreAuthority = cleanMainLiveReadbacks == null
+        ? <String, dynamic>{
+            ...historicalFirestoreAuthority,
+            'file': historicalFirestoreAuthority['receiptFile'],
+            'physicalSha256': historicalFirestoreAuthority['receiptFileSha256'],
+            'canonicalReceiptSha256':
+                historicalFirestoreAuthority['receiptCanonicalSha256'],
+          }
+        : (cleanMainLiveReadbacks['firestoreRulesAndIndexes'] as Map)
+              .cast<String, dynamic>();
     final rulesReadback = _readObject(
       deployed['rulesAndIndexesEvidenceFile'] as String,
     );
@@ -914,21 +1388,14 @@ void main() {
     );
     final requiredSource = (nextApproval['requiredSource'] as Map)
         .cast<String, dynamic>();
-    final functionReadback = _readObject(
-      functionReadbackAuthority['file'] as String,
-    );
-    final iamReadback = _readObject(iamReadbackAuthority['file'] as String);
     final deploymentApproval = _readObject(
       deployed['deploymentApprovalFile'] as String,
     );
     final nextApprovalBuild = (nextApproval['nextBuild'] as Map)
         .cast<String, dynamic>();
-    final backendAuthority = (liveBackend['sourceAuthority'] as Map)
-        .cast<String, dynamic>();
-    final backendDeployment = (liveBackend['deployment'] as Map)
-        .cast<String, dynamic>();
-    final backendBoundary = (liveBackend['controlBoundary'] as Map)
-        .cast<String, dynamic>();
+    final backendSourceCommit = business31
+        ? (liveBackend['source'] as Map)['commit'] as String
+        : (liveBackend['sourceAuthority'] as Map)['commit'] as String;
     final rulesReadbackOutputs = (rulesReadback['outputs'] as Map)
         .cast<String, dynamic>();
     final verifiedRules = (rulesReadbackOutputs['rules'] as Map)
@@ -945,7 +1412,7 @@ void main() {
     final environmentEvidence = (nextEnvironment['liveStateEvidence'] as Map)
         .cast<String, dynamic>();
     final deployedFunctionsTree = _gitTreeObjectId(
-      backendAuthority['commit'] as String,
+      backendSourceCommit,
       'functions',
     );
     final currentFunctionsTree = _gitTreeObjectId('HEAD', 'functions');
@@ -985,6 +1452,12 @@ void main() {
     final candidateSourceMatchesApproval = _approvedArtifactSourceMatches(
       sourceBaseline['commit'] as String,
       '${release['versionName']}+$candidateBuildNumber',
+      integration: business31
+          ? _business31SourceIntegration(
+              policy,
+              sourceBaseline['commit'] as String,
+            )
+          : null,
     );
     final finalizedArtifactSourceMatches =
         !pendingConstruction &&
@@ -999,16 +1472,26 @@ void main() {
         receiptSourceAuthority['commit'] as String,
       ),
     );
-    final backendApprovedAt = DateTime.parse(
-      deploymentApproval['approvedAtUtc'] as String,
-    );
-    for (final capturedAt in <String>[
-      functionReadback['capturedAtUtc'] as String,
-      iamReadback['capturedAtUtc'] as String,
-      rulesReadback['capturedAtUtc'] as String,
-      liveBackend['recordedAtUtc'] as String,
-    ]) {
-      expect(DateTime.parse(capturedAt).isBefore(backendApprovedAt), isFalse);
+    final functionReadback = functionReadbackAuthority == null
+        ? null
+        : _readObject(functionReadbackAuthority['file'] as String);
+    final iamReadback = iamReadbackAuthority == null
+        ? null
+        : _readObject(iamReadbackAuthority['file'] as String);
+    if (!business31) {
+      // Business31 keeps its approval chronology inside the recorded private
+      // replay, which the policy gate authenticates; the envelopes carry none.
+      final backendApprovedAt = DateTime.parse(
+        deploymentApproval['approvedAtUtc'] as String,
+      );
+      for (final capturedAt in <String>[
+        functionReadback!['capturedAtUtc'] as String,
+        iamReadback!['capturedAtUtc'] as String,
+        rulesReadback['capturedAtUtc'] as String,
+        liveBackend['recordedAtUtc'] as String,
+      ]) {
+        expect(DateTime.parse(capturedAt).isBefore(backendApprovedAt), isFalse);
+      }
     }
     final expectedFirestoreRelationship = _firestoreRelationship(
       rulesChanged: rulesChanged,
@@ -1204,7 +1687,6 @@ void main() {
       deployed['rulesAndIndexesReadbackDecision'],
       'PASS_FIRESTORE_RULES_INDEXES_LIVE_READBACK',
     );
-    expect(liveBackend['decision'], deployed['functionFleetReadbackDecision']);
     expect(
       deployed['currentSourceFunctionDeployment'],
       expectedFunctionDeployment,
@@ -1213,90 +1695,116 @@ void main() {
       deployed['currentSourceRulesAndIndexesDeployment'],
       expectedFirestoreDeployment,
     );
-    expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
-    expect(
-      _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
-      backendAuthority['functionsGitObjectId'],
-    );
-    expect(
-      backendAuthority['pullRequestNumber'],
-      (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
-    );
-    final approvalAuthority = (liveBackend['approvalAuthority'] as Map)
-        .cast<String, dynamic>();
-    expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
-    expect(
-      _sha256(deployed['deploymentApprovalFile'] as String),
-      approvalAuthority['sha256'],
-    );
-    expect(deploymentApproval['approved'], isTrue);
-    expect(
-      (deploymentApproval['sourceAuthority'] as Map)['commit'],
-      backendAuthority['commit'],
-    );
-    final backendProof = _backendEvidenceProbe(
-      deployed['functionFleetEvidenceFile'] as String,
-      expectedBuildNumber: release['buildNumber'] as int,
-    );
-    expect(
-      backendProof['ok'],
-      isTrue,
-      reason: backendProof['reason'] as String?,
-    );
-    final fleet = (backendProof['fleet'] as Map).cast<String, dynamic>();
-    for (final field in <String>[
-      'functionCount',
-      'callableCount',
-      'eventAndProtocolTriggerCount',
-      'schedulerCount',
-    ]) {
-      expect(backendDeployment[field], fleet[field]);
+    if (business31) {
+      _expectBusiness31PublicBackend(
+        policy: policy,
+        deployed: deployed,
+        closure: liveBackend,
+        approval: deploymentApproval,
+      );
+    } else {
+      final backendAuthority = (liveBackend['sourceAuthority'] as Map)
+          .cast<String, dynamic>();
+      final backendDeployment = (liveBackend['deployment'] as Map)
+          .cast<String, dynamic>();
+      final backendBoundary = (liveBackend['controlBoundary'] as Map)
+          .cast<String, dynamic>();
+      expect(
+        liveBackend['decision'],
+        deployed['functionFleetReadbackDecision'],
+      );
+      expect(backendAuthority['commit'], deployed['functionFleetSourceCommit']);
+      expect(
+        _gitTreeObjectId(backendAuthority['commit'] as String, 'functions'),
+        backendAuthority['functionsGitObjectId'],
+      );
+      expect(
+        backendAuthority['pullRequestNumber'],
+        (deploymentApproval['sourceAuthority'] as Map)['pullRequestNumber'],
+      );
+      final approvalAuthority = (liveBackend['approvalAuthority'] as Map)
+          .cast<String, dynamic>();
+      expect(deployed['deploymentApprovalFile'], approvalAuthority['file']);
+      expect(
+        _sha256(deployed['deploymentApprovalFile'] as String),
+        approvalAuthority['sha256'],
+      );
+      expect(deploymentApproval['approved'], isTrue);
+      expect(
+        (deploymentApproval['sourceAuthority'] as Map)['commit'],
+        backendAuthority['commit'],
+      );
+      final backendProof = _backendEvidenceProbe(
+        deployed['functionFleetEvidenceFile'] as String,
+        expectedBuildNumber: release['buildNumber'] as int,
+      );
+      expect(
+        backendProof['ok'],
+        isTrue,
+        reason: backendProof['reason'] as String?,
+      );
+      final fleet = (backendProof['fleet'] as Map).cast<String, dynamic>();
+      for (final field in <String>[
+        'functionCount',
+        'callableCount',
+        'eventAndProtocolTriggerCount',
+        'schedulerCount',
+      ]) {
+        expect(backendDeployment[field], fleet[field]);
+      }
+      for (final readback in <Map<String, dynamic>>[
+        functionReadback!,
+        iamReadback!,
+      ]) {
+        final names = _objects(
+          (readback['outputs'] as Map)['functions'],
+        ).map((row) => row['name']);
+        expect(names, unorderedEquals(_strings(fleet['functionNames'])));
+      }
+      // Re-adjudicate all live approval, immutable custody, scoped IAM, Rules and
+      // readback evidence using the existing shared authority verifier.
+      final authorityCheck = Process.runSync('node', <String>[
+        'tools/release/clientBackendCompatibility31.js',
+        Directory.current.path,
+        'release/production-release-policy.json',
+      ]);
+      expect(
+        authorityCheck.exitCode,
+        0,
+        reason: authorityCheck.stderr as String,
+      );
+      expect(
+        (jsonDecode(authorityCheck.stdout as String) as Map)['ok'],
+        isTrue,
+      );
+      expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
+      expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
+      expect(
+        backendProof['iamDecision'],
+        backendBoundary['iamMutated'] == true
+            ? 'PASS_NEW_CALLABLE_INVOKER_IAM_ONLY'
+            : 'PASS_NO_IAM_MUTATION',
+      );
+      expect(backendBoundary['productionBusinessDataMutated'], isFalse);
+      expect(backendBoundary['distributionPerformed'], isFalse);
+      _expectBackendExecutionEvidence(liveBackend);
+      expect(
+        _sha256(functionReadbackAuthority!['file'] as String),
+        functionReadbackAuthority['physicalSha256'],
+      );
+      expect(
+        (functionReadback['receiptSha256'] as String).toUpperCase(),
+        functionReadbackAuthority['canonicalReceiptSha256'],
+      );
+      expect(
+        _sha256(iamReadbackAuthority!['file'] as String),
+        iamReadbackAuthority['physicalSha256'],
+      );
+      expect(
+        (iamReadback['receiptSha256'] as String).toUpperCase(),
+        iamReadbackAuthority['canonicalReceiptSha256'],
+      );
     }
-    for (final readback in <Map<String, dynamic>>[
-      functionReadback,
-      iamReadback,
-    ]) {
-      final names = _objects(
-        (readback['outputs'] as Map)['functions'],
-      ).map((row) => row['name']);
-      expect(names, unorderedEquals(_strings(fleet['functionNames'])));
-    }
-    // Re-adjudicate all live approval, immutable custody, scoped IAM, Rules and
-    // readback evidence using the existing shared authority verifier.
-    final authorityCheck = Process.runSync('node', <String>[
-      'tools/release/clientBackendCompatibility31.js',
-      Directory.current.path,
-      'release/production-release-policy.json',
-    ]);
-    expect(authorityCheck.exitCode, 0, reason: authorityCheck.stderr as String);
-    expect((jsonDecode(authorityCheck.stdout as String) as Map)['ok'], isTrue);
-    expect(backendDeployment['allFunctionsExactSourceVerified'], isTrue);
-    expect(backendDeployment['existingIamPreservationEnforced'], isTrue);
-    expect(
-      backendProof['iamDecision'],
-      backendBoundary['iamMutated'] == true
-          ? 'PASS_NEW_CALLABLE_INVOKER_IAM_ONLY'
-          : 'PASS_NO_IAM_MUTATION',
-    );
-    expect(backendBoundary['productionBusinessDataMutated'], isFalse);
-    expect(backendBoundary['distributionPerformed'], isFalse);
-    _expectBackendExecutionEvidence(liveBackend);
-    expect(
-      _sha256(functionReadbackAuthority['file'] as String),
-      functionReadbackAuthority['physicalSha256'],
-    );
-    expect(
-      (functionReadback['receiptSha256'] as String).toUpperCase(),
-      functionReadbackAuthority['canonicalReceiptSha256'],
-    );
-    expect(
-      _sha256(iamReadbackAuthority['file'] as String),
-      iamReadbackAuthority['physicalSha256'],
-    );
-    expect(
-      (iamReadback['receiptSha256'] as String).toUpperCase(),
-      iamReadbackAuthority['canonicalReceiptSha256'],
-    );
     expect(
       rulesReadback['decision'],
       deployed['rulesAndIndexesReadbackDecision'],

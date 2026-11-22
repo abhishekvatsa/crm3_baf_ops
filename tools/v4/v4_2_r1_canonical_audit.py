@@ -653,18 +653,157 @@ APPROVED_ARTIFACT_EXACT_SOURCE_PATHS = (
 )
 
 
+BUSINESS31_REPLAY_RECORD = "release/evidence/build31-business-private-replay.json"
+BUSINESS31_INTEGRATION_FILE = re.compile(r"[A-Za-z0-9_+./-]+")
+GIT_RAW_CHANGE = re.compile(
+    r":(?P<before>[0-7]{6}) (?P<after>[0-7]{6}) [0-9a-f]{40} "
+    r"(?P<oid>[0-9a-f]{40}) (?P<status>[AM])\t(?P<path>.+)"
+)
+GIT_LS_TREE_BLOB = re.compile(
+    r"(?P<mode>[0-7]{6}) blob (?P<oid>[0-9a-f]{40})\t(?P<path>.+)"
+)
+
+
+def unique_json_object(pairs: list) -> dict:
+    result: dict = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def git_output_lines(*args: str) -> list[str] | None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
+def business31_source_integration(policy: dict, baseline_commit: str) -> dict | None:
+    # Business31 binds the artifact baseline to the recorded M, and the hosted
+    # verifier admits only enrolled integration files equal to V. The exact
+    # replay record named by the policy pointer supplies those files; the policy
+    # gate additionally binds it to the authenticated replay measurement.
+    pointer = policy.get("businessBackendPrivateReplay")
+    if (
+        not isinstance(pointer, dict)
+        or pointer.get("profile") != "build31-exact-business-backend-v2"
+        or pointer.get("file") != BUSINESS31_REPLAY_RECORD
+    ):
+        return None
+    try:
+        raw = (ROOT / BUSINESS31_REPLAY_RECORD).read_bytes()
+        record = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_json_object)
+    except (OSError, UnicodeDecodeError, ValueError):
+        return None
+    if not isinstance(record, dict):
+        return None
+    source = record.get("source")
+    verifier = record.get("verifier")
+    integration = record.get("sourceIntegration")
+    if (
+        bytes_sha(raw) != pointer.get("sha256")
+        or type(record.get("schemaVersion")) is not int
+        or record.get("schemaVersion") != 3
+        or record.get("documentType") != "build31-business-backend-private-replay"
+        or record.get("profile") != "build31-exact-business-backend-v2"
+        or not isinstance(source, dict)
+        or not isinstance(verifier, dict)
+        or not baseline_commit
+        or source.get("commit") != baseline_commit
+        or not isinstance(verifier.get("commit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", verifier["commit"]) is None
+        or verifier["commit"] == source.get("commit")
+        or not isinstance(integration, dict)
+        or not 1 <= len(integration) <= 256
+    ):
+        return None
+    files: dict[str, tuple[str, str]] = {}
+    for file, entry in integration.items():
+        if (
+            BUSINESS31_INTEGRATION_FILE.fullmatch(file) is None
+            or not isinstance(entry, dict)
+            or set(entry) != {"mode", "oid", "sha256"}
+            or entry.get("mode") != "100644"
+            or not isinstance(entry.get("oid"), str)
+            or re.fullmatch(r"[0-9a-f]{40}", entry["oid"]) is None
+            or not isinstance(entry.get("sha256"), str)
+            or re.fullmatch(r"[A-F0-9]{64}", entry["sha256"]) is None
+        ):
+            return None
+        files[file] = (entry["mode"], entry["oid"])
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", verifier["commit"], "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if ancestry.returncode != 0:
+        return None
+    return {"verifier": verifier["commit"], "files": files}
+
+
+def approved_artifact_integrated_files(
+    baseline_commit: str,
+    path: str,
+    source_integration: dict,
+) -> list[str] | None:
+    # A drifted approved path is admitted only when every file that differs from
+    # the baseline under it is an added or modified regular file whose exact mode
+    # and blob equal both its sourceIntegration entry and V's own blob.
+    changes = git_output_lines(
+        "diff-tree", "-r", "--no-renames", "--no-commit-id", "--raw",
+        "--no-abbrev", baseline_commit, "HEAD", "--", path,
+    )
+    listing = git_output_lines(
+        "ls-tree", "-r", "--full-tree", source_integration["verifier"], "--", path
+    )
+    if not changes or listing is None:
+        return None
+    verifier_objects: dict[str, tuple[str, str]] = {}
+    for line in listing:
+        match = GIT_LS_TREE_BLOB.fullmatch(line)
+        if match is not None:
+            verifier_objects[match["path"]] = (match["mode"], match["oid"])
+    files: list[str] = []
+    for line in changes:
+        match = GIT_RAW_CHANGE.fullmatch(line)
+        if (
+            match is None
+            or (match["status"] == "M" and match["before"] != "100644")
+            or match["after"] != "100644"
+            or source_integration["files"].get(match["path"])
+                != (match["after"], match["oid"])
+            or verifier_objects.get(match["path"]) != (match["after"], match["oid"])
+        ):
+            return None
+        files.append(match["path"])
+    return files
+
+
 def approved_artifact_source_matches(
     baseline_commit: str,
     expected_package_version: str,
+    source_integration: dict | None = None,
 ) -> bool:
     if not baseline_commit:
         return False
-    if not all(
-        git_tree_object_id(baseline_commit, path)
-        == git_tree_object_id("HEAD", path)
-        for path in APPROVED_ARTIFACT_EXACT_SOURCE_PATHS
-    ):
-        return False
+    for path in APPROVED_ARTIFACT_EXACT_SOURCE_PATHS:
+        if git_tree_object_id(baseline_commit, path) == git_tree_object_id("HEAD", path):
+            continue
+        if (
+            source_integration is None
+            or approved_artifact_integrated_files(
+                baseline_commit, path, source_integration
+            ) is None
+        ):
+            return False
     return normalized_artifact_pubspec(
         git_file_text(baseline_commit, "pubspec.yaml")
     ) == normalized_artifact_pubspec(
@@ -5671,9 +5810,15 @@ latest_finalized_completion = data(
     "release/evidence/"
     f"build-{latest_finalized_build_number}-finalization-closure.json"
 )
+candidate_source_baseline = str(
+    candidate_approval.get("sourceBaseline", {}).get("commit", "")
+)
 candidate_source_matches_approval = approved_artifact_source_matches(
-    str(candidate_approval.get("sourceBaseline", {}).get("commit", "")),
+    candidate_source_baseline,
     candidate_package_version,
+    business31_source_integration(combined_policy, candidate_source_baseline)
+    if business31_selected
+    else None,
 )
 finalized_artifact_source_matches = approved_artifact_source_matches(
     str(

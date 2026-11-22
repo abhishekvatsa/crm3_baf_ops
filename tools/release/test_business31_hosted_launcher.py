@@ -814,6 +814,78 @@ class LauncherPlan(unittest.TestCase):
                 self.assertEqual(exists, left, name)
                 self.assertFalse(ran.exists(), 'cleanup launched the enrolled interpreter')
 
+    @unittest.skipUnless(shutil.which('git') and shutil.which('node'), 'Git and Node are required')
+    def test_checkout_metadata_cleanup_admits_only_inert_leftovers_to_the_trusted_opener(self):
+        """actions/checkout leaves .git/config.worktree and gc.auto=0, and the trusted repository opener refuses both: PR
+        428's release gate (run 44953500471) refused its business route on exactly this. Both business-route workflows run
+        the same cleanup before their business route; it admits that checkout and refuses every other Git state. In the
+        release gate it follows the cheap preflight, which must stay the first step after checkout in every job and does
+        not read Git state; in the artifact job it follows the checkout directly."""
+        marker = '      - name: Remove inert actions/checkout Git metadata\n'
+        scripts = []
+        for workflow, leading in (('release-gate.yml', ['Checkout', 'Cheap checked-in source preflight (no install or device)']),
+                                  ('production-artifact.yml', ['Validate dispatch inputs', 'Checkout exact commit'])):
+            source = (FILE.parents[2] / '.github/workflows' / workflow).read_text(encoding='utf8')
+            self.assertEqual(source.count(marker), 1, workflow)
+            before, step = source.split(marker, 1)
+            job_steps = [line[len('      - name: '):] for line in before.rsplit('\n    steps:\n', 1)[1].split('\n')
+                         if line.startswith('      - name: ')]
+            self.assertEqual(job_steps, leading, workflow + ': cleanup must follow exactly these steps')
+            self.assertIn('\n      - name: Prepare independently enrolled business verifier\n', step,
+                          workflow + ': cleanup must precede the business route')
+            scripts.append(textwrap.dedent(step.split('\n      - name:', 1)[0].split('        run: |\n', 1)[1]))
+        self.assertEqual(scripts[0], scripts[1])
+        script = self.root / 'checkout-cleanup.sh'
+        script.write_bytes(scripts[0].encode('utf8'))
+        git = Path(shutil.which('git')).resolve()
+        bundled_bash = git.parents[1] / 'bin' / 'bash.exe'
+        bash = str(bundled_bash) if os.name == 'nt' and bundled_bash.is_file() else shutil.which('bash')
+        self.assertIsNotNone(bash)
+        opener = ("const t=require(process.argv[1]);try{t.openTrustedGitRepository31({repositoryRoot:process.argv[2],"
+                  "gitExecutable:process.argv[3],gitSha256:process.argv[4]});process.stdout.write('ADMITTED')}"
+                  "catch(e){process.stdout.write('REFUSED '+e.message)}")
+
+        def admitted(repo):
+            return subprocess.run([shutil.which('node'), '-e', opener, str(FILE.parent / 'business31TrustedInput.cjs'), str(repo), str(git),
+                                   launcher.digest(git)], capture_output=True, text=True, timeout=120).stdout
+
+        def run_git(repo, *args):
+            subprocess.run([str(git), *args], cwd=repo, check=True, capture_output=True, timeout=120)
+
+        def repository(name, checkout=True, unset_worktree=True):
+            repo = self.root / name
+            subprocess.run([str(git), 'init', '-q', str(repo)], check=True, capture_output=True, timeout=120)
+            run_git(repo, '-c', 'user.email=build31@example.invalid', '-c', 'user.name=build31', 'commit', '-q', '--allow-empty', '-m', 'i')
+            run_git(repo, 'remote', 'add', 'origin', 'https://github.com/abhishekvatsa/crm3_baf_ops')
+            if checkout:  # exactly what actions/checkout leaves: gc.auto=0, then sparse-checkout disable + unset extension
+                run_git(repo, 'config', '--local', 'gc.auto', '0')
+                run_git(repo, 'sparse-checkout', 'disable')
+                if unset_worktree:
+                    run_git(repo, 'config', '--local', '--unset-all', 'extensions.worktreeConfig')
+            return repo
+
+        def clean(repo):
+            return subprocess.run([bash, str(script)], cwd=repo, capture_output=True, text=True, timeout=120).returncode
+
+        checkout = repository('checkout')
+        self.assertTrue((checkout / '.git/config.worktree').is_file())
+        self.assertEqual(admitted(checkout), 'REFUSED External or incomplete Git state refused')
+        self.assertEqual(clean(checkout), 0)
+        self.assertFalse((checkout / '.git/config.worktree').exists())
+        self.assertEqual(admitted(checkout), 'ADMITTED')
+        pristine = repository('pristine', checkout=False)
+        self.assertEqual((clean(pristine), admitted(pristine)), (0, 'ADMITTED'))
+        enabled = repository('worktree-config-enabled', unset_worktree=False)
+        self.assertEqual(clean(enabled), 1)
+        self.assertTrue((enabled / '.git/config.worktree').is_file())
+        for name, key, value in (('foreign-config', 'core.hooksPath', 'hooks'), ('other-gc', 'gc.reflogExpire', 'never'),
+                                 ('include', 'include.path', 'other.config')):
+            with self.subTest(case=name):
+                repo = repository(name)
+                run_git(repo, 'config', '--local', key, value)
+                self.assertEqual(clean(repo), 1, name)
+                self.assertTrue(admitted(repo).startswith('REFUSED'), name)
+
     @unittest.skipUnless(shutil.which('pwsh'), 'PowerShell 7 is required to execute the workflow step')
     def test_actual_gate_step_binds_the_node_that_runs_when_the_image_ships_another(self):
         """The hosted image has its own Node on PATH besides the pinned one (hosted run 44918864165 died here):

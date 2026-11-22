@@ -47,6 +47,36 @@ jobs:
       - name: Cheap checked-in source preflight (no install or device)
         run: python3 tools/testing/run_source_preflight.py
 
+      - name: Remove inert actions/checkout Git metadata
+        # actions/checkout runs `git sparse-checkout disable`, unsets extensions.worktreeConfig and sets gc.auto=0. That
+        # leaves .git/config.worktree (only disabled sparse settings) and [gc] auto=0, which Git treats as inert but the
+        # trusted repository opener refuses, so the business route refused this checkout (PR 428 release gate, run
+        # 44953500471). Remove exactly those leftovers; any other Git state fails here, visibly.
+        # It follows the cheap preflight, which must stay the first step after checkout in every job.
+        shell: bash
+        run: |
+          set -euo pipefail
+          leftover=.git/config.worktree
+          if [ -e "$leftover" ]; then
+            if [ ! -f "$leftover" ] || [ -L "$leftover" ]; then echo 'config.worktree is not a regular file' >&2; exit 1; fi
+            if [ -n "$(git config --local --get-all extensions.worktreeConfig || true)" ]; then echo 'worktree configuration is enabled' >&2; exit 1; fi
+            entries="$(git config --file "$leftover" --list)"
+            if [ -z "$entries" ] || printf '%s\n' "$entries" | grep -qvE '^(core\.sparsecheckout|core\.sparsecheckoutcone|index\.sparse)=false$'; then
+              echo 'config.worktree is not the inert sparse-checkout leftover' >&2; exit 1
+            fi
+            rm -- "$leftover"
+          fi
+          if [ -n "$(git config --local --get-regexp '^gc\.' || true)" ]; then
+            if [ "$(git config --local --get-regexp '^gc\.')" != 'gc.auto 0' ]; then echo 'unexpected gc configuration' >&2; exit 1; fi
+            git config --local --remove-section gc
+          fi
+          if grep -qiE '^\s*\[\s*extensions\s*\]\s*$' .git/config; then
+            if [ -n "$(git config --local --get-regexp '^extensions\.' || true)" ]; then echo 'extensions are configured' >&2; exit 1; fi
+            git config --local --remove-section extensions
+          fi
+          bad="$(git config --local --list --name-only | tr 'A-Z' 'a-z' | grep -vE '^(core\.(repositoryformatversion|filemode|bare|logallrefupdates|symlinks|ignorecase|longpaths)|remote\.[^.]+\.(url|fetch)|branch\.[^.]+\.(remote|merge))$' || true)"
+          if [ -n "$bad" ]; then echo "unadmitted checkout configuration: $bad" >&2; exit 1; fi
+
       - name: Validate and publish test evidence taxonomy
         run: python3 tools/testing/verify_test_evidence_taxonomy.py
 

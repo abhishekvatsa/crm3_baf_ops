@@ -3,8 +3,8 @@
   "documentType": "build31-business-backend-private-replay",
   "profile": "build31-exact-business-backend-v2",
   "verifier": {
-    "commit": "028c11b75c80a20d8b73a98b45dd2dad1cecf96e",
-    "tree": "e97cf188addc8853769b50aac0780a195f1582c4"
+    "commit": "76b5fb4b8343972328ece1bd0ee0d6081073b779",
+    "tree": "ac82c4f3e9a5050cb821d2989856e03aab91c61e"
   },
   "coreVerifier": {
     "commit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
@@ -224,18 +224,28 @@
     },
     ".github/workflows/production-artifact.yml": {
       "mode": "100644",
-      "oid": "bdd202c2aaab7b862f289312d5c2e653b0e6fcd6",
-      "sha256": "15BD045DD76E80BFC3807C48D81570DABE9A7C5DFBB40F365AC24E030E6D17DB"
+      "oid": "4c3b0397e0d09de8eb37dea7f80457af4fc68d07",
+      "sha256": "089994394BF527B565A2A3457B784599371847D12A299E01F5A83D264CCF9370"
     },
     ".github/workflows/release-gate.yml": {
       "mode": "100644",
-      "oid": "389d55f48d0d085f5faa03970eb88dfaa6dcfd38",
-      "sha256": "06DCFB858C8FC0DA707EACBF54F5B504B29D4BEBE219C9DDBC0742481EF5EAB9"
+      "oid": "dc271f210b6eaea456a042947f7a752168ea8719",
+      "sha256": "E0DCDD07C3A3A2AB9521607AEE57A0950730395A737DFAF08289CC949BABC3F6"
+    },
+    "test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart": {
+      "mode": "100644",
+      "oid": "58b117d4dcf6b340c1042208c68a0d29644c5ffc",
+      "sha256": "2618373814A229E8E3F3156F08B9A93BFCF60636CF08C3F9F9F72379838CE9D4"
+    },
+    "test/successor_engineering_rearm_contract_test.dart": {
+      "mode": "100644",
+      "oid": "c5d0ad3069dc85295c7f940bd3a49789cea8aff5",
+      "sha256": "BA10DFE04F1D342702AFCCFAB71B78382D720246B0E6E502859B67F8B72BE435"
     },
     "tools/release/BUILD31_RELEASE_PATH.md": {
       "mode": "100644",
-      "oid": "3f750900711f1943bfeef241692a322a81b64864",
-      "sha256": "DA657C0141331017C85DD350E6C028DC9403050DD07A1104B8EFC2EEB2F72848"
+      "oid": "895a5e2b2edf0b21bebd12996e75cfc4b5f06b4d",
+      "sha256": "4637187F28B21C450D6B7F5B19322C9CBA0AB965285841537A76EDD6359A319E"
     },
     "tools/release/Business-BackendPrivateReplay31.ps1": {
       "mode": "100644",
@@ -274,8 +284,13 @@
     },
     "tools/release/Test-ProductionReleasePolicy.ps1": {
       "mode": "100644",
-      "oid": "d8e1a45b1a38f01623893ad1d0e2ade9720bd452",
-      "sha256": "05F7BBBE98110ACF9BC9B6DD3C995838A9172825FC9B3FE6B25E261AA1094319"
+      "oid": "af309bc08472ec6c9862cf2800982d0ea5467969",
+      "sha256": "C796C3AAD2FCE2248CDB3AB240ED602BDC5F71ED44335D158D8C6526A8C67370"
+    },
+    "tools/release/business31ArtifactSource.test.cjs": {
+      "mode": "100644",
+      "oid": "7d7182b357bd817690495430b7fbb97bf35c9e71",
+      "sha256": "6D05744B383BA7B132CBB790395ADAF99F01F9F419E52DB7F3A23D86ECAE370B"
     },
     "tools/release/business31CallerIntegration.test.cjs": {
       "mode": "100644",
@@ -409,8 +424,8 @@
     },
     "tools/release/business31TrustedInputV2.cjs": {
       "mode": "100644",
-      "oid": "b88fa2261b157b885f4718e628363c364072140c",
-      "sha256": "209BEA82B5A3B2D6490ED63A94F9DABE82331FE009CE9D0A42528D99EC143E43"
+      "oid": "d01b5bfc2a7b1ca0a3e45f24b5a1c535df46d46e",
+      "sha256": "BC96232F650405B189FD51668122E85DF37F29E2FC9F31AD991E3E4ADDBAB22C"
     },
     "tools/release/business31TrustedInputV2.test.cjs": {
       "mode": "100644",
@@ -444,8 +459,8 @@
     },
     "tools/release/test_business31_hosted_launcher.py": {
       "mode": "100644",
-      "oid": "233cb08e4577bbf321ab73e6693ebe7e75685bcf",
-      "sha256": "23F8FC9548E707E8E7573A27F46A0AF819ED5D9E04112047AD2D606E6AF0216B"
+      "oid": "3669b47dbf07f708a75ac400cae605bf9aa6f4a9",
+      "sha256": "BE4CF8E80779C4C58567EC51AB4A83F9C2433718B923B0362C2D67CC66EC2730"
     },
     "tools/release/workflow_action_ref_custody.test.mjs": {
       "mode": "100644",
@@ -454,8 +469,8 @@
     },
     "tools/v4/v4_2_r1_canonical_audit.py": {
       "mode": "100644",
-      "oid": "dd861235abaf799f886c22b557779f46b846109b",
-      "sha256": "8B122B6328CB28879633DE4AEDA091FFC8EABED1F0E9C41929551621D59EA3C2"
+      "oid": "9d4868813b971c1a21b9d85d9ecf10e23d69e27e",
+      "sha256": "6DF2B3E0BC219322C207CF0E7C05DB1D48E14E8563B2E57DC7EB7D84786AA594"
     }
   },
   "source": {
@@ -515,7 +530,7 @@
     "tools/release/Test-BackendAuthority.ps1": "2022DEACF0F244CCAD418D46576D1A8DD3A53EFF978F9398EEE30DD9B4A3F883",
     "tools/release/Test-CIAndroidReleaseStartup.ps1": "D4E8517D6C9B44A48B26519DA9472D4BB94490E7F825C41F6DB5661157F630D9",
     "tools/release/Test-ProductionReleaseManifest.ps1": "A2454787C4F62E0A3D22729124AEB6E96AE62CAA1926A2D718001EC209FB57B8",
-    "tools/release/Test-ProductionReleasePolicy.ps1": "05F7BBBE98110ACF9BC9B6DD3C995838A9172825FC9B3FE6B25E261AA1094319",
+    "tools/release/Test-ProductionReleasePolicy.ps1": "C796C3AAD2FCE2248CDB3AB240ED602BDC5F71ED44335D158D8C6526A8C67370",
     "tools/release/Test-ReleaseManifest.ps1": "4558F5232DAEE55D0CC5B341ED513340CDB586AD8973E99855A76AADABC33222",
     "tools/release/backendRuntimeAdmission31.cjs": "A537CDD7037ABC9B23EBD504A1A67CB37D591AA023411A17FFD7824A6E0448D1",
     "tools/release/backendRuntimeClosedReplay31.cjs": "062BD7E59A797DE6925644C2E794190F921A07AB85FFBD2C627947F82A65E43E",
@@ -532,6 +547,7 @@
     "tools/release/backendRuntimeReplayGitBoundaries31.test.cjs": "28DA81874EB93F30A8DF34586659A06BB9B6A918F3774ECDD22B74E399545664",
     "tools/release/backendRuntimeReplayLoadBoundaries31.test.cjs": "5FAFBA52A5CA3496FEF59FC59F9EF191E72F570345C02522400DC02AC8EBA39B",
     "tools/release/business31AppCheckMeasured.test.cjs": "1A87AE2C8291A73EFFC88247CAD710147FEAA456E8E68810C32F24A36FFE0473",
+    "tools/release/business31ArtifactSource.test.cjs": "6D05744B383BA7B132CBB790395ADAF99F01F9F419E52DB7F3A23D86ECAE370B",
     "tools/release/business31BackendAuthority.cjs": "D2422880F33B3E811465A869703444B6C8D8F2697CF13805A2478689EE22A369",
     "tools/release/business31BackendAuthority.test.cjs": "AB7836BDCD1C326D308CD700FF8A9CF2508F703F559CA8D62DBAE8B20733E91E",
     "tools/release/business31BackendClosure.cjs": "4CED211707BAAB85F058AC1ABE64A4B36DA07CC6A838FB9B042EFD890CB14675",
@@ -630,7 +646,7 @@
     "tools/release/business31TransportV2.test.cjs": "899D8BCD98DA2372C063E13948F862480E958393D52CFFD4CD8FE3B368A906D3",
     "tools/release/business31TrustedInput.cjs": "E4851A48A8A0352E3238CD521D837807990EBBDDF65C719C1AD2E9B43441E73B",
     "tools/release/business31TrustedInput.test.cjs": "970DF8889DF4EE05DB9E31985BB5FB610A7937AB1BFD3756EA222EDBEF88C719",
-    "tools/release/business31TrustedInputV2.cjs": "209BEA82B5A3B2D6490ED63A94F9DABE82331FE009CE9D0A42528D99EC143E43",
+    "tools/release/business31TrustedInputV2.cjs": "BC96232F650405B189FD51668122E85DF37F29E2FC9F31AD991E3E4ADDBAB22C",
     "tools/release/business31TrustedInputV2.test.cjs": "127F8029AC2CDBCF0F5BFE3F9BA7E5CA96B63232C7A65471A4665EABDF6A967C",
     "tools/release/captureBackendRuntimePreparedInputs31.cjs": "A7FE715F143572409B6CF067AD85339D2A1832C0D25AEC6CC18C0C32F3749AF3",
     "tools/release/captureBusiness31PreparedHook.cjs": "5CF12047554327C8189D994ACF319A4AB0E4C26A5630D128EC36980196E21417",
@@ -699,7 +715,7 @@
     "tools/release/testdata/business31CliOfflineFence.cjs": "30064AA33ECC8DF27F7CCD4451FDC89A1429F480508F3777BB7B5C6BDCA2FDD7",
     "tools/release/testdata/business31CliSyntheticKernel.cjs": "12283239736D54E3EB5E57EC9D4F6CD7BD35A546AFAA87B9E8F9FA082DD06B90",
     "tools/release/testdata/business31ReadOnlyPrelaunchFixture.cjs": "09A48C6A2A20425C928AE6B5FB7AA21E52FE77C9AEFEEDBA54CB72C56938B2D3",
-    "tools/v4/v4_2_r1_canonical_audit.py": "8B122B6328CB28879633DE4AEDA091FFC8EABED1F0E9C41929551621D59EA3C2"
+    "tools/v4/v4_2_r1_canonical_audit.py": "6DF2B3E0BC219322C207CF0E7C05DB1D48E14E8563B2E57DC7EB7D84786AA594"
   },
   "historicalBaseline": {
     "commit": "2aa30de56cfdb960da3eeefd8956d8cbbae57b46",

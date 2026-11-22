@@ -1032,14 +1032,148 @@ function Get-NormalizedArtifactPubspec {
   )
 }
 
+function Get-ArtifactSourceIntegratedFiles {
+  # Business31 only. A drifted approved path is admitted when every file that
+  # differs from the baseline under it is an added or modified regular file whose
+  # exact mode and blob equal both the authenticated replay record's
+  # sourceIntegration entry and the enrolled verifier V's own blob. Deletions,
+  # mode or type changes, files outside the record and blobs that differ from V
+  # are refused, so the classifier stays strict for everything else.
+  param(
+    [Parameter(Mandatory)][string]$BaselineCommit,
+    [Parameter(Mandatory)][string]$CurrentCommit,
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][object]$SourceIntegration
+  )
+
+  $changes = @(git diff-tree -r --no-renames --no-commit-id --raw --no-abbrev `
+      $BaselineCommit $CurrentCommit -- $Path 2>$null)
+  if ($LASTEXITCODE -ne 0 -or $changes.Count -eq 0) {
+    return $null
+  }
+  $verifierListing = @(git ls-tree -r --full-tree $SourceIntegration.verifierCommit -- $Path 2>$null)
+  if ($LASTEXITCODE -ne 0) {
+    return $null
+  }
+  # Ordinal, like the hosted verifier's exact keys: a case variant is another file.
+  $verifierObjects = [Collections.Generic.Dictionary[string, string]]::new([StringComparer]::Ordinal)
+  foreach ($line in $verifierListing) {
+    if ($line -cmatch '^(?<mode>[0-7]{6}) blob (?<oid>[0-9a-f]{40})\t(?<path>.+)$') {
+      $verifierObjects[$Matches.path] = $Matches.mode + ' ' + $Matches.oid
+    }
+  }
+  $files = [Collections.Generic.List[string]]::new()
+  foreach ($change in $changes) {
+    if ($change -cnotmatch '^:(?<before>[0-7]{6}) (?<after>[0-7]{6}) [0-9a-f]{40} (?<oid>[0-9a-f]{40}) (?<status>[AM])\t(?<path>.+)$') {
+      return $null
+    }
+    $file = $Matches.path
+    $identity = $Matches.after + ' ' + $Matches.oid
+    if (($Matches.status -ceq 'M' -and $Matches.before -cne '100644') -or
+        $Matches.after -cne '100644' -or
+        -not $SourceIntegration.files.ContainsKey($file) -or
+        $SourceIntegration.files[$file] -cne $identity -or
+        -not $verifierObjects.ContainsKey($file) -or
+        $verifierObjects[$file] -cne $identity) {
+      return $null
+    }
+    $files.Add($file)
+  }
+  ,$files.ToArray()
+}
+
+function Get-Business31ArtifactSourceIntegration {
+  # Returns the authenticated sourceIntegration of the business31 replay record,
+  # or $null. The record must be the exact descriptor the authenticated recorded
+  # replay measured: its bytes equal the policy pointer, the pointer equals the
+  # proof's descriptor pointer, its integration map equals the measurement's
+  # sourceIntegration commitment, it names the same recorded M as the artifact
+  # baseline, and its verifier V is an ancestor of the current commit.
+  param(
+    [Parameter(Mandatory)][object]$Policy,
+    [Parameter(Mandatory)][object]$Proof,
+    [Parameter(Mandatory)][string]$BaselineCommit,
+    [Parameter(Mandatory)][string]$CurrentCommit
+  )
+
+  # Hashtables, so an absent field reads as $null under strict mode.
+  $Policy = ($Policy | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
+  $Proof = ($Proof | ConvertTo-Json -Depth 50 -Compress) | ConvertFrom-Json -AsHashtable -Depth 50
+  $pointer = $Policy['businessBackendPrivateReplay']
+  $backend = $Proof['businessBackend31']
+  if ($pointer -isnot [Collections.IDictionary] -or $backend -isnot [Collections.IDictionary] -or
+      $pointer['profile'] -cne 'build31-exact-business-backend-v2' -or
+      $pointer['file'] -cne 'release/evidence/build31-business-private-replay.json') {
+    return $null
+  }
+  $measurement = if ($backend.Contains('policyResult')) { $backend['policyResult'] } else { $backend['prerequisiteResult'] }
+  if ($measurement -isnot [Collections.IDictionary] -or $measurement['commitments'] -isnot [Collections.IDictionary]) {
+    throw 'Business31 artifact-source measurement is absent.'
+  }
+  Assert-Business31Same $backend['descriptorPointer'] ([ordered]@{commit=$pointer['commit']; file=$pointer['file']; sha256=$pointer['sha256']}) 'Business31 artifact-source descriptor pointer'
+  $recordPath = Join-Path $RepositoryRoot $pointer['file']
+  if ((Get-Sha256 $recordPath) -cne $pointer['sha256']) {
+    throw 'Business31 artifact-source replay record differs from its policy pointer.'
+  }
+  # Indexers only: strict mode throws on member access to an absent key.
+  $record = Read-Business31Json $recordPath
+  $recordSource = $record['source']
+  $recordVerifier = $record['verifier']
+  $integration = $record['sourceIntegration']
+  if ($record['schemaVersion'] -cne 3 -or
+      $record['documentType'] -cne 'build31-business-backend-private-replay' -or
+      $record['profile'] -cne 'build31-exact-business-backend-v2' -or
+      $recordSource -isnot [Collections.IDictionary] -or
+      $recordVerifier -isnot [Collections.IDictionary] -or
+      $recordSource['commit'] -cne $BaselineCommit -or
+      $backend['source'] -isnot [Collections.IDictionary] -or
+      $recordSource['commit'] -cne $backend['source']['commit'] -or
+      $recordVerifier['commit'] -isnot [string] -or
+      $recordVerifier['commit'] -cnotmatch '^[0-9a-f]{40}$' -or
+      $recordVerifier['commit'] -ceq $recordSource['commit'] -or
+      $integration -isnot [Collections.IDictionary] -or
+      $integration.Count -lt 1 -or $integration.Count -gt 256) {
+    throw 'Business31 artifact-source replay record is not the exact successor descriptor.'
+  }
+  $files = [Collections.Generic.Dictionary[string, string]]::new([StringComparer]::Ordinal)
+  foreach ($file in @($integration.Keys)) {
+    $entry = $integration[$file]
+    if ($file -isnot [string] -or $file -cnotmatch '^[A-Za-z0-9_+./-]+$' -or
+        $entry -isnot [Collections.IDictionary] -or
+        (@($entry.Keys | Sort-Object -CaseSensitive) -join ',') -cne 'mode,oid,sha256' -or
+        $entry['mode'] -cne '100644' -or
+        $entry['oid'] -isnot [string] -or $entry['oid'] -cnotmatch '^[0-9a-f]{40}$' -or
+        $entry['sha256'] -isnot [string] -or $entry['sha256'] -cnotmatch '^[A-F0-9]{64}$' -or
+        $files.ContainsKey($file)) {
+      throw 'Business31 artifact-source integration member is malformed.'
+    }
+    $files[$file] = $entry['mode'] + ' ' + $entry['oid']
+  }
+  $canonical = [Text.UTF8Encoding]::new($false).GetBytes((ConvertTo-Business31CanonicalJson $integration -Ordinal))
+  if ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($canonical)) -cne
+      $measurement['commitments']['sourceIntegrationSha256']) {
+    throw 'Business31 artifact-source integration differs from the authenticated measurement.'
+  }
+  & git merge-base --is-ancestor $recordVerifier['commit'] $CurrentCommit 2>$null
+  if ($LASTEXITCODE -ne 0) {
+    return $null
+  }
+  [pscustomobject]@{
+    verifierCommit = [string]$recordVerifier['commit']
+    files = $files
+  }
+}
+
 function Get-ApprovedArtifactSourceStatus {
   param(
     [Parameter(Mandatory)][string]$BaselineCommit,
     [Parameter(Mandatory)][string]$CurrentCommit,
-    [Parameter(Mandatory)][string]$ExpectedPackageVersion
+    [Parameter(Mandatory)][string]$ExpectedPackageVersion,
+    [AllowNull()][object]$SourceIntegration
   )
 
   $driftedPaths = [Collections.Generic.List[string]]::new()
+  $integratedFiles = [Collections.Generic.List[string]]::new()
   foreach ($path in $ApprovedArtifactExactSourcePaths) {
     $baselineObject = Get-GitTreeObjectId `
       -Commit $BaselineCommit `
@@ -1048,7 +1182,20 @@ function Get-ApprovedArtifactSourceStatus {
       -Commit $CurrentCommit `
       -Path $path
     if ($baselineObject -cne $currentObject) {
-      $driftedPaths.Add($path)
+      $admitted = if ($null -ne $SourceIntegration) {
+        Get-ArtifactSourceIntegratedFiles `
+          -BaselineCommit $BaselineCommit `
+          -CurrentCommit $CurrentCommit `
+          -Path $path `
+          -SourceIntegration $SourceIntegration
+      } else {
+        $null
+      }
+      if ($null -eq $admitted) {
+        $driftedPaths.Add($path)
+      } else {
+        $integratedFiles.AddRange([string[]]$admitted)
+      }
     }
   }
 
@@ -1066,6 +1213,7 @@ function Get-ApprovedArtifactSourceStatus {
   [pscustomobject]@{
     matches = $driftedPaths.Count -eq 0
     driftedPaths = @($driftedPaths)
+    integratedFiles = @($integratedFiles)
   }
 }
 
@@ -1962,6 +2110,11 @@ function Assert-ProductionBusiness31PublicBinding {
 }
 $business31Selected = Test-ProductionBusiness31Selected -Policy $policy
 $runtime31Selected = Test-ProductionRuntime31Selected -Policy $policy
+# Loaded before the first public binding below: strict mode refuses to read an
+# unset variable, so binding a business31/runtime31 proof here needs the state.
+$currentSuccessorStatePath = 'release/current-successor-state.json'
+$currentSuccessorState = Get-Content `
+  -LiteralPath $currentSuccessorStatePath -Raw | ConvertFrom-Json
 if ($business31Selected) {
   Assert-ProductionBusiness31PublicBinding -Policy $policy -Proof $stagedAuthorityProof -CurrentSuccessorState $currentSuccessorState
 } elseif ($runtime31Selected) {
@@ -2228,9 +2381,6 @@ if (($approvalSecretNames -join "`n") -cne
 $versionSource = Get-Content `
   -LiteralPath $policy.versionPolicy.sourceDocumentFile `
   -Raw | ConvertFrom-Json
-$currentSuccessorStatePath = 'release/current-successor-state.json'
-$currentSuccessorState = Get-Content `
-  -LiteralPath $currentSuccessorStatePath -Raw | ConvertFrom-Json
 $predecessorBindingsPath =
   'release/predecessor-finalization-receipt-bindings.json'
 $predecessorBindings = Get-Content `
@@ -2539,10 +2689,23 @@ $functionsMatchDeployed =
     'PASS_EXACT_SOURCE_FUNCTION_FLEET_DEPLOYED_AND_READ_BACK'
 $expectedPackageVersion =
   "$([string]$policy.release.versionName)+$([int64]$policy.release.buildNumber)"
+# Business31 binds its artifact baseline to the recorded M, and the verifier's
+# closed scope admits only enrolled integration files that equal V. Those exact
+# files, authenticated through the recorded replay, are the only drift admitted.
+$artifactSourceIntegration = if ($business31Selected) {
+  Get-Business31ArtifactSourceIntegration `
+    -Policy $policy `
+    -Proof $stagedAuthorityProof `
+    -BaselineCommit ([string]$versionSource.sourceBaseline.commit) `
+    -CurrentCommit 'HEAD'
+} else {
+  $null
+}
 $artifactSourceStatus = Get-ApprovedArtifactSourceStatus `
   -BaselineCommit ([string]$versionSource.sourceBaseline.commit) `
   -CurrentCommit 'HEAD' `
-  -ExpectedPackageVersion $expectedPackageVersion
+  -ExpectedPackageVersion $expectedPackageVersion `
+  -SourceIntegration $artifactSourceIntegration
 $firestoreReadbackAuthority =
   $policy.finalization.exactFirestoreRulesIndexesLiveReadback
 $firestoreReadbackPath = [string]$firestoreReadbackAuthority.receiptFile

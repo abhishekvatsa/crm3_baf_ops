@@ -12,6 +12,10 @@ const INTEGRATION_PATHS=Object.freeze([
  '.github/workflows/release-gate.yml',
  '.github/workflows/production-artifact.yml',
  'tools/v4/v4_2_r1_canonical_audit.py',
+ // Dart copies of the policy gate's business31 artifact-source and public
+ // backend bindings. test/ is an approved artifact path, so they enter only here.
+ 'test/successor_engineering_rearm_contract_test.dart',
+ 'test/stage2d_f_internal_controlled_deployment_scope_contract_test.dart',
  ...[
  'BUILD31_RELEASE_PATH.md','business31PolicyResult.md','BUILD31_BUSINESS_BACKEND.md',
  'Initialize-Business31Controller.ps1','Initialize-Business31Controller.test.cjs',
@@ -27,6 +31,7 @@ const INTEGRATION_PATHS=Object.freeze([
  'business31ClientPolicy.cjs','business31ClientPolicy.test.cjs','business31Controller.cjs','business31Controller.test.cjs',
  'business31Prerequisite.cjs','business31Prerequisite.test.cjs','business31PolicyResult.cjs','business31PolicyResult.test.cjs',
  'business31PolicyInvocation.cjs','business31PolicyInvocation.test.cjs','business31ClientRoute.test.cjs',
+ 'business31ArtifactSource.test.cjs',
  'clientBackendCompatibility31.js','clientBackendCompatibility31.test.cjs','clientBackendCompatibility31.test.mjs',
  'collectDistributionInstallationReadback.test.mjs',
  // Pins the repository-wide immutable action-reference count, so any change to the
