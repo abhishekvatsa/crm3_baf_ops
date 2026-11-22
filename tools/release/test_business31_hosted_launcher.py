@@ -818,14 +818,21 @@ class LauncherPlan(unittest.TestCase):
     def test_checkout_metadata_cleanup_admits_only_inert_leftovers_to_the_trusted_opener(self):
         """actions/checkout leaves .git/config.worktree and gc.auto=0, and the trusted repository opener refuses both: PR
         428's release gate (run 44953500471) refused its business route on exactly this. Both business-route workflows run
-        the same cleanup right after checkout; it admits that checkout and refuses every other Git state."""
+        the same cleanup before their business route; it admits that checkout and refuses every other Git state. In the
+        release gate it follows the cheap preflight, which must stay the first step after checkout in every job and does
+        not read Git state; in the artifact job it follows the checkout directly."""
         marker = '      - name: Remove inert actions/checkout Git metadata\n'
         scripts = []
-        for workflow, checkout in (('release-gate.yml', 'Checkout'), ('production-artifact.yml', 'Checkout exact commit')):
+        for workflow, leading in (('release-gate.yml', ['Checkout', 'Cheap checked-in source preflight (no install or device)']),
+                                  ('production-artifact.yml', ['Validate dispatch inputs', 'Checkout exact commit'])):
             source = (FILE.parents[2] / '.github/workflows' / workflow).read_text(encoding='utf8')
             self.assertEqual(source.count(marker), 1, workflow)
             before, step = source.split(marker, 1)
-            self.assertEqual(before.rsplit('\n      - name: ', 1)[1].split('\n', 1)[0], checkout, workflow + ': cleanup must follow checkout')
+            job_steps = [line[len('      - name: '):] for line in before.rsplit('\n    steps:\n', 1)[1].split('\n')
+                         if line.startswith('      - name: ')]
+            self.assertEqual(job_steps, leading, workflow + ': cleanup must follow exactly these steps')
+            self.assertIn('\n      - name: Prepare independently enrolled business verifier\n', step,
+                          workflow + ': cleanup must precede the business route')
             scripts.append(textwrap.dedent(step.split('\n      - name:', 1)[0].split('        run: |\n', 1)[1]))
         self.assertEqual(scripts[0], scripts[1])
         script = self.root / 'checkout-cleanup.sh'
