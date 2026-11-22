@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "documentType": "governed-app-check-client-build-approval",
+  "approved": true,
+  "approvedAtUtc": "2026-11-22T12:47:34.882Z",
+  "approverName": "Claude acting under project-owner delegation",
+  "approvalReference": "BUILD31-APP-CHECK-CLIENT-PLAY-INTEGRITY-20261115",
+  "approvalEvidence": {
+    "authorityType": "owner-delegated agent decision",
+    "projectOwnerName": "Abhishek Vatsa",
+    "recordedBy": "Claude acting under project-owner delegation",
+    "recordedAtUtc": "2026-11-22T12:47:34.882Z",
+    "delegatedDecisionAtUtc": "2026-11-22T12:47:34.882Z",
+    "timestampSource": "Actual drafting agent decision time after committed L13/K13. Owner receivedAtUtc is the first explicitly timestamped local capture of the genuine reply, not a platform delivery timestamp.",
+    "quotedEvidenceScope": "Only instructionExcerpts quotes the genuine retained reply. The conditional source decision is the accountable delegated agent interpretation; standing signing approval remains separate.",
+    "instructionExcerpts": [
+      "Approve exact-source client construction only"
+    ],
+    "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
+    "originalMessage": {
+      "sha256": "A3C6AFC0168B89D626E1AEBC5A804E38347B1E26D2FDE47C3A69C584E465ABA6",
+      "bytes": 3329,
+      "messageId": "5dc43fef-e1c0-4f3e-aa19-0a941bd4a3eb",
+      "conversationId": "0c8bb601-f578-4e7a-9d09-e868964e25bf",
+      "receivedAtUtc": "2026-11-22T12:42:29.439Z",
+      "provenance": "operator-retained-direct-human-message",
+      "humanIdentityMachineAuthenticated": false
+    },
+    "agentDecision": "Record the exact approved enabled Play Integrity client compiler choice for Build31 after genuine client O/D and committed L/K. Default mutating enforcement remains false and getBackendReleaseIdentity remains enforced true; no deployed setting or token/attestation proof is claimed.",
+    "scopeInterpretation": "Source records only. Actual exact-source CI, independently enrolled replay, required environment approval, protected signing, package verification and private custody remain execution gates. No backend/IAM/enforcement mutation, device installation or distribution is approved.",
+    "evidenceReferences": {
+      "sourceApproval": {
+        "commit": "8c340d635e440184a3936c16929a48e1b67433d0",
+        "file": "release/approvals/build-number-31-successor-approval.json",
+        "sha256": "CB79C9B6E156641C848DDF8B179E870E318C6F26C8B77725C126F4B562ED7FFC"
+      },
+      "privateCustody": {
+        "commit": "a1a87219acaf90cc9936bd4ce24b41baf3480cae",
+        "file": "release/approvals/build31-private-cloud-custody-approval.json",
+        "sha256": "5AF3F951EE498F5F50A6A7E11A6EFC1743C4AB432829F12BEF10E159F38300BF"
+      },
+      "backendApproval": {
+        "commit": "f20446b4ff1f3c6a0763d6bf799f5ea3c1693f01",
+        "file": "release/approvals/build31-business-backend-deployment-approval.json",
+        "sha256": "62BB96593948EFAEC7628A8CFAB2C0E493E06F36CE19A6F6C3659EB296328820"
+      },
+      "backendClosure": {
+        "commit": "e91e5015bbca9c2c1fd52dc13cf6c772c0bfd0c4",
+        "file": "release/evidence/build31-business-backend-deployment-closure.json",
+        "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
+      },
+      "descriptor": {
+        "commit": "b982d98ccf2d01527711927aeb245af2dbcda898",
+        "file": "release/evidence/build31-business-private-replay.json",
+        "sha256": "E3234920EC32CE9125E46211F6E9E07908AB7B692135C43541DE922C26D7714E"
+      },
+      "ownerAuthorization": {
+        "commit": "75dd73ccd578c85fd68b3580bb09d857649de494",
+        "file": "release/approvals/build31-business-client-owner-authorization.json",
+        "sha256": "F88D49D5267740E468C1C3FD227857AAEFCEC43A7D247CF8D0F680D53173BBD8"
+      },
+      "clientCompatibilityDecision": {
+        "commit": "bac7f61bf675f36a7bc42f024877885f7a8ccabe",
+        "file": "release/approvals/build31-business-client-compatibility-approval.json",
+        "sha256": "8356EEF355A4EA52626D3B8FA57A1ADE3ED9462CF7A84471CC0A92002953BDD2"
+      }
+    }
+  },
+  "intendedBuildNumber": 31,
+  "releaseId": "crm3-baf-ops-1.0.0-rc.21-b31",
+  "reservationId": "CRM3_BUILD31_20261115-31",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "applicationId": "in.co.sail.bsl.crm3.bafops",
+  "clientEnabled": true,
+  "androidProvider": "playIntegrity",
+  "enforcementChangeAuthorized": false,
+  "serverEnforcementAtBuild": false,
+  "backendSourceCommit": "5b28a0bfe425b862a14836c9a0ccbae486d2766a",
+  "backendReceiptSha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA",
+  "serverEnforcementScopesAtBuild": {
+    "defaultMutatingEnforced": false,
+    "identityCallable": "getBackendReleaseIdentity",
+    "identityCallableEnforced": true,
+    "identitySourceFile": "functions/src/stage2dSecurityConfig.ts",
+    "identitySourceSha256": "1D46E7CDC200BA730AAD1F3BD30EF1C8D8E8509FC5EB7CB619A734077792A79F"
+  }
+}

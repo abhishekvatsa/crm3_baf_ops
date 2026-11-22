@@ -1,0 +1,93 @@
+{
+  "schemaVersion": 2,
+  "documentType": "candidate-specific-private-release-backup-custody-decision",
+  "approved": true,
+  "approvedAtUtc": "2026-11-22T12:47:34.078Z",
+  "approverName": "Claude acting under project-owner delegation",
+  "authorityType": "owner-delegated agent decision",
+  "sourceBaselineCommit": "8c340d635e440184a3936c16929a48e1b67433d0",
+  "candidateLedgerGitBlob": "9b57c2f41bc18fa0bea20fc45fed23b94b459859",
+  "buildNumber": 31,
+  "reservationId": "CRM3_BUILD31_20261115-31",
+  "releaseId": "crm3-baf-ops-1.0.0-rc.21-b31",
+  "campaignId": "crm3-baf-ops-build31-business-20261115",
+  "firebaseProjectId": "crm3-baf-ops-b8638",
+  "permanentApplicationId": "in.co.sail.bsl.crm3.bafops",
+  "scope": "private-release-custody-only",
+  "custodyMode": "local-primary-private-gcs-backup",
+  "approvalEvidence": {
+    "authorityType": "owner-delegated agent decision",
+    "projectOwnerName": "Abhishek Vatsa",
+    "recordedBy": "Claude acting under project-owner delegation",
+    "recordedAtUtc": "2026-11-22T12:47:34.078Z",
+    "delegatedDecisionAtUtc": "2026-11-22T12:47:34.078Z",
+    "timestampSource": "Actual drafting agent decision time after genuine committed allocation L; the original human receivedAtUtc is retained separately and not inferred.",
+    "instructionExcerpts": [
+      "Approve exact-source client construction only"
+    ],
+    "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
+    "originalMessage": {
+      "sha256": "A3C6AFC0168B89D626E1AEBC5A804E38347B1E26D2FDE47C3A69C584E465ABA6",
+      "bytes": 3329,
+      "messageId": "5dc43fef-e1c0-4f3e-aa19-0a941bd4a3eb",
+      "conversationId": "0c8bb601-f578-4e7a-9d09-e868964e25bf",
+      "receivedAtUtc": "2026-11-22T12:42:29.439Z",
+      "provenance": "operator-retained-direct-human-message",
+      "humanIdentityMachineAuthenticated": false
+    },
+    "agentDecision": "Authorize only candidate-specific private artifact backup required by the standing governed Build31 construction/sign/verify scope, retaining existing bucket controls and ordinary storage charges. This source decision performs no upload, overwrite, deletion, IAM or bucket configuration change.",
+    "scopeInterpretation": "Private release custody only, under owner-delegated agent authority. The exact-source client reply is quoted accurately and is not represented as an additional literal signing, IAM, bucket-change, installation or distribution approval.",
+    "evidenceReferences": {
+      "allocationCommit": {
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v13-chain-claude-v1/real-001/L_COMMIT_RESULT.json",
+        "sha256": "7EB315E44A0F669A491ECBE857D167926D75541D1D9BD38564237DB846EF2607",
+        "bytes": 859
+      },
+      "allocationApproval": {
+        "commit": "8c340d635e440184a3936c16929a48e1b67433d0",
+        "file": "release/approvals/build-number-31-successor-approval.json",
+        "sha256": "CB79C9B6E156641C848DDF8B179E870E318C6F26C8B77725C126F4B562ED7FFC",
+        "bytes": 65212,
+        "gitBlob": "e024321133a9d56f281007b934a3e6929e92efa6"
+      },
+      "ledger": {
+        "commit": "8c340d635e440184a3936c16929a48e1b67433d0",
+        "file": "release/build-number-ledger.json",
+        "sha256": "8801A2FDF09B13FB9F54F5663978F7BDE769D4C25FEAE2A741F6DC7CDE48EAAD",
+        "bytes": 97795,
+        "gitBlob": "9b57c2f41bc18fa0bea20fc45fed23b94b459859"
+      },
+      "ownerAuthorization": {
+        "commit": "75dd73ccd578c85fd68b3580bb09d857649de494",
+        "file": "release/approvals/build31-business-client-owner-authorization.json",
+        "sha256": "F88D49D5267740E468C1C3FD227857AAEFCEC43A7D247CF8D0F680D53173BBD8"
+      },
+      "clientCompatibilityDecision": {
+        "commit": "bac7f61bf675f36a7bc42f024877885f7a8ccabe",
+        "file": "release/approvals/build31-business-client-compatibility-approval.json",
+        "sha256": "8356EEF355A4EA52626D3B8FA57A1ADE3ED9462CF7A84471CC0A92002953BDD2"
+      }
+    }
+  },
+  "ownerInstruction": {
+    "text": "Approve exact-source client construction only",
+    "reference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022); message 5dc43fef-e1c0-4f3e-aa19-0a941bd4a3eb; conversation 0c8bb601-f578-4e7a-9d09-e868964e25bf",
+    "recordedAtUtc": "2026-11-22T12:42:29.439Z",
+    "timestampMeaning": "First explicitly timestamped local capture of the genuine reply; not a platform delivery timestamp or the later delegated decision time."
+  },
+  "backup": {
+    "bucket": "crm3-baf-ops-b8638-firestore-restore",
+    "prefix": "gs://crm3-baf-ops-b8638-firestore-restore/release-custody/build-31/crm3-baf-ops-build31-business-20261115",
+    "location": "ASIA-SOUTH1",
+    "publicAccessPrevention": "enforced",
+    "uniformBucketLevelAccessRequired": true,
+    "publicIamPrincipalsProhibited": true,
+    "versioningRequired": true,
+    "existingRetentionSeconds": 7776000,
+    "existingSoftDeleteSeconds": 604800,
+    "acceptExistingRetentionAndOrdinaryStorageCharges": true,
+    "createOnlyGenerationPreconditionRequired": true,
+    "overwriteOrDeleteAuthorized": false,
+    "accessControlOrBucketConfigurationMutationAuthorized": false
+  }
+}
