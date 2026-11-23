@@ -252,8 +252,11 @@ function request31(url, { method = 'GET', headers = {}, body = null, maxBytes = 
             res.on('aborted', () => reject(httpFailure31('TRUNCATED', {transient: true})));
             res.on('error', () => reject(httpFailure31('RESPONSE', {transient: true})));
             res.on('end', () => {
-                if (!res.complete || res.headers['content-encoding'])
+                // An encoded body is a refusal; a body cut short by the peer is a transport fault.
+                if (res.headers['content-encoding'])
                     return reject(Error('BUSINESS_HOSTED_HTTP_INCOMPLETE'));
+                if (!res.complete)
+                    return reject(httpFailure31('INCOMPLETE', {transient: true}));
                 if (res.statusCode !== 200 && !(redirect && res.statusCode === 302))
                     return reject(httpFailure31('STATUS', {status: res.statusCode,
                         transient: TRANSIENT_HTTP_STATUS.includes(res.statusCode)}));

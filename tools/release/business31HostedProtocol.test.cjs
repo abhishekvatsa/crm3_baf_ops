@@ -77,6 +77,22 @@ test('request31 marks only transport faults and HTTP 429/5xx as transient', asyn
         ['BUSINESS_HOSTED_HTTP_REQUEST', null, true], ['BUSINESS_HOSTED_HTTP_REQUEST', null, true],
         ['BUSINESS_HOSTED_HTTP_REQUEST', null, true], ['BUSINESS_HOSTED_HTTP_REQUEST', null, false]]);
 });
+test('a body cut short by the peer is retried; an encoded body is refused at once', async t => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const x = f.fixture();
+    const cut = f.loadFakePlatform((record, n) => n === 1 ? { complete: false, body: { partial: true } } : { body: x.repository });
+    assert.deepEqual(await settle(t, cut.protocol.github31(x.trust, '', TOKEN)), x.repository);
+    assert.equal(cut.requests.length, 2);
+    const once = f.loadFakePlatform(() => ({ complete: false, body: {} }));
+    await assert.rejects(once.protocol.request31('https://api.github.com/repos/fixture/repository'),
+        e => e.message === 'BUSINESS_HOSTED_HTTP_INCOMPLETE' && e.transient === true);
+    for (const complete of [true, false]) {
+        const encoded = f.loadFakePlatform(() => ({ complete, headers: { 'content-encoding': 'gzip' }, body: x.repository }));
+        await assert.rejects(settle(t, encoded.protocol.github31(x.trust, '', TOKEN)),
+            e => e.message === 'BUSINESS_HOSTED_HTTP_INCOMPLETE' && e.transient === undefined);
+        assert.equal(encoded.requests.length, 1);
+    }
+});
 test('retry31 repeats only transient faults and stops after its bounded schedule', async () => {
     let calls = 0;
     const transient = () => { calls++; throw Object.assign(Error('BUSINESS_HOSTED_HTTP_STATUS'), { status: 503, transient: true }); };
