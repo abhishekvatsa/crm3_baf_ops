@@ -520,8 +520,11 @@ class LauncherPlan(unittest.TestCase):
             launcher.sanitized_replay_output(self.projection_bytes(artifact), trust, request, client_input)
 
     def workflow_prepare(self, *, legacy=False, chunked=False, expanded=False,
-                         raw=None, alter=None, alter_parts=None, expected_hash=None, alter_env=None):
-        """Run the actual workflow heredoc; only its Git network edge is inert."""
+                         raw=None, alter=None, alter_parts=None, expected_hash=None, alter_env=None,
+                         git_faults=None):
+        """Run the actual workflow heredoc; only its Git network edge is inert.
+
+        git_faults maps a 1-based Git call number to 'fail' (exit 128) or 'timeout'."""
         workflow = FILE.parents[2] / '.github/workflows/business-private-replay.yml'
         source = workflow.read_text(encoding='utf8')
         for alias in ('TRUST_JSON', 'TRUST_JSON_PART_2', 'TRUST_JSON_PART_3'):
@@ -579,12 +582,15 @@ class LauncherPlan(unittest.TestCase):
                    CLIENT_ORIGINAL_MESSAGE_B64=base64.b64encode(public_message).decode())
         if alter_env:
             alter_env(env)
+        faults = owned / 'git-faults.json'
+        faults.write_text(json.dumps({str(k): v for k, v in (git_faults or {}).items()}), encoding='utf8')
         script = owned / 'execute-workflow.py'
         payload = owned / 'workflow-source.json'; payload.write_text(json.dumps({'source': body}), encoding='utf8')
         script.write_text(textwrap.dedent('''\
-            import json,os,pathlib,subprocess,sys
+            import json,os,pathlib,subprocess,sys,time
             source=json.loads(pathlib.Path(sys.argv[1]).read_bytes())['source']
-            calls=[]
+            faults=json.loads(pathlib.Path(sys.argv[2]).read_bytes())
+            calls=[];sleeps=[]
             def no_wire_or_child(event,arguments):
                 if event in ('socket.__new__','socket.connect','subprocess.Popen'):
                     raise AssertionError('Workflow test forbids real network or external Git execution')
@@ -594,21 +600,35 @@ class LauncherPlan(unittest.TestCase):
                 assert options['stdin']==subprocess.DEVNULL and options['timeout']==300
                 assert 'credential.helper=' in argv and 'protocol.allow=never' in argv
                 calls.append(argv)
+                fault=faults.get(str(len(calls)))
                 if 'clone' in argv:
                     assert argv[-2]=='https://github.com/fixture/repository.git'
-                    pathlib.Path(argv[-1]).mkdir()
+                    target=pathlib.Path(argv[-1])
+                    assert not os.path.lexists(target), 'every clone attempt starts from an absent target'
+                    target.mkdir()
+                    if fault:
+                        # A failed clone leaves a partial, partly read-only target behind.
+                        (target/'objects').mkdir()
+                        partial=target/'objects'/'partial.pack';partial.write_bytes(b'partial');partial.chmod(0o400)
                 else:
                     assert 'fetch' in argv or 'update-ref' in argv
-                return subprocess.CompletedProcess(argv,0,b'',b'')
+                    assert not fault or 'fetch' in argv, 'only network reads are scripted to fail'
+                if fault=='timeout':
+                    raise subprocess.TimeoutExpired(argv,options['timeout'])
+                return subprocess.CompletedProcess(argv,128 if fault=='fail' else 0,b'',b'')
             subprocess.run=transport_only_git
+            time.sleep=sleeps.append
             try:
                 exec(compile(source,'actual-business-private-replay-workflow.py','exec'),{})
                 result={'ok':True,'gitCalls':len(calls)}
             except Exception as error:
                 result={'ok':False,'gitCalls':len(calls),'exceptionType':type(error).__name__,'message':str(error)}
+            if faults:
+                result['sleeps']=sleeps
+                result['commands']=[next(c for c in ('clone','fetch','update-ref') if c in argv) for argv in calls]
             print(json.dumps(result))
             '''), encoding='utf8')
-        run = subprocess.run([sys.executable, '-I', '-S', str(script), str(payload)], env=env,
+        run = subprocess.run([sys.executable, '-I', '-S', str(script), str(payload), str(faults)], env=env,
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              timeout=30, check=False)
         (owned / 'stdout.txt').write_bytes(run.stdout); (owned / 'stderr.txt').write_bytes(run.stderr)
@@ -630,6 +650,26 @@ class LauncherPlan(unittest.TestCase):
                     self.assertGreater(len(whole), 48000)  # Transport fixture, not operational enrollment.
                 client = json.loads((directory / 'client-input.json').read_bytes())
                 self.assertEqual(client['schemaVersion'], 1 if options.get('legacy') else 2)
+
+    def test_actual_workflow_python_retries_only_git_network_reads_from_a_clean_target(self):
+        cases = [  # (scripted faults by Git call, succeeds, Git calls, waits, commands)
+            ({1: 'fail', 2: 'timeout'}, True, 5, [15, 30], ['clone', 'clone', 'clone', 'fetch', 'update-ref']),
+            ({2: 'fail'}, True, 4, [15], ['clone', 'fetch', 'fetch', 'update-ref']),
+            ({1: 'fail', 2: 'fail', 3: 'fail', 4: 'fail'}, False, 4, [15, 30, 45], ['clone'] * 4),
+            ({2: 'timeout', 3: 'fail', 4: 'fail', 5: 'fail'}, False, 5, [15, 30, 45], ['clone'] + ['fetch'] * 4)]
+        for faults, succeeds, calls, waits, commands in cases:
+            with self.subTest(faults=faults):
+                result, directory, whole, _ = self.workflow_prepare(git_faults=faults)
+                self.assertEqual(result['ok'], succeeds, result)
+                self.assertEqual(result['gitCalls'], calls)
+                self.assertEqual(result['sleeps'], waits)
+                self.assertEqual(result['commands'], commands)
+                if succeeds:
+                    self.assertEqual((directory / 'trust.json').read_bytes(), whole)
+                    self.assertFalse((directory / 'repository' / 'objects').exists())
+                else:
+                    self.assertEqual(result['message'], 'Hosted input preparation refused')
+                    self.assertFalse((directory / 'trust.json').exists())
 
     def test_actual_workflow_python_refuses_bad_chunks_before_git_or_outputs(self):
         cases = [

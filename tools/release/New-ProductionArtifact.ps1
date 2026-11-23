@@ -445,8 +445,15 @@ function Get-RemoteRefCommit {
     $queries += "$RefName^{}"
   }
 
-  $lines = @(git ls-remote origin @queries)
-  if ($LASTEXITCODE -ne 0 -or $lines.Count -eq 0) {
+  # A failed read is not an absent ref: retry transport failures a bounded
+  # number of times, then refuse instead of answering "absent".
+  for ($attempt = 1; ; $attempt++) {
+    $lines = @(git ls-remote origin @queries)
+    if ($LASTEXITCODE -eq 0) { break }
+    if ($attempt -ge 4) { throw "Remote ref read failed: $RefName" }
+    Start-Sleep -Seconds (5 * $attempt)
+  }
+  if ($lines.Count -eq 0) {
     return $null
   }
 

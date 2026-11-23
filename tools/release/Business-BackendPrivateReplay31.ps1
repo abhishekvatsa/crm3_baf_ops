@@ -193,7 +193,14 @@ function Invoke-Business31OwnedController {
       Start-Sleep -Milliseconds 20
     }
     $process.WaitForExit()
-    if ($process.ExitCode -ne 0) { throw 'Business31 protected controller failed; retained stderr is diagnostic only.' }
+    if ($process.ExitCode -ne 0) {
+      # Only the controller's fixed reason vocabulary reaches the log; any other
+      # stderr text stays in the retained diagnostic file.
+      $stderrHead = [Text.Encoding]::ASCII.GetString($stderr.ToArray(), 0, [int][Math]::Min($stderr.Length, 4096))
+      $reason = [regex]::Match($stderrHead, '\{"reason":"(BUSINESS_[A-Z0-9_]{1,96}|UNCLASSIFIED)","httpStatus":(null|[1-5][0-9][0-9])\}')
+      $detail = if ($reason.Success) { " Reason: $($reason.Groups[1].Value); HTTP status: $($reason.Groups[2].Value)." } else { '' }
+      throw ('Business31 protected controller failed; retained stderr is diagnostic only.' + $detail)
+    }
   } catch {
     $failure = $_
     try { if (-not $process.HasExited) { $process.Kill($true); [void]$process.WaitForExit(10000) } } catch { }

@@ -220,6 +220,17 @@ function verifyOidc31(token, jwks, t, r, nowSeconds = Math.floor(Date.now() / 10
     need([claims.iat, claims.nbf, claims.exp].every(Number.isInteger) && claims.iat <= nowSeconds + 30 && claims.nbf <= nowSeconds + 30 && claims.exp > nowSeconds && claims.exp - claims.iat > 0 && claims.exp - claims.iat <= 600 && nowSeconds - claims.iat <= 600, 'OIDC_TIME');
     return claims;
 }
+// Transport faults that say nothing about the reply's content: a recognised
+// native network failure, a dropped response, this module's own timeout, or
+// HTTP 429/5xx. Only these may be retried; any completed reply is validated in
+// full by its caller and a refusal is never retried.
+const TRANSIENT_NETWORK_CODES = Object.freeze(['ECONNRESET', 'ECONNREFUSED', 'ECONNABORTED', 'ETIMEDOUT', 'EPIPE',
+    'ENOTFOUND', 'EAI_AGAIN', 'ENETUNREACH', 'ENETDOWN', 'EHOSTUNREACH', 'EHOSTDOWN']);
+const TRANSIENT_HTTP_STATUS = Object.freeze([429, 500, 502, 503, 504]);
+const RETRY_DELAYS_MS = Object.freeze([2000, 5000, 10000, 20000, 30000]);
+const ARTIFACT_LISTING_DELAYS_MS = Object.freeze([5000, 10000, 15000]);
+const delay31 = ms => new Promise(resolve => setTimeout(resolve, ms));
+function httpFailure31(code, details) { return Object.assign(Error('BUSINESS_HOSTED_HTTP_' + code), details); }
 function request31(url, { method = 'GET', headers = {}, body = null, maxBytes = 2 * 1024 * 1024, redirect = false } = {}) {
     const u = new URL(url);
     need(u.protocol === 'https:' && !u.username && !u.password && (!u.port || u.port === '443'), 'HTTPS_ENDPOINT');
@@ -238,34 +249,50 @@ function request31(url, { method = 'GET', headers = {}, body = null, maxBytes = 
                 else
                     chunks.push(b);
             });
-            res.on('aborted', () => reject(Error('BUSINESS_HOSTED_HTTP_TRUNCATED')));
-            res.on('error', () => reject(Error('BUSINESS_HOSTED_HTTP_RESPONSE')));
+            res.on('aborted', () => reject(httpFailure31('TRUNCATED', {transient: true})));
+            res.on('error', () => reject(httpFailure31('RESPONSE', {transient: true})));
             res.on('end', () => {
                 if (!res.complete || res.headers['content-encoding'])
                     return reject(Error('BUSINESS_HOSTED_HTTP_INCOMPLETE'));
                 if (res.statusCode !== 200 && !(redirect && res.statusCode === 302))
-                    return reject(Error('BUSINESS_HOSTED_HTTP_STATUS'));
+                    return reject(httpFailure31('STATUS', {status: res.statusCode,
+                        transient: TRANSIENT_HTTP_STATUS.includes(res.statusCode)}));
                 resolve({
                     status: res.statusCode, headers: res.headers, bytes: Buffer.concat(chunks)
                 });
             });
         });
         req.on('timeout', () => req.destroy(Error('BUSINESS_HOSTED_HTTP_TIMEOUT')));
-        req.on('error', () => reject(Error('BUSINESS_HOSTED_HTTP_REQUEST')));
+        req.on('error', error => reject(httpFailure31('REQUEST', {transient: error?.message === 'BUSINESS_HOSTED_HTTP_TIMEOUT' ||
+            TRANSIENT_NETWORK_CODES.includes(error?.code)})));
         if (body)
             req.end(body);
         else
             req.end();
     });
 }
+// Repeats the identical operation after a transient transport fault only, a
+// bounded number of times. Callers choose which operations are safe to repeat.
+async function retry31(operation, delays = RETRY_DELAYS_MS) {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await operation();
+        }
+        catch (error) {
+            if (attempt >= delays.length || error?.transient !== true)
+                throw error;
+            await delay31(delays[attempt]);
+        }
+    }
+}
 function token(v) { need(typeof v === 'string' && v.length >= 20 && v.length <= 16384 && !/[\r\n]/.test(v), 'TOKEN_UNAVAILABLE'); return v; }
 async function github31(t, suffix, accessToken) {
     need((suffix === '' || suffix.startsWith('/')) && !suffix.includes('..'), 'GITHUB_PATH');
-    return json((await request31('https://api.github.com/repos/' + t.repository.name + suffix, {
-        headers: {
-            Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'business31-trusted-replay', Authorization: 'Bearer ' + token(accessToken)
-        }
-    })).bytes);
+    const headers = {
+        Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'business31-trusted-replay', Authorization: 'Bearer ' + token(accessToken)
+    };
+    // Read-only GET: repeating it after a transport fault changes nothing remotely.
+    return json((await retry31(() => request31('https://api.github.com/repos/' + t.repository.name + suffix, { headers }))).bytes);
 }
 async function observe31(t, r, accessToken, complete = false) { const repository = await github31(t, '', accessToken); validateRepository31(repository, t); const run = await github31(t, '/actions/runs/' + r.runId, accessToken); validateRun31(run, t, r, complete); const jobs = await github31(t, '/actions/runs/' + r.runId + '/attempts/' + r.runAttempt + '/jobs?per_page=100', accessToken); const job = validateJobs31(jobs, t, r, complete); const candidate = await github31(t, r.candidate.kind === 'main' ? '/git/ref/heads/main' : '/pulls/' + r.candidate.pullRequest, accessToken); validateCandidate31(candidate, t, r); return {
     run, job
@@ -277,7 +304,16 @@ async function retrieveResult31(trust, request, accessToken) {
     validateTrust31(trust); validateRequest31(request);
     need(!isV2Trust31(trust) || request.schemaVersion === 2, 'V2_CHALLENGE_REQUIRED');
     const observed = await observe31(trust, request, accessToken, true);
-    const rows = await github31(trust, '/actions/runs/' + request.runId + '/artifacts?per_page=100', accessToken);
+    let rows;
+    for (let attempt = 0; ; attempt++) {
+        rows = await github31(trust, '/actions/runs/' + request.runId + '/artifacts?per_page=100', accessToken);
+        // The listing can trail a just-completed run. Only an empty listing waits,
+        // briefly; the exact population and identity checks below are unchanged.
+        if (attempt >= ARTIFACT_LISTING_DELAYS_MS.length || rows?.total_count !== 0 ||
+            !Array.isArray(rows.artifacts) || rows.artifacts.length !== 0)
+            break;
+        await delay31(ARTIFACT_LISTING_DELAYS_MS[attempt]);
+    }
     need(rows.total_count === 1 && Array.isArray(rows.artifacts) && rows.artifacts.length === 1, 'ARTIFACT_POPULATION');
     const a = rows.artifacts[0];
     need(Number.isSafeInteger(a.id) && a.name === artifactName31(request) && a.expired === false &&
@@ -288,17 +324,21 @@ async function retrieveResult31(trust, request, accessToken) {
         'ARTIFACT_RUN');
     need(Date.parse(a.created_at) >= Date.parse(observed.job.started_at) &&
         Date.parse(a.created_at) <= Date.parse(observed.job.completed_at) && Date.parse(a.expires_at) > Date.now(), 'ARTIFACT_TIME');
-    const redirect = await request31('https://api.github.com/repos/' + trust.repository.name + '/actions/artifacts/' + a.id + '/zip', {
-        headers: {Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
-            'User-Agent': 'business31-trusted-result', Authorization: 'Bearer ' + token(accessToken)},
-        redirect: true, maxBytes: 1024 * 1024
+    const headers = {Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'business31-trusted-result', Authorization: 'Bearer ' + token(accessToken)};
+    // Both reads are GETs. A signed storage location is short-lived, so every
+    // attempt asks GitHub for a fresh one instead of reusing an earlier location.
+    const raw = await retry31(async () => {
+        const redirect = await request31('https://api.github.com/repos/' + trust.repository.name + '/actions/artifacts/' + a.id + '/zip', {
+            headers, redirect: true, maxBytes: 1024 * 1024
+        });
+        need(redirect.status === 302 && typeof redirect.headers.location === 'string', 'ARTIFACT_REDIRECT');
+        const target = new URL(redirect.headers.location);
+        need(target.protocol === 'https:' && !target.username && !target.password && !target.port &&
+            /^[a-z0-9]+\.blob\.core\.windows\.net$/.test(target.hostname), 'ARTIFACT_STORAGE_ORIGIN');
+        // The signed storage request never receives the GitHub credential.
+        return (await request31(target.href, {maxBytes: 1024 * 1024})).bytes;
     });
-    need(redirect.status === 302 && typeof redirect.headers.location === 'string', 'ARTIFACT_REDIRECT');
-    const target = new URL(redirect.headers.location);
-    need(target.protocol === 'https:' && !target.username && !target.password && !target.port &&
-        /^[a-z0-9]+\.blob\.core\.windows\.net$/.test(target.hostname), 'ARTIFACT_STORAGE_ORIGIN');
-    // The signed storage request never receives the GitHub credential.
-    const raw = (await request31(target.href, {maxBytes: 1024 * 1024})).bytes;
     need(raw.length === a.size_in_bytes && 'sha256:' + sha(raw).toLowerCase() === a.digest, 'ARTIFACT_DIGEST');
     const resultBytes = singleResultZip31(raw);
     const value = validateResult31(json(resultBytes, 32768), trust, request);
@@ -419,5 +459,5 @@ function singleResultZip31(raw) {
     return bytes;
 }
 module.exports = Object.freeze({
-    PROFILE, PROFILE_V2, isV2Trust31, coreVerifierSummary31, transportCommitments31, ISSUER, RESULT_NAME, SELF, ENTRIES, sha, need, same, exact, json, regular, validateTrust31, readTrustedConfiguration31, validateRequest31, validateChallenge31, verifyClientHelpers31, verifyReplayHelpers31, verifyExecuting31, validateRepository31, validateCandidate31, validateRun31, validateJobs31, verifyOidc31, request31, token, github31, observe31, artifactName31, retrieveResult31, validateResult31, singleResultZip31
+    PROFILE, PROFILE_V2, isV2Trust31, coreVerifierSummary31, transportCommitments31, ISSUER, RESULT_NAME, SELF, ENTRIES, sha, need, same, exact, json, regular, validateTrust31, readTrustedConfiguration31, validateRequest31, validateChallenge31, verifyClientHelpers31, verifyReplayHelpers31, verifyExecuting31, validateRepository31, validateCandidate31, validateRun31, validateJobs31, verifyOidc31, request31, retry31, RETRY_DELAYS_MS, ARTIFACT_LISTING_DELAYS_MS, token, github31, observe31, artifactName31, retrieveResult31, validateResult31, singleResultZip31
 });

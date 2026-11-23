@@ -485,6 +485,135 @@ jobs:
             }
           }
 
+      # Every download the build needs happens before the irreversible reservation,
+      # each retried a bounded number of times and accepted only at its approved digest.
+      - name: Download and verify approved bundletool
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $policy = Get-Content release/production-release-policy.json -Raw |
+            ConvertFrom-Json
+          $jar = Join-Path $env:RUNNER_TEMP 'bundletool.jar'
+          $expected = ([string]$policy.toolchain.bundletoolSha256).ToUpperInvariant()
+          $actual = $null
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri $policy.toolchain.bundletoolUrl -OutFile $jar -TimeoutSec 300
+              $actual = (
+                Get-FileHash -LiteralPath $jar -Algorithm SHA256
+              ).Hash.ToUpperInvariant()
+              if ($actual -eq $expected) { break }
+            } catch {
+              if ($attempt -eq 4) { throw }
+            }
+            if ($attempt -lt 4) { Start-Sleep -Seconds (15 * $attempt) }
+          }
+
+          if ($actual -ne $expected) {
+            throw "bundletool hash mismatch: $actual"
+          }
+
+          "CRM_BUNDLETOOL_PATH=$jar" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+          "CRM_BUNDLETOOL_SHA256=$actual" |
+            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Provision and prove approved Linux Isar core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p .dart_tool/ci
+          cat > .dart_tool/ci/prepare_isar.dart <<'DART'
+          import 'package:isar_community/isar.dart';
+
+          Future<void> main() async {
+            await Isar.initializeIsarCore(download: true);
+          }
+          DART
+
+          # The download has no timeout of its own and keeps a partial file next to
+          # the script, so each attempt is bounded and starts clean.
+          for attempt in 1 2 3 4; do
+            if timeout 300 dart run .dart_tool/ci/prepare_isar.dart; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Linux Isar core provisioning failed after $attempt attempts."
+              exit 1
+            fi
+            rm -f .dart_tool/ci/libisar.so
+            sleep $((15 * attempt))
+          done
+
+          candidate_list="${RUNNER_TEMP}/crm3-isar-candidates.txt"
+          matching_list="${RUNNER_TEMP}/crm3-isar-approved-matches.txt"
+          : > "$candidate_list"
+          : > "$matching_list"
+
+          find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
+            -type f -name libisar.so 2>/dev/null |
+          sort -u |
+          while IFS= read -r candidate; do
+            case "$candidate" in
+              *jniLibs*|*android*|*Android*) continue ;;
+            esac
+            if file "$candidate" | grep -Eqi 'ELF 64-bit.*x86-64'; then
+              actual="$(sha256sum "$candidate" | awk '{print toupper($1)}')"
+              printf '%s  %s\n' "$actual" "$candidate" >> "$candidate_list"
+              if [ "$actual" = "$CRM_EXPECTED_ISAR_CORE_SHA256" ]; then
+                printf '%s\n' "$candidate" >> "$matching_list"
+              fi
+            fi
+          done
+
+          match_count="$(wc -l < "$matching_list" | tr -d ' ')"
+          if [ "$match_count" -lt 1 ]; then
+            echo "::error::No Linux x86-64 Isar core matched the independent authority."
+            echo "Expected: $CRM_EXPECTED_ISAR_CORE_SHA256"
+            cat "$candidate_list" || true
+            exit 1
+          fi
+
+          selected="$(head -n 1 "$matching_list")"
+          actual_sha="$(sha256sum "$selected" | awk '{print toupper($1)}')"
+          test "$actual_sha" = "$CRM_EXPECTED_ISAR_CORE_SHA256"
+
+          sudo install -m 0755 "$selected" /usr/lib/libisar.so
+          file /usr/lib/libisar.so
+          ldd /usr/lib/libisar.so
+
+          python3 - <<'PY'
+          import ctypes
+          ctypes.CDLL('/usr/lib/libisar.so')
+          print('Isar native-core load probe: PASS')
+          PY
+
+          echo "CRM_ISAR_CORE_PATH=/usr/lib/libisar.so" >> "$GITHUB_ENV"
+          echo "CRM_ISAR_CORE_SHA256=$actual_sha" >> "$GITHUB_ENV"
+
+      - name: Prefetch approved Firestore emulator before reservation
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The release and closure gates after the reservation start this emulator.
+          # Fetching it here moves its only download before the irreversible step;
+          # the pinned CLI checks the download's size and checksum itself. It runs
+          # outside the checkout so no CLI log can make the repository unclean.
+          firebase_cli="$PWD/tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js"
+          test -f "$firebase_cli"
+          cd "$RUNNER_TEMP"
+          for attempt in 1 2 3 4; do
+            if timeout 600 node "$firebase_cli" setup:emulators:firestore; then
+              break
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Firestore emulator prefetch failed after $attempt attempts."
+              exit 1
+            fi
+            sleep $((15 * attempt))
+          done
+
       - name: Fresh business replay before signing secrets and reservation
         shell: pwsh
         env:
@@ -519,6 +648,46 @@ jobs:
             -Policy $policy -RequestOutputPath $request
           if ($proof.replayMode -cne 'fresh-dispatch') { throw 'Construction requires its own new private replay.' }
           "BUSINESS31_CONSTRUCTION_REQUEST=$request" | Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Reauthenticate construction replay and prove clean checkout before reservation
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          # The builder repeats these exact checks right after the irreversible
+          # reservation. Running them once here moves a first failure before it.
+          $policy = Get-Content release/production-release-policy.json -Raw | ConvertFrom-Json
+          . (Join-Path $PWD 'tools/release/Production-AppCheckPolicy.ps1')
+          if (Test-ProductionAppCheckBusiness31Selected $policy) {
+            if ([string]::IsNullOrWhiteSpace($env:BUSINESS31_CONSTRUCTION_REQUEST)) {
+              throw 'Business31 requires the fresh pre-reservation construction request from this run.'
+            }
+            $businessOutput = @(& node --no-global-search-paths (Join-Path $PWD 'tools/release/clientBackendCompatibility31.js') `
+              $PWD.Path (Join-Path $PWD.Path 'release/production-release-policy.json'))
+            if ($LASTEXITCODE -ne 0 -or $businessOutput.Count -ne 1) { throw 'Business31 construction prerequisite could not be reauthenticated.' }
+            $proof = [string]$businessOutput[0] | ConvertFrom-Json -Depth 100
+            if ($proof.ok -isnot [bool] -or -not $proof.ok -or $proof.route -cne 'business-backend31' -or
+                $proof.businessBackend31.prerequisiteResult.purpose -cne 'construction' -or
+                $proof.businessBackend31.prerequisiteResult.replayMode -cne 'same-parent-reauthentication' -or
+                $proof.businessBackend31.prerequisiteResult.challenge.requester.runId -cne $env:GITHUB_RUN_ID -or
+                $proof.businessBackend31.prerequisiteResult.challenge.requester.runAttempt -cne $env:GITHUB_RUN_ATTEMPT) {
+              throw 'Business31 construction measurement differs from this protected run.'
+            }
+          }
+          pwsh -NoProfile -ExecutionPolicy Bypass `
+            -File tools/release/Test-ProductionReleasePolicy.ps1 `
+            -PolicyPath release/production-release-policy.json `
+            -RepositoryRoot $PWD `
+            -RequireArtifactConstructionAuthority
+          if ($LASTEXITCODE -ne 0) { throw 'Construction-mode production policy verification failed.' }
+          # The builder refuses an unclean checkout after the reservation.
+          $unclean = @(git status --porcelain=v1 --untracked-files=all)
+          if ($LASTEXITCODE -ne 0 -or $unclean.Count -gt 0) {
+            throw 'Repository is not clean before the reservation; the builder would refuse it after the irreversible step.'
+          }
 
       - name: Prove production environment secrets before reservation
         shell: pwsh
@@ -609,91 +778,6 @@ jobs:
           )
           "CRM_ANDROID_RELEASE_STORE_FILE=$path" |
             Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-
-      - name: Download and verify approved bundletool
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $policy = Get-Content release/production-release-policy.json -Raw |
-            ConvertFrom-Json
-          $jar = Join-Path $env:RUNNER_TEMP 'bundletool.jar'
-          Invoke-WebRequest -Uri $policy.toolchain.bundletoolUrl -OutFile $jar
-
-          $actual = (
-            Get-FileHash -LiteralPath $jar -Algorithm SHA256
-          ).Hash.ToUpperInvariant()
-
-          if ($actual -ne
-            ([string]$policy.toolchain.bundletoolSha256).ToUpperInvariant()) {
-            throw "bundletool hash mismatch: $actual"
-          }
-
-          "CRM_BUNDLETOOL_PATH=$jar" |
-            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-          "CRM_BUNDLETOOL_SHA256=$actual" |
-            Out-File -Append -FilePath $env:GITHUB_ENV -Encoding utf8
-
-      - name: Provision and prove approved Linux Isar core
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p .dart_tool/ci
-          cat > .dart_tool/ci/prepare_isar.dart <<'DART'
-          import 'package:isar_community/isar.dart';
-
-          Future<void> main() async {
-            await Isar.initializeIsarCore(download: true);
-          }
-          DART
-
-          dart run .dart_tool/ci/prepare_isar.dart
-
-          candidate_list="${RUNNER_TEMP}/crm3-isar-candidates.txt"
-          matching_list="${RUNNER_TEMP}/crm3-isar-approved-matches.txt"
-          : > "$candidate_list"
-          : > "$matching_list"
-
-          find "$HOME/.pub-cache" "$PWD" "${RUNNER_TEMP:-/tmp}" \
-            -type f -name libisar.so 2>/dev/null |
-          sort -u |
-          while IFS= read -r candidate; do
-            case "$candidate" in
-              *jniLibs*|*android*|*Android*) continue ;;
-            esac
-            if file "$candidate" | grep -Eqi 'ELF 64-bit.*x86-64'; then
-              actual="$(sha256sum "$candidate" | awk '{print toupper($1)}')"
-              printf '%s  %s\n' "$actual" "$candidate" >> "$candidate_list"
-              if [ "$actual" = "$CRM_EXPECTED_ISAR_CORE_SHA256" ]; then
-                printf '%s\n' "$candidate" >> "$matching_list"
-              fi
-            fi
-          done
-
-          match_count="$(wc -l < "$matching_list" | tr -d ' ')"
-          if [ "$match_count" -lt 1 ]; then
-            echo "::error::No Linux x86-64 Isar core matched the independent authority."
-            echo "Expected: $CRM_EXPECTED_ISAR_CORE_SHA256"
-            cat "$candidate_list" || true
-            exit 1
-          fi
-
-          selected="$(head -n 1 "$matching_list")"
-          actual_sha="$(sha256sum "$selected" | awk '{print toupper($1)}')"
-          test "$actual_sha" = "$CRM_EXPECTED_ISAR_CORE_SHA256"
-
-          sudo install -m 0755 "$selected" /usr/lib/libisar.so
-          file /usr/lib/libisar.so
-          ldd /usr/lib/libisar.so
-
-          python3 - <<'PY'
-          import ctypes
-          ctypes.CDLL('/usr/lib/libisar.so')
-          print('Isar native-core load probe: PASS')
-          PY
-
-          echo "CRM_ISAR_CORE_PATH=/usr/lib/libisar.so" >> "$GITHUB_ENV"
-          echo "CRM_ISAR_CORE_SHA256=$actual_sha" >> "$GITHUB_ENV"
 
       - name: Build once and independently verify
         shell: pwsh

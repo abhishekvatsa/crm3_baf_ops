@@ -40,3 +40,42 @@ test('relocation guard remains 16 roots and 50000 individual files',()=>{
  const roles={authorityRoot:'/absent',executionRoot:'/absent',evidenceDirectory:'/absent'};
  for(const relocation of [{schemaVersion:1,roots:Array(17).fill({}),files:[],roles},{schemaVersion:1,roots:[{}],files:Array(50001).fill({}),roles}])assert.throws(()=>legacy.validateRelocation31(relocation,{}),/finite relocation/);
 });
+
+// Exact-generation reads: transport faults are retried a bounded number of times,
+// refusals are not, and the committed size and digest still decide. Waits use the
+// global setTimeout and are driven with mocked timers.
+const https=require('node:https'),{EventEmitter}=require('node:events');
+const TOKEN='synthetic-token-never-a-real-credential';
+async function network(items,fn){const original=https.get,calls=[];
+ https.get=(options,cb)=>{calls.push(options);const req=new EventEmitter();req.destroy=()=>{};const item=items.shift();
+  setImmediate(()=>{
+   if(!item){req.emit('error',new Error('Unplanned synthetic read'));return;}
+   if(item.code){req.emit('error',Object.assign(new Error('synthetic transport fault'),{code:item.code}));return;}
+   const res=new EventEmitter();res.statusCode=item.status??200;res.resume=()=>{};res.complete=item.complete!==false;cb(res);
+   if(res.statusCode===200){res.emit('data',item.bytes);res.emit('end');}
+  });return req;};
+ try{return await fn(calls);}finally{https.get=original;}
+}
+async function settle(t,promise){let settled=false;promise.then(()=>{settled=true;},()=>{settled=true;});
+ for(let i=0;!settled&&i<100000;i++){await new Promise(resolve=>setImmediate(resolve));t.mock.timers.tick(1000);}return promise;}
+function meta(f){return Buffer.from(JSON.stringify({bucket:api.BUCKET,name:f.descriptor.custody.objectName,generation:f.descriptor.custody.generation,size:String(f.bytes.length)}));}
+test('exact-generation reads retry transport faults only and still require the committed digest',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const f=fixture(),read=()=>settle(t,api.downloadExactGenerationV2(f.descriptor,TOKEN,'business'));
+ await network([{status:503},{bytes:meta(f)},{code:'ECONNRESET'},{status:429},{bytes:f.bytes}],async calls=>{
+  assert.deepEqual(await read(),f.bytes);assert.equal(calls.length,5);
+  for(const c of calls){assert.equal(c.hostname,'storage.googleapis.com');assert.equal(c.method,'GET');assert.equal(c.headers.Authorization,'Bearer '+TOKEN);}
+  assert.equal(calls.filter(c=>c.path.endsWith('&alt=media')).length,3);
+ });
+ for(const status of [401,403,404,412])
+  await network([{status}],async calls=>{await assert.rejects(read(),/exact-generation evidence read failed/);assert.equal(calls.length,1,String(status));});
+ await network([{status:503},{status:503},{status:503},{status:503}],async calls=>{
+  await assert.rejects(read(),/exact-generation evidence read failed/);assert.equal(calls.length,4);});
+ await network([{bytes:meta(f)},{bytes:Buffer.concat([f.bytes.subarray(1),Buffer.from('x')])}],async calls=>{
+  await assert.rejects(read(),/differ from immutable custody/);assert.equal(calls.length,2);});
+ await network([{bytes:meta(f)},{bytes:f.bytes.subarray(0,5),complete:false},{bytes:f.bytes}],async calls=>{
+  assert.deepEqual(await read(),f.bytes);assert.equal(calls.length,3);});
+ await network([{bytes:meta(f)},{code:'EACCES'}],async calls=>{
+  await assert.rejects(read(),/Private evidence read failed/);assert.equal(calls.length,2);});
+ await network([],async calls=>{await assert.rejects(settle(t,api.downloadExactGenerationV2(f.descriptor,'short','business')),/credential is unavailable/);assert.equal(calls.length,0);});
+});

@@ -60,7 +60,16 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $zip = Join-Path $env:RUNNER_TEMP 'business31-MinGit-2.56.1-64-bit.zip'
-          Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.56.1.windows.1/MinGit-2.56.1-64-bit.zip' -OutFile $zip
+          # A transport failure is retried a bounded number of times; only the pinned digest is accepted.
+          for ($attempt = 1; $attempt -le 4; $attempt++) {
+            try {
+              Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.56.1.windows.1/MinGit-2.56.1-64-bit.zip' -OutFile $zip -TimeoutSec 300
+              if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -ceq '4A92850B6E917DA4FD010669B614B55DCCF5B0EC333A534CC4BE4700DFEFDAFD') { break }
+            } catch {
+              if ($attempt -eq 4) { throw }
+            }
+            if ($attempt -lt 4) { Start-Sleep -Seconds (15 * $attempt) }
+          }
           if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash -cne '4A92850B6E917DA4FD010669B614B55DCCF5B0EC333A534CC4BE4700DFEFDAFD') {
             throw 'Pinned MinGit archive differs'
           }
@@ -118,7 +127,7 @@ jobs:
             throw 'Hosted launcher differs from enrollment'
           }
           $prepare = @'
-          import base64,hashlib,json,os,pathlib,re,subprocess
+          import base64,hashlib,json,os,pathlib,re,subprocess,time
           def need(ok):
               if not ok: raise RuntimeError('Hosted input preparation refused')
           def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest().upper()
@@ -160,12 +169,34 @@ jobs:
           env={'PATH':str(git.parent),'HOME':str(root/'home'),'TMP':str(root/'tmp'),'TEMP':str(root/'tmp'),'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':'NUL','GIT_TERMINAL_PROMPT':'0','GIT_NO_REPLACE_OBJECTS':'1','GIT_ALLOW_PROTOCOL':'https'}
           for key in ('SystemRoot','WINDIR','COMSPEC'):
               value=os.environ.get(key);need(isinstance(value,str) and value!='');env[key]=value
-          def run(args):
-              r=subprocess.run([str(git),'--no-replace-objects','-c','credential.helper=','-c','core.hooksPath='+str(root/'template'),'-c','protocol.allow=never','-c','protocol.https.allow=always',*args],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=300)
-              need(r.returncode==0)
+          def run(args,attempts=1,reset=None):
+              # Network reads are retried a bounded number of times after a failure or timeout.
+              for attempt in range(attempts):
+                  if attempt:
+                      time.sleep(15*attempt)
+                      if reset: reset()
+                  try:
+                      r=subprocess.run([str(git),'--no-replace-objects','-c','credential.helper=','-c','core.hooksPath='+str(root/'template'),'-c','protocol.allow=never','-c','protocol.https.allow=always',*args],env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=300)
+                  except subprocess.TimeoutExpired:
+                      continue
+                  if r.returncode==0: return
+              need(False)
           repo=root/'repository'
-          run(['clone','--no-checkout','--no-local','--no-hardlinks','--template='+str(root/'template'),'--','https://github.com/'+name+'.git',str(repo)])
-          run(['-C',str(repo),'fetch','--no-tags','origin',S])
+          def discard_partial_clone():
+              # Only this job's own clone target is removed, bottom-up, links unfollowed.
+              if not os.path.lexists(repo): return
+              for base,dirs,files in os.walk(repo,topdown=False):
+                  for item in files:
+                      p=os.path.join(base,item)
+                      if not os.path.islink(p): os.chmod(p,0o600)
+                      os.unlink(p)
+                  for item in dirs:
+                      p=os.path.join(base,item)
+                      if os.path.islink(p): os.unlink(p)
+                      else: os.rmdir(p)
+              os.rmdir(repo)
+          run(['clone','--no-checkout','--no-local','--no-hardlinks','--template='+str(root/'template'),'--','https://github.com/'+name+'.git',str(repo)],attempts=4,reset=discard_partial_clone)
+          run(['-C',str(repo),'fetch','--no-tags','origin',S],attempts=4)
           run(['-C',str(repo),'update-ref','refs/heads/business31-admitted-'+S,S])
           manifest=json.loads(carried('MANIFEST_JSON'))
           (root/'trust.json').write_bytes(trust_raw)

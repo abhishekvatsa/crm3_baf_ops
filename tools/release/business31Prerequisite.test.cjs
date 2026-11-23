@@ -242,6 +242,93 @@ for (const [name, mutate] of [
   assert.equal(fs.existsSync(run.output), false);
 });
 
+// GitHub can answer 404 for a run it has just created. Only that dispatched run,
+// only before its first successful read, is waited for; the dispatch is never
+// repeated, and a refusal reports one fixed reason code and an HTTP status.
+// Waits use the global setTimeout, so they are driven with mocked timers.
+async function driven(t, options) {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  let settled = false;
+  const pending = runController(options);
+  pending.then(() => { settled = true; }, () => { settled = true; });
+  for (let i = 0; !settled && i < 100000; i++) {
+    await new Promise(resolve => setImmediate(resolve));
+    t.mock.timers.tick(1000);
+  }
+  return pending;
+}
+const PREFIX = 'Fresh exact-source business prerequisite did not complete; no action is authorized. ';
+function reason(run) {
+  assert.ok(run.error, 'a refusal is expected');
+  assert.match(run.error.message, /^Fresh exact-source business prerequisite did not complete; no action is authorized\. \{"reason":"(BUSINESS_[A-Z0-9_]+|UNCLASSIFIED)","httpStatus":(null|[1-5][0-9][0-9])\}$/);
+  return JSON.parse(run.error.message.slice(PREFIX.length));
+}
+const runReads = run => run.requests.filter(r => r.method === 'GET' && r.url.endsWith('/actions/runs/42')).length;
+const notFound = reply => { reply.status = 404; reply.body = {message: 'Not Found'}; };
+test('a dispatched run that is briefly invisible (404) is read after the bounded wait', long, async t => {
+  let reads = 0;
+  const run = await driven(t, {mutate: ({record, reply}) => {
+    if (record.url.endsWith('/actions/runs/42') && ++reads <= 2) notFound(reply);
+  }});
+  assert.equal(run.error, undefined, run.error?.stack);
+  assert.equal(run.value.replayMode, 'fresh-dispatch');
+  assert.equal(run.value.freshHostedReplayVerified, true);
+  assert.equal(run.requests.filter(r => r.method === 'POST').length, 1);
+  assert.equal(runReads(run), 4 + 2);
+});
+test('a dispatched run that never becomes visible is refused after 40 bounded waits', long, async t => {
+  const run = await driven(t, {mutate: ({record, reply}) => { if (record.url.endsWith('/actions/runs/42')) notFound(reply); }});
+  assert.deepEqual(reason(run), {reason: 'BUSINESS_HOSTED_HTTP_STATUS', httpStatus: 404});
+  assert.equal(runReads(run), 1 + 40);
+  assert.equal(run.requests.filter(r => r.method === 'POST').length, 1);
+  assert.equal(fs.existsSync(run.output), false);
+});
+test('a 404 after the dispatched run was read once is a refusal, not a wait', long, async t => {
+  let reads = 0;
+  const run = await driven(t, {mutate: ({record, reply}) => {
+    if (!record.url.endsWith('/actions/runs/42')) return;
+    if (++reads === 1) { reply.body.status = 'queued'; reply.body.conclusion = null; } else notFound(reply);
+  }});
+  assert.deepEqual(reason(run), {reason: 'BUSINESS_HOSTED_HTTP_STATUS', httpStatus: 404});
+  assert.equal(runReads(run), 2);
+  assert.equal(fs.existsSync(run.output), false);
+});
+test('the dispatch is never repeated, even after a transient 502', long, async t => {
+  const run = await driven(t, {mutate: ({record, reply}) => {
+    if (record.method === 'POST') { reply.status = 502; reply.body = {message: 'synthetic bad gateway'}; }
+  }});
+  assert.deepEqual(reason(run), {reason: 'BUSINESS_HOSTED_HTTP_STATUS', httpStatus: 502});
+  assert.equal(run.requests.filter(r => r.method === 'POST').length, 1);
+  assert.equal(runReads(run), 0);
+  assert.equal(fs.existsSync(run.output), false);
+});
+test('transient read failures around the dispatched run are retried and the result still verifies', long, async t => {
+  let jobs = 0, heads = 0, blobs = 0;
+  const run = await driven(t, {mutate: ({record, reply}) => {
+    if (record.url.includes('/actions/runs/42/attempts/1/jobs') && ++jobs === 1) { reply.status = 503; reply.body = {}; }
+    if (record.url.endsWith('/git/ref/heads/main') && ++heads === 2) throw Object.assign(Error('synthetic reset'), {code: 'ECONNRESET'});
+    if (new URL(record.url).hostname === 'fixture.blob.core.windows.net' && ++blobs === 1) { reply.status = 500; reply.body = {}; }
+  }});
+  assert.equal(run.error, undefined, run.error?.stack);
+  assert.equal(run.value.freshHostedReplayVerified, true);
+  assert.equal(run.requests.filter(r => r.method === 'POST').length, 1);
+  assert.equal(run.requests.filter(r => r.url.endsWith('/git/ref/heads/main')).length, 4 + 1);
+  assert.equal(run.requests.filter(r => r.url.endsWith('/actions/artifacts/71/zip')).length, 2);
+});
+test('resume refuses a missing original run at once, with no visibility wait', long, async t => {
+  assert.ok(initialConstruction?.value, 'Uses the previously authenticated original fixture result');
+  const run = await driven(t, {resume: initialConstruction, mutate: ({record, reply}) => {
+    if (record.url.endsWith('/actions/runs/42')) notFound(reply);
+  }});
+  assert.deepEqual(reason(run), {reason: 'BUSINESS_HOSTED_HTTP_STATUS', httpStatus: 404});
+  assert.equal(runReads(run), 1);
+  assert.equal(run.requests.filter(r => r.method === 'POST').length, 0);
+});
+test('a validation refusal reports its fixed reason and no HTTP status', long, async t => {
+  const run = await driven(t, {mutate: ({record, reply}) => { if (record.method === 'POST') reply.body = {}; }});
+  assert.deepEqual(reason(run), {reason: 'BUSINESS_HOSTED_DISPATCH_RESULT', httpStatus: null});
+});
+
 async function runReplay({missingHelper, invalidChallenge = false, omitPair = false}) {
   setup(); const x = structuredClone(measured.x), directory = fs.mkdtempSync(path.join(retained, 'replay-'));
   x.request.schemaVersion = 2;

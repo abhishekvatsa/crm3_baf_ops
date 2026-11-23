@@ -172,6 +172,170 @@ test('v2 construction and package record retain distinct core-verifier compariso
  assert.match(manifest,/legacy construction observation contains a versioned verifier/);
 });
 
+// Everything that can fail on the network before the build runs before the
+// irreversible reservation, with bounded retries; what runs after it is either
+// retried or re-proven first. Source contracts plus isolated PowerShell runs.
+function stepIn(source, name) {
+  const text = source.replaceAll('\r\n', '\n');
+  const offset = text.indexOf('      - name: ' + name + '\n');
+  assert.ok(offset >= 0, name);
+  assert.equal(text.indexOf('      - name: ' + name + '\n', offset + 1), -1, 'step is singular: ' + name);
+  const end = text.indexOf('\n      - name:', offset + 1);
+  return text.slice(offset, end < 0 ? undefined : end);
+}
+function pwshScript(prefix, body) {
+  const temporary = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const script = path.join(temporary, 'check.ps1');
+  fs.writeFileSync(script, body(temporary));
+  const env = {PATH: process.env.PATH, HOME: temporary, USERPROFILE: temporary, TEMP: temporary, TMP: temporary};
+  for (const key of ['SystemRoot', 'WINDIR']) if (process.env[key]) env[key] = process.env[key];
+  const run = spawnSync(process.env.BUSINESS31_TEST_PWSH || 'pwsh', ['-NoProfile', '-File', script],
+    {env, encoding: 'utf8', windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024});
+  assert.equal(run.error, undefined); assert.equal(run.status, 0, run.stderr);
+  return run.stdout.trim().split(/\r?\n/).map(line => JSON.parse(line));
+}
+const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
+test('every build download precedes the replay and the irreversible reservation, retried and digest-bound', () => {
+  ordered(workflow, ['- name: Prove Android dependency configuration before reservation',
+    '- name: Download and verify approved bundletool', '- name: Provision and prove approved Linux Isar core',
+    '- name: Prefetch approved Firestore emulator before reservation',
+    '- name: Fresh business replay before signing secrets and reservation',
+    '- name: Reauthenticate construction replay and prove clean checkout before reservation',
+    '- name: Prove production environment secrets before reservation', '- name: Atomically consume the build number',
+    '- name: Restore approved production keystore', '- name: Build once and independently verify']);
+  for (const name of ['Download and verify approved bundletool', 'Provision and prove approved Linux Isar core',
+    'Prefetch approved Firestore emulator before reservation'])
+    assert.doesNotMatch(stepIn(workflow, name), /secrets\.|CRM_ANDROID_RELEASE_/, name);
+  ordered(stepIn(workflow, 'Download and verify approved bundletool'), ['for ($attempt = 1; $attempt -le 4; $attempt++)',
+    'Invoke-WebRequest -Uri $policy.toolchain.bundletoolUrl -OutFile $jar -TimeoutSec 300',
+    'Get-FileHash -LiteralPath $jar -Algorithm SHA256', 'if ($actual -eq $expected) { break }', 'if ($attempt -eq 4) { throw }',
+    'if ($actual -ne $expected)', 'throw "bundletool hash mismatch: $actual"', 'CRM_BUNDLETOOL_PATH=$jar', 'CRM_BUNDLETOOL_SHA256=$actual']);
+  ordered(stepIn(workflow, 'Provision and prove approved Linux Isar core'), ['for attempt in 1 2 3 4; do',
+    'timeout 300 dart run .dart_tool/ci/prepare_isar.dart', 'if [ "$attempt" -eq 4 ]; then', 'exit 1',
+    'rm -f .dart_tool/ci/libisar.so', 'done', 'if [ "$actual" = "$CRM_EXPECTED_ISAR_CORE_SHA256" ]; then',
+    'test "$actual_sha" = "$CRM_EXPECTED_ISAR_CORE_SHA256"', 'sudo install -m 0755 "$selected" /usr/lib/libisar.so',
+    'Isar native-core load probe: PASS', 'CRM_ISAR_CORE_PATH=/usr/lib/libisar.so']);
+  const cli = 'tooling/firebase-cli/node_modules/firebase-tools/lib/bin/firebase.js';
+  ordered(stepIn(workflow, 'Prefetch approved Firestore emulator before reservation'), ['firebase_cli="$PWD/' + cli + '"',
+    'test -f "$firebase_cli"', 'cd "$RUNNER_TEMP"', 'for attempt in 1 2 3 4; do',
+    'timeout 600 node "$firebase_cli" setup:emulators:firestore', 'if [ "$attempt" -eq 4 ]; then', 'exit 1']);
+  // The prefetch fills the cache of the very CLI the post-reservation gates start.
+  const scripts = JSON.parse(read('package.json')).scripts;
+  for (const name of ['emulator:test:governed', 'emulator:test:closure'])
+    assert.ok(scripts[name].startsWith('node ' + cli + ' emulators:exec --only firestore '), name);
+  assert.match(read('release_gate.ps1'), /npm run emulator:test:governed/);
+  assert.match(builder, /npm run emulator:test:closure/);
+  // Nothing after the reservation downloads a tool.
+  const after = workflow.slice(workflow.indexOf('- name: Atomically consume the build number'));
+  assert.doesNotMatch(after, /Invoke-WebRequest|prepare_isar|setup:emulators/);
+});
+test('the builder construction reauthentication and clean-checkout refusal run once before the reservation', () => {
+  const body = stepIn(workflow, 'Reauthenticate construction replay and prove clean checkout before reservation');
+  ordered(body, ['Set-StrictMode -Version Latest', "$ErrorActionPreference = 'Stop'", 'Production-AppCheckPolicy.ps1',
+    'if (Test-ProductionAppCheckBusiness31Selected $policy)', 'BUSINESS31_CONSTRUCTION_REQUEST',
+    "node --no-global-search-paths (Join-Path $PWD 'tools/release/clientBackendCompatibility31.js')",
+    "-cne 'same-parent-reauthentication'", '$env:GITHUB_RUN_ID', '$env:GITHUB_RUN_ATTEMPT',
+    'Test-ProductionReleasePolicy.ps1', '-RequireArtifactConstructionAuthority', 'if ($LASTEXITCODE -ne 0)',
+    'git status --porcelain=v1 --untracked-files=all', '$unclean.Count -gt 0']);
+  assert.match(body, /GH_TOKEN: \$\{\{ github\.token \}\}/);
+  assert.doesNotMatch(body, /secrets\.|CRM_ANDROID_RELEASE_|Invoke-ProductionBusiness31PrerequisiteReplay|-ResumeRequestPath|-RequestOutputPath|-AuthorityPath/);
+  // The acceptance condition is the builder's own, token for token.
+  const business = between(builder, 'if (Test-ProductionAppCheckBusiness31Selected $policy)', '$appCheckEvidence = $null');
+  const condition = text => {
+    const start = text.indexOf('.ok -isnot [bool]');
+    assert.ok(start > 0);
+    return text.slice(start, text.indexOf(') {', start)).replaceAll('$business31Proof', '$proof').replace(/\s+/g, ' ');
+  };
+  assert.equal(condition(body), condition(business));
+  ordered(business, ['clientBackendCompatibility31.js', "$repo (Join-Path $repo 'release/production-release-policy.json')"]);
+  // The same policy proof the builder runs right after the reservation.
+  ordered(builder, ['-File tools/release/Test-ProductionReleasePolicy.ps1', '-PolicyPath $PolicyPath', '-RepositoryRoot $repo',
+    '-RequireArtifactConstructionAuthority', "throw 'Production policy verification failed.'"]);
+  assert.match(builder, /@\(git status --porcelain=v1 --untracked-files=all\)\.Count -gt 0\) \{\s*throw 'Repository must be clean\.'/);
+});
+test('hosted credential reads repeat only transport faults; the controller dispatch is never repeated', () => {
+  const replay = read('tools/release/business31HostedReplay.cjs'), entry = read('tools/release/business31Prerequisite.cjs');
+  for (const call of ['p.retry31(() => p.request31(u.href', "p.retry31(() => p.request31(p.ISSUER + '/.well-known/jwks'",
+    "p.retry31(() => p.request31('https://sts.googleapis.com/v1/token'"]) assert.ok(replay.includes(call), call);
+  assert.equal((replay.match(/p\.request31\(/g) || []).length, 3);
+  assert.equal((entry.match(/p\.request31\(/g) || []).length, 1);
+  ordered(entry, ["p.request31('https://api.github.com/repos/' + trust.repository.name + '/actions/workflows/'", "method: 'POST'"]);
+  assert.doesNotMatch(entry, /retry31/);
+});
+test('hosted replay fetches its pinned Git with bounded retries and accepts only the pinned digest', () => {
+  const digest = '4A92850B6E917DA4FD010669B614B55DCCF5B0EC333A534CC4BE4700DFEFDAFD';
+  const body = stepIn(read('.github/workflows/business-private-replay.yml'), 'Install pinned Git runtime');
+  ordered(body, ['for ($attempt = 1; $attempt -le 4; $attempt++)', 'Invoke-WebRequest', '-TimeoutSec 300',
+    "-ceq '" + digest + "') { break }", 'if ($attempt -eq 4) { throw }', "-cne '" + digest + "'",
+    "throw 'Pinned MinGit archive differs'", 'Expand-Archive']);
+});
+test('builder reads remote refs with bounded retries and never answers absent for a failed read', () => {
+  const builderPath = path.join(__dirname, 'New-ProductionArtifact.ps1');
+  const rows = pwshScript('b31-remote-ref-', () => `Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+$tokens = $null; $errors = $null
+$ast = [Management.Automation.Language.Parser]::ParseFile(${quote(builderPath)}, [ref]$tokens, [ref]$errors)
+if ($errors.Count) { throw 'builder does not parse' }
+$found = @($ast.FindAll({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Get-RemoteRefCommit' }, $true))
+if ($found.Count -ne 1) { throw 'expected exactly one Get-RemoteRefCommit' }
+. ([scriptblock]::Create($found[0].Extent.Text))
+$script:calls = 0; $script:failures = 0; $script:lines = @(); $script:slept = 0
+function Start-Sleep { param([int]$Seconds) $script:slept += $Seconds }
+function git { $script:calls++; if ($script:calls -le $script:failures) { $global:LASTEXITCODE = 128; return }; $global:LASTEXITCODE = 0; $script:lines }
+function Test-Case([string]$name, [int]$failures, [string[]]$lines, [string]$ref) {
+  $script:calls = 0; $script:failures = $failures; $script:lines = $lines; $script:slept = 0
+  try { $value = Get-RemoteRefCommit -RefName $ref; $outcome = if ($null -eq $value) { 'absent' } else { $value } }
+  catch { $outcome = 'refused: ' + $_.Exception.Message }
+  [ordered]@{name=$name; outcome=$outcome; calls=$script:calls; slept=$script:slept} | ConvertTo-Json -Compress
+}
+$main = ('a' * 40) + [char]9 + 'refs/heads/main'
+$tag = ('b' * 40) + [char]9 + 'refs/tags/t'
+$peeled = ('c' * 40) + [char]9 + 'refs/tags/t^{}'
+Test-Case 'clean read' 0 @($main) 'refs/heads/main'
+Test-Case 'two transport failures' 2 @($main) 'refs/heads/main'
+Test-Case 'persistent failure' 99 @($main) 'refs/heads/main'
+Test-Case 'genuinely absent' 0 @() 'refs/tags/t'
+Test-Case 'failed read of an absent tag' 99 @() 'refs/tags/t'
+Test-Case 'annotated tag peels' 1 @($tag, $peeled) 'refs/tags/t'
+`);
+  assert.deepEqual(rows, [
+    {name: 'clean read', outcome: 'a'.repeat(40), calls: 1, slept: 0},
+    {name: 'two transport failures', outcome: 'a'.repeat(40), calls: 3, slept: 15},
+    {name: 'persistent failure', outcome: 'refused: Remote ref read failed: refs/heads/main', calls: 4, slept: 30},
+    {name: 'genuinely absent', outcome: 'absent', calls: 1, slept: 0},
+    {name: 'failed read of an absent tag', outcome: 'refused: Remote ref read failed: refs/tags/t', calls: 4, slept: 30},
+    {name: 'annotated tag peels', outcome: 'c'.repeat(40), calls: 2, slept: 5}]);
+});
+test('a failed controller reports only its fixed reason vocabulary in the bridge refusal', () => {
+  const bridge = path.join(__dirname, 'Business-BackendPrivateReplay31.ps1');
+  const prefix = 'Fresh exact-source business prerequisite did not complete; no action is authorized. ';
+  const cases = [prefix + '{"reason":"BUSINESS_HOSTED_HTTP_STATUS","httpStatus":404}\n',
+    prefix + '{"reason":"UNCLASSIFIED","httpStatus":null}\n',
+    'Error: ENOENT, open /home/runner/private/path\n',
+    prefix + '{"reason":"business_hosted_lowercase","httpStatus":404}\n',
+    prefix + '{"reason":"BUSINESS_HOSTED_HTTP_STATUS","httpStatus":4040}\n', ''];
+  const rows = pwshScript('b31-bridge-reason-', temporary => {
+    const files = cases.map((text, i) => { const file = path.join(temporary, 'stderr-' + i + '.txt'); fs.writeFileSync(file, text); return file; });
+    return `Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+. ${quote(bridge)}
+foreach ($file in @(${files.map(quote).join(', ')})) {
+  $start = [Diagnostics.ProcessStartInfo]::new(${quote(process.execPath)})
+  $start.UseShellExecute = $false; $start.CreateNoWindow = $true; $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+  $start.Environment.Clear(); if ($env:SystemRoot) { $start.Environment['SystemRoot'] = $env:SystemRoot }
+  foreach ($argument in @('-e', "process.stderr.write(require('node:fs').readFileSync(process.argv[1]));process.exitCode=1", $file)) { $start.ArgumentList.Add($argument) }
+  $directory = Join-Path ${quote(temporary)} ([Guid]::NewGuid().ToString('N')); [void][IO.Directory]::CreateDirectory($directory)
+  try { Invoke-Business31OwnedController $start $directory 30; $message = 'NOT_REFUSED' } catch { $message = $_.Exception.Message }
+  [ordered]@{message=$message; retained=(Test-Path -LiteralPath (Join-Path $directory 'controller-stderr.bin'))} | ConvertTo-Json -Compress
+}
+`;
+  });
+  const base = 'Business31 protected controller failed; retained stderr is diagnostic only.';
+  assert.deepEqual(rows.map(row => row.message), [base + ' Reason: BUSINESS_HOSTED_HTTP_STATUS; HTTP status: 404.',
+    base + ' Reason: UNCLASSIFIED; HTTP status: null.', base, base, base, base]);
+  assert.ok(rows.every(row => row.retained === true));
+});
+
 test('versioned verifier-map hashes use ordinal key ordering across Node and PowerShell',()=>{
  const temporary=fs.mkdtempSync(path.join(os.tmpdir(),'b31-map-order-'));
  const sample={'tools/release/a.cjs':{sha256:'B'.repeat(64),oid:'b'.repeat(40),mode:'100644'},

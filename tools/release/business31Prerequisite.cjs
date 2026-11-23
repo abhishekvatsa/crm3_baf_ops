@@ -116,9 +116,24 @@ async function main() {
     request = c.selectedRequest31(config, {...data, runId, runAttempt: '1'});
   }
   const runId = request.runId;
+  // GitHub returns the created run's identity before every read path serves it
+  // (a runner sees 404 for about half a second). Until this controller has read
+  // that exact run once, 404 means "not yet visible" and is waited out, at most
+  // 40 times 3 s apart; after the first read, and always when resuming, a 404
+  // stands as a refusal.
+  let unseenRetries = resumed ? 0 : 40;
   for (;;) {
     p.need(performance.now() < deadline && Date.now() < Date.parse(challenge.expiresAtUtc), 'PREREQUISITE_DEADLINE');
-    const run = await p.github31(trust, '/actions/runs/' + runId, process.env.GITHUB_TOKEN);
+    let run;
+    try {
+      run = await p.github31(trust, '/actions/runs/' + runId, process.env.GITHUB_TOKEN);
+    } catch (error) {
+      if (unseenRetries <= 0 || error?.status !== 404) throw error;
+      unseenRetries--;
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      continue;
+    }
+    unseenRetries = 0;
     if (resumed) { p.validateRun31(run, trust, request, true); break; }
     // Check every immutable run field while permitting only finite waiting
     // states. The completed branch below requires actual successful completion.
@@ -160,4 +175,20 @@ async function main() {
       signingAuthorized: false, distributionAuthorized: false}};
   fs.writeFileSync(output, JSON.stringify(result) + '\n', {flag: 'wx', mode: 0o600});
 }
-main().catch(() => { process.stderr.write('Fresh exact-source business prerequisite did not complete; no action is authorized.\n'); process.exitCode = 1; });
+main().catch(error => {
+  // Fixed vocabulary only: this verifier's own reason code and an HTTP status.
+  // Free text, paths and nested causes never leave the process.
+  let reason = 'UNCLASSIFIED', httpStatus = null;
+  try {
+    const own = key => {
+      const d = error !== null && typeof error === 'object' ? Object.getOwnPropertyDescriptor(error, key) : undefined;
+      return d && Object.hasOwn(d, 'value') ? d.value : undefined;
+    };
+    const message = own('message'), status = own('status');
+    if (typeof message === 'string' && /^BUSINESS_[A-Z0-9_]{1,96}$/.test(message)) reason = message;
+    if (Number.isInteger(status) && status >= 100 && status <= 599) httpStatus = status;
+  } catch { /* A formatter failure never exposes a secondary exception. */ }
+  process.stderr.write('Fresh exact-source business prerequisite did not complete; no action is authorized. ' +
+    JSON.stringify({reason, httpStatus}) + '\n');
+  process.exitCode = 1;
+});
