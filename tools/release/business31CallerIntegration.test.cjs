@@ -1,6 +1,7 @@
 'use strict';
 // Source-wiring contracts and PowerShell parsing only. No build, signing,
-// workflow dispatch, emulator, credential or production script is executed.
+// workflow dispatch, emulator or credential is executed; the one production
+// script run here is the reservation step's Git, against a local temporary origin.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os');
@@ -346,4 +347,78 @@ test('versioned verifier-map hashes use ordinal key ordering across Node and Pow
  fs.writeFileSync(script,"$ErrorActionPreference='Stop'\n. "+q(path.join(root,'tools/release/Business-BackendPrivateReplay31.ps1'))+"\n$m=Get-Content -LiteralPath "+q(input)+" -Raw|ConvertFrom-Json -AsHashtable\nConvertTo-Business31CanonicalJson $m -Ordinal\n");
  const run=spawnSync(process.env.BUSINESS31_TEST_PWSH||'pwsh',['-NoProfile','-File',script],{encoding:'utf8',windowsHide:true,timeout:15000});
  assert.equal(run.error,undefined);assert.equal(run.status,0,run.stderr);assert.equal(run.stdout.trim(),canonical(sample));
+});
+
+// Construction run 45400076350: the reservation step wrote a [user] section into
+// .git/config, and the builder's reauthentication two seconds later was refused by
+// the business31 trusted Git reader ("Unadmitted Git configuration"). Everything
+// that runs after the pre-reservation proof must leave the checkout in the state
+// that proof saw.
+test('nothing after the pre-reservation reauthentication writes persistent Git configuration', () => {
+  const text = workflow.replaceAll('\r\n', '\n');
+  const start = text.indexOf('      - name: Reauthenticate construction replay and prove clean checkout before reservation\n');
+  assert.ok(start > 0);
+  const writer = /\bgit\s+config\b(?!\s+(?:--local\s+)?(?:--get|--get-all|--get-regexp|--list)\b)/;
+  for (const [label, source] of [['workflow', text.slice(start)], ['builder', builder], ['manifest', manifest],
+    ['appcheck', appcheck], ['bridge', read('tools/release/Business-BackendPrivateReplay31.ps1')],
+    ['policy', read('tools/release/Test-ProductionReleasePolicy.ps1')], ['gate', read('release_gate.ps1')]])
+    for (const line of source.replaceAll('\r\n', '\n').split('\n'))
+      if (!line.trim().startsWith('#')) assert.doesNotMatch(line, writer, label + ': ' + line.trim());
+  ordered(stepIn(workflow, 'Atomically consume the build number'), ['git -c user.name="crm3-baf-ops-release-bot"',
+    '-c user.email="crm3-baf-ops-release-bot@users.noreply.github.com"', 'tag -a "${CRM_RESERVATION_TAG}"',
+    'push origin', 'test "$remote_commit" = "${CRM_DISPATCH_COMMIT_SHA}"']);
+});
+test('the reservation step leaves a checkout the business31 trusted Git reader still admits', () => {
+  const crypto = require('node:crypto');
+  const gitExecutable = process.env.BUSINESS31_TEST_GIT || (process.platform === 'win32' ? 'C:/Program Files/Git/mingw64/bin/git.exe' : '/usr/bin/git');
+  const bash = process.env.BUSINESS31_TEST_BASH || (process.platform === 'win32' ? 'C:/Program Files/Git/bin/bash.exe' : 'bash');
+  const gitSha256 = crypto.createHash('sha256').update(fs.readFileSync(gitExecutable)).digest('hex').toUpperCase();
+  const reader = require('./business31TrustedInput.cjs');
+  // The step's own script, exactly as the runner receives it.
+  const body = stepIn(workflow, 'Atomically consume the build number');
+  const marker = '        run: |\n';
+  const script = body.slice(body.indexOf(marker) + marker.length).split('\n').map(line => {
+    if (line.startsWith('          ')) return line.slice(10);
+    assert.equal(line.trim(), '', 'unexpected indentation: ' + line);
+    return '';
+  }).join('\n').replaceAll('${{ github.run_id }}', '1').replaceAll('${{ github.run_attempt }}', '1');
+  assert.doesNotMatch(script, /\$\{\{/);
+  const extraPath = process.platform === 'win32' ? ['C:/Program Files/Git/usr/bin'] : [];
+  const PATH = [path.dirname(gitExecutable), ...extraPath, process.env.PATH].join(path.delimiter);
+  function reserve(prefix, source) {
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    // No global, system or environment identity: the step must supply its own.
+    const base = {PATH, HOME: temporary, USERPROFILE: temporary, TEMP: temporary, TMP: temporary, GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: process.platform === 'win32' ? 'NUL' : '/dev/null', GIT_TERMINAL_PROMPT: '0'};
+    for (const key of ['SystemRoot', 'WINDIR', 'COMSPEC']) if (process.env[key]) base[key] = process.env[key];
+    const git = (args, cwd, extra = {}) => {
+      const run = spawnSync(gitExecutable, args, {cwd, env: {...base, ...extra}, encoding: 'utf8', windowsHide: true, timeout: 30000});
+      assert.equal(run.error, undefined); assert.equal(run.status, 0, run.stderr); return run.stdout.trim();
+    };
+    const fixture = {GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+      GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid'};
+    const seed = path.join(temporary, 'seed'), origin = path.join(temporary, 'origin.git'), work = path.join(temporary, 'work');
+    git(['init', '--initial-branch=main', seed], temporary);
+    fs.writeFileSync(path.join(seed, 'file.txt'), 'fixture\n');
+    git(['add', 'file.txt'], seed); git(['-c', 'commit.gpgsign=false', 'commit', '-m', 'fixture'], seed, fixture);
+    const commit = git(['rev-parse', 'HEAD'], seed);
+    git(['clone', '--bare', seed, origin], temporary); git(['clone', origin, work], temporary);
+    const file = path.join(temporary, 'reserve.sh'); fs.writeFileSync(file, source);
+    const run = spawnSync(bash, [file], {cwd: work, encoding: 'utf8', windowsHide: true, timeout: 60000, env: {...base,
+      RUNNER_TEMP: temporary, GH_TOKEN: 'unused-for-a-local-origin', CRM_RESERVATION_TAG: 'crm3-build-reserved/31',
+      CRM_BUILT_TAG: 'crm3-build-built/31', CRM_BUILD_NUMBER: '31', CRM_RELEASE_ID: 'crm3-baf-ops-1.0.0-rc.21-b31',
+      CRM_RESERVATION_ID: 'CRM3_BUILD31_20261115-31', CRM_DISPATCH_COMMIT_SHA: commit}});
+    assert.equal(run.error, undefined); assert.equal(run.status, 0, run.stderr);
+    assert.equal(git(['rev-parse', 'refs/tags/crm3-build-reserved/31^{commit}'], origin), commit);
+    assert.match(git(['cat-file', '-p', 'refs/tags/crm3-build-reserved/31'], origin),
+      /^tagger crm3-baf-ops-release-bot <crm3-baf-ops-release-bot@users\.noreply\.github\.com> /m);
+    try { reader.openTrustedGitRepository31({repositoryRoot: work, gitExecutable, gitSha256}); return 'admitted'; }
+    catch (error) { return 'refused: ' + error.message; }
+  }
+  assert.equal(reserve('b31-reserve-', script), 'admitted');
+  // The pre-fix step: same tag, but its persistent identity makes the checkout inadmissible.
+  const persistent = script.replace('set -euo pipefail\n', 'set -euo pipefail\n' +
+    'git config user.name "crm3-baf-ops-release-bot"\ngit config user.email "crm3-baf-ops-release-bot@users.noreply.github.com"\n');
+  assert.notEqual(persistent, script);
+  assert.equal(reserve('b31-reserve-config-', persistent), 'refused: Unadmitted Git configuration');
 });

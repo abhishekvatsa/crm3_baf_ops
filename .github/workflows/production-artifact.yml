@@ -730,9 +730,10 @@ jobs:
             exit 1
           fi
 
-          git config user.name "crm3-baf-ops-release-bot"
-          git config user.email "crm3-baf-ops-release-bot@users.noreply.github.com"
-
+          # The tagger identity applies to the tag command only. A persistent
+          # `git config` entry would make the business31 trusted Git reader
+          # refuse this checkout when the builder reauthenticates right after
+          # this irreversible step.
           message_file="${RUNNER_TEMP}/crm3-build-reservation.txt"
           cat > "$message_file" <<EOF
           CRM-III BAF Ops governed build-number reservation
@@ -747,7 +748,9 @@ jobs:
           This number is consumed even if the build fails or is withdrawn.
           EOF
 
-          git tag -a "${CRM_RESERVATION_TAG}" \
+          git -c user.name="crm3-baf-ops-release-bot" \
+            -c user.email="crm3-baf-ops-release-bot@users.noreply.github.com" \
+            tag -a "${CRM_RESERVATION_TAG}" \
             "${CRM_DISPATCH_COMMIT_SHA}" \
             -F "$message_file"
 
