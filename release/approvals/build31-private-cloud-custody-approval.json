@@ -2,11 +2,11 @@
   "schemaVersion": 2,
   "documentType": "candidate-specific-private-release-backup-custody-decision",
   "approved": true,
-  "approvedAtUtc": "2026-11-24T06:50:32.545Z",
+  "approvedAtUtc": "2026-11-24T16:23:52.542Z",
   "approverName": "Claude acting under project-owner delegation",
   "authorityType": "owner-delegated agent decision",
-  "sourceBaselineCommit": "b261af70817179fe0af7223f7e9ff25c18a4690d",
-  "candidateLedgerGitBlob": "4e988c6b82dcaefdd16f0446c76a5d5ee5e9b83b",
+  "sourceBaselineCommit": "2a55b9094af75e8b0f870fa04175baf4da6586f4",
+  "candidateLedgerGitBlob": "48bf2d4e697476d7a53427b32a17d3caed9876aa",
   "buildNumber": 31,
   "reservationId": "CRM3_BUILD31_20261115-31",
   "releaseId": "crm3-baf-ops-1.0.0-rc.21-b31",
@@ -19,19 +19,19 @@
     "authorityType": "owner-delegated agent decision",
     "projectOwnerName": "Abhishek Vatsa",
     "recordedBy": "Claude acting under project-owner delegation",
-    "recordedAtUtc": "2026-11-24T06:50:32.545Z",
-    "delegatedDecisionAtUtc": "2026-11-24T06:50:32.545Z",
+    "recordedAtUtc": "2026-11-24T16:23:52.542Z",
+    "delegatedDecisionAtUtc": "2026-11-24T16:23:52.542Z",
     "timestampSource": "Actual drafting agent decision time after genuine committed allocation L; the original human receivedAtUtc is retained separately and not inferred.",
     "instructionExcerpts": [
       "Approve exact-source client construction only"
     ],
     "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
     "originalMessage": {
-      "sha256": "06ADAFF6DABF52D1FDFD7E8A86CFF6255ED8A2CA25E0455FC2F0A11B1ECED5AC",
+      "sha256": "8D4314B53C5D8723274D9A5324F391E5F40EDFDB562534D7440DF58326E8A31B",
       "bytes": 3329,
-      "messageId": "c1b7324f-ff31-4195-8808-2ca297a26056",
+      "messageId": "72287906-11a7-451b-abc0-e50f9dff4ae4",
       "conversationId": "0c8bb601-f578-4e7a-9d09-e868964e25bf",
-      "receivedAtUtc": "2026-11-24T06:44:37.455Z",
+      "receivedAtUtc": "2026-11-24T16:09:15.535Z",
       "provenance": "operator-retained-direct-human-message",
       "humanIdentityMachineAuthenticated": false
     },
@@ -39,40 +39,40 @@
     "scopeInterpretation": "Private release custody only, under owner-delegated agent authority. The exact-source client reply is quoted accurately and is not represented as an additional literal signing, IAM, bucket-change, installation or distribution approval.",
     "evidenceReferences": {
       "allocationCommit": {
-        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v14-chain-claude-v1/real-001/L_COMMIT_RESULT.json",
-        "sha256": "67DF51A61D5354F3738393805893CD04E5786097AA4241C4F9DAA8361A9A7609",
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v15-chain-claude-v1/real-001/L_COMMIT_RESULT.json",
+        "sha256": "AC5FBBC8FE85028D397E066A8EFA64119F04C3381D547AC6CDB1AFC353DFC3D7",
         "bytes": 859
       },
       "allocationApproval": {
-        "commit": "b261af70817179fe0af7223f7e9ff25c18a4690d",
+        "commit": "2a55b9094af75e8b0f870fa04175baf4da6586f4",
         "file": "release/approvals/build-number-31-successor-approval.json",
-        "sha256": "35190EC6943E7489DA6E7907118246AB52CC12204FA8F8A851E1806EB162687D",
+        "sha256": "354B7F3B97CAC88AAD1FA44A475FFBEE835B7E1FA6B7924717FBCA425C63CC8C",
         "bytes": 65212,
-        "gitBlob": "b935796283913f017f71b371862fef55ad7ad289"
+        "gitBlob": "f32e6ee3e0dbd221243c4296601444511be60022"
       },
       "ledger": {
-        "commit": "b261af70817179fe0af7223f7e9ff25c18a4690d",
+        "commit": "2a55b9094af75e8b0f870fa04175baf4da6586f4",
         "file": "release/build-number-ledger.json",
-        "sha256": "D68C22D7556C99506931D49FE52B137E4DBEAF7446948CA6219DEE7E6F1FEBE3",
+        "sha256": "CA91F241AA27C02945CED72773C6FCE8FBF5BBDD7F5C4656EDBB2DD91A934665",
         "bytes": 97795,
-        "gitBlob": "4e988c6b82dcaefdd16f0446c76a5d5ee5e9b83b"
+        "gitBlob": "48bf2d4e697476d7a53427b32a17d3caed9876aa"
       },
       "ownerAuthorization": {
-        "commit": "a7f6c971956d6f8c55636b5cf8433bd93f46a110",
+        "commit": "5be08921698ca40bca14d0b929c89008ef98c518",
         "file": "release/approvals/build31-business-client-owner-authorization.json",
-        "sha256": "461B726EF59DD82392047C7889284DC350A457F6F7EBFDB27733ABE788B26B82"
+        "sha256": "DCFAACC470FA7D85BCC277C5FE13DD95D1AB927D7CD07C6914C6692A79E99112"
       },
       "clientCompatibilityDecision": {
-        "commit": "406d2b0572c7c6fc179b5d39c11d6faee5e199ad",
+        "commit": "e76ab4cb585d124f35ecca5fa5bf35083e1264fa",
         "file": "release/approvals/build31-business-client-compatibility-approval.json",
-        "sha256": "7F432B056BEFF848A56F8F48F45D0B7CB9B447EF9407F7878820479642C06C79"
+        "sha256": "2DEA83482C99A6B08439DBEE49D2FB93772AF232C9E050AD80D53B20F8BBD1DC"
       }
     }
   },
   "ownerInstruction": {
     "text": "Approve exact-source client construction only",
-    "reference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022); message c1b7324f-ff31-4195-8808-2ca297a26056; conversation 0c8bb601-f578-4e7a-9d09-e868964e25bf",
-    "recordedAtUtc": "2026-11-24T06:44:37.455Z",
+    "reference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022); message 72287906-11a7-451b-abc0-e50f9dff4ae4; conversation 0c8bb601-f578-4e7a-9d09-e868964e25bf",
+    "recordedAtUtc": "2026-11-24T16:09:15.535Z",
     "timestampMeaning": "First explicitly timestamped local capture of the genuine reply; not a platform delivery timestamp or the later delegated decision time."
   },
   "backup": {

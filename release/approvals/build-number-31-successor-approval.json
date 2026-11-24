@@ -2,15 +2,15 @@
   "schemaVersion": 1,
   "documentType": "governed-build-number-rollover-approval",
   "approved": true,
-  "approvedAtUtc": "2026-11-24T06:50:31.330Z",
-  "evidenceBoundAtUtc": "2026-11-24T06:50:31.330Z",
+  "approvedAtUtc": "2026-11-24T16:23:51.341Z",
+  "evidenceBoundAtUtc": "2026-11-24T16:23:51.341Z",
   "approverName": "Claude acting under project-owner delegation",
   "approvalEvidence": {
     "authorityType": "owner-delegated agent decision",
     "projectOwnerName": "Abhishek Vatsa",
     "recordedBy": "Claude acting under project-owner delegation",
-    "recordedAtUtc": "2026-11-24T06:50:31.330Z",
-    "delegatedDecisionAtUtc": "2026-11-24T06:50:31.330Z",
+    "recordedAtUtc": "2026-11-24T16:23:51.341Z",
+    "delegatedDecisionAtUtc": "2026-11-24T16:23:51.341Z",
     "timestampSource": "Actual agent drafting/decision time; original human receivedAtUtc and platform message/conversation identifiers are retained separately without inference.",
     "quotedEvidenceScope": "instructionExcerpts quotes the genuine retained reply only. Source-allocation scope and all conditions are the accountable delegated agent decision proposed for root review.",
     "instructionExcerpts": [
@@ -18,12 +18,12 @@
     ],
     "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
     "originalInstruction": {
-      "messageId": "c1b7324f-ff31-4195-8808-2ca297a26056",
+      "messageId": "72287906-11a7-451b-abc0-e50f9dff4ae4",
       "conversationId": "0c8bb601-f578-4e7a-9d09-e868964e25bf",
-      "receivedAtUtc": "2026-11-24T06:44:37.455Z",
+      "receivedAtUtc": "2026-11-24T16:09:15.535Z",
       "provenance": "operator-retained-direct-human-message",
       "humanIdentityMachineAuthenticated": false,
-      "recordSha256": "06ADAFF6DABF52D1FDFD7E8A86CFF6255ED8A2CA25E0455FC2F0A11B1ECED5AC",
+      "recordSha256": "8D4314B53C5D8723274D9A5324F391E5F40EDFDB562534D7440DF58326E8A31B",
       "recordBytes": 3329
     },
     "agentDecision": "Authorize one unused Build31 source allocation for the exact approved business source and client tuple after the committed B-to-O-to-D chain. Actual construction remains conditional on the completed source/CI/private replay/custody/environment gates; no remote consumption or completed artifact is claimed.",
@@ -40,29 +40,29 @@
         "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
       },
       "descriptor": {
-        "commit": "003de0bf0ecc4596a08b18c2d8cb3831eb86a86f",
+        "commit": "5aee739b56f23da616c6dfed239c4d4ccb8a726d",
         "file": "release/evidence/build31-business-private-replay.json",
-        "sha256": "920261F938FBEAE8CB8A421DA6B3846E7A0B9ABA96F7F22AB4E0F7A2A7292E76"
+        "sha256": "3624B526333E34CD13CFED017E1EE3F842B138E8691A96505DDF526038F0D4FB"
       },
       "ownerAuthorization": {
-        "commit": "a7f6c971956d6f8c55636b5cf8433bd93f46a110",
+        "commit": "5be08921698ca40bca14d0b929c89008ef98c518",
         "file": "release/approvals/build31-business-client-owner-authorization.json",
-        "sha256": "461B726EF59DD82392047C7889284DC350A457F6F7EBFDB27733ABE788B26B82"
+        "sha256": "DCFAACC470FA7D85BCC277C5FE13DD95D1AB927D7CD07C6914C6692A79E99112"
       },
       "clientCompatibilityDecision": {
-        "commit": "406d2b0572c7c6fc179b5d39c11d6faee5e199ad",
+        "commit": "e76ab4cb585d124f35ecca5fa5bf35083e1264fa",
         "file": "release/approvals/build31-business-client-compatibility-approval.json",
-        "sha256": "7F432B056BEFF848A56F8F48F45D0B7CB9B447EF9407F7878820479642C06C79"
+        "sha256": "2DEA83482C99A6B08439DBEE49D2FB93772AF232C9E050AD80D53B20F8BBD1DC"
       },
       "ownerRecordSemantics": {
-        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v14-chain-claude-v1/real-001/OWNER_RECORD_SEMANTICS.json",
-        "sha256": "F243003510D25E49FD4F74E159D4A06FF39AAACA50F734BF93E2A20F2739C42F",
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v15-chain-claude-v1/real-001/OWNER_RECORD_SEMANTICS.json",
+        "sha256": "ECECA2AF43089AE6CA217E7284D0C8944094B43CAF0D7DCA79B1AB273E3E13A7",
         "bytes": 1390
       },
       "descriptorPreparation": {
-        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v14-chain-claude-v1/real-001/DESCRIPTOR_PREPARATION.json",
-        "sha256": "39FA665505969CA64EA9E41D108D8145FD0ED69452C8F8F16B5603DA08D46B88",
-        "bytes": 2047
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v15-chain-claude-v1/real-001/DESCRIPTOR_PREPARATION.json",
+        "sha256": "5AC135D5FA91EE0E9DAAC85958EEFF66884500F6987A0EBC7FB0E8D52AA07A16",
+        "bytes": 2036
       },
       "privateGenerationCustody": {
         "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v8-bundle-claude-v1/upload-001/READBACK.json",
@@ -70,14 +70,14 @@
         "bytes": 703
       },
       "verifierSourceMaps": {
-        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v14-chain-claude-v1/real-001/VERIFIER_SOURCE_BINDING.json",
-        "sha256": "93C5FFA29E6EF6DED456C89EC46840D044612660C586B700C8A0DBC9BB012C9C",
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v15-chain-claude-v1/real-001/VERIFIER_SOURCE_BINDING.json",
+        "sha256": "1E044DE5EB52C1A204F693C0E68FFE77A2D4FB21F312AB1FAC129667DB2A526D",
         "bytes": 1861
       },
       "verifierMainCi": {
-        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v14-chain-claude-v1/real-001/MAIN_CI_ACCEPTANCE.json",
-        "sha256": "B3828AC7F143439854F1BEDA639F94868A253E78DA525B438A03174E06CE3F8B",
-        "bytes": 3350
+        "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/v15-chain-claude-v1/real-001/MAIN_CI_ACCEPTANCE.json",
+        "sha256": "13260E5E5987DE63DC902D6BA5A453E214E6874BB5A48B7B343D69DD2B1EB667",
+        "bytes": 2955
       },
       "predecessorAllocationApproval": {
         "file": "release/approvals/build-number-30-successor-approval.json",
@@ -903,23 +903,23 @@
     "exactFunctionFleetDeploymentReceiptFile": "release/evidence/build31-business-backend-deployment-closure.json",
     "exactFunctionFleetDeploymentReceiptSha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA",
     "businessClientDescriptor": {
-      "commit": "003de0bf0ecc4596a08b18c2d8cb3831eb86a86f",
+      "commit": "5aee739b56f23da616c6dfed239c4d4ccb8a726d",
       "file": "release/evidence/build31-business-private-replay.json",
-      "sha256": "920261F938FBEAE8CB8A421DA6B3846E7A0B9ABA96F7F22AB4E0F7A2A7292E76"
+      "sha256": "3624B526333E34CD13CFED017E1EE3F842B138E8691A96505DDF526038F0D4FB"
     },
     "businessClientOwnerAuthorization": {
-      "commit": "a7f6c971956d6f8c55636b5cf8433bd93f46a110",
+      "commit": "5be08921698ca40bca14d0b929c89008ef98c518",
       "file": "release/approvals/build31-business-client-owner-authorization.json",
-      "sha256": "461B726EF59DD82392047C7889284DC350A457F6F7EBFDB27733ABE788B26B82"
+      "sha256": "DCFAACC470FA7D85BCC277C5FE13DD95D1AB927D7CD07C6914C6692A79E99112"
     },
     "businessClientCompatibilityDecision": {
-      "commit": "406d2b0572c7c6fc179b5d39c11d6faee5e199ad",
+      "commit": "e76ab4cb585d124f35ecca5fa5bf35083e1264fa",
       "file": "release/approvals/build31-business-client-compatibility-approval.json",
-      "sha256": "7F432B056BEFF848A56F8F48F45D0B7CB9B447EF9407F7878820479642C06C79"
+      "sha256": "2DEA83482C99A6B08439DBEE49D2FB93772AF232C9E050AD80D53B20F8BBD1DC"
     }
   },
   "liveAllocationEvidence": {
-    "bindingRecordedAtUtc": "2026-11-24T06:50:31.330Z",
+    "bindingRecordedAtUtc": "2026-11-24T16:23:51.341Z",
     "scope": "Retained complete prior observations reused as prior facts only; no new live query and no observation timestamp inferred. Mandatory live main/tag checks remain before actual dispatch/reservation.",
     "retainedGitHubBuildRefs": {
       "file": "C:/Users/abhis/AndroidStudioProjects/crm3_baf_ops/.dart_tool/build31-preparation/claude-review-admission-v1/mainb5881c5c-build31-client-gates-20261115-v1/GITHUB_BUILD_TAG_REFS.json",
