@@ -127,15 +127,17 @@ async function githubOidc31(trust, request) {
     const u = new URL(process.env.ACTIONS_ID_TOKEN_REQUEST_URL || 'https://invalid.invalid/');
     p.need(u.protocol === 'https:' && !u.username && !u.password && !u.port && /^[a-z0-9-]+\.actions\.githubusercontent\.com$/.test(u.hostname), 'OIDC_REQUEST_ORIGIN');
     u.searchParams.set('audience', trust.wifAudience);
-    const body = p.json((await p.request31(u.href, {
-        headers: {
-            Authorization: 'Bearer ' + p.token(process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN)
-        }, maxBytes: 32768
-    })).bytes, 32768);
+    const headers = {
+        Authorization: 'Bearer ' + p.token(process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN)
+    };
+    // Both are read-only GETs; a transport fault is retried, a refusal is not.
+    const body = p.json((await p.retry31(() => p.request31(u.href, {
+        headers, maxBytes: 32768
+    }))).bytes, 32768);
     p.exact(body, ['value'], 'OIDC_RESPONSE');
-    const jwks = p.json((await p.request31(p.ISSUER + '/.well-known/jwks', {
+    const jwks = p.json((await p.retry31(() => p.request31(p.ISSUER + '/.well-known/jwks', {
         maxBytes: 128 * 1024
-    })).bytes, 128 * 1024);
+    }))).bytes, 128 * 1024);
     p.verifyOidc31(body.value, jwks, trust, request);
     return body.value;
 }
@@ -145,11 +147,13 @@ async function exchangeReadOnly31(trust, subjectToken) {
         requested_token_type: 'urn:ietf:params:oauth:token-type:access_token', subject_token_type: 'urn:ietf:params:oauth:token-type:jwt',
         scope: 'https://www.googleapis.com/auth/devstorage.read_only', subject_token: subjectToken
     }).toString());
-    const v = p.json((await p.request31('https://sts.googleapis.com/v1/token', {
+    // A token exchange creates no remote state: asking again after a transport
+    // fault yields another short-lived read-only token. Refusals are not retried.
+    const v = p.json((await p.retry31(() => p.request31('https://sts.googleapis.com/v1/token', {
         method: 'POST', headers: {
             'Content-Type': 'application/x-www-form-urlencoded'
         }, body, maxBytes: 32768
-    })).bytes, 32768);
+    }))).bytes, 32768);
     p.need(v.token_type === 'Bearer' && v.issued_token_type === 'urn:ietf:params:oauth:token-type:access_token' && Number.isInteger(v.expires_in) && v.expires_in > 0 && v.expires_in <= 3600, 'STS_RESULT');
     return p.token(v.access_token);
 }

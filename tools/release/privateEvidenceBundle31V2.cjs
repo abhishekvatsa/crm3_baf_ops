@@ -159,21 +159,42 @@ function extractVerifiedBundleV2(bytes,descriptor,destination,kind) {
   need(kind==='business','Successor transport is business-only');
   return extractVerifiedBundle(bytes,descriptor,destination,kind,V2_FORMAT);
 }
-function getGoogleStorage(pathname,token,maxBytes) {
-  need(typeof token==='string' && token.length>20 && token.length<16384 && !/[\r\n]/.test(token),'Authorized private-evidence read credential is unavailable');
-  need(pathname.startsWith('/storage/v1/b/'+BUCKET+'/o/'),'Unsupported evidence host/path');
+// Transport faults only: a recognised native network failure, a dropped or
+// stalled response, or HTTP 429/5xx. Any other status or bound is a refusal.
+const TRANSIENT_STORAGE_STATUS = Object.freeze([429,500,502,503,504]);
+const TRANSIENT_NETWORK_CODES = Object.freeze(['ECONNRESET','ECONNREFUSED','ECONNABORTED','ETIMEDOUT','EPIPE',
+  'ENOTFOUND','EAI_AGAIN','ENETUNREACH','ENETDOWN','EHOSTUNREACH','EHOSTDOWN']);
+const STORAGE_RETRY_DELAYS_MS = Object.freeze([5000,15000,30000]);
+function storageFailure(message,transient) { return Object.assign(new Error(message),{transient}); }
+function getGoogleStorageOnce(pathname,token,maxBytes) {
   return new Promise((resolve,reject)=>{
     const request=https.get({hostname:'storage.googleapis.com',port:443,path:pathname,method:'GET',
       headers:{Authorization:'Bearer '+token,Accept:'application/json'},timeout:60000},response=>{
-      if(response.statusCode!==200){response.resume();reject(new Error('Authenticated exact-generation evidence read failed'));return;}
+      if(response.statusCode!==200){response.resume();reject(storageFailure('Authenticated exact-generation evidence read failed',
+        TRANSIENT_STORAGE_STATUS.includes(response.statusCode)));return;}
       let length=0;const chunks=[];
       response.on('data',chunk=>{length+=chunk.length;if(length>maxBytes){request.destroy();reject(new Error('Evidence response exceeds committed bound'));}else chunks.push(chunk);});
-      response.on('end',()=>resolve(Buffer.concat(chunks)));
-      response.on('error',()=>reject(new Error('Private evidence response failed')));
+      response.on('end',()=>{if(response.complete===false)reject(storageFailure('Private evidence response failed',true));else resolve(Buffer.concat(chunks));});
+      response.on('error',()=>reject(storageFailure('Private evidence response failed',true)));
     });
     request.on('timeout',()=>request.destroy(new Error('Private evidence read timed out')));
-    request.on('error',()=>reject(new Error('Private evidence read failed')));
+    request.on('error',error=>reject(storageFailure('Private evidence read failed',
+      error?.message==='Private evidence read timed out'||TRANSIENT_NETWORK_CODES.includes(error?.code))));
   });
+}
+// Exact-generation reads are idempotent GETs. Only a transport fault is repeated,
+// a bounded number of times; the caller's metadata, size and digest checks still
+// decide what is accepted.
+async function getGoogleStorage(pathname,token,maxBytes) {
+  need(typeof token==='string' && token.length>20 && token.length<16384 && !/[\r\n]/.test(token),'Authorized private-evidence read credential is unavailable');
+  need(pathname.startsWith('/storage/v1/b/'+BUCKET+'/o/'),'Unsupported evidence host/path');
+  for(let attempt=0;;attempt++){
+    try{return await getGoogleStorageOnce(pathname,token,maxBytes);}
+    catch(error){
+      if(attempt>=STORAGE_RETRY_DELAYS_MS.length||error?.transient!==true)throw error;
+      await new Promise(resolve=>setTimeout(resolve,STORAGE_RETRY_DELAYS_MS[attempt]));
+    }
+  }
 }
 async function downloadExactGeneration(descriptor,token,kind,format) {
   validateTransportDescriptor(descriptor,kind,format);const c=descriptor.custody;

@@ -116,7 +116,7 @@
       "clientEnabled": true,
       "androidProvider": "playIntegrity",
       "approvalFile": "release/approvals/build31-app-check-client-approval.json",
-      "approvalSha256": "B5741543A32A28155C0B69AF1B6A91F22D9B13AC774F0477FF858383FA1CB2F0",
+      "approvalSha256": "273D071C8BBED474EF99ED9CC07BE4D407916BECE23775052931EC1F57291807",
       "mutatingServerEnforcementChangeAuthorized": false,
       "tokenOrAttestationProofClaimed": false
     }

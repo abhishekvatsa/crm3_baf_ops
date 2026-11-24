@@ -18,9 +18,9 @@
     "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
   },
   "descriptor": {
-    "commit": "b982d98ccf2d01527711927aeb245af2dbcda898",
+    "commit": "003de0bf0ecc4596a08b18c2d8cb3831eb86a86f",
     "file": "release/evidence/build31-business-private-replay.json",
-    "sha256": "E3234920EC32CE9125E46211F6E9E07908AB7B692135C43541DE922C26D7714E"
+    "sha256": "920261F938FBEAE8CB8A421DA6B3846E7A0B9ABA96F7F22AB4E0F7A2A7292E76"
   },
   "scope": {
     "buildNumber": 31,
@@ -46,10 +46,10 @@
   },
   "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
   "documentType": "build31-business-client-owner-authorization",
-  "authorizedAtUtc": "2026-11-22T12:42:29.439Z",
-  "recordedAtUtc": "2026-11-22T12:47:30.547Z",
+  "authorizedAtUtc": "2026-11-24T06:44:37.455Z",
+  "recordedAtUtc": "2026-11-24T06:50:30.155Z",
   "originalMessage": {
-    "sha256": "A3C6AFC0168B89D626E1AEBC5A804E38347B1E26D2FDE47C3A69C584E465ABA6",
+    "sha256": "06ADAFF6DABF52D1FDFD7E8A86CFF6255ED8A2CA25E0455FC2F0A11B1ECED5AC",
     "bytes": 3329
   }
 }
