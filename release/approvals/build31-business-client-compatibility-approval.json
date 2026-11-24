@@ -18,9 +18,9 @@
     "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
   },
   "descriptor": {
-    "commit": "b982d98ccf2d01527711927aeb245af2dbcda898",
+    "commit": "003de0bf0ecc4596a08b18c2d8cb3831eb86a86f",
     "file": "release/evidence/build31-business-private-replay.json",
-    "sha256": "E3234920EC32CE9125E46211F6E9E07908AB7B692135C43541DE922C26D7714E"
+    "sha256": "920261F938FBEAE8CB8A421DA6B3846E7A0B9ABA96F7F22AB4E0F7A2A7292E76"
   },
   "scope": {
     "buildNumber": 31,
@@ -47,10 +47,10 @@
   "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
   "documentType": "build31-business-client-compatibility-decision",
   "ownerAuthorization": {
-    "commit": "75dd73ccd578c85fd68b3580bb09d857649de494",
+    "commit": "a7f6c971956d6f8c55636b5cf8433bd93f46a110",
     "file": "release/approvals/build31-business-client-owner-authorization.json",
-    "sha256": "F88D49D5267740E468C1C3FD227857AAEFCEC43A7D247CF8D0F680D53173BBD8"
+    "sha256": "461B726EF59DD82392047C7889284DC350A457F6F7EBFDB27733ABE788B26B82"
   },
-  "decidedAtUtc": "2026-11-22T12:47:31.340Z",
-  "recordedAtUtc": "2026-11-22T12:47:31.340Z"
+  "decidedAtUtc": "2026-11-24T06:50:30.708Z",
+  "recordedAtUtc": "2026-11-24T06:50:30.708Z"
 }
