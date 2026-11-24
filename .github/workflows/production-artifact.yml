@@ -730,7 +730,7 @@ jobs:
             exit 1
           fi
 
-          # The tagger identity applies to the tag command only. A persistent
+          # The tagger identity is this one command's environment. A persistent
           # `git config` entry would make the business31 trusted Git reader
           # refuse this checkout when the builder reauthenticates right after
           # this irreversible step.
@@ -748,9 +748,9 @@ jobs:
           This number is consumed even if the build fails or is withdrawn.
           EOF
 
-          git -c user.name="crm3-baf-ops-release-bot" \
-            -c user.email="crm3-baf-ops-release-bot@users.noreply.github.com" \
-            tag -a "${CRM_RESERVATION_TAG}" \
+          GIT_COMMITTER_NAME="crm3-baf-ops-release-bot" \
+          GIT_COMMITTER_EMAIL="crm3-baf-ops-release-bot@users.noreply.github.com" \
+          git tag -a "${CRM_RESERVATION_TAG}" \
             "${CRM_DISPATCH_COMMIT_SHA}" \
             -F "$message_file"
 

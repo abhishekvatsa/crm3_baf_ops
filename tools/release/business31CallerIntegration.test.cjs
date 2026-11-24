@@ -364,8 +364,8 @@ test('nothing after the pre-reservation reauthentication writes persistent Git c
     ['policy', read('tools/release/Test-ProductionReleasePolicy.ps1')], ['gate', read('release_gate.ps1')]])
     for (const line of source.replaceAll('\r\n', '\n').split('\n'))
       if (!line.trim().startsWith('#')) assert.doesNotMatch(line, writer, label + ': ' + line.trim());
-  ordered(stepIn(workflow, 'Atomically consume the build number'), ['git -c user.name="crm3-baf-ops-release-bot"',
-    '-c user.email="crm3-baf-ops-release-bot@users.noreply.github.com"', 'tag -a "${CRM_RESERVATION_TAG}"',
+  ordered(stepIn(workflow, 'Atomically consume the build number'), ['GIT_COMMITTER_NAME="crm3-baf-ops-release-bot"',
+    'GIT_COMMITTER_EMAIL="crm3-baf-ops-release-bot@users.noreply.github.com"', 'git tag -a "${CRM_RESERVATION_TAG}"',
     'push origin', 'test "$remote_commit" = "${CRM_DISPATCH_COMMIT_SHA}"']);
 });
 test('the reservation step leaves a checkout the business31 trusted Git reader still admits', () => {
