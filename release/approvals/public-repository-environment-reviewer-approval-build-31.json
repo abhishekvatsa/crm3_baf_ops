@@ -2,28 +2,28 @@
   "schemaVersion": 1,
   "receiptType": "public-repository-required-reviewer-control",
   "approved": true,
-  "approvedAtUtc": "2026-11-24T16:23:53.086Z",
-  "evidenceBoundAtUtc": "2026-11-24T16:23:53.086Z",
+  "approvedAtUtc": "2026-11-25T09:18:00.525Z",
+  "evidenceBoundAtUtc": "2026-11-25T09:18:00.525Z",
   "approverName": "Claude acting under project-owner delegation",
   "approvalReference": "BAF-GH-ENV-026",
   "approvalEvidence": {
     "authorityType": "owner-delegated agent decision",
     "projectOwnerName": "Abhishek Vatsa",
     "recordedBy": "Claude acting under project-owner delegation",
-    "recordedAtUtc": "2026-11-24T16:23:53.086Z",
-    "delegatedDecisionAtUtc": "2026-11-24T16:23:53.086Z",
-    "timestampSource": "Actual drafting agent decision time after committed L15/K15. Owner receivedAtUtc is the first explicitly timestamped local capture of the genuine reply, not a platform delivery timestamp.",
+    "recordedAtUtc": "2026-11-25T09:18:00.525Z",
+    "delegatedDecisionAtUtc": "2026-11-25T09:18:00.525Z",
+    "timestampSource": "Actual drafting agent decision time after committed L16/K16. Owner receivedAtUtc is the first explicitly timestamped local capture of the genuine reply, not a platform delivery timestamp.",
     "quotedEvidenceScope": "Only instructionExcerpts quotes the genuine retained reply. The conditional source decision is the accountable delegated agent interpretation; standing signing approval remains separate.",
     "instructionExcerpts": [
       "Approve exact-source client construction only"
     ],
     "ownerReference": "Abhishek Vatsa (abhishekvatsa; GitHub user 213690022)",
     "originalMessage": {
-      "sha256": "8D4314B53C5D8723274D9A5324F391E5F40EDFDB562534D7440DF58326E8A31B",
+      "sha256": "DD51930AD0390005C32B606CA2097DB0CFA83D5765451F39FEA8F8E475B8B201",
       "bytes": 3329,
-      "messageId": "72287906-11a7-451b-abc0-e50f9dff4ae4",
+      "messageId": "e27f6e84-c000-44e9-9050-71aca99f3d41",
       "conversationId": "0c8bb601-f578-4e7a-9d09-e868964e25bf",
-      "receivedAtUtc": "2026-11-24T16:09:15.535Z",
+      "receivedAtUtc": "2026-11-25T09:17:17.072Z",
       "provenance": "operator-retained-direct-human-message",
       "humanIdentityMachineAuthenticated": false
     },
@@ -31,14 +31,14 @@
     "scopeInterpretation": "Source records only. Actual exact-source CI, independently enrolled replay, required environment approval, protected signing, package verification and private custody remain execution gates. No backend/IAM/enforcement mutation, device installation or distribution is approved.",
     "evidenceReferences": {
       "sourceApproval": {
-        "commit": "2a55b9094af75e8b0f870fa04175baf4da6586f4",
+        "commit": "61e44a27d10eef02ac5c57e2399b25c2bfc3aa2d",
         "file": "release/approvals/build-number-31-successor-approval.json",
-        "sha256": "354B7F3B97CAC88AAD1FA44A475FFBEE835B7E1FA6B7924717FBCA425C63CC8C"
+        "sha256": "E212D0DFCAE2B6F5668DD84A11C30FBC08E3CC598EB624B1283671753B2BFA90"
       },
       "privateCustody": {
-        "commit": "89675e1ad920ba3f9d19103082f8e04b40329494",
+        "commit": "1356ea1d0cfef4545730a85f1a469522b25add20",
         "file": "release/approvals/build31-private-cloud-custody-approval.json",
-        "sha256": "097D8E4382ACAE7EF77B5A066307D26A94578CAA99D0A5BAA8C54D44CC0C9914"
+        "sha256": "7D8B531131634032E46BDB403D98864798AB16F27A8133BC0A0B94DF76EC0F6A"
       },
       "backendApproval": {
         "commit": "f20446b4ff1f3c6a0763d6bf799f5ea3c1693f01",
@@ -51,19 +51,19 @@
         "sha256": "0F69836B13C1C208648E2DBF7C955F6794C3FDA376C80C5895266D18B0BABCEA"
       },
       "descriptor": {
-        "commit": "5aee739b56f23da616c6dfed239c4d4ccb8a726d",
+        "commit": "45f836cce0ad47c27e8ce5b495b9a042e1c64f2f",
         "file": "release/evidence/build31-business-private-replay.json",
-        "sha256": "3624B526333E34CD13CFED017E1EE3F842B138E8691A96505DDF526038F0D4FB"
+        "sha256": "6C19900D809AA786143F83597A2B4DAE98A254341CF7D4205429BA2CC0B3041F"
       },
       "ownerAuthorization": {
-        "commit": "5be08921698ca40bca14d0b929c89008ef98c518",
+        "commit": "dba7a182b367fbfd0f0397076a1750e2053ddaa2",
         "file": "release/approvals/build31-business-client-owner-authorization.json",
-        "sha256": "DCFAACC470FA7D85BCC277C5FE13DD95D1AB927D7CD07C6914C6692A79E99112"
+        "sha256": "685773C868515D0E5C806AB86BCA06949F7F9CFE89C3F9CFF13B392F15CDC61E"
       },
       "clientCompatibilityDecision": {
-        "commit": "e76ab4cb585d124f35ecca5fa5bf35083e1264fa",
+        "commit": "b60aca8923c6512cb635bd682f795736bcbbd549",
         "file": "release/approvals/build31-business-client-compatibility-approval.json",
-        "sha256": "2DEA83482C99A6B08439DBEE49D2FB93772AF232C9E050AD80D53B20F8BBD1DC"
+        "sha256": "9D0CD7F0BEF92C7C1D49CDEB16B030E8B9501B1877B7C8A4277EC09755E8E633"
       }
     }
   },
@@ -179,8 +179,8 @@
       "exactCreatedCloudGenerationReadbackRequired": true,
       "packageAndSidecarBeforeBuiltTagRequired": true,
       "allSixProofsBeforeFinalSuccessRequired": true,
-      "approvalCommit": "89675e1ad920ba3f9d19103082f8e04b40329494",
-      "approvalSha256": "097D8E4382ACAE7EF77B5A066307D26A94578CAA99D0A5BAA8C54D44CC0C9914"
+      "approvalCommit": "1356ea1d0cfef4545730a85f1a469522b25add20",
+      "approvalSha256": "7D8B531131634032E46BDB403D98864798AB16F27A8133BC0A0B94DF76EC0F6A"
     }
   },
   "postBuildPilotIntent": {
