@@ -5,7 +5,20 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const fs = require('node:fs');
 const cp = require('node:child_process');
+const crypto = require('node:crypto');
 const path = require('node:path');
+
+// The construction job exports its independent controller selection
+// (BUSINESS31_CONTROLLER_CONFIG, BUSINESS31_CONTROLLER_CONFIG_SHA256,
+// BUSINESS31_VERIFIER_ROOT and more) to every later step, including the
+// builder's repository release gate, which runs this suite after the build
+// number is reserved. These fixtures describe the route WITHOUT an independent
+// selection, so every call runs with all BUSINESS31_* variables absent and
+// then restores the caller's values exactly.
+const BUSINESS31_VARIABLE = /^BUSINESS31_/i;
+function business31Environment() {
+  return Object.entries(process.env).filter(([key]) => BUSINESS31_VARIABLE.test(key));
+}
 
 const effects = [];
 function unexpected(name) {
@@ -42,7 +55,11 @@ function invoke(releasePolicy, extra = {}) {
   effects.length = 0;
   const legacy = historical.verifyStagedPromotionSourceAuthority;
   const saved = ['readFileSync', 'lstatSync', 'realpathSync'].map(name => [name, fs[name]]);
+  const selection = business31Environment();
   try {
+    for (const [key] of selection) delete process.env[key];
+    // Measured independently of the scrub's own pattern.
+    const visible = Object.keys(process.env).filter(key => key.toUpperCase().startsWith('BUSINESS31_'));
     historical.verifyStagedPromotionSourceAuthority = () => {
       effects.push('HISTORICAL');
       return {ok: true, syntheticHistoricalRoute: true};
@@ -51,10 +68,12 @@ function invoke(releasePolicy, extra = {}) {
     const result = adapter.verifyClientBackendSourceAuthority({
       repoRoot: path.resolve(__dirname, '../..'), releasePolicy, ...extra
     });
-    return {result, effects: [...effects]};
+    return {result, effects: [...effects], visible};
   } finally {
     historical.verifyStagedPromotionSourceAuthority = legacy;
     for (const [name, value] of saved) fs[name] = value;
+    for (const [key] of business31Environment()) delete process.env[key];
+    for (const [key, value] of selection) process.env[key] = value;
   }
 }
 
@@ -81,6 +100,36 @@ test('a supplied local PASS, file or callback cannot satisfy the protected-consu
   assert.equal(result.protectedBusinessConsumerRequired, true);
   assert.equal(called, false);
   assert.deepEqual(effects, []);
+});
+
+test('fixtures stay effect-free while the construction job exports its controller selection', () => {
+  // The builder's release gate runs this suite with the construction job's
+  // selection present. Without isolation the route reads that configuration
+  // through the stubbed fs, and the gate fails after the reservation.
+  const config = path.resolve(__filename);
+  const exported = {
+    BUSINESS31_CONTROLLER_CONFIG: config,
+    BUSINESS31_CONTROLLER_CONFIG_SHA256: crypto.createHash('sha256').update(fs.readFileSync(config)).digest('hex').toUpperCase(),
+    BUSINESS31_VERIFIER_ROOT: path.resolve(__dirname, '../..')
+  };
+  const v2 = policy();
+  v2.clientBackendCompatibility.profile = 'build31-business-client-compatibility-v2';
+  v2.businessBackendPrivateReplay.profile = 'build31-exact-business-backend-v2';
+  const before = business31Environment();
+  try {
+    Object.assign(process.env, exported);
+    for (const input of [policy(), v2]) {
+      const {result, effects, visible} = invoke(input);
+      assert.deepEqual(visible, []);
+      assert.equal(result.ok, false);
+      assert.equal(result.protectedBusinessConsumerRequired, true);
+      assert.deepEqual(effects, []);
+    }
+    for (const [key, value] of Object.entries(exported)) assert.equal(process.env[key], value);
+  } finally {
+    for (const [key] of business31Environment()) delete process.env[key];
+    for (const [key, value] of before) process.env[key] = value;
+  }
 });
 
 const refusals = [

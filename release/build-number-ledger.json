@@ -1701,8 +1701,8 @@
       "status": "source-reserved-awaiting-remote-consumption",
       "failedOrWithdrawnBuildConsumesNumber": true,
       "versionApprovalReference": "BUILD31-OWNER-DELEGATED-20261115",
-      "versionApprovalDocumentSha256": "354B7F3B97CAC88AAD1FA44A475FFBEE835B7E1FA6B7924717FBCA425C63CC8C",
-      "reservedAtUtc": "2026-11-24T16:23:51.341Z"
+      "versionApprovalDocumentSha256": "E212D0DFCAE2B6F5668DD84A11C30FBC08E3CC598EB624B1283671753B2BFA90",
+      "reservedAtUtc": "2026-11-25T09:17:58.666Z"
     }
   ]
 }
